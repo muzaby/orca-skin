@@ -158,6 +158,7 @@ it('rt6 pair rows tokenize against their original old and new documents', async 
   await settle()
   fake.resolveNext(diffViewRows(model, req.options, 0, 2))
   await settle()
+  expect(dom.query('[data-virtual-diff]')!.parentElement!.props.className).toBeUndefined()
   const docs = fake.requests
     .filter((r) => r.kind === 'tokens')
     .map((r) => ('doc' in r ? r.doc : null))

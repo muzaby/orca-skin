@@ -1,0 +1,138 @@
+0327 r5 · Linux x64 · Node 22.23.3 · Electron 39.8.10
+기준 트리 f0e5f1ad. r4 이후 verify 문서만 변경됐다.
+
+수정한 테스트의 단독 실행
+Test Files  6 passed (6)
+Tests  56 passed (56)
+Duration  12.21s (transform 9.09s, setup 1.14s, import 16.29s, tests 6.63s, environment 1ms)
+
+테스트 소스 분류 (classifyTestSource)
+src/renderer/src/features/chat/harnesses/common/rightpanel/ArtifactPreviewContent.virtual.test.ts { pool: 'unit', reasons: [] }
+src/renderer/src/features/chat/harnesses/claude/transcript/longToolBody.render.test.ts { pool: 'unit', reasons: [] }
+src/renderer/src/features/chat/harnesses/claude/transcript/workToolBody.virtual.test.ts { pool: 'unit', reasons: [] }
+src/renderer/src/features/chat/harnesses/common/rightpanel/fileDiffVirtual.render.test.ts { pool: 'unit', reasons: [] }
+src/renderer/src/features/chat/harnesses/common/transcript/DiffTable.virtual.test.ts { pool: 'unit', reasons: [] }
+src/renderer/src/features/chat/hooks/useDiffRowTokens.test.ts { pool: 'unit', reasons: [] }
+
+전체 Vitest (파일 필터 없음)
+Test Files  9 failed | 1110 passed | 4 skipped (1123)
+Tests  22 failed | 10729 passed | 1 expected fail | 11 skipped (10763)
+Errors  1 error
+Duration  331.98s (transform 68.22s, setup 46.05s, import 310.58s, tests 372.66s, environment 192ms)
+
+기준 트리에서 같은 Node ABI로 기존 실패 파일 9개를 실행했다.
+Test Files  9 failed (9)
+Tests  22 failed | 85 passed (107)
+Errors  1 error
+Duration  62.09s (transform 7.70s, setup 1.24s, import 13.93s, tests 85.12s, environment 1ms)
+기준 트리 · r4 전체 · r5 전체의 실패 이름 집합은 각각 22개이며 양방향 차집합이 모두 비었다.
+실패 파일과 변경한 앱 파일의 교집합은 비었다. 기존 Linux 환경의 Windows 경로 및 SDK/네이티브 플러그인 조립 실패와 같은 서명이다.
+미처리 오류 1건은 변경 전후 native-resources.test.ts에서 동일했다.
+Error: 이 플러그인은 프로젝트별 제어를 지원하지 않습니다.
+
+FAIL  |io| src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > keeps one process for A/B, waits for native completion, and fences same-directory reacquisition
+FAIL  |io| src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > retires failed cleanup without killing B and reports only a safe error before new generation startup
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > exposes runtime-native watch files and applies external project choices only after idle reconciliation
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > pins deployed MCP files for same-cwd peers and reloads until the final owner closes
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > reconciles plugin choices through the actual adapter while preserving provider flags
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > reports a reconciled plugin revision as applied but not a later external edit
+FAIL  |unit| src/main/adapters/claude/native-resources.test.ts > applies session-only inline flags and reloads actual plugin state while preserving sibling flags
+FAIL  |unit| src/main/adapters/claude/native-resources.test.ts > commits a plugin choice only after verified reload and restores flags and commands when persistence fails
+FAIL  |unit| src/main/adapters/claude/native-resources.test.ts > waits for durable persistence and serializes subsequent plugin mutations
+FAIL  |unit| src/main/adapters/claude/project-reconciliation.test.ts > projects native plugin flag false during external reconciliation
+FAIL  |unit| src/main/adapters/claude/project-reconciliation.test.ts > shows external selection with actual status immediately, waits for idle, and never saves it back
+FAIL  |unit| src/main/adapters/opencode/v1/adapter.persistent.test.ts > exposes native resources from the live channel client and its directory without mutations
+FAIL  |unit| src/main/adapters/opencode/v1/adapter.test.ts > OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime
+FAIL  |unit| src/main/app/composer-catalog.test.ts > does not start a native server after caller cancellation or session scope change during preparation
+FAIL  |unit| src/main/app/composer-catalog.test.ts > prepares draft and saved directory with the same production settings and env resolution as turns
+FAIL  |unit| src/main/app/composer-catalog.test.ts > preserves the acquire failure stage through the registered catalog handler
+FAIL  |unit| src/main/app/composer-catalog.test.ts > preserves the configuration failure stage through the registered catalog handler
+FAIL  |unit| src/main/app/composer-catalog.test.ts > returns prepared plugin and agent parts through IPC before blocked MCP/models without a session
+FAIL  |unit| src/main/app/composer-catalog.test.ts > wires the public handler through the production resolver and returns its shutdown cleanup
+FAIL  |unit| src/main/app/composer-preparation-service.test.ts > shares targets across catalog resources and warmup through the production assembly
+FAIL  |unit| src/main/app/handlers/session-resources.claude-assembly.test.ts > reconciles external plugin selections and publishes the final state through the real watcher
+
+npm run lint
+✖ 12 problems (0 errors, 12 warnings)
+npm run typecheck
+node, web, test 종료 0
+
+node --test scripts/*.test.mjs
+# tests 1097
+# pass 1097
+# fail 0
+# skipped 0
+
+번들 및 기동
+electron-vite build 종료 0
+[smoke-hosts] OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료
+smoke-preload: OK — require 는 electron 뿐 · 다리 `ooBridge` 노출(키 7)
+
+Linux Electron
+check-visible-views: 23 records · verdict true
+check-transcript-selection: 90 records · verdict true
+check-transcript-streaming: 18 records · verdict true
+
+전체 게이트를 함께 돌린 첫 최종 실행의 visible-views는 transcript-file/c2에서 드래그 직후 selectionBefore가 빈 문자열이었다. 행 키는 40개에서 47개가 됐고 선택 취소 뒤 클립보드는 그대로였다. 같은 트리의 재실행에서 23개가 모두 통과했다.
+
+§10 검색 및 변이
+EP-5 23줄 · EP-22 8줄 · 공통 3줄. 실제 검색 줄과 원장 searchHits의 양방향 차집합 0.
+VP-15·21·02·03의 고유 자리 33개와 원장 pairSlot의 양방향 차집합 0.
+최종 테스트를 복사한 detached worktree 두 곳에서 변이 111개를 실행했다. 111개 모두 테스트 실패, 시간 초과 0, 원복 확인.
+주 작업 트리에서 mutate.py --dry-run 111행 원문 일치.
+
+소스 가드
+[migrations] sync ok: src/main/infra/db/migrations — 36 migrations
+[migrations] sync ok: src/main/features/plugins/mail/migrations — 2 migrations
+[migrations] no-copies ok: scanned 2373 source files, 3 list owners
+[migrations] append-only ok since v0.3.1
+[product-naming] OK — 2630파일 · 허용 7항목
+[test-budgets] 18 real-git suites ok · all budget sites scaled
+check-ui-thread: OK
+
+AC29 Linux K 함수. node scripts/measure-ui-inputs.mjs --src . 의 출력 중 K행을 보관했다. 다른 게이트가 동시에 실행됐다.
+| 입력 | 내용 | 중앙값 / 최대 (예열 1 뒤 9회) |
+|---|---|---|
+| K1 | 5000 diff rows | 2.39ms / 43.53ms (시도 10) |
+| K1 | 5001 diff rows | 2.31ms / 6.69ms (시도 10) |
+| K1 | 50000 diff rows | 110.64ms / 135.54ms (시도 10) |
+| K2 | tokens 0 | 58.01ms / 120.02ms (시도 10) |
+| K2 | tokens 49800 | 7663.60ms / 15693.03ms (시도 10) |
+| K3 | 1MB markdown, first 30 blocks | 75.75ms / 138.45ms (시도 10) |
+| K4 | loose list 4000 | 127.08ms / 178.55ms (시도 10) |
+| K4 | loose list 20000 | 450.53ms / 641.27ms (시도 10) |
+| K4 | loose list 50000 | 1139.58ms / 1589.68ms (시도 10) |
+| K5 | 5MiB code index and first 200 rows | 45.42ms / 54.34ms (시도 10) |
+| K6 | 200 file paths | 0.14ms / 0.16ms (시도 10) |
+| K7 | 990044-char patch | 0.88ms / 1.34ms (시도 10) |
+| K8 | typescript | 129.96ms / 232.75ms (시도 10) |
+| K8 | javascript | 0.09ms / 0.13ms (시도 10) |
+| K9 | javascript 5000 | 1681.52ms / 2385.45ms (시도 10) |
+| K9 | javascript 20000 | 0.14ms / 0.34ms (시도 10) |
+| K9 | javascript 1000000 | 1.29ms / 2.21ms (시도 10) |
+| K9 | json 1000002 | 1.21ms / 1.69ms (시도 10) |
+| K10 | boundary 0 | 288.84ms / 476.84ms (시도 10) |
+| K10 | boundary 1 | 0.35ms / 0.48ms (시도 10) |
+| K10 | boundary 2 | 0.00ms / 0.00ms (시도 10) |
+| K10 | boundary 3 | 134.26ms / 402.48ms (시도 10) |
+| K10 | boundary 4 | 506.01ms / 698.58ms (시도 10) |
+| K10 | boundary 5 | 0.02ms / 0.03ms (시도 10) |
+| K10 | boundary 6 | 540.31ms / 1525.69ms (시도 10) |
+| K11 | Read 1000000 | 0.98ms / 5.67ms (시도 10) |
+| K11 | Work string 1000000 | 0.01ms / 0.05ms (시도 10) |
+| K11 | Work object 1000000 | 3.07ms / 4.31ms (시도 10) |
+| K11 | Read 5000000 | 7.92ms / 15.95ms (시도 10) |
+| K11 | Work string 5000000 | 0.00ms / 0.01ms (시도 10) |
+| K11 | Work object 5000000 | 14.47ms / 32.93ms (시도 10) |
+| K11 | 50000 patch lines | 3.66ms / 8.62ms (시도 10) |
+| K13 | 50000 pair diff rows | 70.54ms / 283.47ms (시도 10) |
+| K13 | pair 2000 + 2000 | 851.73ms / 1251.74ms (시도 10) |
+| K13 | pair 5000 + 5000 | 15881.67ms / 51153.72ms (시도 10) |
+| K13 | pair 50000 + 50000 | 82.53ms / 456.83ms (시도 10) |
+| K13 | 50000 model only | 42.18ms / 60.49ms (시도 10) |
+| K13 | 5MiB codeView | 65.16ms / 108.81ms (시도 10) |
+| K13 | 32000-char highlight | 173.50ms / 591.01ms (시도 10) |
+[doc-inventory] generated doc ok (9 items, 125 channels)
+[doc-inventory] prose ok: no inventory counts restated in current-state docs
+[doc-inventory] links ok: every relative markdown link resolves

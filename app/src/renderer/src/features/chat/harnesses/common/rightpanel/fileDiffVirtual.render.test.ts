@@ -1,3 +1,5 @@
+import { createElement, createRef } from 'react'
+import { FileDiffSection } from './FileDiffSection'
 import { it, expect, vi } from 'vitest'
 import { createDiffRequirementItem } from './diffRequirements'
 import { addedFile, renderGit } from './gitReview.testfixture'
@@ -179,12 +181,16 @@ it.each([501, 5001])(
 )
 
 it.each([
+  ['v5 plain table', 100, false],
+  ['v5 standalone section', 501, false],
   ['v5', 501, false],
   ['v5b', 501, true],
   ['v5w', 5001, false]
 ] as const)(
   '%s upward context expansion keeps the following row in place',
-  async (_, count, wrap) => {
+  async (scenario, count, wrap) => {
+    const plain = count === 100
+    const rowAttribute = plain ? 'data-diff-hunk-row-id' : 'data-window-row'
     const file = addedFile(count)
     file.lines = file.lines.map((line, i) =>
       i === 40 ? line : { ...line, type: 'unchanged', oldLine: i + 1 }
@@ -204,7 +210,10 @@ it.each([
       .spyOn(FakeNode.prototype, 'getBoundingClientRect')
       .mockImplementation(function (this: FakeNode) {
         const base = nativeRect.call(this)
-        const index = this.getAttribute('data-index')
+        const index =
+          plain && this.hasAttribute(rowAttribute)
+            ? this.parent!.children.indexOf(this)
+            : this.getAttribute('data-index')
         const scroll = this.closest('[data-diff-scroll-owner]')?.scrollTop ?? 0
         const top = index === null ? 0 : Number(index) * (wrap ? 32 : 20) - scroll
         return { ...base, top, bottom: top + (index === null ? 500 : 20) }
@@ -265,14 +274,38 @@ it.each([
             body: 'draft'
           }
         : null
-      renderGit([file], { view: { ...DEFAULT_DIFF_VIEW, wrapLines: wrap }, draft })
+      const view = { ...DEFAULT_DIFF_VIEW, wrapLines: wrap }
+      if (scenario === 'v5 standalone section') {
+        const owner = createRef<HTMLDivElement>()
+        const tail = createRef<HTMLDivElement>()
+        dom.render(
+          createElement(
+            'div',
+            { ref: owner, 'data-diff-scroll-owner': '' },
+            createElement(FileDiffSection, {
+              section: { path: file.path, added: file.added, removed: file.removed, patch: file },
+              collapsed: false,
+              view,
+              draft,
+              requirements: [],
+              scrollOwnerRef: owner,
+              tailSpacerRef: tail,
+              onToggleCollapsed: vi.fn(),
+              onOpenFile: vi.fn()
+            }),
+            createElement('div', { ref: tail })
+          )
+        )
+      } else {
+        renderGit([file], { view, draft })
+      }
       await flushRows()
       const input = dom.query('[data-diff-requirement-draft-input]')
       input?.focus()
       const gap = dom.query('[data-diff-gap-up]')!
-      const gapRow = gap.closest('[data-window-row]')!
+      const gapRow = gap.closest(plain ? '[data-diff-gap]' : '[data-window-row]')!
       const anchor = gapRow.parent!.children[gapRow.parent!.children.indexOf(gapRow) + 1]
-      const key = anchor.getAttribute('data-window-row')!
+      const key = anchor.getAttribute(rowAttribute)!
       const owner = dom.query('[data-diff-scroll-owner]')!
       let scrollTop = owner.scrollTop
       const write = vi.fn((value: number) => {
@@ -288,7 +321,7 @@ it.each([
       await flushRows()
       schedule()
       dom.act(() => frame())
-      const after = dom.query('[data-window-row="' + key + '"]')!
+      const after = dom.query('[' + rowAttribute + '="' + key + '"]')!
       expect(owner.scrollTop).toBeGreaterThan(0)
       expect(Math.abs(after.getBoundingClientRect().top - before)).toBeLessThanOrEqual(1)
       expect(write).toHaveBeenCalledTimes(1)
