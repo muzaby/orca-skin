@@ -1,5 +1,76 @@
 # Verify — 0328-composer-panels-lists-shell
 
+## Verify 2회째 — PASS (기계 범위)
+
+**판정: PASS(기계 범위).** verify 1의 BLOCKING 2건·⑦ 잔여(VL ③ 4자리)·ΔV1 채택 항목이 모두 직접 oracle로 잠겼다. 이번 턴 변이 87건이 전부 기대대로 났고(독립 축 2 포함), 이행·현재 결함 0 · PLAN_GAP 0 · ⑦ 잔여 0이다. 남은 것은 Windows 설치본·IME 실측(0330 인계)과 이 환경에서 못 돈 `--host` 측정 재생이다.
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `642017c..dc6f69a` (ΔV1 설계 → r2). PR 브랜치 해시 — `main` 미병합 |
+| 구현 전 plan 기준 | `642017c` (V1 rev 5 + ΔV1). r2 커밋의 plan 변경은 메타 `다음 주체` 상태 줄과 `[구현자 기입]`뿐 — Decision·AC·§10 변경 0 |
+| 라운드 / 확장 창 | 2 / verify 2회째 — 창 안(마지막) |
+| 독립 축(⑥) | 2축 · 시도 2 · 잡음 2 — J4 `useMountedRows` 키를 인덱스로(가상 행 마운트 알림 축 · verify 1은 virtualizer 키만 변이) · J5 세션 키에 묶인 첨부 비움 재도입(구현자의 D013-session-reset은 렌더마다 비우는 넓은 변이라 자리를 특정하지 않음) |
+| 열거 sweep(⑦) | 범위: r2 diff가 닿은 항목 + ΔV1이 새로 열거한 항목(F1·F2·F6 · EP2 ⑥ 세션 분기 · AC15 · VL ③ 좌표) + verify 1 실패·잔여. 구현자 명세 76 + verify 1 실패 재실행 9 + 독립 2 = 87, 기대 일치 87. **남긴 전수 잔여: 0** |
+| 발견 분류 | 이행 0 · 현재 0 · 확장 0 · 경계 0 · 비귀속 0 |
+
+### 0. plan validity
+
+유효. ΔV1의 NEW·CHANGED 노드(VP-14·16 갱신 · VP-31 신설)에 같은 레벨 REQUIRED pair가 있고, 새 규칙 칸 분기(EP2 ⑥ 세션 전환 · F1 relDir · F2 묶음 · F6 같은 창 중복)마다 입력이 있다.
+
+### 1. diff 검토
+
+| 대상 | 판정 | 근거 |
+|---|---|---|
+| D-013 세션 전환 시 첨부 유지 | 일치 | `useAttachments()`가 세션 키 인자를 버리고 정리 effect를 `[]`로 바꿨다(`useAttachments.ts:41-51`). 언마운트에서만 작업을 취소한다. 대화상자·붙여넣기 늦은 완료는 송신 수락 때만 세대가 올라가 무시된다 — 세션 전환 뒤 완료는 초안에 붙는다(D-013과 같은 방향) |
+| 송신 대상 세션 | 일치 | `ComposerInputController.session.test.ts`가 A→B 전환 뒤 B의 `onSend`로 원본·준비된 뷰가 가는지 단언. D013-send-session(첫 `onSend` 고정) red |
+| 새 테스트 seam | 정상 | `rowKeys.testfixture.ts`는 production `useVirtualRows`를 spy해 TanStack 옵션의 `getItemKey`를 읽는다 — 로컬 재구현이 아니다. 목록 6곳(`SidebarRows`·`ProjectsScreen`·`ArtifactsView`·`SchedulesScreen`·`RunHistory`·`InstallLog`)이 각자 테스트를 갖는다 |
+
+### 4. 고장 이력 (이번 턴)
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 결과 | 결과 | 잡은 테스트 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|---|
+| P3-I8 | `AttachmentTray.tsx:20` | 다른 값 | 준비 중 inline 칩에 원본 data URL | 못 잡음 | 잡음 | `AttachmentTray.test.ts` ‘renders only the prepared thumbnail…’ | ③ | 이행 → 닫힘 |
+| P3-V2 | `InstallLog.tsx:53-56` | 고정값 | 행 키 → index | 못 잡음 | 잡음 | `InstallLog.virtual.test.ts` | ③ | 이행 → 닫힘 |
+| P3-V1·V3·V4·V5 | `ProjectsScreen.tsx:154` · `SidebarRows.tsx:64` · `ArtifactsView.tsx:213` · `SchedulesScreen.tsx:47` | 고정값 | 행 키 → 인덱스/비고유 | 판정 불가(`--host`) | 잡음 ×4 | 목록별 `*.virtual.test.ts` | ③·⑦ 잔여 | 닫힘 |
+| P3-I4·I12 | `folder-observations.ts:52`·`:67` | 제거 | 묶기 가드 · 같은 창 중복 제거 | 못 잡음 | 잡음 ×2 | `folder-observations.test.ts` ‘rechecks a renamed directory…’(사건 3개 → 창별 1회) | ③ | 확장 채택 → 닫힘 |
+| P3-I13 | `useMentionAutocomplete.ts:196` | 제거 | relDir 필터 | 못 잡음 | 잡음 | `useMentionAutocomplete.test.ts`(다른 relDir 통지 → list 호출 불변) | ③ | 확장 채택 → 닫힘 |
+| J4 | `useVirtualRows.ts` `useMountedRows(…item.key)` | 맞바꿈 | `item.key` → `item.index` | 신규 | 잡음 | virtual·목록 스위트 234 중 1 red | ⑥ | — |
+| J5 | `ComposerInputController.tsx:144` 뒤 | 호출 대체 | 세션 키 effect 정리에서 첨부 reset | 신규 | 잡음 | `ComposerInputController.session.test.ts` | ⑥ | — |
+| r2 명세 76 | `evidence/r2-mutations.jsonl` | — | — | — | 기대 일치 76 | 명세 oracle(Electron `--interactions` 포함) | ①②⑦ | — |
+
+### 5. V-pair closeout
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-17 · VP-14 (verify 1 PAIR_FAIL) | PASS | P3-I8 · EP2-ready-chip · D013 · J5 red |
+| VP-29 (verify 1 PAIR_FAIL) | PASS | P3-V1~V5 · VL-history · V-V2 3종 · J4 red |
+| VP-31 (ΔV1 신설) | PASS | `ComposerInputController.session.test.ts` · `--interactions` sessionSwitch · D013 ×5 · J5 |
+| VP-16 (ΔV1 갱신) | PASS | F1·F2·F6 입력 + P3-I4·I12·I13 · Q20 명세 red |
+| 그 밖 REQUIRED·REGRESSION | PASS | verify 1 좌표 재사용 — 이번 diff가 닿지 않았고 전체 vitest·Electron 4모드가 green. 0327 회귀(`client.*`·`usePanelSelection`) green |
+
+AC 합계: ✅ 16 · ⚠️ 0 · ❌ 0 = 16(ΔV1에서 AC15 추가로 분모 15→16). AC4·AC6·AC12의 직접 oracle은 vitest(`queries.test`·`scheduled-task-queries`·`SearchModal`·`RunHistoryPanel.interaction`·`measure-stage-d.test.mjs`)이고, 구현자의 `--host` 측정 결과표는 증거 기록이다 — 이 환경에서 그 재생은 못 했다(§9).
+
+### 9. 게이트 재실행 (`dc6f69a`)
+
+| Gate | 결과 |
+|---|---|
+| 가드 5종 · typecheck | 전부 OK · exit 0 |
+| `npx eslint ./src ./scripts` | 오류 0 · 경고 12, 트리 변화 0 |
+| 파일 필터 없는 vitest | 10,781 중 통과 10,748 · 실패 22 · 생략 11. 실패 22 = `c7d2adf` 기준선과 양방향 차집합 ∅(Linux의 Windows 경로 서명, 0328 미수정 파일) |
+| scripts · build · smoke | pass 1104 · build 0 · hosts OK · preload OK |
+| Electron 진단 | 변이 하네스 안에서 `--interactions` 등 실행. `--host`는 Electron 헤더 egress 403으로 여전히 미실행 |
+
+### 11. Repository checks
+
+`dc6f69a` trailer 파싱(`Agent: codex`·`Status: implemented`·`Criteria-Met: 16/16`·`Verified-By: pending`) · `[구현자 기입]` r2 일곱 필드 존재(강제 지점과 V-pair 자기확인을 한 절로 합침) · INDEX 갱신 전 `impl/IMPL_DONE`·다음 주체 Claude 일치.
+
+### Review Signals — 사실만
+
+- verify 1의 못 잡음 6 + 판정 불가 4가 이번에 전부 잡음. 독립 축 2/2 잡음.
+- 반복 환경 한계: `--host`(Electron ABI) 재생 불가 — 두 라운드 연속.
+
+---
+
 ## Verify 1회째 — RETURN_TO_PLAN
 
 **판정: RETURN_TO_PLAN.** 열거 원문을 어긴 이행 결함 2건(V-I8 칩 원본 data URL · V-V2 설치 로그 행 키)이 `BLOCKING`이다. 확장 창 안의 확장 후보 4건(폴더 통지 묶기·중복 제거·창 폴더 필터 · 세션 전환 때 첨부 삭제)은 `PLAN_GAP`이라 설계자가 먼저다. gate는 전부 통과했고 구현자 sweep 183건은 이번 재실행에서 전부 기대대로 났다.

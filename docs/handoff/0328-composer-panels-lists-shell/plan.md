@@ -13,7 +13,7 @@ rev 4 · PR #640 0328 피드백을 반영했다. 기준 트리를 `c7d2adf2`로 
 | slug / 날짜 | `0328-composer-panels-lists-shell` / 2026-11-20 |
 | 기준 트리 | `c7d2adf2` — PR #640 head(0326 verify 7 PASS · 0327 verify 5 PASS 기계 범위). rev 1~3의 `62125eaa`는 공유 브랜치에 없어 좌표가 아니다(§8-A A1) |
 | V mode / 기준 V / 이번·유효 revision | Baseline V1 rev 5(`7663064`) + ΔV1 (READY). 0325 A·0326 B·0327 C는 별도 V이고 여기서는 그 AC를 REGRESSION pair(VP-24·VP-26·VP-27)로만 다시 닫는다 |
-| 다음 주체 | 검증자(Claude) · V1 rev 5 + ΔV1, r2 구현 완료. INDEX의 `impl/IMPL_DONE`에서 독립 검증 대기. |
+| 다음 주체 | 사람 · verify 2회째 PASS(기계 범위). Windows 설치본·IME 실측은 0330 인계, `--host` 측정 재생은 Electron 헤더를 받을 수 있는 환경에서. |
 | 입력 | [0325 계획 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [원 요청서 T20~T33와 셸](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [실행 위치 감사](../0325-ui-responsiveness-followup/input/0324-audit.ko.md) · [0327 공통 워커 계약](../0327-worker-protocol-visible-views/plan.md) · [PR #640 0328 피드백](https://github.com/muzaby/orca-skin/pull/640#issuecomment-7122563525) |
 
 # Part I · 제품 및 사용 흐름
@@ -852,10 +852,10 @@ verify 1의 칩·로그 키 변이와 VL ③ 잔여 네 목록을 Electron ABI �
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| 1 | `준비 중` 칩에 원본 data URL을 넣어도 composer vitest 251·`--interactions`가 green (V-I8) | VP-14·17 / §10 EP2 ④ “칩(원본 data URL 금지)” · AC13 | 칩 미리보기가 `준비됨` 썸네일만 쓰는지 단언 | 이행 | BLOCKING | 열림 |
-| 2 | 설치 로그 행 키를 인덱스로 바꿔도 backend vitest·`--installer` green (V-V2) | VP-29 / §10 VL ③ “로그 조각 = 실행 세대+시작 offset” · AC14 | 재시작·같은 개수 교체에서 마운트 알림·측정 높이 단언 | 이행 | BLOCKING | 열림 |
-| 3 | VL ③ `session.id`·`project.id`·`artifactFileId`·`task.id` 키 변이(V-V1·V1h·V3~V5)는 `--host` 미실행으로 판정 불가 | VP-29 / §10 VL ③ | 다음 verify ⑦ 잔여. 구현자는 `--host`·vitest 좌표로 자리별 red를 보고 | — | ⑦ 잔여 | 열림 |
-| 4 | 폴더 통지 사건 묶기 가드 제거(V-I4) 못 잡음 | VP-16 / Q20 4단계 2 “연속 사건을 묶고” | 설계자가 채택(F2에 통지 수 단언) 또는 경계 선언 | 확장 | PLAN_GAP | 열림 |
-| 5 | 같은 창·같은 scope 통지 중복 제거 무력화(V-I12) 못 잡음 | VP-16 / Q20 F6 | 채택 또는 경계 | 확장 | PLAN_GAP | 열림 |
-| 6 | 창 통지 필터의 relDir 조건 제거(V-I13) 못 잡음 | VP-16 / Q20 F1 | 채택 또는 경계 | 확장 | PLAN_GAP | 열림 |
-| 7 | 세션 전환 시 초안 텍스트는 남고 첨부만 비워진다(변경 전엔 둘 다 남음) | VP-14 / D-002 · §13 | 사용자 결정 필요 — 첨부를 텍스트와 같이 둘지 | 확장 | PLAN_GAP | 열림 |
+| 1 | `준비 중` 칩에 원본 data URL을 넣어도 composer vitest 251·`--interactions`가 green (V-I8) | VP-14·17 / §10 EP2 ④ “칩(원본 data URL 금지)” · AC13 | 칩 미리보기가 `준비됨` 썸네일만 쓰는지 단언 | 이행 | BLOCKING | 닫힘(verify 2 — P3 잡음) |
+| 2 | 설치 로그 행 키를 인덱스로 바꿔도 backend vitest·`--installer` green (V-V2) | VP-29 / §10 VL ③ “로그 조각 = 실행 세대+시작 offset” · AC14 | 재시작·같은 개수 교체에서 마운트 알림·측정 높이 단언 | 이행 | BLOCKING | 닫힘(verify 2 — P3 잡음) |
+| 3 | VL ③ `session.id`·`project.id`·`artifactFileId`·`task.id` 키 변이(V-V1·V1h·V3~V5)는 `--host` 미실행으로 판정 불가 | VP-29 / §10 VL ③ | 다음 verify ⑦ 잔여. 구현자는 `--host`·vitest 좌표로 자리별 red를 보고 | — | ⑦ 잔여 | 닫힘(verify 2 — 목록별 vitest 잡음) |
+| 4 | 폴더 통지 사건 묶기 가드 제거(V-I4) 못 잡음 | VP-16 / Q20 4단계 2 “연속 사건을 묶고” | 설계자가 채택(F2에 통지 수 단언) 또는 경계 선언 | 확장 | PLAN_GAP | 닫힘(ΔV1 채택 · verify 2 잡음) |
+| 5 | 같은 창·같은 scope 통지 중복 제거 무력화(V-I12) 못 잡음 | VP-16 / Q20 F6 | 채택 또는 경계 | 확장 | PLAN_GAP | 닫힘(ΔV1 채택 · verify 2 잡음) |
+| 6 | 창 통지 필터의 relDir 조건 제거(V-I13) 못 잡음 | VP-16 / Q20 F1 | 채택 또는 경계 | 확장 | PLAN_GAP | 닫힘(ΔV1 채택 · verify 2 잡음) |
+| 7 | 세션 전환 시 초안 텍스트는 남고 첨부만 비워진다(변경 전엔 둘 다 남음) | VP-14 / D-002 · §13 | 사용자 결정 필요 — 첨부를 텍스트와 같이 둘지 | 확장 | PLAN_GAP | 닫힘(ΔV1 채택 · verify 2 잡음) |
