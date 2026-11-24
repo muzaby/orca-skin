@@ -292,6 +292,8 @@ describe('mention autocomplete path listing ownership', () => {
     render('@').setActiveIndex(1)
     h.folderChanged?.({ cwd: '/elsewhere', relDir: '', revision: 1 })
     expect(h.list).toHaveBeenCalledTimes(1)
+    h.folderChanged?.({ cwd: '/repo', relDir: 'other', revision: 1 })
+    expect(h.list).toHaveBeenCalledTimes(1)
     for (const revision of [1, 2, 3]) h.folderChanged?.({ cwd: '/repo', relDir: '', revision })
     expect(h.list).toHaveBeenCalledTimes(2)
     second.resolve([file('alpha'), file('beta'), file('gamma')])

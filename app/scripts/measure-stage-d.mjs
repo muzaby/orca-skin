@@ -104,6 +104,7 @@ export async function main(scenario = 'image', baseline = false) {
         verdict:
           !result.error &&
           result.composer?.length === 3 &&
+          result.composer.every((entry) => entry.sessionSwitch === true) &&
           (baseline || result.resources.mounted < 200)
       }
     }

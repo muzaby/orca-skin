@@ -13,7 +13,7 @@ rev 4 · PR #640 0328 피드백을 반영했다. 기준 트리를 `c7d2adf2`로 
 | slug / 날짜 | `0328-composer-panels-lists-shell` / 2026-11-20 |
 | 기준 트리 | `c7d2adf2` — PR #640 head(0326 verify 7 PASS · 0327 verify 5 PASS 기계 범위). rev 1~3의 `62125eaa`는 공유 브랜치에 없어 좌표가 아니다(§8-A A1) |
 | V mode / 기준 V / 이번·유효 revision | Baseline V1 rev 5(`7663064`) + ΔV1 (READY). 0325 A·0326 B·0327 C는 별도 V이고 여기서는 그 AC를 REGRESSION pair(VP-24·VP-26·VP-27)로만 다시 닫는다 |
-| 다음 주체 | 구현자(Codex) · 라운드 2 첫 impl 턴 `r2`. verify 1의 BLOCKING #1·#2와 ⑦ 잔여 #3, ΔV1의 새 입력(F1·F2·F6 · EP2 ⑥ 세션 전환 · AC15)을 닫는다 |
+| 다음 주체 | 검증자(Claude) · V1 rev 5 + ΔV1, r2 구현 완료. INDEX의 `impl/IMPL_DONE`에서 독립 검증 대기. |
 | 입력 | [0325 계획 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [원 요청서 T20~T33와 셸](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [실행 위치 감사](../0325-ui-responsiveness-followup/input/0324-audit.ko.md) · [0327 공통 워커 계약](../0327-worker-protocol-visible-views/plan.md) · [PR #640 0328 피드백](https://github.com/muzaby/orca-skin/pull/640#issuecomment-7122563525) |
 
 # Part I · 제품 및 사용 흐름
@@ -769,6 +769,84 @@ T29는 기존 renderer에서 사용하는 v1 codec만 워커 경계로 전달하
 - **현재 라운드·impl 턴** `r1.3`.
 
 ---
+
+## [구현자 기입] 설계 리뷰 (r2)
+
+D-013의 초안 소유자는 열린 컴포저다. `ComposerInputController`가 세션 B의 송신 콜백을 받아도 같은 첨부 수명 ID와 워커 요청을 사용한다. 수락 후 다음 초안으로 넘어갈 때와 실제 언마운트 때는 비동기 파일 읽기의 세대를 바꾼다. 대기 중 선택·읽기를 버리는 기존 수락 경계는 `EP2-draft-generation`과 `EP2-old-paste`에서 확인했다.
+
+§10의 검색 술어 14개를 `app`의 production 소스에서 다시 실행했다. 이름·일치 줄 수·파일 수를 비교한 결과 r1.3 표와 차이가 없었다. 이번에 달라진 생산 경로는 컴포저 호출부와 훅의 정리 시점 두 곳이다. [§10 검색 결과](evidence/r1.3-sites.tsv)
+
+## [구현자 기입] 강제 지점 전수 및 V-pair 자기확인 (r2)
+
+아래 행의 자기 판정은 `SELF_PASS`다. 같은 행의 pair가 공유하는 입력과 각 판정 대상을 함께 적었다. [이번 실행의 Electron 관측값](evidence/r2-observations.json)
+
+| pair | §10 자리 | 이번 실행의 직접 관측 |
+|---|---|---|
+| VP-01·13·16·22 | Q20 ①~⑦, Q28·Q30, EP5·EP7 | `folder-observations`에서 사건 3개·동일 창 구독자 2개에 창별 통지 1회. `useMentionAutocomplete`에서 다른 relDir의 읽기 증가 0회. `--data-flows`에서 생성·rename·삭제·교체 후 열린 메뉴와 실제 폴더 일치. 조회 입력은 아래 VP-04·06·07 행. |
+| VP-02a·02b·14·17·31 | EP2 ①~⑥ | `AttachmentTray.test`의 inline 칩 3상태, `useAttachments.views`의 수명 ID·취소, `ComposerInputController.session.test`의 A→B 송신. Chromium의 선택·드롭·붙여넣기 세 경로에서 각각 전송 수락·거부, 원본 5개와 준비된 뷰 2개, 다음 초안과 세션 전환을 확인했다. |
+| VP-03·09·15·21 | EP3 ①~⑥, EP9 ①~③ | `--geometry`에서 본문 2,000문단·댓글 129개, 끝 댓글의 표시·포커스와 인용 복원. `--interactions`에서 설정·댓글 입력의 긴 줄, 폭과 높이 변경, IME 및 팝오버 위치 검사. |
+| VP-04 | Q28 ①~④, VL ①~④ | `--host`에서 세션·프로젝트·산출물 조회, `--data-flows`에서 동명 항목 중 duplicate-b 선택과 제거 뒤 session-9951 교체, 서로 다른 두 FTS 결과의 세션·메시지 ID 확인. |
+| VP-05 | EP5 ①~③ | `--interactions`의 설정 307,845자와 오류 위치 [3, 3], 이전 가져오기 응답 폐기. 자원 1만 건 중 마지막 선택 resource-9999. |
+| VP-06 | Q30 ①~③, VL ③ | `--host`의 예약·이력 조회와 `--data-flows`의 20회·65,536자·session-1. `RunHistory.virtual.test`에서 새 실행 삽입 뒤 기존 run.id 두 개 유지. |
+| VP-07 | EP7 ①~③ | `--usage` 9표본과 `--data-flows`의 기간별 버킷·막대·총계·툴팁. 첫 commit 및 paint를 별도 필드로 기록했다. |
+| VP-08·18·23 | EP8 ①~④ | `--installer`에서 실제 설치 완료 통지 1회, 실패와 재시작 세대별 164,455바이트·종료 각 1회. `InstallLog.virtual.test`에서 시작 offset 0·4·11과 세대 7→8 교체. |
+| VP-10·11·19 | EP10 ①~③, EP11 ①~④ | `--shell`에서 자산의 본문·MIME 및 deep link 렌더 확인. 레거시·손상 복원, 최소화·최대화와 fatal·quit 마지막 로그가 재실행 결과에 남았다. |
+| VP-12·25 | EP12 ①~④ | `--compare`가 일치한 기준·적용 호스트 입력 일곱 개를 읽었고 R-H는 일곱 개 모두 off. `measure-stage-d.test.mjs`가 단위·누락·경계 판정을 검사한다. |
+| VP-20·28 | WL ①~④, EP2 ②③ | 이미지 헤더 및 레인 회귀, `--overlap`의 보류 이미지 5개와 스크롤·델타, 실제 워커의 썸네일 5개. `AttachmentTray.test`에서 준비된 JPEG만 img에 전달된다. |
+| VP-24·26·27 (REGRESSION) | EP2·EP11, transcript, WL·VL | `--data-flows`에서 각 원본 종류의 저장 뷰 5개·미리보기 2개 재열기. `chatReducer.parts`, `chatStore.hostLifecycle`, `client.queue`, `client.lanes`, `usePanelSelection` 통과. `--shell`의 승계값과 `--interactions`에서 목록 밖 선택 보존. |
+| VP-29·30 | VL ①~④ | 목록별 Vitest 여섯 곳에서 ID 확인. 프로젝트·세션·예약·산출물·설치 로그는 실제 virtualizer 옵션, 실행 이력은 실제 React 행 키를 읽었다. `--interactions`에서 삽입·삭제 뒤 같은 행 높이 83px, 목록 밖 선택 outside-list, 마지막 행 item-299. |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+직전 verify의 이슈와 이번 재현을 연결했다. [변이별 결과 및 실패한 테스트](evidence/r2-mutations.tsv) · [재실행 명세](evidence/r2-mutations.jsonl)
+
+| verify 1 | 이번 입력·검출된 변이 | 구현자 판정 |
+|---|---|---|
+| #1 칩 | V-I8-pending·V-I8-unavailable은 원본 base64를 HTML에 노출하면 실패. EP2-ready-chip은 준비된 JPEG를 제거하면 실패. | closed |
+| #2 설치 로그 | V-V2-index·generation·offset에서 인덱스 대체, 세대 누락, offset 대체가 각각 실패. | closed |
+| #3 목록별 키 | V-V1·V-V3·V-V4·V-V5를 각 화면의 Vitest에서 검출. 실행 이력의 run.id→taskId도 VL-history로 검출. | closed |
+| #4 사건 묶기 | V-I4에서 같은 40ms 안에 넣은 사건 3개가 중복 통지되어 실패. | closed |
+| #5 같은 창 중복 | V-I12에서 같은 창·같은 scope의 두 owner가 중복 통지를 받아 실패. | closed |
+| #6 메뉴 필터 | V-I13에서 같은 cwd의 다른 relDir 신호가 목록 읽기를 한 번 늘려 실패. | closed |
+| #7 세션 전환 | D013-session-reset 및 D013-send-session에서 전환 때 지우거나 A의 송신 콜백을 유지하면 각각 Vitest와 Electron에서 실패. | closed |
+
+검산은 pair 선택 증거 32개, 인용 변이 9개(V-I8·V-V2·V-V1·V-V3·V-V4·V-V5·V-I4·V-I12·V-I13), 새 관측 지점 10개(칩, 목록 6, 컴포저 단위, Electron 세션 전환, 진단 최종 판정), sweep 76/76이다. 이 네 항목의 합은 127개이며 같은 변이가 여러 계약의 증거가 될 수 있다. sweep 명세와 실행 ID의 양방향 차집합은 비었다. 새 변이 19개와 이번 변경·오라클에 닿는 기존 변이 57개가 각각 exit 1을 냈다. [실행 표](evidence/r2-mutations.tsv)
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+컴포저의 작성 위치가 바뀌어도 첨부 두 개와 편집한 텍스트가 남았다. B에서 송신하면 B의 콜백만 한 번 호출되고, 수락 뒤 입력창과 칩이 비었다. 같은 이름을 다시 추가한 경우 제거된 첨부의 미리보기가 새 첨부에 붙는지 별도로 검사했다. 새 제품 결정 요청은 없다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+기존 훅 테스트는 세션 전환 자체가 취소 사유라고 단언했다. 이번에는 같은 이름 첨부의 교체와 실제 언마운트 취소를 유지하고, 전환 중 진행하는 작업과 활성 송신 대상을 컴포저 테스트에서 구별한다. 메뉴 통지의 시계와 창·scope를 고정해 파일시스템 이벤트 수가 OS에 따라 달라져도 F1·F2·F6을 재현할 수 있다.
+
+## [구현자 기입] 구현 보고 (r2)
+
+| AC 자기보고 | 이번 실행에서 확인한 결과 |
+|---|---|
+| ✅ AC1 | 폴더 변경 4종 반영. 동일 창·scope 중복 제거, 다른 relDir 재조회 0회. |
+| ✅ AC2a·AC2b | 세 입력 경로 모두 수락과 같은 task에서 clear·초점. 원본 5개·준비된 뷰 2개를 저장 뒤 다시 열었다. |
+| ✅ AC3·AC9 | 마지막 댓글·선택 복원, 가시 댓글 rect만 재측정. 입력 길이·폭·조합·팝오버 시나리오 통과. |
+| ✅ AC4·AC6 | 호스트 조회와 실제 data 포트의 목록 선택·검색, 예약 이력 20회 및 보관 출력 확인. |
+| ✅ AC5·AC7 | 마지막 편집과 오류 위치, 자원 선택, 사용량 기간별 버킷·툴팁 관측. |
+| ✅ AC8 | 설치 세대교체 시 행 키가 갱신되고 세대별 로그·종료를 보존. |
+| ✅ AC10·AC11 | 셸 자산, deep link, 재실행 및 손상 복원과 마지막 로그 재생. |
+| ✅ AC12 | 호스트 7개 기준·적용 비교, 이미지·패널·자원·셸 시나리오 재실행. |
+| ✅ AC13·AC14 | 실제 워커 썸네일 5개, 원본 칩 노출 변이 검출. 목록 6곳이 도메인 ID 또는 세대·offset을 사용함을 확인. |
+| ✅ AC15 | 준비 중 1개·준비됨 1개와 편집 텍스트를 A→B로 유지하고 두 번째 응답을 받은 후 B에서 전송. |
+
+✅ 16 · ⚠️ 0 · ❌ 0 = 총 16. ΔV1에서 AC15가 추가되어 이전 분모는 15였다. 리눅스의 기준선 차이와 게이트 수치는 아래에 기록했다. Windows 설치본과 OS 한글 IME 실측은 0330의 담당 범위다.
+
+| 통합 게이트 | r2 결과 |
+|---|---|
+| 운영 검사 | CI 가드 5종, node·web·test 타입 검사, 진단 TSX 타입 검사 성공. 전체 ESLint 오류 0·기존 경고 12. |
+| Vitest | 핸드오프 집중 검사 11파일·34개 성공. 파일 필터 없는 전체 실행은 Linux 격리 컨테이너, Node 24.19.0에서 통과 10,747·예상 실패 1·생략 11·실패 22. 기준 `c7d2adf2`와 실패 이름 양방향 차집합 0개. 미처리 거부 1건의 오류 메시지와 첫 소스 위치 `native-resources.ts:152`도 기준과 동일. |
+| 스크립트·번들 | `node --test --test-concurrency=3 scripts/*.test.mjs` 1,104개 통과. `electron-vite build`, `smoke-hosts`, `smoke-preload` 성공. |
+| 진단 | Linux Electron 39.8.10에서 호스트·데이터 흐름·사용량·상호작용·설치·셸·목록·자원·패널 타이밍·기하·동시 작업·이미지 시나리오와 기준 호스트 비교에서 모두 `verdict: true`. |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+verify 1의 칩·로그 키 변이와 VL ③ 잔여 네 목록을 Electron ABI 없이 검출했다. Native SQLite가 필요한 호스트 진단은 같은 Electron 버전의 바이너리로 재실행했다. 라운드 2 구현 인계는 `IMPL_DONE`이며 독립 판정은 검증자에게 있다.
 
 ## [검증자 기입] 파생 이슈
 

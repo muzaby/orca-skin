@@ -30,7 +30,7 @@ function readFileAsBase64(file: File): Promise<string> {
   })
 }
 
-export function useAttachments(sessionKey: string | null): UseAttachments {
+export function useAttachments(): UseAttachments {
   const [chips, setChips] = useState<DraftAttachment[]>([])
   const drafts = useRef<DraftAttachment[]>([])
   const items = useRef<ComposerAttachment[]>([])
@@ -41,8 +41,6 @@ export function useAttachments(sessionKey: string | null): UseAttachments {
   useLayoutEffect(() => {
     const active = lifetime.current
     const pending = jobs.current
-    active.generation++
-    if (drafts.current.length === 0) setChips(drafts.current)
     return () => {
       active.generation++
       for (const job of pending.values()) job.cancel()
@@ -50,7 +48,7 @@ export function useAttachments(sessionKey: string | null): UseAttachments {
       drafts.current = []
       items.current = []
     }
-  }, [sessionKey])
+  }, [])
 
   function commit(next: DraftAttachment[]): void {
     drafts.current = next
