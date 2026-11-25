@@ -1,6 +1,6 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**DRAFT (r1.3 PLAN_GAP).** 복구된 Claude 원본과 보관본이 서로 다른 본문에 같은 메시지 키를 쓴다. D-002의 기존 키 보존과 D-013의 출처별 검색 이동을 함께 만족시키려면 두 행의 키 규칙을 정해야 한다. ΔV2 앞삽입은 세 화면의 실제 Chromium 검사에서 통과했다.
+**READY (V1 rev 5 + ΔV1 + ΔV2 + ΔV3).** ΔV3(§22)는 r1.3이 반송한 복구 키 충돌의 원인을 없앴다 — 사용자 제안대로 Claude 원본 복구는 Orca가 만든 새 UUID로 새 원본 세션을 시작하고, 화면·Orca 세션 ID는 그대로 둔다(D-023). 같은 ID로 이미 복구된 기존 세션은 배포가 없어 다루지 않는다(D-024). ΔV2(§21)는 앞삽입 앵커 좌표를, ΔV1(§20)은 고정 높이 머리 슬롯과 보정 취소 분류를 정정했다. rev 5는 PR #640 0329 보완 요청과 D-009(유휴 자동 채움)·D-012(세션 전체 패널)를 반영했다.
 
 ## 메타
 
@@ -8,9 +8,9 @@
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) 2026-11-20 rev 1~4 · Claude Code rev 5 2026-11-24 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) · PR #640 코멘트 “0329 이력 페이징 · 구현 전 plan 보완 요청”(2026-11-24, 기준 `7db1c7ce`) |
-| 상태 / V | plan/DRAFT (r1.3 복구 키 PLAN_GAP) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0 PLAN_GAP) + ΔV2(§21 — r1.2 Q4b′ PLAN_GAP) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1 + ΔV2 |
+| 상태 / V | plan/READY · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1 + ΔV2 + ΔV3 |
 | 조사 기준 | rev 5: `codex-handoff-0326-plan-gap`의 `7db1c7ce`(PR #640 head) — 0326 verify 7 PASS · 0327 verify 5 PASS · 0328 verify 2 PASS(모두 기계 범위). rev 1~4의 `62125eaa` 관측은 §8 rev 5 표로 재대조했다. |
-| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1이 WU-0을 실행하고 §19 1에 따라 앵커 기준선 차이로 반송했다(`[구현자 기입] 설계 리뷰 (r1)`). ΔV1이 그 PLAN_GAP을 닫았고, r1.2가 Q4b′ 1px 초과로 다시 반송해 ΔV2가 닫았다. r1.3에서 ΔV2를 재검증했다. 다음 설계 턴은 복구 보관본과 원본의 키 충돌을 다룬다. |
+| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)이 차례로 PLAN_GAP을 반송했고 ΔV1·ΔV2·ΔV3이 닫았다. 다음 구현 턴(r1.4)은 r1.3 코드에서 이어 가며 ΔV3(사용자 요구 변경)부터 한다. |
 
 # Part I — 제품과 사용자 동작
 
@@ -31,6 +31,8 @@
 | PR #640 보완 요청(2026-11-24) | 원문: “D-009·D-012의 사용자 결정을 기록하고, 양방향 조회 계약·화면 동작·초안 회귀·구 DB 첫 클릭 결과를 plan에 반영한 뒤 INDEX를 `READY`로 갱신해 주세요.” 항목별 반영은 D-015~D-018과 갱신 메모 rev 5. |
 | rev 5 사용자 답 | D-009·D-012 질의에 “어떤 사용자 시나리오인지 먼저 설명하라. 사용자 관점에서” → §5-B·§5-C 설명 뒤 “D-009는 자동안 선택 / D-012는 전체를 기준하라”. |
 | 설계 해석(rev 5) | 검색 보기의 최신 방향은 위 방향(D-003)과 대칭인 **아래 끝 입력·하단 버튼**으로 읽는다. PR 원문은 “양쪽을 한 조작당 한 묶음씩”만 정했으므로 조작 형태는 설계자 해석이다(D-015). |
+| ΔV3 사용자 제안(2026-11-25) | 원문: “위 계약을 다른 id로 시작하는 것으로 변경하는 것은 어떤가? 기존 대화 세션 gui는 변경사항없고, 내부는 id만 변경, 새 대화(세션)로 이어서 시작. 나중에 백업본으로 원본 대화가 복구되더라도 충돌 문제는 없을 것으로 보인다” → D-023. |
+| ΔV3 사용자 결정(2026-11-25) | 원문: “이미 같은 id로 복규된 기존 세션 건은 무시하라. 배포가 없어 그런 사례가 없다고 여길 것.” → D-024. 반영 위치는 설계자 권고(0329 ΔV3)를 따랐다. |
 
 ## 3. Decision Ledger
 
@@ -58,6 +60,8 @@
 | D-020 | ACTIVE | (ΔV1, 설계자 — r1 WU-0 근거) 0326 EP-12 a8 “사용자 입력은 대기 중 앵커 보정을 취소한다”를 유지하되, 이전 턴 요청을 시작한 위 제스처의 후속 wheel(같은 방향·간격 < `HISTORY_GESTURE_GAP_MS`)은 취소하지 않는다. 새 제스처·방향 전환·pointerdown·스크롤 키·사용자 스크롤 이동은 0326대로 취소한다. 근거: 같은 플릭의 두 번째 wheel(34.6 ms 뒤)이 보정을 지워 글줄 +35px. | AC3′ · EP4′ ⑥ · Q4′·Q4b′ |
 | D-021 | ACTIVE | (ΔV2, 설계자 — r1.2 근거) 앵커 캡처와 복원은 같은 함수로 같은 (part, charOffset)의 글자 top을 잰다. 캐럿이 part 밖이면 첫 겹침 part의 charOffset 0 글자 top을 쓰고 part 상자 top은 기준으로 쓰지 않는다. 앞삽입 commit의 캡처부터 보정 창이 닫힐 때까지 transcript scrollTop은 뷰포트 복원만 쓴다. 근거: `anchor.ts:101` 한 줄을 바꾼 임시 트리에서 Q4b′ 18/18·15회 통과(§21 A). | AC3′ · EP4″ ④ · Q12·Q4b″ |
 | D-022 | ACTIVE | (ΔV2, 설계자 — r1.2 구현 채택) 이전 턴 요청을 시작한 wheel과 같은 제스처의 후속 wheel은 기본 스크롤을 막는다 — 같은 플릭의 남은 관성이 새로 붙은 행으로 넘어가지 않는다. 다른 wheel은 기본 스크롤이며 non-passive 리스너는 부분 이력 보기에만 붙는다. | AC3′ · EP4″ ⑤ · Q4″·Q4b″ |
+| D-023 | ACTIVE | (ΔV3, 사용자 제안) Claude 원본 복구는 Orca가 만든 새 UUID를 SDK `Options.sessionId`로 넘겨 새 원본 세션을 시작한다. Orca 세션 ID·화면·검색·DB 행은 그대로이고 복구 행의 `native_id`만 바뀐다. 이후 턴·자동 연속·분기·인계는 그 `native_id`로 이어 쓰고, 원본이 낸 세션 ID(이벤트·권한 모드 통지·훅)는 Orca 세션 ID로 바꿔 전달한다. 옛 원본 파일이 다시 나타나도 읽지 않는다. | AC12 · EP10 · Q13~Q15 |
+| D-024 | ACTIVE | (ΔV3, 사용자 결정) 이 변경 전 같은 ID로 복구된 Claude 세션의 키 충돌 방어 규칙은 두지 않는다 — “배포가 없어 그런 사례가 없다고 여길 것”. 선언 경계다. | §22 D 선언 경계 |
 
 갱신 메모 — V1 초안. D-001~004·006~008은 각 행의 AC와 대조했다. 부모 0325 D-023의 상단 제스처·스피너·재시도는 0326에서 구체화됐고, 소비자 범위 결정은 남아 있다.
 
@@ -74,6 +78,8 @@ rev 5 — PR #640 항목 → 규범 행. 양방향 조회 → D-015·AC6·§10 �
 ΔV1 — r1 WU-0 PLAN_GAP 정정(§20). D-019·D-020 신설, AC3 → AC3′, §10 머리 행 → 머리 슬롯·제스처 분류 2행, 하단 슬롯 행 → footer 조립 포함 행, EP4 → EP4′, Q4·Q4b → Q4′·Q4b′, §8 rev 5 머리 슬롯 행 정정. **ACTIVE 결정 ↔ AC 대조 (ΔV1)**: 충돌 0. D-016 “±1px·한 제스처 한 요청” ↔ AC3′ 일치(측정 자리를 상단·후속 wheel까지 넓힘). D-020 ↔ 0326 EP-12 a8: 새 제스처 취소는 그대로라 0326 ‘respects %s’ 13 cause는 기대 불변(VP-06). D-015 하단 슬롯 ↔ Timeline footer 조립(§20 D) 일치.
 
 ΔV2 — r1.2 Q4b′ PLAN_GAP 정정(§21). D-021·D-022 신설, EP4′ ④⑤ → EP4″ ④⑤, Q4·Q4b′ → Q4″·Q4b″, Q12 신설, MD-05·VP-17 신설. **ACTIVE 결정 ↔ AC 대조 (ΔV2)**: 충돌 0. D-016·AC3′ “≤1px”는 그대로이고 D-021이 측정 기준 좌표와 보정 창 끝을 정한다. D-022 “남은 관성 차단” ↔ AC3′ “같은 제스처 후속 wheel에도 ≤1px” 일치. D-020 “새 제스처는 취소” ↔ D-022 “다른 wheel은 기본 스크롤” 일치.
+
+ΔV3 — r1.3 복구 키 PLAN_GAP 정정(§22). D-023·D-024 신설, AC12 신설, R-03 CHANGED·SD-06·AR-05 NEW(VP-03·19·18), EP10·Q13~Q15 신설. **ACTIVE 결정 ↔ AC 대조 (ΔV3)**: 충돌 0. D-002 “B의 메시지 키 보존” ↔ AC12 “보관 행 키 불변·새 원본은 새 UUID” 일치. D-013 “검색 결과는 그 행으로” ↔ AC12 “보관 hit는 보관 행으로” 일치. D-004 “복구에는 온전한 보관 이력” ↔ D-023(첫 prompt 구성 불변) 일치.
 
 ## 4. 현재 요구 검토
 
@@ -212,6 +218,7 @@ Work 세션 S에서 정규 작업을 만들거나 갱신하면 S의 작업 ID로
 | R-01 / AT-01 | AC9 | 구버전 DB·재시작·동일 시각·native 교체에서 공개된 한 세대 안의 순서·메시지·부가 part가 기존 투영과 일치한다. 다른 세션/출처 세대의 커서·본문 참조는 행동을 일으키지 않는다. | upgrade → 재기동 → page/body/refresh, Q1·Q3·Q9. |
 | R-03 / AT-03 | AC10 | 실제 Windows의 Claude Code·Work·OpenCode에서 일반 열기·검색 점프를 재현한다. 검색 결과 선택→대상 첫 가시 paint, 실제 강조/종료·양방향 읽기·직접 스크롤·실패/복귀, 트랙패드 관성·드래그 선택을 기록한다. | 설치본·진단 빌드 S-E1~S-E5, 특히 S-E2의 관성·S-E5의 source·목표 행 및 타이밍. |
 | R-01 / AT-01 | AC11 | 구버전 DB의 작은 DB·긴 DB에서 색인 준비 전·중·후를 나눠 변환 시간·디스크 증가·실제 읽은 과거 본문 bytes·IPC bytes·클릭→첫 본문을 기록한다. 미준비 세션 첫 클릭은 그 세션 색인 뒤 최신 턴을 한 번에 표시하고 준비 중 화면과 첫 본문 시각을 따로 남긴다. 색인 중단·재기동 뒤 저장 위치에서 이어 가며 출판 세대는 완료 전까지 이전 상태다. 첫 클릭 동안 다른 세션 열기·검색은 그 세션 색인에 막히지 않는다. | upgrade → 배경/우선 색인 → 열기·재기동, Q9b·Q10 · S-E1. |
+| R-03 / AT-03 | AC12 | Claude 원본 파일이 없는 세션에서 전송하면 Orca 세션 ID와 화면은 그대로이고 새 UUID의 원본 세션이 보관 문맥과 새 입력으로 시작한다. 다음 턴·자동 연속은 그 원본으로 이어 쓰고, 복구된 세션에서 분기·인계하면 그 원본에서 갈라진다. 이벤트·권한 모드 통지·훅은 Orca 세션에 도착한다. 옛 원본 파일을 원래 경로에 되돌려도 표시 키는 모두 고유하고, 보관본 문구 검색은 보관 행으로 이동하며, 되돌린 파일 내용은 검색·화면에 나타나지 않는다(D-023). | 전송 → `prepareNativeSession` → Claude 어댑터 → SDK 옵션·이벤트 → store / 파일 복귀 → 재열기·검색, Q13~Q15. |
 
 ## 7-A. Baseline V
 
@@ -624,11 +631,82 @@ D-021(좌표 일치·보정 창 쓰기 소유)·D-022(당김 제스처의 기본
 
 r1.3은 r1.2 코드에서 이어 간다. 이 턴 실측상 (i)만으로 Q4b′ (a)~(f)가 통과했으므로 r1.3의 첫 작업은 (i)과 Q12다. Q4b″ (g)(h)가 실패하면 (ii)(iii)으로 고치고, 그래도 1px을 넘으면 사례별 쓰기 기록을 남겨 PLAN_GAP으로 돌린다.
 
+## 22. ΔV3 — r1.3 복구 키 PLAN_GAP 정정 (2026-11-25, 사용자 제안)
+
+**판정: PLAN_GAP 타당 → 원인 제거로 정정 뒤 READY.** r1.3(`70d72f5f`, `Status: blocked`)은 Claude 복구 뒤 옛 원본 파일이 돌아오면 보관 행과 원본 행이 같은 키 `n:<uuid>`를 받는다고 반송했다. 원인은 Claude 복구가 **같은 세션 ID로 새 원본 세션**을 시작하는 계약이다 — 옛 파일이 같은 파일 이름으로 돌아오면 새 원본을 덮어쓰고 옛 UUID가 다시 읽힌다. 사용자 제안(D-023)으로 복구 원본에 새 ID를 주어 충돌 경로를 없앤다.
+
+### 22-A. 반송·제안 근거 대조 (이 턴 조사)
+
+| 대상 | 판정 | 관측 |
+|---|---|---|
+| 같은 키 두 행 | 재현 기록 확인 · 현재 결함 | `evidence/r1.3-recovery.json` FTS −3 `archiveterm`·−5 `currentterm`이 모두 `n:8ab5ea0b-…`. 현재 reducer에 4행을 LOAD하면 같은 id 4행이 그대로 남는다(이 턴 임시 테스트, 삭제). |
+| 현재 계약 | 원인 | `adapters/claude/adapter.ts:376` `recoverSession`이 `{ sessionId: req.sessionId, freshStart: true }` → `:670-671` `Options.sessionId`로 같은 ID 새 세션. 문서 `docs/arch/backend/persistence.md:193` “Claude는 기존 UUID를 fresh `sessionId`로 사용”, 테스트 `adapter.fork.test.ts:63`이 잠근다. |
+| SDK가 지정 ID 새 세션을 지원하는가 | 지원 | SDK 0.3.296 `sdk.d.ts:2093-2098` `Options.sessionId` — 올바른 UUID, `resume`·`continue`와는 `forkSession`일 때만 함께. 번들 CLI는 UUID가 아니면 거부하고, 현재 프로젝트 기록 폴더에 `<id>.jsonl`이 있으면 “already in use”로 거부한다. 새 UUID는 이 검사에 걸리지 않는다. |
+| 데이터 계층 준비 | 이미 있음 | `migrations/0032_native_session_recovery.sql:1` “Only native_id changes” · `native-session.ts:41,68-90` · `app/native-history.ts:37` · `resolve-turn.ts:123`가 `native_id`로 원본을 읽고 넘긴다. OpenCode 복구가 이미 새 ID(`opencode/v1/adapter.ts:317`)와 `routeNativeSession`(`:350`)을 쓴다. |
+| Claude 경로의 같은-ID 전제 | 바꿀 자리 | `adapter.ts:672` `resume: req.forkFrom ?? sessionId`(‘`nativeSessionId`’ 미사용) · `map.ts:397` init이 `ctx.sessionId`를 원본 ID로 덮음 · `adapter.ts:939` 권한 모드 통지 · `adapt.ts:303` 훅 세션 ID · `send.ts:617` 분기·인계 출발점이 Orca ID |
+| 외부 노출 | 없음 | 화면에 Claude 세션 ID를 보이거나 외부 CLI로 이어 가는 기능 `rg` 0건 |
+
+### 22-B. Decision
+
+D-023(복구 원본에 새 UUID)·D-024(같은 ID로 이미 복구된 세션은 경계)를 §3에 더했다. D-002·D-004·D-013은 바꾸지 않는다.
+
+### 22-C. Delta V
+
+| 노드 | provenance | 변경 |
+|---|---|---|
+| R-03 | CHANGED | AC12 추가 — 복구 뒤 화면·세션 ID 불변, 새 원본으로 이어 쓰기, 옛 파일 복귀에도 키·검색 불변. |
+| SD-06 | NEW | 복구 수명: 원본 부재 → 새 UUID 원본 시작 → 바인딩 → 이어 쓰기·분기 → 옛 파일 복귀 무시. |
+| AR-05 | NEW | Claude 원본 ID 바인딩: chat-turn(`native_id`) ↔ Claude 어댑터(SDK 옵션·이벤트·통지·훅) ↔ data(복구 행). |
+
+| Pair | 노드 ↔ 검증 | 등급 | production path · §10 자리 | 직접 관측 |
+|---|---|---|---|---|
+| VP-03 | R-03 ↔ AT-03 | REQUIRED | rev 5 경로 + 원본 부재 전송 → 새 원본 → 재열기·검색 · EP10 | rev 5 관측 + Q14 |
+| VP-18 | AR-05 ↔ IT-05 | REQUIRED | `resolve-turn`·`native-session`(`native_id`) → `send` TurnRequest(`nativeSessionId`·분기 출발점) → Claude 어댑터 SDK 옵션 → CLI 이벤트·통지·훅 → Orca 세션 · EP10 ①~⑧ | Q13·Q15 |
+| VP-19 | SD-06 ↔ ST-06 | REQUIRED | 원본 파일 → 이동(부재) → 전송·복구 → 새 원본 파일 → 옛 파일 복귀 → 재열기·검색·다음 전송 · EP10 ①②③⑦⑧ | Q14 |
+
+### 22-D. 계약 행 (§10에 더함)
+
+| 계약 | 규칙 |
+|---|---|
+| Claude 원본 ID 바인딩 (D-023) | `recoverSession`은 `crypto.randomUUID()`로 만든 새 UUID(요청 ID와 다름)와 `freshStart: true`를 돌려준다. 그 UUID가 복구 행 `native_id`가 되고, 첫 턴은 `Options.sessionId = native_id`(resume 없음), 이후 턴·자동 연속은 `resume = req.nativeSessionId ?? sessionId`로 이어 쓴다. Claude 어댑터는 OpenCode처럼 LiveTurn을 `routeNativeSession(live, nativeId, req.sessionId)`로 감싸 이벤트·provider 이벤트의 원본 ID를 Orca 세션 ID로 바꾼다. 이벤트 밖 통지(권한 모드 변경)와 훅 문맥의 세션 ID도 원본 ID면 Orca 세션 ID로 바꾼다. 분기·인계 TurnRequest의 출발점은 출발 세션 복구 행의 `native_id`(없으면 그 세션 ID)다. 첫 prompt 구성(보관 전체 + 새 입력, 80% 예산)은 바꾸지 않는다. |
+
+**선언 경계.** (1) D-024: 이 변경 전에 같은 ID로 복구된 세션에서 옛 파일이 돌아오는 경우 — 방어 규칙 없음(배포 없음). 투영이 같은 키로 출판을 거부해도 판정에 쓰지 않는다. (2) 되돌아온 옛 파일은 Claude CLI 자체 목록에 별개 세션으로 보일 수 있다 — Orca 밖. (3) 원본 생성과 DB 바인딩이 분산 트랜잭션이 아닌 점은 `persistence.md:196` 현행 그대로다.
+
+### 22-E. 강제 지점·좌표
+
+자리 검색: 저장소 루트에서 `rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|nativeSessionId|native_id|routeNativeSession|onPermissionModeChanged\?\.|forkFrom|session_id \?\? ' app/src/main/adapters/claude app/src/main/adapters/common app/src/main/app/chat-turn app/src/main/app/native-history.ts`. 이 턴 출력 36줄 중 Claude 원본 ID를 운반하는 자리를 아래 8개로 고정하고, 같은 출력의 Orca 계보 자리는 형제(유지)로 따로 둔다. 나머지 줄은 타입 선언·주석·Orca ID 조회다.
+
+| EP10 자리 | 규칙 | oracle · 분기 입력 |
+|---|---|---|
+| ① `adapters/claude/adapter.ts:373-377` 복구 ID 발급 | 새 UUID ≠ 요청 ID, UUID 형식 | Q13 (a) |
+| ② `app/chat-turn/native-session.ts:68-90` 복구 행 기록 | `native_id`·반환 `nativeSessionId` = ①의 UUID(현행 배선 유지) | Q14 |
+| ③ `adapters/claude/adapter.ts:670-672` SDK 옵션 | 복구 첫 턴 `sessionId = native_id`·resume 없음 / 이후 `resume = nativeSessionId ?? sessionId` / 분기 `resume = 출발 native_id` + `forkSession` | Q13 (b)(c)(d) — 입력: 복구 첫 턴 · 복구 뒤 일반 턴 · 복구 안 된 세션 일반 턴(nativeSessionId 없음 → sessionId) · 분기 |
+| ④ Claude LiveTurn 이벤트 경로(`map.ts:397`이 덮는 `ctx.sessionId`) | `routeNativeSession`으로 감싸 이벤트·provider 이벤트(백그라운드 `background.ts:50` 포함)가 Orca ID로 나간다 | Q13 (e) — 입력: 원본 ID 이벤트 · 백그라운드 provider 이벤트 · 복구 안 된 세션(같은 ID → 그대로) |
+| ⑤ `adapters/claude/adapter.ts:939` · `adapters/claude/adapt.ts:303` 이벤트 밖 세션 ID | 권한 모드 통지·훅 문맥이 Orca ID | Q13 (f)(g) |
+| ⑥ `app/chat-turn/send.ts:617` 분기·인계 출발점 | 출발 세션 `native_id`(복구 행 없으면 세션 ID) | Q15 — 입력: 복구된 출발 세션 · 복구 안 된 출발 세션 |
+| ⑦ `app/chat-turn/continuation.ts:40` · `resolve-turn.ts:123` 다음 턴 전달 | 복구 행 `native_id`를 `nativeSessionId`로(현행 배선 유지) | Q14(다음 전송) · Q13 (c) |
+| ⑧ `app/native-history.ts:37` 화면 재조회 | `native_id` 파일만 읽는다(현행 배선 유지) | Q14(옛 파일 복귀 뒤 재열기) |
+| 형제(유지) `send.ts:394` → `turn-context.ts:166` 계보 · `resolve-turn.ts:70` · `send.ts:83,119,152` | Orca 세션 ID를 유지한다 — 분기 표시 복사·계보 영속·출발 세션 메타는 Orca 관계다. ⑥만 원본 ID로 바뀐다. | Q15 — 같은 입력에서 TurnContext 계보 출발점 = Orca ID, TurnRequest 출발점 = `native_id` |
+
+| 좌표 | 재현 입력 → 직접 관측 |
+|---|---|
+| Q13 · `main/adapters/claude/adapter.fork.test.ts` | 기존 ‘recreates an expired conversation with the original UUID…’(`:63`)를 ‘…with a new native UUID…’로 기대 변경. 가짜 SDK의 `lastOptions()`와 출력 이벤트로 (a)~(g)를 관측한다. Orca ID(`orca-session`)와 원본 UUID를 서로 다른 값으로 둔다(구별 값). |
+| Q14 · `main/app/chat-turn/native-session.restored-history.db.test.ts`(r1.3 파일 재작성) | 실제 Claude 원본 reader·임시 projects 폴더·SQLite: `<옛ID>.jsonl` 색인 → 파일 이동 → `prepareNativeSession` → 새 UUID 확인 → `<새ID>.jsonl` 기록(복구 prompt id 포함) → 수정한 `<옛ID>.jsonl` 복귀 → 전체 reader·투영 키 고유, FTS 보관 hit → 보관 행, 복귀 파일 문구 검색 0건, Orca 세션 ID 불변, 다음 `prepareNativeSession`의 `nativeSessionId` = 새 UUID. |
+| Q15 · `main/app/chat-turn/send.fork-native.test.ts` ‘fork from a recovered session resumes its native id’ | 복구 행이 있는 출발 세션·없는 출발 세션으로 분기·인계를 보내 TurnRequest 출발점이 각각 `native_id`·세션 ID이고, 같은 턴의 TurnContext 계보 출발점은 두 경우 모두 Orca 세션 ID인지 본다(형제 맞바꿈 구별). |
+
+**선택 변이(ΔV3).** ① `req.sessionId` 반환(현행) → Q14 같은 키 두 행 red · Q13 (a) red. ③ `nativeSessionId` 무시 → Q13 (b)(c) red. ④ 경로 바꾸기 제거 → Q13 (e) red. ⑤ `msg.session_id` 그대로 → Q13 (f) red. ⑥ Orca ID 그대로 → Q15 red. 형제 맞바꿈(계보에 `native_id`) → Q15 red.
+
+**같은 변경에서 고칠 현재 상태 문서.** `docs/arch/backend/persistence.md:193`의 “Claude는 기존 UUID를 fresh `sessionId`로 사용”을 “Claude도 Orca가 만든 새 UUID를 fresh `sessionId`로 사용하고 이후 원본 조회·실행·분기의 native ID를 교체한다”로 바꾼다.
+
+### 22-F. 구현 재개 조건
+
+r1.4는 r1.3 코드에서 이어 가며 ΔV3을 먼저 한다(사용자 요구 변경 턴이라 verify 없는 impl 턴 수에 세지 않는다 — `docs/handoff/AGENTS.md §라운드`). Q14가 통과하면 r1.3이 막았던 투영 출판·검색 이동 경로를 그대로 잇는다.
+
 ## READY self-review
 
 | 점검 | 결과 |
 |---|---|
-| 결정 | **READY (V1 rev 5 + ΔV1 + ΔV2)**. Ledger ACTIVE 19 · SUPERSEDED 3 · OPEN 0(`grep -c '\| OPEN \|'` = 0). D-009 자동안·D-012 전체는 사용자 원문 인용, D-015~D-018은 PR #640 원문 인용. 조건절 “같은 턴 안에서만”(D-009)·“전체를 기준”(D-012)을 §5·§10·AC에 그대로 옮겼다. |
+| 결정 | **READY (V1 rev 5 + ΔV1 + ΔV2 + ΔV3)**. Ledger ACTIVE 21 · SUPERSEDED 3 · OPEN 0(`grep -c '\| OPEN \|'` = 0). D-009 자동안·D-012 전체는 사용자 원문 인용, D-015~D-018은 PR #640 원문 인용. 조건절 “같은 턴 안에서만”(D-009)·“전체를 기준”(D-012)을 §5·§10·AC에 그대로 옮겼다. |
 | ACTIVE ↔ AC | 갱신 메모 rev 5에 충돌 0으로 적었다. D-009 ↔ AC2·AC3, D-012 ↔ AC7, D-015 ↔ AC6, D-016 ↔ AC3·AC4, D-017 ↔ AC4, D-018 ↔ AC1·AC11. |
 | 근거 | §8 rev 5 표 — 줄 번호를 `7db1c7ce`로 재대조, 기존 스위트 7파일·128건 재실행 통과. PR #640 지적 4건을 §4 표에서 재현(`laterTurn` 0건 등). 0328 D-013·0326 D-103 앵커 실재 확인. |
 | V | VP-01~16. NEW SD-05→VP-15, MD-04→VP-16, CHANGED R-01~03·SD-01·02·04·AR-03·MD-03은 기존 pair 경로·oracle을 고쳤다. INHERITED SD-03은 VP-06 REGRESSION. AC 11개, 25 이하. |
@@ -641,6 +719,7 @@ r1.3은 r1.2 코드에서 이어 간다. 이 턴 실측상 (i)만으로 Q4b′ (
 | 남은 위험 | 미출판 첫 클릭이 현행 전량 열기의 2배(긴 DB Linux 기준 3,729 ms, §20 A)를 넘으면 PLAN_GAP(§17). 20만 메시지급 턴의 자동 채움 상한이 필요하면 사용자 결정. |
 | ΔV1 | r1 반송 근거 6건을 §20 A에서 코드·원시 기록으로 대조했다. CHANGED R-02·MD-02·MD-04는 VP-02·12·16 REQUIRED, INHERITED SD-03은 VP-06 REGRESSION(0326 ‘respects %s’ 13/13 재실행 통과). EP4′ 분기 입력 ② 5 · ③ 2열 · ⑥ 6, 선택 변이 3. 대체한 rev 5 행마다 ‘ΔV1에서 … 대체’ 표시를 달았다. |
 | ΔV2 | r1.2 반송 근거 5건을 §21 A에서 이 턴 Electron 실측(기준 실패 12/18 → 좌표 한 줄 수정 시 15회 실패 0)으로 대조했다. NEW MD-05 → VP-17(Q12), CHANGED MD-04 → VP-16, 경로가 바뀐 R-02 → VP-02 REQUIRED 재닫힘. EP4″ ④ 분기 입력 (i) 3 · (ii) 3 · (iii) 1, ⑤ 5, 선택 변이 4, 선언 경계 1(폴백). |
+| ΔV3 | r1.3 반송을 원인(같은 ID 복구 계약)에서 닫았다. SDK·CLI 지원은 설치 패키지 타입과 번들 CLI 검사 문자열로 확인했다(§22 A). NEW SD-06·AR-05 → VP-19·VP-18, CHANGED R-03 → VP-03. EP10 자리 8개와 Orca 계보 형제 1묶음을 검색 명령(36줄)으로 고정, 분기 입력 ③ 4 · ④ 3 · ⑥ 2, 선택 변이 6(형제 맞바꿈 포함), 선언 경계 3. 현재 상태 문서 1곳과 기대가 바뀌는 기존 테스트 1건을 적었다. |
 
 ---
 
