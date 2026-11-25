@@ -1,9 +1,11 @@
 import type Database from 'better-sqlite3'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { HISTORY_BODY_BYTES } from '../../../shared/history-page'
 import type { LoadedMessage } from '../../../shared/ipc'
 import { isTurnStart } from '../../../shared/history-turn'
 import type { HistoryMessageHeader } from './types'
+
+import { HistoryPanelQueries, contributesToPanels } from './history-panel-queries'
 
 export interface IndexState {
   rebuild: number
@@ -33,7 +35,10 @@ export const INDEX_SLICE_MS = 20
 
 export class HistoryIndexQueries {
   private readonly statements = new Map<string, Database.Statement>()
-  constructor(private readonly db: Database.Database) {}
+  readonly panels: HistoryPanelQueries
+  constructor(private readonly db: Database.Database) {
+    this.panels = new HistoryPanelQueries(db)
+  }
 
   private stmt(sql: string): Database.Statement {
     let stmt = this.statements.get(sql)
@@ -171,6 +176,52 @@ export class HistoryIndexQueries {
       .all(id, gen, header.ordinal) as Buffer[]
     return JSON.parse(Buffer.concat(buffers, header.body_bytes).toString('utf8'))
   }
+  storeMetadata(
+    id: string,
+    generation: string,
+    bytes: Buffer
+  ): import('../../../shared/history-page').HistoryMetadataRef {
+    const token = createHash('sha256').update(bytes).digest('hex')
+    if (
+      this.stmt('INSERT OR IGNORE INTO history_metadata_refs VALUES (?,?,?,?)').run(
+        id,
+        generation,
+        token,
+        bytes.length
+      ).changes
+    ) {
+      // Concurrent readers can finish a previous preview while a refresh publishes newer metadata.
+      this.stmt(
+        `DELETE FROM history_metadata_refs WHERE session_id=? AND generation=?
+        AND rowid NOT IN (SELECT rowid FROM history_metadata_refs WHERE session_id=? AND generation=? ORDER BY rowid DESC LIMIT 4)`
+      ).run(id, generation, id, generation)
+      const put = this.stmt('INSERT INTO history_metadata_chunks VALUES (?,?,?,?,?)')
+      for (let i = 0; i < bytes.length; i += HISTORY_BODY_BYTES)
+        put.run(id, generation, token, i, bytes.subarray(i, i + HISTORY_BODY_BYTES))
+    }
+    return { session: id, generation, token, bytes: bytes.length }
+  }
+
+  metadataChunk(
+    id: string,
+    generation: string,
+    token: string,
+    bytes: number,
+    offset: number
+  ): Buffer | undefined {
+    return this.stmt(
+      'SELECT payload FROM history_metadata_chunks JOIN history_metadata_refs USING(session_id,generation,token) WHERE session_id=? AND generation=? AND token=? AND bytes=? AND byte_offset=?'
+    )
+      .pluck()
+      .get(id, generation, token, bytes, offset) as Buffer | undefined
+  }
+  userCount(id: string, gen: string): number {
+    return this.stmt(
+      'SELECT user_count FROM history_generations WHERE session_id=? AND generation=?'
+    )
+      .pluck()
+      .get(id, gen) as number
+  }
   syncStatus(id: string, gen: string): LoadedSessionSync {
     const json = this.stmt(
       'SELECT native_sync FROM history_generations WHERE session_id=? AND generation=?'
@@ -207,6 +258,8 @@ export class HistoryIndexQueries {
       msg.parts.length,
       body.length
     )
+    if (contributesToPanels(msg))
+      this.stmt('INSERT INTO history_panel_inputs VALUES (?,?,?)').run(id, gen, ordinal)
     if (msg.parts.length)
       for (let offset = 0; offset < body.length; offset += HISTORY_BODY_BYTES)
         putChunk.run(id, gen, ordinal, offset, body.subarray(offset, offset + HISTORY_BODY_BYTES))
@@ -281,6 +334,28 @@ export class HistoryIndexQueries {
       ])
       previous = msg
     }
+    const users = messages.filter((m) => m.role === 'user').length
+    if (users)
+      this.stmt(
+        'UPDATE history_generations SET user_count=user_count+? WHERE session_id=? AND generation=?'
+      ).run(users, id, gen)
+    if (messages.some(contributesToPanels)) {
+      const inputs = this.stmt(
+        `SELECT h.* FROM history_panel_inputs p JOIN history_message_headers h USING (session_id,generation,ordinal)
+        WHERE p.session_id=? AND p.generation=? ORDER BY p.ordinal`
+      ).all(id, gen) as IndexHeader[]
+      this.panels.publish(
+        id,
+        gen,
+        inputs.map((h) => ({
+          id: h.message_key,
+          role: h.role,
+          createdAt: h.created_at,
+          incomplete: !!h.incomplete,
+          parts: this.parts(id, gen, h)
+        }))
+      )
+    }
     this.stmt('UPDATE history_index_state SET published_revision=revision WHERE session_id=?').run(
       id
     )
@@ -315,9 +390,15 @@ export class HistoryIndexQueries {
         )
         return 'pending'
       }
+      this.panels.publish(id, gen, source.messages)
       this.stmt(
-        'UPDATE history_generations SET native_sync=? WHERE session_id=? AND generation=?'
-      ).run(source.nativeSync ? JSON.stringify(source.nativeSync) : null, id, gen)
+        'UPDATE history_generations SET native_sync=?,user_count=? WHERE session_id=? AND generation=?'
+      ).run(
+        source.nativeSync ? JSON.stringify(source.nativeSync) : null,
+        source.messages.filter((m) => m.role === 'user').length,
+        id,
+        gen
+      )
       this.stmt(
         `UPDATE history_index_state SET published=building,published_revision=building_revision,
         building=NULL,building_revision=NULL,next_ordinal=0,rebuild=0 WHERE session_id=?`

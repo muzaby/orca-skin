@@ -340,25 +340,14 @@ export const sites: Site[] = [
     disposition: 'EXCLUDE'
   },
   { file: 'shared/compute/imageHeader.ts', ordinal: 0, line: 172, disposition: 'EXCLUDE' },
-  { file: 'features/chat/lib/transcriptIndex.ts', ordinal: 0, line: 284, disposition: 'EXCLUDE' },
   {
     file: 'features/chat/lib/workToolPresentation.ts',
     ordinal: 0,
-    line: 35,
+    line: 145,
     disposition: 'EXCLUDE'
   },
-  {
-    file: 'features/chat/lib/workToolPresentation.ts',
-    ordinal: 1,
-    line: 172,
-    disposition: 'EXCLUDE'
-  },
-  {
-    file: 'features/chat/lib/workToolPresentation.ts',
-    ordinal: 2,
-    line: 229,
-    disposition: 'EXCLUDE'
-  },
+  { file: 'features/chat/store/historyPanels.ts', ordinal: 0, line: 52, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/historyPanels.ts', ordinal: 1, line: 88, disposition: 'CONSUMED' },
   { file: 'features/chat/store/artifactStore.ts', ordinal: 0, line: 139, disposition: 'CONSUMED' },
   { file: 'features/chat/store/artifactStore.ts', ordinal: 1, line: 183, disposition: 'CONSUMED' },
   { file: 'features/chat/store/artifactStore.ts', ordinal: 2, line: 257, disposition: 'CONSUMED' },

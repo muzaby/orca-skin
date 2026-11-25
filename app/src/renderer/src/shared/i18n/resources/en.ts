@@ -696,6 +696,12 @@ export const en: typeof ko = {
     completeBody: 'The response is complete.'
   },
   chat: {
+    historyPanel: {
+      loading: 'Loading session history…',
+      failed: 'Could not load session history.',
+      retry: 'Try again',
+      more: 'Show more'
+    },
     nativeResources: {
       claudeCloseTitle: 'Close Claude sessions',
       claudeCloseBody_one:

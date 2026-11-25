@@ -700,6 +700,12 @@ export const ko = {
     completeBody: '응답이 완료되었습니다.'
   },
   chat: {
+    historyPanel: {
+      loading: '세션 이력을 불러오는 중…',
+      failed: '세션 이력을 불러올 수 없습니다.',
+      retry: '다시 시도',
+      more: '더 보기'
+    },
     nativeResources: {
       claudeCloseTitle: 'Claude 세션 종료',
       claudeCloseBody_one:

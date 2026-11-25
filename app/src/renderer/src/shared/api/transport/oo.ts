@@ -363,7 +363,8 @@ export function createOo({ bridge, hosts, onHostLifecycle }: OoTransport) {
       // 본문은 데이터 호스트가 조각으로 보내고 여기서 한 벌로 조립한다(0324 EP-4′).
       refresh: (sessionId: string): Promise<RefreshSessionResult> =>
         sessionLoads.refresh(sessionId),
-      load: (sessionId: string): Promise<LoadedSession | null> => sessionLoads.load(sessionId),
+      load: (sessionId: string): Promise<LoadedSession | null> =>
+        sessionLoads.loadLatest(sessionId),
       cancelLoad: sessionLoads.cancelLoad,
       page: sessionLoads.page,
       delete: (sessionId: string): Promise<DeleteSessionResult> =>

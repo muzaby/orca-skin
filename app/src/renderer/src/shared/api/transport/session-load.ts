@@ -94,7 +94,9 @@ export function createSessionLoadClient(deps: SessionLoadClientDeps): SessionLoa
     const request: Pending = {
       sessionId: query.sessionId,
       kind: 'load',
-      ...(query.kind === 'target' ? { targetSequence: query.openGeneration } : {}),
+      ...(query.kind === 'target' || query.kind === 'visit'
+        ? { targetSequence: query.openGeneration }
+        : {}),
       chunks: [],
       cancelled: false
     }
@@ -112,6 +114,9 @@ export function createSessionLoadClient(deps: SessionLoadClientDeps): SessionLoa
         result.openGeneration !== query.openGeneration ||
         (result.status === 'ok' &&
           (query.kind === 'body' ||
+            query.kind === 'metadata' ||
+            query.kind === 'panelSummary' ||
+            query.kind === 'panelDetail' ||
             result.session.id !== query.sessionId ||
             new Set(result.session.messages.map((m) => m.id)).size !==
               result.session.messages.length ||
@@ -124,8 +129,31 @@ export function createSessionLoadClient(deps: SessionLoadClientDeps): SessionLoa
                   m.deferredBody.generation !== result.session.history.generation ||
                   m.deferredBody.message !== m.id)
             ))) ||
+        (result.status === 'metadata' &&
+          (query.kind !== 'metadata' ||
+            result.ref.session !== query.sessionId ||
+            result.ref.generation !== query.ref.generation ||
+            result.ref.token !== query.ref.token ||
+            result.ref.bytes !== query.ref.bytes ||
+            result.offset !== query.offset ||
+            result.nextOffset <= query.offset ||
+            result.nextOffset > query.ref.bytes ||
+            result.done !== (result.nextOffset === query.ref.bytes))) ||
+        (result.status === 'panelSummary' &&
+          (query.kind !== 'panelSummary' ||
+            query.panel !== result.panel ||
+            query.generation !== result.generation ||
+            result.rows.some((r) => r.value.kind !== query.panel))) ||
+        (result.status === 'panelDetail' &&
+          (query.kind !== 'panelDetail' ||
+            query.panel !== result.panel ||
+            query.generation !== result.generation ||
+            query.itemKey !== result.itemKey ||
+            query.checkpoint !== result.checkpoint ||
+            query.offset !== result.offset ||
+            result.nextOffset <= result.offset)) ||
         (result.status === 'useCached' &&
-          (query.kind !== 'target' ||
+          ((query.kind !== 'target' && query.kind !== 'visit') ||
             query.cached?.messageKey !== result.messageKey ||
             query.cached.generation !== result.generation)) ||
         (result.status === 'body' &&
@@ -136,6 +164,11 @@ export function createSessionLoadClient(deps: SessionLoadClientDeps): SessionLoa
             result.done !== (result.nextOffset === query.ref.bytes)))
       )
         throw Error('Mismatched history reply')
+      if (
+        (result.status === 'ok' || result.status === 'useCached') &&
+        (query.kind === 'latest' || query.kind === 'target' || query.kind === 'visit')
+      )
+        boundedSessions.add(query.sessionId)
       return result
     } finally {
       pending.delete(requestId)

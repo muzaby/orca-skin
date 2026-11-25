@@ -14,7 +14,17 @@ import { messageOrderFor } from '../lib/transcript/messageOrder'
 import { newTranscriptChanges, recordChange } from '../lib/transcript/changeLog'
 import { rendererMessageId, userMessageId } from '../../../../../shared/message-id'
 import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
+import { readHistoryMetadata, restoreMetadata } from './historyMetadata'
+import {
+  forgetSearchPositions,
+  rememberSearchOrigin,
+  searchPosition
+} from '../lib/transcript/viewport/searchVisit'
 import { useMemo } from 'react'
+import { isPublishedMessage, hasHandoffHistory } from '../reducer/chatReducer'
+import { TranscriptPanelProjection } from '../../../../../shared/history-panels/projection'
+import type { PanelKind } from '../../../../../shared/history-panels/rows'
+import { usePanelPages, domainPanels, mergePanelView, type PanelScope } from './historyPanels'
 import { create } from 'zustand'
 import type { EntryIntent } from '../lib/transcript/viewport/entry'
 import type { TranscriptChanges } from '../lib/transcript/changeLog'
@@ -166,10 +176,14 @@ interface SearchWindow extends HistoryWindow {
   afterState?: 'loading' | 'error'
 }
 interface HistorySelection {
+  visit?: number
+  generation?: string
+  sessionId?: string
+  anchor?: import('../lib/transcript/viewport/anchor').AnchorTarget
   returning?: boolean
   returnFailed?: boolean
   seq: number
-  locator: HistoryLocator
+  locator?: HistoryLocator
   target: string
   keyboard: boolean
   restore: boolean
@@ -407,6 +421,39 @@ const permissionUpdates = new Map<string, { request: number; settlement: number 
 let permissionUpdateSequence = 0
 const sessionLoads = new Map<string, { entry: SessionEntry; liveChanged: boolean }>()
 
+function scheduleHistoryMetadata(
+  key: string,
+  ref: NonNullable<import('../../../../../shared/ipc').LoadedSession['metadataRef']>
+): void {
+  const entry = getState().sessions[key]
+  const version = entry.search?.seq ?? entry.history?.openGeneration
+  if (version === undefined) return
+  const current = (): boolean => {
+    const now = getState().sessions[key]
+    return (
+      !!now &&
+      now.session.sessionId === ref.session &&
+      (now.search?.seq ?? now.history?.openGeneration) === version
+    )
+  }
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      void readHistoryMetadata(ref, version, current).then(
+        (meta) => {
+          if (meta && current())
+            patchEntry(key, (e) => ({
+              ...e,
+              session: restoreMetadata(e.session, entry.session, meta)
+            }))
+        },
+        () => {
+          /* The bounded preview remains readable and reopening retries the metadata. */
+        }
+      )
+    })
+  )
+}
+
 function dispatchTo(key: string, action: ChatAction): void {
   if (
     [
@@ -452,6 +499,8 @@ function dispatchTo(key: string, action: ChatAction): void {
     }
     return session === entry.session ? entry : { ...entry, session }
   })
+  if (action.type === 'LOAD_SESSION' && action.session.metadataRef)
+    scheduleHistoryMetadata(key, action.session.metadataRef)
 }
 
 function dispatchActive(action: ChatAction): void {
@@ -784,6 +833,7 @@ function promotePendingNewChat(
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
 function dropSession(sessionId: string, fallbackProjectId: string | null = null): void {
+  forgetSearchPositions(sessionId)
   if (resolvingSearch?.session === sessionId || resolvingSearch?.origin === sessionId)
     cancelSearchRequest()
   sessionLoads.delete(sessionId)
@@ -1894,7 +1944,7 @@ function startHandoff(): boolean {
     !HARNESS_CAPABILITIES[src.backend ?? 'claude'].continuity
   )
     return false
-  if (src.messages.filter((m) => m.role === 'user').length < 2) return false
+  if (!hasHandoffHistory(src)) return false
   // 다른 새-채팅 전송이 pending 이면 조용한 큐 대기 대신 거부 — silent stuck 방지(r2).
   if (s.pendingNewChatKey != null) return false
   pruneUnsentContinuityDrafts(src.sessionId)
@@ -2381,30 +2431,52 @@ function cancelSearchRequest(): void {
 }
 
 async function openSearchHit(
-  locator: HistoryLocator,
+  locator:
+    | HistoryLocator
+    | {
+        kind: 'visit'
+        session: string
+        generation: string
+        messageKey: string
+        anchor: NonNullable<HistorySelection['anchor']>
+      },
   keyboard: boolean,
-  restore = false
+  restore = false,
+  visit?: number
 ): Promise<boolean> {
   cancelSearchRequest()
   const origin = getState().activeKey
   const id = locator.session
+  const originEntry = getState().sessions[origin]
+  if (!restore && !originEntry?.search?.locator)
+    rememberSearchOrigin(
+      origin,
+      originEntry?.search?.view?.generation ?? originEntry?.history?.generation
+    )
   const seq = ++searchSequence
   const flight = { origin, session: id, seq }
   resolvingSearch = flight
   const current = (): boolean => resolvingSearch === flight && getState().activeKey === origin
   const cached = getState().sessions[id]
-  const projected = locator.projectedKey
+  const position = visit === undefined ? undefined : searchPosition(visit, id)
+  const resume = position?.anchor.messageId
+    ? { generation: position.generation, messageKey: position.anchor.messageId }
+    : undefined
+  const projected =
+    'kind' in locator ? locator.messageKey : (resume?.messageKey ?? locator.projectedKey)
   const candidate =
     projected && cached?.history && messageOrderFor(cached.session).messagePosition(projected) >= 0
       ? { generation: cached.history.generation, messageKey: projected }
       : undefined
   try {
     const reply = await sessionApi.page({
-      kind: 'target',
+      ...('kind' in locator
+        ? { kind: 'visit' as const, generation: locator.generation, messageKey: locator.messageKey }
+        : { kind: 'target' as const, locator }),
       sessionId: id,
-      locator,
       openGeneration: seq,
-      ...(candidate ? { cached: candidate } : {})
+      ...(candidate ? { cached: candidate } : {}),
+      ...(resume ? { resume } : {})
     })
     if (!current()) return false
     if (reply.status !== 'ok' && reply.status !== 'useCached') return false
@@ -2451,7 +2523,23 @@ async function openSearchHit(
           history: e.history && { ...e.history, beforeState: undefined }
         }))
     }
-    const selection: HistorySelection = { seq, locator, target, keyboard, restore, view: gap }
+    const selection: HistorySelection = {
+      seq,
+      ...('kind' in locator ? { anchor: locator.anchor } : { locator }),
+      target,
+      keyboard,
+      restore,
+      view: gap,
+      visit: visit ?? seq,
+      sessionId: id,
+      generation: history.generation,
+      ...(resume &&
+      position &&
+      resume.generation === history.generation &&
+      resume.messageKey === target
+        ? { anchor: position.anchor }
+        : {})
+    }
     next = joinSearchAtLatest({ ...next, search: selection })
     resolvingSearch = undefined
     setState((st) => ({
@@ -2459,6 +2547,8 @@ async function openSearchHit(
       entryIntent: null,
       sessions: { ...st.sessions, [id]: next }
     }))
+    if (reply.status === 'ok' && reply.session.metadataRef)
+      scheduleHistoryMetadata(id, reply.session.metadataRef)
     void settingsApi.set({ lastSessionId: id })
     return true
   } catch {
@@ -2503,14 +2593,46 @@ function joinSearchAtLatest(entry: SessionEntry): SessionEntry {
 
 // A navigation from the search modal already resolved its locator. Back/forward
 // can refer to a different visit of the same session and must resolve it again.
+function restoreOriginVisit(
+  origin: {
+    session: string
+    generation?: string
+    anchor?: HistorySelection['anchor']
+    pinned: boolean
+  },
+  routeKey: string
+): void {
+  if (origin.pinned || !origin.anchor?.messageId || !origin.generation) {
+    if (getState().activeKey === origin.session && getState().sessions[origin.session]?.search)
+      leaveSearch(origin.session, true)
+    else void loadSession(origin.session)
+    return
+  }
+  void openSearchHit(
+    {
+      kind: 'visit',
+      session: origin.session,
+      generation: origin.generation,
+      messageKey: origin.anchor.messageId,
+      anchor: origin.anchor
+    },
+    false,
+    true
+  ).then((opened) => {
+    if (!opened && (globalThis.window?.history?.state?.key ?? 'default') === routeKey)
+      void loadSession(origin.session)
+  })
+}
+
 function restoreSearchVisit(locator: HistoryLocator, visitSequence: number): void {
   const state = getState()
   if (
     state.activeKey === locator.session &&
-    state.sessions[locator.session]?.search?.seq === visitSequence
+    (state.sessions[locator.session]?.search?.visit ??
+      state.sessions[locator.session]?.search?.seq) === visitSequence
   )
     return
-  void openSearchHit(locator, false, true)
+  void openSearchHit(locator, false, true, visitSequence)
 }
 
 function currentSearchSequence(): number | undefined {
@@ -2762,6 +2884,7 @@ export const chatActions = {
   leaveSearch,
   readSearchEdge,
   restoreSearchVisit,
+  restoreOriginVisit,
   currentSearchSequence,
   readPrevious,
   prependHistory,
@@ -3175,6 +3298,38 @@ export function useNewChatPending(key?: string): boolean {
   })
 }
 
+function usePanelScope(): PanelScope | undefined {
+  const sessionId = useChatStore(
+    (s) => s.sessions[s.activeKey].history?.sourceSessionId ?? s.activeKey
+  )
+  const generation = useChatStore(
+    (s) =>
+      s.sessions[s.activeKey].search?.view?.generation ??
+      s.sessions[s.activeKey].history?.generation
+  )
+  const openGeneration = useChatStore((s) => {
+    const entry = s.sessions[s.activeKey]
+    return entry.search?.view ? entry.search.seq : entry.history?.openGeneration
+  })
+  return useMemo(
+    () =>
+      generation && openGeneration !== undefined
+        ? { sessionId, generation, openGeneration }
+        : undefined,
+    [sessionId, generation, openGeneration]
+  )
+}
+
+export function useTileHistoryPages(kinds: PanelKind[]): ReturnType<typeof usePanelPages> {
+  return usePanelPages(usePanelScope(), kinds)
+}
+
+export function useSelectedPanelDetail(kind: PanelKind, key: string | null | undefined): void {
+  usePanelPages(usePanelScope(), [kind], key ? { kind, key } : undefined)
+}
+
+const noPanelMessages: readonly Message[] = []
+const noPanelPatches = new Map() as ChatState['heldPatches']
 export function useTranscriptView(
   domain: 'taskBoard'
 ): ReturnType<ReturnType<typeof transcriptIndexFor>['taskBoard']>
@@ -3204,7 +3359,47 @@ export function useTranscriptView(
   background?: BackgroundSessionState
 ): ReturnType<ReturnType<typeof transcriptIndexFor>['openCodePanelModel']>
 export function useTranscriptView(domain: string, arg?: unknown): unknown {
+  const scope = usePanelScope()
+  const selected = useChatStore((state) => {
+    if (!scope) return null
+    const session = state.sessions[state.activeKey].session
+    if (domain === 'taskBoard') return session.selectedTaskKey
+    if (domain === 'childMessage') return typeof arg === 'string' ? arg : null
+    if (domain === 'subagentTasks') return session.selectedSubagentTaskId
+    return null
+  })
+  const kinds = domainPanels(domain)
+  const { pages } = usePanelPages(
+    scope,
+    kinds,
+    selected ? { kind: kinds[0], key: selected } : undefined
+  )
+  const messages = useChatStore((state) =>
+    scope ? state.sessions[state.activeKey].session.messages : noPanelMessages
+  )
+  const patches = useChatStore((s) =>
+    scope ? s.sessions[s.activeKey].session.heldPatches : noPanelPatches
+  )
+  const live = useMemo(() => {
+    const index = new TranscriptPanelProjection()
+    const recent = messages.filter((m) => !isPublishedMessage(m))
+    const held = [...patches.values()].flat().sort((a, b) => a.sequence - b.sequence)
+    if (held.length)
+      recent.push({
+        id: 'panel:held',
+        role: 'assistant',
+        createdAt: 0,
+        parts: held.map((entry) => entry.part)
+      })
+    if (recent.length) index.reset(recent)
+    return { index, recent }
+  }, [messages, patches])
+  const overlay = useMemo(
+    () => scope && mergePanelView(domain, arg, pages, live.index, live.recent),
+    [scope, domain, arg, pages, live]
+  )
   return useChatStore((state) => {
+    if (scope) return overlay
     const session = state.sessions[state.activeKey].session
     const index = transcriptIndexFor(session)
     switch (domain) {

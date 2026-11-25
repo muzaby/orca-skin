@@ -58,7 +58,9 @@ const EXPECTED_MIGRATIONS = [
   '0034_native_snapshot_raw',
   '0035_scheduled_tasks',
   '0036_message_key',
-  '0037_turn_history_index'
+  '0037_turn_history_index',
+  '0038_history_panels',
+  '0039_history_fork_prefix'
 ]
 
 const APPLIED_SQL = [

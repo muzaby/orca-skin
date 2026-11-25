@@ -364,9 +364,11 @@ export class DbQueries {
       JOIN sessions s ON s.id = m.session_id
       WHERE messages_fts MATCH @query
         AND s.hidden_at IS NULL
-        AND m.id > MAX(COALESCE((SELECT local_frontier FROM native_history_snapshots
+        AND ((m.id <= (SELECT marker_id FROM history_fork_prefix WHERE session_id=s.id)
+           AND NOT EXISTS (SELECT 1 FROM native_session_recovery WHERE session_id=s.id))
+          OR m.id > MAX(COALESCE((SELECT local_frontier FROM native_history_snapshots
           WHERE session_id = s.id), 0), COALESCE((SELECT local_frontier FROM native_session_recovery
-          WHERE session_id = s.id), 0))
+          WHERE session_id = s.id), 0)))
       ORDER BY rank
       LIMIT @limit
     `)
@@ -813,6 +815,17 @@ export class DbQueries {
   // 대상 세션행이 먼저 존재해야 한다(FK). 반환값 = 복사한 메시지 수.
   copyMessagesToSession(srcSessionId: string, dstSessionId: string): number {
     return this.copyMessagesTx(srcSessionId, dstSessionId)
+  }
+
+  forkPrefix(sessionId: string): number | undefined {
+    return this.db
+      .prepare('SELECT marker_id FROM history_fork_prefix WHERE session_id=?')
+      .pluck()
+      .get(sessionId) as number | undefined
+  }
+
+  recordForkPrefix(sessionId: string, marker: number): void {
+    this.db.prepare('INSERT INTO history_fork_prefix VALUES (?,?)').run(sessionId, marker)
   }
 
   // 사용자 입력어를 FTS5 MATCH 표현식으로 안전하게 변환 후 검색.

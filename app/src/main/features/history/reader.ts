@@ -8,6 +8,7 @@ import type { NativeHistorySnapshot } from '../../adapters/common/native-history
 import type { DbQueries } from '../../infra/db'
 import { usageRowToTelemetry } from '../../infra/ipc/dto'
 import { localMessages, projectNativeHistory } from './native-projection'
+import { forkNativeSuffix } from './fork-native'
 import { recoveryArchive } from './native-recovery'
 
 // 영속 세션의 복원 조립. 현재 실행 상태(activity)는 IPC 조립 루트가 덧붙인다.
@@ -46,9 +47,10 @@ export function readHistorySource(
   const rows = recovery
     ? loadedRows.filter((row) => row.message_id > recovery.local_frontier)
     : loadedRows
-  const localHeaders = headers?.filter(
-    (row) => !recovery || row.message_id > recovery.local_frontier
-  )
+  const marker = !recovery ? db.forkPrefix?.(sessionId) : undefined
+  const localHeaders = (
+    headers ?? (marker !== undefined ? db.historyIndex.headers(sessionId) : undefined)
+  )?.filter((row) => !recovery || row.message_id > recovery.local_frontier)
   const stored = db.nativeHistory?.get(sessionId)
   const aliases = new Map<string, SourceAlias[]>()
   const alias = (key: string, source: SourceAlias['source'], identity: string): void => {
@@ -62,18 +64,33 @@ export function readHistorySource(
     try {
       const snapshot =
         refreshedSnapshot ?? (JSON.parse(stored.payload_json) as NativeHistorySnapshot)
+      const bindings = db.nativeHistory.bindings(sessionId)
+      const native =
+        marker === undefined
+          ? snapshot.messages
+          : forkNativeSuffix(snapshot.messages, bindings, marker)
+      const suffixRows = marker === undefined ? rows : rows.filter((r) => r.message_id > marker)
+      const suffixHeaders =
+        marker === undefined ? localHeaders : localHeaders?.filter((r) => r.message_id > marker)
+      const prefix =
+        marker === undefined
+          ? []
+          : localMessages(
+              rows.filter((r) => r.message_id <= marker),
+              localHeaders?.filter((r) => r.message_id <= marker)
+            )
       const projection = projectNativeHistory(
-        snapshot,
-        rows,
-        db.nativeHistory.bindings(sessionId),
-        stored.local_frontier,
-        localHeaders
+        { ...snapshot, messages: native },
+        suffixRows,
+        bindings,
+        native.length || marker === undefined ? stored.local_frontier : 0,
+        suffixHeaders
       )
-      messages = projection.messages
+      messages = [...prefix, ...projection.messages]
       if (headers)
-        snapshot.messages.forEach((message, i) => {
+        native.forEach((message, i) => {
           for (const key of new Set([message.id, ...(message.sourceIds ?? [])]))
-            alias(messages[i].id, 'native', key)
+            alias(projection.messages[i].id, 'native', key)
         })
       nativeSync = {
         status: 'ready',

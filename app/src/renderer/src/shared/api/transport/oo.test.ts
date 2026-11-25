@@ -516,18 +516,33 @@ it('wires DB load and lazy refresh as separate calls with the same stored sessio
   vi.stubGlobal('window', { oo: win.oo as OoApi })
   try {
     const { sessionApi } = await import('../ipc')
-    const loaded = { id: 'native-session', backend: 'opencode', messages: [] }
+    const loaded = {
+      id: 'native-session',
+      backend: 'opencode',
+      agentKind: 'code',
+      complete: false,
+      title: null,
+      history: { generation: 'g' },
+      messages: []
+    }
     harness.invoke
       .mockClear()
-      .mockResolvedValueOnce(loaded)
+      .mockImplementationOnce(async (_channel, args) => ({
+        ...(args as object),
+        status: 'ok',
+        session: loaded
+      }))
       .mockResolvedValueOnce({ status: 'unchanged' })
     expect(await sessionApi.load('native-session')).toEqual(loaded)
-    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith(CHANNELS.sessionLoad, {
+    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith(CHANNELS.sessionHistoryPage, {
+      kind: 'latest',
+      openGeneration: expect.any(Number),
       sessionId: 'native-session',
       requestId: expect.any(Number)
     })
     expect(await sessionApi.refresh('native-session')).toEqual({ status: 'unchanged' })
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionRefresh, {
+      openGeneration: expect.any(Number),
       sessionId: 'native-session',
       requestId: expect.any(Number)
     })
@@ -693,7 +708,7 @@ it('세션 로드 취소는 데이터 포트로 간다 — 셸 IPC 로 보내지
   const sentFrom = harness.sent.length
   const pending = api.session.load('s-cancel')
   await vi.waitFor(() =>
-    expect(harness.routes.slice(from)).toContainEqual([CHANNELS.sessionLoad, 'data'])
+    expect(harness.routes.slice(from)).toContainEqual([CHANNELS.sessionHistoryPage, 'data'])
   )
   api.session.cancelLoad('s-cancel')
   expect(harness.routes.slice(from)).toContainEqual([CHANNELS.sessionLoadCancel, 'data'])

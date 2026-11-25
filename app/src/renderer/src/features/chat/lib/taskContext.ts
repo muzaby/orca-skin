@@ -6,10 +6,7 @@ export interface TaskContextDirectory {
   working: boolean
 }
 
-export type TaskContextSource =
-  | { kind: 'web'; url: string; title: string }
-  | { kind: 'file'; path: string }
-  | { kind: 'attachment'; attachmentId: string; name: string; image: boolean; path?: string }
+export type { TaskContextSource } from '../../../../../shared/history-panels/types'
 
 export function taskContextDirectories(
   cwd: string | null,

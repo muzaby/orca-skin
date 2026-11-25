@@ -2,7 +2,12 @@ import { basenameForDisplay } from '../../../../../../../shared/path-basename'
 import { useI18n } from '../../../../../shared/i18n'
 import { Button } from '../../../../../shared/ui/Button'
 import { useBackgroundStore } from '../../../store/backgroundStore'
-import { chatActions, useChatSession, useTranscriptView } from '../../../store/chatStore'
+import {
+  chatActions,
+  useChatSession,
+  useTranscriptView,
+  useSelectedPanelDetail
+} from '../../../store/chatStore'
 import { AgentDetail, AgentList } from './AgentViews'
 import { AgentAvatar, PanelRow } from './chrome'
 import { activePanelProcesses, type SessionPanelModel } from './model'
@@ -34,6 +39,7 @@ function useSelectedOpenCodeAgent(): {
   const navigation = useOpenCodePanelNavigation()
   const detail = navigation?.selection?.id === 'subagent' ? navigation.selection : undefined
   const selected = detail ? detail.selectedId : baseSelected
+  useSelectedPanelDetail('agents', selected)
   const agent = model.agents.find((item) => item.toolUseId === selected)
   return { model, navigation, detail, selected, agent }
 }
@@ -169,6 +175,7 @@ export function OpenCodeProcessContent(): React.JSX.Element {
   const navigation = useOpenCodePanelNavigation()
   const detail = navigation?.selection?.id === 'process' ? navigation.selection : undefined
   const selected = detail ? detail.selectedId : baseSelected
+  useSelectedPanelDetail('processes', selected)
   const process = model.processes.find((item) => item.id === selected)
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4">

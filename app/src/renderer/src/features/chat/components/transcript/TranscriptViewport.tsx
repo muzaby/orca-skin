@@ -26,6 +26,7 @@ import {
   nestedScrollConsumes,
   canConsumeScroll
 } from '../../lib/transcript/viewport/scrollGeometry'
+import { registerSearchOrigin, saveSearchPosition } from '../../lib/transcript/viewport/searchVisit'
 import { revealSearchRow, type SearchReveal } from '../../lib/transcript/viewport/searchReveal'
 import { useI18n } from '../../../../shared/i18n'
 import { HistoryEdge } from './HistoryEdge'
@@ -372,6 +373,28 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const keyboard = search?.keyboard ?? false
   const restoring = search?.restore ?? false
   useLayoutEffect(() => {
+    if (!sessionKey) return
+    return registerSearchOrigin(() => ({
+      session: sessionKey,
+      anchor: scrollRef.current ? captureAnchor(scrollRef.current) : null,
+      pinned: !!isPinnedRef.current?.()
+    }))
+  }, [sessionKey, scrollRef])
+  const storedAnchor = search?.anchor
+  const visit = search?.visit,
+    visitSession = search?.sessionId,
+    visitGeneration = search?.generation
+  useLayoutEffect(() => {
+    const root = scrollRef.current
+    if (!root || visit === undefined || !visitGeneration || !visitSession) return
+    const record = (): void => {
+      const anchor = captureAnchor(root)
+      if (anchor) saveSearchPosition(visit, visitSession, visitGeneration, anchor)
+    }
+    root.addEventListener('scroll', record, { passive: true })
+    return () => root.removeEventListener('scroll', record)
+  }, [scrollRef, visit, visitSession, visitGeneration])
+  useLayoutEffect(() => {
     const root = scrollRef.current
     if (!root || !target || selectionSequence === undefined || !revealKey) return
     cancelCorrection(root)
@@ -392,9 +415,10 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       },
       (top) => writeScrollTop(root, top),
       () => setAnnounced(selectionSequence),
-      () => setReleasedSequence(selectionSequence)
+      () => setReleasedSequence(selectionSequence),
+      storedAnchor ? () => restoreAnchor(root, storedAnchor) : undefined
     )
-  }, [scrollRef, target, selectionSequence, revealKey, keyboard, restoring])
+  }, [scrollRef, target, selectionSequence, revealKey, keyboard, restoring, storedAnchor])
   const rangeExtractor = useCallback(
     (range: {
       startIndex: number

@@ -19,11 +19,7 @@ import {
   type SessionLoadReply,
   type SessionRefreshReply
 } from '../../../shared/data-host'
-import {
-  HISTORY_PAGE_BYTES,
-  HistoryPageRequestSchema,
-  type HistoryPageReply
-} from '../../../shared/history-page'
+import { HistoryPageRequestSchema, type HistoryPageReply } from '../../../shared/history-page'
 import { HistoryIndex } from '../../features/history/turn-index'
 import { readHistoryPage } from '../../features/history/history-page'
 import { LoadSessionRequestSchema } from '../../../shared/protocol'
@@ -129,12 +125,10 @@ export function registerSessionLoadHandlers(
         const job = await index.prepare(req.sessionId)
         if (client.isClosed() || !active.has(req.requestId)) return { ...echo, status: 'cancelled' }
         if (!job) return { ...echo, status: 'missing' }
-        const reply = readHistoryPage(ctx, req, job.generation, job.prepared)
-        if (reply.status === 'ok' && hooks.getActivity && req.kind === 'latest') {
-          reply.session.activity = await hooks.getActivity(req.sessionId)
-          if (Buffer.byteLength(JSON.stringify(reply)) > HISTORY_PAGE_BYTES)
-            return { ...echo, status: 'unavailable' }
-        }
+        const activity =
+          req.kind === 'latest' ? await hooks.getActivity?.(req.sessionId) : undefined
+        if (client.isClosed() || !active.has(req.requestId)) return { ...echo, status: 'cancelled' }
+        const reply = readHistoryPage(ctx, req, job.generation, job.prepared, activity)
         return client.isClosed() || !active.has(req.requestId)
           ? { ...echo, status: 'cancelled' }
           : reply
@@ -187,17 +181,12 @@ export function registerSessionLoadHandlers(
             openGeneration: req.openGeneration
           },
           job.generation,
-          job.prepared
+          job.prepared,
+          await hooks.getActivity?.(req.sessionId)
         )
         if (reply.status !== 'ok')
           return { status: 'unavailable', message: '원본 대화를 확인할 수 없습니다.' }
-        const session = await withActivity(reply.session)
-        if (
-          Buffer.byteLength(JSON.stringify({ status: 'updated', session })) + 64 >
-          HISTORY_PAGE_BYTES
-        )
-          return { status: 'unavailable', message: '대화 메타데이터가 너무 큽니다.' }
-        return { status: 'updated', session }
+        return { status: 'updated', session: reply.session }
       }
       const session = loadSession(
         ctx.db,

@@ -71,7 +71,7 @@ export class UsageQueries {
     `)
     // 세션 한정 비용 총합(0122 r2) — 상태 팝오버 "이 세션에서 사용한 비용" 복원용.
     this.sumSessionCostUsdStmt = db.prepare(`
-      SELECT COALESCE(SUM(total_cost_usd), 0) AS total FROM turn_usage WHERE session_id = @sessionId
+      SELECT COALESCE((SELECT total FROM history_session_cost WHERE session_id=@sessionId),0) AS total
     `)
     this.listTurnModelUsageStmt = db.prepare(`
       SELECT * FROM turn_model_usage

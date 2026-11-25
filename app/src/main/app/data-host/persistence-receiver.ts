@@ -21,6 +21,7 @@ import type { TurnContext } from '../../contracts/turn'
 import { resolveAgentProfile } from '../../features/agents/profiles'
 import { recoverSessionHistory } from '../../features/chat/recovery'
 import { HistoryWriter } from '../../features/history/writer'
+import { copyForkDisplay } from '../../features/history/fork-display'
 import { materializeContinuityArrival } from '../../features/orchestration/fork'
 import type { UsageTracker } from '../../features/usage/tracker'
 import type { DbQueries } from '../../infra/db'
@@ -65,7 +66,7 @@ export function createPersistenceReceiver(deps: PersistenceReceiverDeps): Persis
     new HistoryWriter(
       deps.db,
       (kind) => resolveAgentProfile(kind).persistResponseBoundaries,
-      (arrival) => materializeContinuityArrival(deps.db, arrival),
+      (arrival) => materializeContinuityArrival(deps.db, arrival, copyForkDisplay),
       deps.db.artifacts
     )
   const turns = new Map<string, TurnContext>()

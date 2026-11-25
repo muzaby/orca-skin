@@ -1,0 +1,1685 @@
+{
+  "handoff": "0329",
+  "round": "r1.5",
+  "designBase": "2bc18d63",
+  "platform": "linux",
+  "electron": "39.8.10",
+  "gateScope": {
+    "independentVerification": "pending",
+    "windowsDevice": "pending (AC10 / 0330)",
+    "tests": "22 failed | 10816 passed | 1 expected fail | 11 skipped (10850)",
+    "files": "9 failed | 1135 passed | 4 skipped (1148)",
+    "nodeScriptTestsPassed": 1104,
+    "eslint": {
+      "errors": 0,
+      "existingWarnings": 12
+    },
+    "changedTestFilesByProject": {
+      "io": 8,
+      "unit": 8
+    },
+    "unchangedBaseline": {
+      "baseCode": "05f65255",
+      "designOnlyUpdate": "2bc18d63",
+      "failures": [
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "exposes runtime-native watch files and applies external project choices only after idle reconciliation"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "pins deployed MCP files for same-cwd peers and reloads until the final owner closes"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "reconciles plugin choices through the actual adapter while preserving provider flags"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "reports a reconciled plugin revision as applied but not a later external edit"
+        },
+        {
+          "file": "src/main/adapters/claude/native-resources.test.ts",
+          "test": "applies session-only inline flags and reloads actual plugin state while preserving sibling flags"
+        },
+        {
+          "file": "src/main/adapters/claude/native-resources.test.ts",
+          "test": "commits a plugin choice only after verified reload and restores flags and commands when persistence fails"
+        },
+        {
+          "file": "src/main/adapters/claude/native-resources.test.ts",
+          "test": "waits for durable persistence and serializes subsequent plugin mutations"
+        },
+        {
+          "file": "src/main/adapters/claude/project-reconciliation.test.ts",
+          "test": "projects native plugin flag false during external reconciliation"
+        },
+        {
+          "file": "src/main/adapters/claude/project-reconciliation.test.ts",
+          "test": "shows external selection with actual status immediately, waits for idle, and never saves it back"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+          "test": "Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+          "test": "Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+          "test": "exposes native resources from the live channel client and its directory without mutations"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.test.ts",
+          "test": "OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "does not start a native server after caller cancellation or session scope change during preparation"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "prepares draft and saved directory with the same production settings and env resolution as turns"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "preserves the acquire failure stage through the registered catalog handler"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "preserves the configuration failure stage through the registered catalog handler"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "returns prepared plugin and agent parts through IPC before blocked MCP/models without a session"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "wires the public handler through the production resolver and returns its shutdown cleanup"
+        },
+        {
+          "file": "src/main/app/composer-preparation-service.test.ts",
+          "test": "shares targets across catalog resources and warmup through the production assembly"
+        },
+        {
+          "file": "src/main/app/handlers/session-resources.claude-assembly.test.ts",
+          "test": "reconciles external plugin selections and publishes the final state through the real watcher"
+        }
+      ],
+      "onlyInBase": [],
+      "onlyInImplementation": [],
+      "unhandledRejection": "Error: 이 플러그인은 프로젝트별 제어를 지원하지 않습니다."
+    },
+    "typechecks": [
+      "node",
+      "web",
+      "test",
+      "stage-e host",
+      "stage-e probe"
+    ],
+    "static": [
+      "migration append-only",
+      "documentation inventory",
+      "product naming",
+      "test budgets",
+      "UI thread"
+    ],
+    "bundle": [
+      "electron-vite build",
+      "smoke-hosts out/main",
+      "smoke-preload out/preload"
+    ]
+  },
+  "orderedPages": {
+    "uniform": [
+      [
+        128,
+        192
+      ],
+      [
+        128,
+        192
+      ],
+      [
+        128,
+        192
+      ],
+      [
+        128,
+        192
+      ],
+      [
+        88,
+        132
+      ]
+    ],
+    "skewed": [
+      [
+        85,
+        255
+      ],
+      [
+        126,
+        256
+      ],
+      [
+        128,
+        128
+      ],
+      [
+        128,
+        128
+      ],
+      [
+        128,
+        128
+      ],
+      [
+        5,
+        5
+      ]
+    ],
+    "oracle": "Independent minimum over contiguous partitions, boundary maximality and full ID order",
+    "partless": {
+      "messages": 200000,
+      "pages": 1563
+    },
+    "preparedHistory": {
+      "olderTurns": [
+        1,
+        100,
+        10000
+      ],
+      "readBodiesPerOpen": 2,
+      "fullHistoryReadsPerOpen": 0
+    }
+  },
+  "panels": {
+    "seededSessions": 2,
+    "turnsPerSession": 100,
+    "createdAtTurn": 17,
+    "changedAtTurn": 41,
+    "sourcesPerSession": 20,
+    "agentsPerSession": 2,
+    "processesPerSession": 3,
+    "coordinates": [
+      "panel-summary.db.test.ts",
+      "partial-history.integration.test.ts"
+    ],
+    "writeCost": "Publishing a panel-contributing local tail folds the previously indexed panel inputs. Tool-heavy append latency was not benchmarked."
+  },
+  "electronViewport": {
+    "samples": 150,
+    "failures": [],
+    "maximumAbsoluteReaderLineShiftPx": {
+      "claude-code": 0.265625,
+      "claude-work": 0.265625,
+      "opencode-code": 0.390625
+    },
+    "deliberateUserScrollExcluded": [
+      "expired",
+      "reverse"
+    ],
+    "allScenarioShiftPx": {
+      "claude-code": {
+        "top": 0.265625,
+        "followup": 0.265625,
+        "expired": 9.734375,
+        "middle": 0.265625,
+        "inertia": 0.265625,
+        "states": 0,
+        "reverse": 18.265625,
+        "lateHeight": 0.265625,
+        "firstMeasurement": 0.265625,
+        "ownership": 0.265625
+      },
+      "claude-work": {
+        "top": 0.265625,
+        "followup": 0.265625,
+        "expired": 9.734375,
+        "middle": 0.265625,
+        "inertia": 0.265625,
+        "states": 0,
+        "reverse": 18.265625,
+        "lateHeight": 0.265625,
+        "firstMeasurement": 0.265625,
+        "ownership": 0.265625
+      },
+      "opencode-code": {
+        "top": 0.390625,
+        "followup": 0.390625,
+        "expired": 9.609375,
+        "middle": 0.390625,
+        "inertia": 0.390625,
+        "states": 0,
+        "reverse": 18.390625,
+        "lateHeight": 0.390625,
+        "firstMeasurement": 0.390625,
+        "ownership": 0.390625
+      }
+    },
+    "searchSelections": [
+      {
+        "screen": "claude-code",
+        "keyboard": false,
+        "requests": [
+          "target"
+        ],
+        "focused": false,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "claude-code",
+        "keyboard": true,
+        "requests": [
+          "target"
+        ],
+        "focused": true,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "claude-work",
+        "keyboard": false,
+        "requests": [
+          "target"
+        ],
+        "focused": false,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "claude-work",
+        "keyboard": true,
+        "requests": [
+          "target"
+        ],
+        "focused": true,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "opencode-code",
+        "keyboard": false,
+        "requests": [
+          "target"
+        ],
+        "focused": false,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "opencode-code",
+        "keyboard": true,
+        "requests": [
+          "target"
+        ],
+        "focused": true,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      }
+    ]
+  },
+  "oldDatabases": {
+    "isolated": true,
+    "longMedianClickToBodyFrameMs": 2103.2000000029802,
+    "limitMs": 3729,
+    "runs": [
+      {
+        "env": true,
+        "phase": "projection",
+        "baseline": "7db1c7ce",
+        "oldDb": "small",
+        "receivedMessages": 2,
+        "loadingFrameMs": 42.900000002235174,
+        "visible": true,
+        "firstBodyId": "n:native-98",
+        "clickToBodyFrameMs": 103.10000000149012,
+        "sessions": 20,
+        "prepared": {
+          "queuedMs": 5.676588000000038,
+          "buildMs": 9.573256999999899,
+          "sourceBytes": 10434
+        },
+        "readBodyBytes": 90,
+        "backgroundPayloadBytes": 198246,
+        "before": {
+          "db": 782336,
+          "wal": 0
+        },
+        "after": {
+          "db": 782336,
+          "wal": 3765712
+        },
+        "readerPayloadBytes": 10434,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 918,
+        "replyFrames": 1,
+        "warm": {
+          "receivedMessages": 2,
+          "loadingFrameMs": null,
+          "visible": true,
+          "firstBodyId": "n:native-98",
+          "clickToBodyFrameMs": 28.600000001490116,
+          "sessions": 20,
+          "readBodyBytes": 90,
+          "backgroundPayloadBytes": 0,
+          "before": {
+            "db": 782336,
+            "wal": 3765712
+          },
+          "after": {
+            "db": 782336,
+            "wal": 3765712
+          },
+          "readerPayloadBytes": 0,
+          "requestJsonBytes": 145,
+          "replyJsonBytes": 828,
+          "replyFrames": 1
+        },
+        "platform": "linux",
+        "electron": "39.8.10",
+        "verdict": true
+      },
+      {
+        "env": true,
+        "phase": "projection",
+        "baseline": "7db1c7ce",
+        "oldDb": "long",
+        "receivedMessages": 2,
+        "loadingFrameMs": 33.30000000074506,
+        "visible": true,
+        "firstBodyId": "n:native-99998",
+        "clickToBodyFrameMs": 2103.2000000029802,
+        "sessions": 200,
+        "prepared": {
+          "queuedMs": 2.735881999999947,
+          "buildMs": 2017.7888229999999,
+          "sourceBytes": 11316684
+        },
+        "readBodyBytes": 96,
+        "backgroundPayloadBytes": 229548,
+        "before": {
+          "db": 28631040,
+          "wal": 0
+        },
+        "after": {
+          "db": 83021824,
+          "wal": 5104712
+        },
+        "readerPayloadBytes": 11316684,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 951,
+        "replyFrames": 1,
+        "warm": {
+          "receivedMessages": 2,
+          "loadingFrameMs": 5.799999997019768,
+          "visible": true,
+          "firstBodyId": "n:native-99998",
+          "clickToBodyFrameMs": 37.29999999701977,
+          "sessions": 200,
+          "readBodyBytes": 96,
+          "backgroundPayloadBytes": 406926,
+          "before": {
+            "db": 83021824,
+            "wal": 5104712
+          },
+          "after": {
+            "db": 85299200,
+            "wal": 5104712
+          },
+          "readerPayloadBytes": 0,
+          "requestJsonBytes": 145,
+          "replyJsonBytes": 857,
+          "replyFrames": 1
+        },
+        "platform": "linux",
+        "electron": "39.8.10",
+        "latencyGate": {
+          "limitMs": 3729,
+          "pass": true
+        },
+        "verdict": true
+      },
+      {
+        "env": true,
+        "phase": "projection",
+        "baseline": "7db1c7ce",
+        "oldDb": "long",
+        "receivedMessages": 2,
+        "loadingFrameMs": 38,
+        "visible": true,
+        "firstBodyId": "n:native-99998",
+        "clickToBodyFrameMs": 2119.599999997765,
+        "sessions": 200,
+        "prepared": {
+          "queuedMs": 3.558824999999615,
+          "buildMs": 2011.1197300000003,
+          "sourceBytes": 11316684
+        },
+        "readBodyBytes": 96,
+        "backgroundPayloadBytes": 219114,
+        "before": {
+          "db": 28631040,
+          "wal": 0
+        },
+        "after": {
+          "db": 81883136,
+          "wal": 5187112
+        },
+        "readerPayloadBytes": 11316684,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 951,
+        "replyFrames": 1,
+        "warm": {
+          "receivedMessages": 2,
+          "loadingFrameMs": 11.799999997019768,
+          "visible": true,
+          "firstBodyId": "n:native-99998",
+          "clickToBodyFrameMs": 45.5,
+          "sessions": 200,
+          "readBodyBytes": 96,
+          "backgroundPayloadBytes": 406926,
+          "before": {
+            "db": 81883136,
+            "wal": 5187112
+          },
+          "after": {
+            "db": 85360640,
+            "wal": 5187112
+          },
+          "readerPayloadBytes": 0,
+          "requestJsonBytes": 145,
+          "replyJsonBytes": 857,
+          "replyFrames": 1
+        },
+        "platform": "linux",
+        "electron": "39.8.10",
+        "latencyGate": {
+          "limitMs": 3729,
+          "pass": true
+        },
+        "verdict": true
+      },
+      {
+        "env": true,
+        "phase": "projection",
+        "baseline": "7db1c7ce",
+        "oldDb": "long",
+        "receivedMessages": 2,
+        "loadingFrameMs": 28.600000001490116,
+        "visible": true,
+        "firstBodyId": "n:native-99998",
+        "clickToBodyFrameMs": 2086.39999999851,
+        "sessions": 200,
+        "prepared": {
+          "queuedMs": 2.6049299999999675,
+          "buildMs": 1993.136838,
+          "sourceBytes": 11316684
+        },
+        "readBodyBytes": 96,
+        "backgroundPayloadBytes": 250416,
+        "before": {
+          "db": 28631040,
+          "wal": 0
+        },
+        "after": {
+          "db": 83202048,
+          "wal": 5145912
+        },
+        "readerPayloadBytes": 11316684,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 945,
+        "replyFrames": 1,
+        "warm": {
+          "receivedMessages": 2,
+          "loadingFrameMs": 6.199999999254942,
+          "visible": true,
+          "firstBodyId": "n:native-99998",
+          "clickToBodyFrameMs": 47.79999999701977,
+          "sessions": 200,
+          "readBodyBytes": 96,
+          "backgroundPayloadBytes": 719946,
+          "before": {
+            "db": 83202048,
+            "wal": 5145912
+          },
+          "after": {
+            "db": 86654976,
+            "wal": 5145912
+          },
+          "readerPayloadBytes": 0,
+          "requestJsonBytes": 145,
+          "replyJsonBytes": 857,
+          "replyFrames": 1
+        },
+        "platform": "linux",
+        "electron": "39.8.10",
+        "latencyGate": {
+          "limitMs": 3729,
+          "pass": true
+        },
+        "verdict": true
+      }
+    ]
+  },
+  "mutationSweep": {
+    "mutationsDetected": 90,
+    "directlyMutatedSites": 62,
+    "listedSites": 62,
+    "unmutatedSites": [],
+    "additionalOracleAttempts": [
+      {
+        "change": "late-reply",
+        "coordinate": "src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.session.test.ts",
+        "exit": 0,
+        "failures": [],
+        "site": "EP5.3"
+      },
+      {
+        "change": "invalid-request-session",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 0,
+        "failures": [],
+        "site": "EP2.2"
+      },
+      {
+        "change": "render-cancel",
+        "coordinate": "src/renderer/src/features/chat/store/chatStore.busyGuards.test.ts",
+        "exit": 0,
+        "failures": [],
+        "site": "EP5.2"
+      },
+      {
+        "change": "stale-page-state",
+        "coordinate": "src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.session.test.ts",
+        "exit": 0,
+        "failures": [],
+        "site": "EP5.3"
+      }
+    ],
+    "note": "The primary site is counted once, even if more than one mutation exercises it. Positive tests and inherited reports are not counted as individual mutations here.",
+    "results": [
+      {
+        "change": "early",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× greedy maximal pages for uniform and skewed turns (spread) 445ms",
+          "× greedy maximal pages for uniform and skewed turns (clustered) 398ms",
+          "AssertionError: expected false to be true // Object.is equality"
+        ],
+        "site": "EP3.2"
+      },
+      {
+        "change": "parts",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× greedy maximal pages for uniform and skewed turns (clustered) 741ms",
+          "AssertionError: expected 384 to be less than or equal to 256"
+        ],
+        "site": "EP3.2"
+      },
+      {
+        "change": "oversized",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× packs inherently oversized messages with adjacent headers in both directions 711ms",
+          "AssertionError: expected [ { id: 'm:1', role: 'user', …(2) } ] to deeply equal [ { id: 'm:3', …(3) } ]"
+        ],
+        "site": "EP3.2"
+      },
+      {
+        "change": "removed",
+        "coordinate": "src/main/features/history/panel-summary.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× isolates historical tasks, agents, processes and sources and reads only the selected detail 993ms",
+          "AssertionError: expected { sessionId: 'S', requestId: 1, …(8) } to match object { total: +0, checkpoint: 200 }"
+        ],
+        "site": "EP7.1"
+      },
+      {
+        "change": "snapshot",
+        "coordinate": "src/main/features/history/panel-summary.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× isolates historical tasks, agents, processes and sources and reads only the selected detail 1164ms",
+          "AssertionError: expected [ 'agent:8', 'agent:9' ] to deeply equal [ 'agent:9' ]"
+        ],
+        "site": "EP7.1"
+      },
+      {
+        "change": "checkpoint",
+        "coordinate": "src/main/features/history/panel-summary.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× isolates historical tasks, agents, processes and sources and reads only the selected detail 993ms",
+          "AssertionError: expected 'panelDetail' to be 'stale' // Object.is equality"
+        ],
+        "site": "EP7.3"
+      },
+      {
+        "change": "default",
+        "coordinate": "src/renderer/src/shared/api/transport/oo.test.ts",
+        "exit": 1,
+        "failures": [
+          "× wires DB load and lazy refresh as separate calls with the same stored session ID 169ms",
+          "AssertionError: expected Set{ 'data' } to deeply equal Set{ 'shell', 'agent', 'data' }",
+          "AssertionError: expected { sessionId: 'native-session', …(3) } to deeply equal { id: 'native-session', …(6) }"
+        ],
+        "site": "EP2.1"
+      },
+      {
+        "change": "historical-fork",
+        "coordinate": "src/main/app/chat-turn/paged-recovery.integration.test.ts",
+        "exit": 1,
+        "failures": [
+          "× full archive and fork retain the first, middle and last identities when only the fifth turn is open 212ms",
+          "AssertionError: expected [ { id: 'n:key-8', …(3) }, …(3) ] to deeply equal [ { id: 'key-0', …(3) }, …(9) ]"
+        ],
+        "site": "EP8.4"
+      },
+      {
+        "change": "visit",
+        "coordinate": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "exit": 1,
+        "failures": [
+          "× rechecks the source and restores the last reading anchor for that visit 209ms",
+          "AssertionError: expected last \"page\" call to have been called with [ ObjectContaining{…} ]"
+        ],
+        "site": "EP6.3"
+      },
+      {
+        "change": "late-selection",
+        "coordinate": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "exit": 1,
+        "failures": [
+          "× drops a late or deleted target and leaves the current view in place 12ms",
+          "AssertionError: expected true to be false // Object.is equality"
+        ],
+        "site": "EP6.6"
+      },
+      {
+        "change": "priority",
+        "coordinate": "src/main/features/history/turn-index.job.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× prioritizes the requested session, resumes after interrupted slices and publishes one complete revision 200ms",
+          "AssertionError: expected 'recent' to be 'requested' // Object.is equality"
+        ],
+        "site": "EP9.2"
+      },
+      {
+        "change": "size",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× keeps exactly 256 KiB inline and defers the same message one byte over 219ms",
+          "AssertionError: expected undefined to be 'm:1' // Object.is equality"
+        ],
+        "site": "EP3.2"
+      },
+      {
+        "change": "resume-progress",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× keeps the previous publication intact when a resumed build has not finished 298ms",
+          "AssertionError: expected { session_id: 'session', …(7) } to match object { next_ordinal: 1, …(2) }"
+        ],
+        "site": "EP9.4"
+      },
+      {
+        "change": "publish-pointer",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× keeps the previous publication intact when a resumed build has not finished 153ms",
+          "AssertionError: expected { session_id: 'session', …(7) } to match object { next_ordinal: 1, …(2) }"
+        ],
+        "site": "EP1.4"
+      },
+      {
+        "change": "slice-budget",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× keeps the previous publication intact when a resumed build has not finished 145ms",
+          "AssertionError: expected 'published' to be 'pending' // Object.is equality"
+        ],
+        "site": "EP9.3"
+      },
+      {
+        "change": "body-session",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× reads a deferred UTF-8 body across chunk boundaries and rejects stale or foreign references 538ms",
+          "AssertionError: expected { sessionId: 'session', …(7) } to match object { status: 'invalid' }"
+        ],
+        "site": "EP3.3"
+      },
+      {
+        "change": "meta-session",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× defers oversized control metadata while returning the latest text on the first page 159ms",
+          "AssertionError: expected { sessionId: 'session', …(8) } to match object { status: 'invalid' }"
+        ],
+        "site": "EP3.3"
+      },
+      {
+        "change": "echo-session",
+        "coordinate": "src/renderer/src/shared/api/transport/session-load.test.ts",
+        "exit": 1,
+        "failures": [
+          "× rejects mismatched or incomplete replies {\"sessionId\":\"other\"} 32ms",
+          "AssertionError: promise resolved \"{ id: 's', backend: 'claude', …(5) }\" instead of rejecting"
+        ],
+        "site": "EP2.4"
+      },
+      {
+        "change": "echo-request",
+        "coordinate": "src/renderer/src/shared/api/transport/session-load.test.ts",
+        "exit": 1,
+        "failures": [
+          "× rejects mismatched or incomplete replies {\"requestId\":71} 12ms",
+          "AssertionError: promise resolved \"{ id: 's', backend: 'claude', …(5) }\" instead of rejecting"
+        ],
+        "site": "EP2.4"
+      },
+      {
+        "change": "echo-generation",
+        "coordinate": "src/renderer/src/shared/api/transport/session-load.test.ts",
+        "exit": 1,
+        "failures": [
+          "× rejects mismatched or incomplete replies {\"openGeneration\":72} 22ms",
+          "AssertionError: promise resolved \"{ id: 's', backend: 'claude', …(5) }\" instead of rejecting"
+        ],
+        "site": "EP2.4"
+      },
+      {
+        "change": "refresh-bounded",
+        "coordinate": "src/renderer/src/shared/api/transport/session-load.test.ts",
+        "exit": 1,
+        "failures": [
+          "× accepts one matching page and keeps refresh on the bounded path 84ms",
+          "AssertionError: expected { sessionId: 's', requestId: 1 } to match object { requestId: 1, openGeneration: 1 }"
+        ],
+        "site": "EP2.1"
+      },
+      {
+        "change": "wheel-gap",
+        "coordinate": "src/renderer/src/features/chat/lib/transcript/historyGesture.test.ts",
+        "exit": 1,
+        "failures": [
+          "× starts a new gesture on reversal, interruption, and at the gap boundary 24ms",
+          "AssertionError: expected 'consumedPull' to be 'started' // Object.is equality"
+        ],
+        "site": "EP4.5"
+      },
+      {
+        "change": "wheel-direction",
+        "coordinate": "src/renderer/src/features/chat/lib/transcript/historyGesture.test.ts",
+        "exit": 1,
+        "failures": [
+          "× starts a new gesture on reversal, interruption, and at the gap boundary 7ms",
+          "× keeps ordinary upward input ordinary even if the same flick reaches the edge 2ms",
+          "AssertionError: expected 'consumedPull' to be 'userInput' // Object.is equality"
+        ],
+        "site": "EP4.5"
+      },
+      {
+        "change": "wheel-cancel",
+        "coordinate": "src/renderer/src/features/chat/components/transcript/TranscriptViewport.history-pull.test.ts",
+        "exit": 1,
+        "failures": [
+          "× reserves the browser default only for a consumed partial-history pull (partial=true) 51ms",
+          "AssertionError: expected false to be true // Object.is equality"
+        ],
+        "site": "EP4.5"
+      },
+      {
+        "change": "panel-publication",
+        "coordinate": "src/main/features/history/panel-summary.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× isolates historical tasks, agents, processes and sources and reads only the selected detail 475ms"
+        ],
+        "site": "EP7.1"
+      },
+      {
+        "change": "fork-keys",
+        "coordinate": "src/main/app/chat-turn/paged-recovery.integration.test.ts",
+        "exit": 1,
+        "failures": [
+          "× full archive and fork retain the first, middle and last identities when only the fifth turn is open 150ms",
+          "AssertionError: expected [ …(10) ] to deeply equal [ { id: 'key-0', …(3) }, …(9) ]"
+        ],
+        "site": "EP8.4"
+      },
+      {
+        "change": "fork-content",
+        "coordinate": "src/main/app/chat-turn/paged-recovery.integration.test.ts",
+        "exit": 1,
+        "failures": [
+          "× full archive and fork retain the first, middle and last identities when only the fifth turn is open 103ms",
+          "AssertionError: expected [ { id: 'key-0', …(3) }, …(9) ] to deeply equal [ { id: 'key-0', …(3) }, …(9) ]"
+        ],
+        "site": "EP8.4"
+      },
+      {
+        "change": "list-total",
+        "coordinate": "src/main/features/history/panel-summary.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× isolates historical tasks, agents, processes and sources and reads only the selected detail 420ms",
+          "AssertionError: expected [ { key: 'agent:7', value: { …(2) } } ] to have a length of +0 but got 1"
+        ],
+        "site": "EP7.1"
+      },
+      {
+        "change": "origin-selection",
+        "coordinate": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "exit": 1,
+        "failures": [
+          "× restores the ordinary pre-search visit at its reading offset without replaying a highlight 99ms",
+          "AssertionError: expected \"page\" to be called with arguments: [ ObjectContaining{…} ]"
+        ],
+        "site": "EP6.2"
+      },
+      {
+        "change": "aggregate-quota",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× greedy maximal pages for uniform and skewed turns (spread) 1092ms",
+          "× greedy maximal pages for uniform and skewed turns (clustered) 464ms",
+          "AssertionError: expected false to be true // Object.is equality"
+        ],
+        "site": "EP3.2"
+      },
+      {
+        "change": "ordinary-generation",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× returns the ordinary reading position only for its published generation and confirms cached keys 152ms",
+          "AssertionError: expected { sessionId: 'session', …(5) } to match object { status: 'stale' }"
+        ],
+        "site": "EP6.3"
+      },
+      {
+        "change": "ordinary-missing",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× returns the ordinary reading position only for its published generation and confirms cached keys 193ms",
+          "AssertionError: expected { sessionId: 'session', …(3) } to match object { status: 'missing' }"
+        ],
+        "site": "EP6.3"
+      },
+      {
+        "change": "ordinary-cache",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× returns the ordinary reading position only for its published generation and confirms cached keys 417ms",
+          "AssertionError: expected { sessionId: 'session', …(5) } to match object { status: 'useCached', …(1) }"
+        ],
+        "site": "EP6.3"
+      },
+      {
+        "change": "panel-overlay",
+        "coordinate": "src/renderer/src/features/chat/components/rightpanel/partial-history.integration.test.ts",
+        "exit": 1,
+        "failures": [
+          "× all session panels show unpublished live changes over a historical summary, and fetch one child detail 15355ms",
+          "AssertionError: expected [ [ [ '7', 'pending' ] ], …(4) ] to deeply equal [ [ [ '7', 'completed' ] ], …(4) ]"
+        ],
+        "site": "EP7.2"
+      },
+      {
+        "change": "send-target",
+        "coordinate": "src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.session.test.ts",
+        "exit": 1,
+        "failures": [
+          "× a late history page and thumbnail keep the draft for the active send 178ms",
+          "AssertionError: expected \"vi.fn()\" to not be called at all, but actually been called 1 times"
+        ],
+        "site": "EP5.6"
+      },
+      {
+        "change": "fork-native-marker",
+        "coordinate": "src/main/app/chat-turn/paged-recovery.integration.test.ts",
+        "exit": 1,
+        "failures": [
+          "× full archive and fork retain the first, middle and last identities when only the fifth turn is open 146ms",
+          "AssertionError: expected [ 'child-output' ] to deeply equal [ 'child-input', 'child-output' ]"
+        ],
+        "beforeStrengthening": {
+          "exit": 0,
+          "failures": []
+        },
+        "site": "EP8.4"
+      },
+      {
+        "change": "scope-fork-draft",
+        "coordinate": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "exit": 1,
+        "failures": [
+          "× uses the parent cursor only for the fork draft and leaves the parent messages untouched 154ms",
+          "AssertionError: expected { kind: 'earlierTurn', …(3) } to match object { kind: 'earlierTurn', …(2) }"
+        ],
+        "site": "EP8.3"
+      },
+      {
+        "change": "join-latest",
+        "coordinate": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "exit": 1,
+        "failures": [
+          "× opens a cold target without latest, pages independently, joins the latest end and reuses a confirmed key 83ms",
+          "AssertionError: expected [ { id: 'm:2', role: 'user', …(2) } ] to deeply equal []"
+        ],
+        "site": "EP6.8"
+      },
+      {
+        "change": "edge-inflight",
+        "coordinate": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "exit": 1,
+        "failures": [
+          "× opens a cold target without latest, pages independently, joins the latest end and reuses a confirmed key 50ms"
+        ],
+        "site": "EP5.1"
+      },
+      {
+        "change": "row-highlight",
+        "coordinate": "src/renderer/src/features/chat/lib/transcript/viewport/searchReveal.test.ts",
+        "exit": 1,
+        "failures": [
+          "× starts the two-second outline only on a visible frame (keyboard=true) 127ms",
+          "× starts the two-second outline only on a visible frame (keyboard=false) 54ms",
+          "AssertionError: expected false to be true // Object.is equality"
+        ],
+        "site": "EP6.5"
+      },
+      {
+        "change": "keyboard-focus",
+        "coordinate": "src/renderer/src/features/chat/lib/transcript/viewport/searchReveal.test.ts",
+        "exit": 1,
+        "failures": [
+          "× starts the two-second outline only on a visible frame (keyboard=true) 84ms",
+          "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 0 times"
+        ],
+        "site": "EP6.5"
+      },
+      {
+        "change": "restore-no-outline",
+        "coordinate": "src/renderer/src/features/chat/lib/transcript/viewport/searchReveal.test.ts",
+        "exit": 1,
+        "failures": [
+          "× user input or restoring a visit leaves no focus, outline, or stale callback 6ms",
+          "AssertionError: expected \"vi.fn()\" to not be called at all, but actually been called 1 times"
+        ],
+        "site": "EP6.6"
+      },
+      {
+        "change": "entry-bottom",
+        "coordinate": "src/renderer/src/features/chat/lib/transcript/viewport/entry.test.ts",
+        "exit": 1,
+        "failures": [
+          "× p7: open always scrolls to bottom on both harnesses even if OpenCode has saved anchor 75ms",
+          "× p11/p13/p14/p15: entryIntent derivation (open, sync, resume), single consumption, re-select no-op, late revalidate, and cross-session isolation 2ms",
+          "AssertionError: expected { action: 'keep-anchor' } to deeply equal { action: 'scroll-bottom' }"
+        ],
+        "site": "EP4.1"
+      },
+      {
+        "change": "page-overlap",
+        "coordinate": "src/renderer/src/features/chat/reducer/chatReducer.prepend.test.ts",
+        "exit": 1,
+        "failures": [
+          "× deduplicates pages, rejects a misplaced overlap, and preserves existing messages 45ms",
+          "AssertionError: expected { agentKind: 'code', …(76) } to be { agentKind: 'code', …(76) } // Object.is equality"
+        ],
+        "site": "EP5.4"
+      },
+      {
+        "change": "orphan-patch",
+        "coordinate": "src/renderer/src/features/chat/reducer/chatReducer.prepend.test.ts",
+        "exit": 1,
+        "failures": [
+          "× retains a tool patch and its publication past the history start until the deferred body opens 71ms",
+          "AssertionError: expected [ { id: 'a:old', …(3) }, …(1) ] to deeply equal [ { id: 'a:old', …(3) }, …(1) ]"
+        ],
+        "site": "EP5.4"
+      },
+      {
+        "change": "old-count",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× reads the same latest turn after 1 older turns without opening their bodies 161ms",
+          "× reads the same latest turn after 100 older turns without opening their bodies 100ms",
+          "× reads the same latest turn after 10000 older turns without opening their bodies 1105ms"
+        ],
+        "site": "EP7.5"
+      },
+      {
+        "change": "old-uuid",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+          "recreates an expired conversation with a new native UUID and hides archived context in its receipt"
+        ],
+        "site": "EP10.1"
+      },
+      {
+        "change": "resume-orca",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "recreates an expired conversation with a new native UUID and hides archived context in its receipt",
+          "routes resumed events, permissions and hooks to the display session (recovered=true)"
+        ],
+        "site": "EP10.3"
+      },
+      {
+        "change": "unrouted-events",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "routes resumed events, permissions and hooks to the display session (recovered=true)"
+        ],
+        "site": "EP10.4"
+      },
+      {
+        "change": "unrouted-permission",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "routes resumed events, permissions and hooks to the display session (recovered=true)"
+        ],
+        "site": "EP10.5"
+      },
+      {
+        "change": "unrouted-hook",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "routes resumed events, permissions and hooks to the display session (recovered=true)"
+        ],
+        "site": "EP10.5"
+      },
+      {
+        "change": "fork-orca",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "uses the native source for forkFrom and the display parent for lineage (recovered=true)",
+          "uses the native source for handoffFrom and the display parent for lineage (recovered=true)"
+        ],
+        "site": "EP10.6"
+      },
+      {
+        "change": "lineage-native",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "uses the native source for forkFrom and the display parent for lineage (recovered=true)"
+        ],
+        "site": "EP10.6"
+      },
+      {
+        "change": "handoff-lineage-native",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "uses the native source for handoffFrom and the display parent for lineage (recovered=true)"
+        ],
+        "site": "EP10.6"
+      },
+      {
+        "change": "bind-old",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns"
+        ],
+        "site": "EP10.2"
+      },
+      {
+        "change": "next-send-old",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns"
+        ],
+        "site": "EP10.7"
+      },
+      {
+        "change": "reopen-old",
+        "coordinate": "Q13/Q14/Q15",
+        "exit": 1,
+        "failures": [
+          "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns"
+        ],
+        "site": "EP10.8"
+      },
+      {
+        "change": "archive-projection",
+        "coordinate": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× keeps the archive searchable and follows only the replacement Claude file after the old UUID returns 429ms",
+          "AssertionError: expected [ …(2) ] to deeply equal [ …(4) ]"
+        ],
+        "site": "EP1.3"
+      },
+      {
+        "change": "native-suffix-source",
+        "coordinate": "src/main/app/chat-turn/paged-recovery.integration.test.ts",
+        "exit": 1,
+        "failures": [
+          "× full archive and fork retain the first, middle and last identities when only the fifth turn is open 107ms",
+          "AssertionError: expected [ 'key-0', 'key-1', 'key-2', …(20) ] to deeply equal [ 'key-0', 'key-1', 'key-2', …(10) ]"
+        ],
+        "site": "EP1.2"
+      },
+      {
+        "change": "seek-latest",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× reads the same latest turn after 1 older turns without opening their bodies 123ms",
+          "× reads the same latest turn after 100 older turns without opening their bodies 58ms",
+          "× reads the same latest turn after 10000 older turns without opening their bodies 750ms"
+        ],
+        "site": "EP1.5"
+      },
+      {
+        "change": "sender-read",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× reads the same latest turn after 1 older turns without opening their bodies 143ms",
+          "× reads the same latest turn after 100 older turns without opening their bodies 70ms",
+          "× reads the same latest turn after 10000 older turns without opening their bodies 908ms"
+        ],
+        "site": "EP2.3"
+      },
+      {
+        "change": "publish-to-window",
+        "coordinate": "src/renderer/src/shared/api/transport/session-load.test.ts",
+        "exit": 1,
+        "failures": [
+          "× accepts one matching page and keeps refresh on the bounded path 86ms",
+          "AssertionError: expected null to deeply equal { id: 's', backend: 'claude', …(5) }"
+        ],
+        "site": "EP2.5"
+      },
+      {
+        "change": "body-apply",
+        "coordinate": "src/renderer/src/features/chat/reducer/chatReducer.prepend.test.ts",
+        "exit": 1,
+        "failures": [
+          "× retains a tool patch and its publication past the history start until the deferred body opens 44ms",
+          "AssertionError: expected [ { id: 'a:old', …(3) }, …(1) ] to deeply equal [ { id: 'a:old', …(3) }, …(1) ]"
+        ],
+        "site": "EP3.4"
+      },
+      {
+        "change": "glyph-position",
+        "coordinate": "src/renderer/src/features/chat/lib/transcript/viewport/anchor.test.ts",
+        "exit": 1,
+        "failures": [
+          "× captures the glyph top when the caret is outside the part or inside text (text) 40ms",
+          "× captures the glyph top when the caret is outside the part or inside text (header) 2ms",
+          "× captures the glyph top when the caret is outside the part or inside text (non-text) 1ms"
+        ],
+        "site": "EP4.4"
+      },
+      {
+        "change": "consume-user-scroll",
+        "coordinate": "src/renderer/src/features/chat/lib/transcript/historyGesture.test.ts",
+        "exit": 1,
+        "failures": [
+          "× honors an intervening user scroll without treating further momentum as a fresh request 16ms",
+          "AssertionError: expected 'consumedPull' to be 'userInput' // Object.is equality"
+        ],
+        "site": "EP4.6"
+      },
+      {
+        "change": "drag-selection",
+        "coordinate": "src/renderer/src/features/chat/lib/transcript/viewport/selectionGuard.test.ts",
+        "exit": 1,
+        "failures": [
+          "× u4: gesture transitions for every state and event 24ms",
+          "AssertionError: expected [ [ 'dragging', 'idle', …(3) ], …(2) ] to deeply equal [ [ 'dragging', 'idle', …(3) ], …(2) ]"
+        ],
+        "site": "EP4.7"
+      },
+      {
+        "change": "commit-reached-start",
+        "coordinate": "src/renderer/src/features/chat/reducer/chatReducer.prepend.test.ts",
+        "exit": 1,
+        "failures": [
+          "× g12/g13 accepts the end once and preserves the completed state on another empty or duplicate page 39ms",
+          "AssertionError: expected false to be true // Object.is equality"
+        ],
+        "site": "EP5.5"
+      },
+      {
+        "change": "search-direction",
+        "coordinate": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "exit": 1,
+        "failures": [
+          "× opens a cold target without latest, pages independently, joins the latest end and reuses a confirmed key 51ms",
+          "AssertionError: expected [ 'm:3', 'm:2', 'm:1' ] to deeply equal [ 'm:1', 'm:2', 'm:3' ]"
+        ],
+        "site": "EP6.7"
+      },
+      {
+        "change": "panel-retry",
+        "coordinate": "src/renderer/src/features/chat/components/rightpanel/partial-history.integration.test.ts",
+        "exit": 1,
+        "failures": [
+          "× all session panels show unpublished live changes over a historical summary, and fetch one child detail 15062ms",
+          "AssertionError: expected null to be truthy"
+        ],
+        "site": "EP7.7"
+      },
+      {
+        "change": "recover-when-missing",
+        "coordinate": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× keeps the archive searchable and follows only the replacement Claude file after the old UUID returns 221ms",
+          "Error: Expected a replacement"
+        ],
+        "site": "EP8.1"
+      },
+      {
+        "change": "complete-recovery-archive",
+        "coordinate": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× keeps the archive searchable and follows only the replacement Claude file after the old UUID returns 386ms",
+          "AssertionError: expected [ …(2) ] to deeply equal [ …(4) ]"
+        ],
+        "site": "EP8.2"
+      },
+      {
+        "change": "background-order",
+        "coordinate": "src/main/features/history/turn-index.job.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× prioritizes the requested session, resumes after interrupted slices and publishes one complete revision 80ms",
+          "AssertionError: expected [ 'requested', 'old', 'recent' ] to deeply equal [ 'recent', 'old', 'requested' ]"
+        ],
+        "site": "EP9.1"
+      },
+      {
+        "change": "empty-local-headers",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× keeps partless messages and same-time turns, preserves earlier cursors across local tail append 88ms",
+          "AssertionError: expected [ [ 'm:3', 1 ], [ 'm:4', 1 ] ] to deeply equal [ [ 'm:2', +0 ], [ 'm:3', 1 ], …(1) ]"
+        ],
+        "site": "EP1.1"
+      },
+      {
+        "change": "chunk-boundary",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× reads a deferred UTF-8 body across chunk boundaries and rejects stale or foreign references 296ms",
+          "Error: invalid"
+        ],
+        "site": "EP3.1"
+      },
+      {
+        "change": "fts-origin",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× leaves the published archive intact if two source owners have the same projected key 76ms",
+          "AssertionError: expected [ 'local', 'native' ] to deeply equal [ 'archive', 'native' ]"
+        ],
+        "site": "EP6.1"
+      },
+      {
+        "change": "todo-start",
+        "coordinate": "src/renderer/src/features/chat/reducer/chatReducer.opencode-todo.test.ts",
+        "exit": 1,
+        "failures": [
+          "× starts each todo projection at the current turn and excludes hydrated history 7ms",
+          "AssertionError: expected +0 to be 1 // Object.is equality"
+        ],
+        "site": "EP7.6"
+      },
+      {
+        "change": "ready-reply",
+        "coordinate": "src/main/features/history/turn-index.job.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× prioritizes the requested session, resumes after interrupted slices and publishes one complete revision 69ms",
+          "AssertionError: expected undefined to be 4 // Object.is equality"
+        ],
+        "site": "EP9.5"
+      },
+      {
+        "change": "pin-active",
+        "coordinate": "src/renderer/src/features/chat/components/transcript/TranscriptViewport.prepend.test.ts",
+        "exit": 1,
+        "failures": [
+          "× coalesces above-viewport changes and respects pinned 42ms",
+          "AssertionError: expected [ 285 ] to deeply equal []"
+        ],
+        "site": "EP4.8"
+      },
+      {
+        "change": "live-process-filter",
+        "coordinate": "src/renderer/src/features/chat/harnesses/opencode/rightpanel/Panel.render.test.ts",
+        "exit": 1,
+        "failures": [
+          "× shows only the populated Bash group and hides it after removal 29ms",
+          "× shows only active shell rows while keeping terminal detail readable 19ms",
+          "AssertionError: expected undefined to be 'processes' // Object.is equality"
+        ],
+        "site": "EP7.4"
+      },
+      {
+        "change": "invalid-request-session",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× keeps partless messages and same-time turns, preserves earlier cursors across local tail append 465ms",
+          "AssertionError: expected { sessionId: 'session', …(3) } to match object { status: 'invalid' }"
+        ],
+        "site": "EP2.2"
+      },
+      {
+        "change": "idle-within",
+        "coordinate": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "exit": 1,
+        "failures": [
+          "× requests one same-turn page after commit and idle, pauses during input and stops at the previous turn, errors or unmount 241ms",
+          "AssertionError: expected 1 to be +0 // Object.is equality"
+        ],
+        "site": "EP3.5"
+      },
+      {
+        "change": "idle-during-input",
+        "coordinate": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "exit": 1,
+        "failures": [
+          "× requests one same-turn page after commit and idle, pauses during input and stops at the previous turn, errors or unmount 145ms",
+          "AssertionError: expected \"vi.fn()\" to not be called at all, but actually been called 1 times"
+        ],
+        "site": "EP3.5"
+      },
+      {
+        "change": "idle-cancel",
+        "coordinate": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "exit": 1,
+        "failures": [
+          "× requests one same-turn page after commit and idle, pauses during input and stops at the previous turn, errors or unmount 349ms",
+          "AssertionError: expected 1 to be +0 // Object.is equality"
+        ],
+        "site": "EP3.5"
+      },
+      {
+        "change": "scroll-edge",
+        "coordinate": "src/renderer/src/features/chat/components/transcript/TranscriptViewport.history-pull.test.ts",
+        "exit": 1,
+        "failures": [
+          "× reserves the browser default only for a consumed partial-history pull (partial=true) 283ms",
+          "AssertionError: expected false to be true // Object.is equality"
+        ],
+        "site": "EP4.2"
+      },
+      {
+        "change": "cancel-cold",
+        "coordinate": "src/renderer/src/features/chat/store/chatStore.busyGuards.test.ts",
+        "exit": 1,
+        "failures": [
+          "× cancels the pending first load of another session and drops its placeholder (0324 AC17) 24ms",
+          "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ 'cold' ]"
+        ],
+        "site": "EP5.2"
+      },
+      {
+        "change": "stale-page-state",
+        "coordinate": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "exit": 1,
+        "failures": [
+          "× discards an ordinary earlier page on session change without moving the inactive history cursor 144ms",
+          "AssertionError: expected [ 'm:1', 'm:3' ] to deeply equal [ 'm:3' ]"
+        ],
+        "site": "EP5.3"
+      },
+      {
+        "change": "search-footer",
+        "coordinate": "src/renderer/src/features/chat/components/transcript/TranscriptViewport.history-pull.test.ts",
+        "exit": 1,
+        "failures": [
+          "× reserves the browser default only for a consumed partial-history pull (partial=true) 53ms",
+          "AssertionError: expected false to be true // Object.is equality"
+        ],
+        "site": "EP4.9"
+      },
+      {
+        "change": "eager-source-read",
+        "coordinate": "src/main/features/history/turn-page.db.test.ts",
+        "exit": 1,
+        "failures": [
+          "× reads the same latest turn after 1 older turns without opening their bodies 110ms",
+          "× reads the same latest turn after 100 older turns without opening their bodies 101ms",
+          "× reads the same latest turn after 10000 older turns without opening their bodies 761ms"
+        ],
+        "site": "EP1.5"
+      },
+      {
+        "change": "edge-height",
+        "coordinate": "Electron check-transcript-history.mjs",
+        "exit": 1,
+        "failures": [
+          {
+            "run": 0,
+            "screen": "claude-code",
+            "scenario": "top"
+          },
+          {
+            "run": 0,
+            "screen": "claude-code",
+            "scenario": "middle"
+          },
+          {
+            "run": 0,
+            "screen": "claude-code",
+            "scenario": "inertia"
+          },
+          {
+            "run": 0,
+            "screen": "claude-code",
+            "scenario": "states"
+          },
+          {
+            "run": 0,
+            "screen": "claude-work",
+            "scenario": "top"
+          },
+          {
+            "run": 0,
+            "screen": "claude-work",
+            "scenario": "middle"
+          },
+          {
+            "run": 0,
+            "screen": "claude-work",
+            "scenario": "inertia"
+          },
+          {
+            "run": 0,
+            "screen": "claude-work",
+            "scenario": "states"
+          },
+          {
+            "run": 0,
+            "screen": "opencode-code",
+            "scenario": "top"
+          },
+          {
+            "run": 0,
+            "screen": "opencode-code",
+            "scenario": "middle"
+          },
+          {
+            "run": 0,
+            "screen": "opencode-code",
+            "scenario": "inertia"
+          },
+          {
+            "run": 0,
+            "screen": "opencode-code",
+            "scenario": "states"
+          }
+        ],
+        "maximumShift": {
+          "claude-code": {
+            "top": 0.265625,
+            "followup": 0.265625,
+            "expired": 9.734375,
+            "middle": 0.265625,
+            "inertia": 0.265625,
+            "states": 29,
+            "reverse": 18.265625,
+            "lateHeight": 0.265625,
+            "firstMeasurement": 0.265625,
+            "ownership": 0.265625
+          },
+          "claude-work": {
+            "top": 0.265625,
+            "followup": 0.265625,
+            "expired": 9.734375,
+            "middle": 0.265625,
+            "inertia": 0.265625,
+            "states": 29,
+            "reverse": 18.265625,
+            "lateHeight": 0.265625,
+            "firstMeasurement": 0.265625,
+            "ownership": 0.265625
+          },
+          "opencode-code": {
+            "top": 0.390625,
+            "followup": 0.390625,
+            "expired": 9.609375,
+            "middle": 0.390625,
+            "inertia": 0.390625,
+            "states": 837,
+            "reverse": 18.390625,
+            "lateHeight": 0.390625,
+            "firstMeasurement": 0.390625,
+            "ownership": 0.390625
+          }
+        },
+        "site": "EP4.3"
+      },
+      {
+        "change": "target-row",
+        "coordinate": "Electron check-transcript-history.mjs",
+        "exit": 1,
+        "failures": [
+          {
+            "screen": "claude-code",
+            "keyboard": false,
+            "scenario": "search"
+          },
+          {
+            "screen": "claude-code",
+            "keyboard": true,
+            "scenario": "search"
+          },
+          {
+            "screen": "claude-work",
+            "keyboard": false,
+            "scenario": "search"
+          },
+          {
+            "screen": "claude-work",
+            "keyboard": true,
+            "scenario": "search"
+          },
+          {
+            "screen": "opencode-code",
+            "keyboard": false,
+            "scenario": "search"
+          },
+          {
+            "screen": "opencode-code",
+            "keyboard": true,
+            "scenario": "search"
+          }
+        ],
+        "maximumShift": {
+          "claude-code": {
+            "top": null,
+            "followup": null,
+            "expired": null,
+            "middle": null,
+            "inertia": null,
+            "states": null,
+            "reverse": null,
+            "lateHeight": null,
+            "firstMeasurement": null,
+            "ownership": null
+          },
+          "claude-work": {
+            "top": null,
+            "followup": null,
+            "expired": null,
+            "middle": null,
+            "inertia": null,
+            "states": null,
+            "reverse": null,
+            "lateHeight": null,
+            "firstMeasurement": null,
+            "ownership": null
+          },
+          "opencode-code": {
+            "top": null,
+            "followup": null,
+            "expired": null,
+            "middle": null,
+            "inertia": null,
+            "states": null,
+            "reverse": null,
+            "lateHeight": null,
+            "firstMeasurement": null,
+            "ownership": null
+          }
+        },
+        "site": "EP6.4"
+      }
+    ]
+  }
+}

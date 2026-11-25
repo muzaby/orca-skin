@@ -27,7 +27,6 @@ import type {
   PlanReviewRequest,
   ProviderApprovalRequest,
   ProviderReportedTelemetry,
-  SubagentTaskMeta,
   WorktreeDisplay,
   WorktreePrepareStep
 } from '../../../../../shared/ipc'
@@ -46,7 +45,6 @@ import type {
   SessionSchedule
 } from '../../../../../shared/session-schedules'
 import { readTaskToolObservation } from '../../../../../shared/task-tool'
-import type { NonExecution } from '../../../../../shared/tool-outcome'
 import type { MessageKey } from '../../../shared/i18n'
 import type { BranchSnapshot } from '../harnesses/common/composer/branchChipState'
 import {
@@ -95,28 +93,7 @@ import { contextTokens } from '../lib/telemetry'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
-export interface ToolCall {
-  providerTool?: { name: string; input: unknown }
-  toolUseId: string
-  name: string
-  input: unknown
-  result?: {
-    output: unknown
-    isError: boolean
-    durationMs?: number
-    nonExecution?: NonExecution
-    parentToolRunId?: string
-    // 부모 Task tool_result 면 서브에이전트 영속 메타(모델·시간·도구수) — 재로드 후 카드/행 복원.
-    subagentMeta?: SubagentTaskMeta
-    // TaskXXX 도구의 SDK 구조화 출력(0204) — 작업 타일 목록 파생의 유일한 권위 입력.
-    // `output` 은 모델용 wire content 라 task.id 같은 필드를 담지 않는다.
-    structuredOutput?: unknown
-  }
-  parentToolRunId?: string
-  // 실행 전 편집 미리보기(0229) — `result` 가 없는 동안 diff 카드가 읽는 값. 결과가 오면
-  // `result.structuredOutput` 이 이긴다(§10 EP-Δ4).
-  editPreview?: unknown
-}
+export type { ToolCall } from '../../../../../shared/history-panels/types'
 
 // 계획 패널 인라인 코멘트 1건(휘발성 — 세션 상태). quote=선택 본문 스냅샷, start/end=계획
 // 본문 textContent 기준 오프셋(하이라이트 매핑·문서 순서), body=사용자 의견. 전송 시 IPC
@@ -350,6 +327,7 @@ export interface ChatState extends HeldParts {
   // 커밋된 transcript 메시지(SSOT 는 DB, 이 배열은 그 미러). 스트리밍 라이브 텍스트/사고는
   // 여기 없다 — chatStore 의 live 슬라이스(transient)가 담당하고, 완성 시 parts 로 커밋된다.
   messages: Message[]
+  publishedUserCount?: number
   historyComplete: boolean
   transcriptChanges: TranscriptChanges
   // 채널 점유 스냅샷. ready와 listening 모두 입력 예약·세션 변경 가드를 유지하고(`sessionListening`),
@@ -970,8 +948,29 @@ function appendOwnedArtifact(
   return replaceMessageParts(state, owner, [...parts, part], parts.length)
 }
 
+const publishedParts = new WeakSet<Message['parts']>()
+export function isPublishedMessage(message: Message): boolean {
+  return publishedParts.has(message.parts)
+}
+
+export function hasHandoffHistory(
+  state: Pick<ChatState, 'publishedUserCount' | 'messages'>
+): boolean {
+  let count = state.publishedUserCount ?? 0
+  if (count >= 2) return true
+  for (const message of state.messages) {
+    if (
+      message.role === 'user' &&
+      (state.publishedUserCount === undefined || !isPublishedMessage(message))
+    )
+      count++
+    if (count >= 2) return true
+  }
+  return false
+}
+
 export function fromLoadedMessage(message: LoadedMessage): Message {
-  return {
+  const result: Message = {
     ...(message.deferredBody ? { deferredBody: message.deferredBody } : {}),
     id: message.id,
     role: message.role,
@@ -985,6 +984,8 @@ export function fromLoadedMessage(message: LoadedMessage): Message {
     ),
     ...(message.incomplete ? { incomplete: true } : {})
   }
+  publishedParts.add(result.parts)
+  return result
 }
 
 function diffRequirementDraftsEqual(
@@ -1766,6 +1767,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         return {
           ...state,
           messages,
+          publishedUserCount: action.session.userMessageCount,
           historyComplete: complete,
           transcriptChanges,
           ...remaining,
@@ -1850,6 +1852,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         providerKey: action.session.providerKey ?? null,
         modelFamily: action.session.modelFamily ?? null,
         messages,
+        publishedUserCount: action.session.userMessageCount,
         historyComplete: complete,
         transcriptChanges,
         ...remaining,

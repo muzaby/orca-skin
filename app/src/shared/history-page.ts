@@ -1,3 +1,5 @@
+import { PanelItemSchema } from './history-panels/schema'
+import { panelKinds, type PanelItem } from './history-panels/rows'
 import { z } from 'zod'
 import { AGENT_KINDS } from './agent-kind'
 import type { LoadedSession } from './ipc'
@@ -30,8 +32,40 @@ export const HistoryBodyRefSchema = z.object({
   bytes: z.number().int().positive()
 })
 export type HistoryBodyRef = z.infer<typeof HistoryBodyRefSchema>
+const metadataRefSchema = z.object({
+  session: key,
+  generation: key,
+  token: key,
+  bytes: z.number().int().positive()
+})
+export type HistoryMetadataRef = z.infer<typeof metadataRefSchema>
 export const HistoryPageRequestSchema = z.discriminatedUnion('kind', [
   request.extend({ kind: z.literal('latest') }),
+  request.extend({
+    kind: z.literal('visit'),
+    generation: key,
+    messageKey: key,
+    cached: z.object({ generation: key, messageKey: key }).optional()
+  }),
+  request.extend({
+    kind: z.literal('metadata'),
+    ref: metadataRefSchema,
+    offset: z.number().int().nonnegative()
+  }),
+  request.extend({
+    kind: z.literal('panelSummary'),
+    panel: z.enum(panelKinds),
+    generation: key,
+    cursor: key.optional()
+  }),
+  request.extend({
+    kind: z.literal('panelDetail'),
+    panel: z.enum(panelKinds),
+    generation: key,
+    checkpoint: z.number().int(),
+    itemKey: key,
+    offset: z.number().int().nonnegative()
+  }),
   request.extend({ kind: z.literal('earlierTurn'), cursor: key }),
   request.extend({ kind: z.literal('laterTurn'), cursor: key }),
   request.extend({
@@ -47,6 +81,7 @@ export const HistoryPageRequestSchema = z.discriminatedUnion('kind', [
   request.extend({
     kind: z.literal('target'),
     locator: HistoryLocatorSchema,
+    resume: z.object({ generation: key, messageKey: key }).optional(),
     cached: z.object({ generation: key, messageKey: key }).optional()
   })
 ])
@@ -84,8 +119,44 @@ export const HistoryPageReplySchema = z.discriminatedUnion('status', [
       title: z.string().nullable(),
       complete: z.literal(false),
       messages: z.array(message).max(HISTORY_PAGE_MESSAGES),
+      metadataRef: metadataRefSchema.optional(),
       history: windowSchema
     })
+  }),
+  request.extend({
+    status: z.literal('panelSummary'),
+    frontier: z.object({ key, parts: z.number().int().nonnegative() }).optional(),
+    panel: z.enum(panelKinds),
+    generation: key,
+    checkpoint: z.number().int(),
+    total: z.number().int().nonnegative(),
+    next: key.optional(),
+    rows: z.array(z.object({ key, value: PanelItemSchema })).max(HISTORY_PAGE_MESSAGES)
+  }),
+  request.extend({
+    status: z.literal('panelDetail'),
+    panel: z.enum(panelKinds),
+    generation: key,
+    checkpoint: z.number().int(),
+    itemKey: key,
+    offset: z.number().int().nonnegative(),
+    nextOffset: z.number().int().positive(),
+    done: z.boolean(),
+    base64: z
+      .string()
+      .min(1)
+      .max(Math.ceil(HISTORY_BODY_BYTES / 3) * 4)
+  }),
+  request.extend({
+    status: z.literal('metadata'),
+    ref: metadataRefSchema,
+    offset: z.number().int().nonnegative(),
+    nextOffset: z.number().int().positive(),
+    done: z.boolean(),
+    base64: z
+      .string()
+      .min(1)
+      .max(Math.ceil(HISTORY_BODY_BYTES / 3) * 4)
   }),
   request.extend({ status: z.literal('useCached'), generation: key, messageKey: key }),
   request.extend({
@@ -123,6 +194,35 @@ export type HistoryPageReply = Pick<
         prepared?: HistoryPrepared
       }
     | { status: 'useCached'; generation: string; messageKey: string }
+    | {
+        status: 'panelSummary'
+        frontier?: { key: string; parts: number }
+        panel: PanelItem['kind']
+        generation: string
+        checkpoint: number
+        total: number
+        next?: string
+        rows: { key: string; value: PanelItem }[]
+      }
+    | {
+        status: 'panelDetail'
+        panel: PanelItem['kind']
+        generation: string
+        checkpoint: number
+        itemKey: string
+        offset: number
+        nextOffset: number
+        done: boolean
+        base64: string
+      }
+    | {
+        status: 'metadata'
+        ref: HistoryMetadataRef
+        offset: number
+        nextOffset: number
+        done: boolean
+        base64: string
+      }
     | { status: 'body'; base64: string; offset: number; nextOffset: number; done: boolean }
     | { status: 'missing' | 'stale' | 'invalid' | 'unavailable' | 'cancelled' }
   )
