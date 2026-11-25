@@ -1607,3 +1607,5 @@ V1 rev 5 + ΔV1~ΔV5를 기준으로 구현했다. ΔV5의 세 동작을 수정 
 | D16 | 패널 14자리 미잠금(K1~K6·K8·K9·K11·K12·PQ3·PQ5·H1·H2) | verify r2 · VP-05 · EP7 ②~⑤⑦ · Q7 | 기준점 경계·live 권위·상세 검사·stale·인계 입력 | 이행 | BLOCKING | closed (r3 · 14자리 재실행 · r3 실행 기록) |
 | D17 | 색인·출판 7자리 미잠금(Y2·Y2b·X2·X5·X7·X8·X9) | verify r2 · VP-07·15 · EP1 ①④ · EP9 ②④⑤ · Q9b | 꼬리 경계·새 전경 작업·삭제 취소·이전 세대 삭제·라운드 로빈·`prepared` 입력 | 이행 | BLOCKING | closed (r3 · 7자리 재실행 · r3 실행 기록) |
 | D18 | 분기·복구 ID 4자리 미잠금(FK1·FK2·FK5·N7b) | verify r2 · VP-10·18 · EP8 ③④ · EP10 ⑦ | 분기 사본 바인딩·산출물·native 접미·다음 턴 `native_id` 입력 | 이행 | BLOCKING | closed (r3 · 4자리 재실행 · r3 실행 기록) |
+| D19 | VP-05 path 끝 edge 미잠금 — `AboveInput.tsx:13`이 `selectOpenCodeTodos`에 넘기는 `openCodeTodoTurnStartIndex`를 `0`으로 바꿔도 렌더러 3,485건 green(E7i) | verify r3 · VP-05 · §24-C production path “… → `selectOpenCodeTodos` → `AboveInput`” | `AboveInput`(또는 `Composer`)을 production store로 렌더해 Q7′ (a)~(d) 앞삽입 뒤 TodoDock 항목을 관측 | 이행(pair path edge) | BLOCKING | open |
+| NX1 | ‘최신 대화로’ 버튼 `aria-busy`(`HistoryEdge.tsx:66`) 제거가 렌더러 3,676건 green(E6k) | verify r3 · VP-13 · EP6 ⑦′ ④ 입력 밖 | — | 확장(창 밖) | NEXT_HANDOFF(확장) | INDEX 후보 표 |
