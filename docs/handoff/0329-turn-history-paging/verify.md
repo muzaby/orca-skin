@@ -1152,3 +1152,95 @@ AC10 Windows 실기만 사람에게 넘긴다. 위 결함은 전부 기계 검�
 - 못 잡음 14건은 모두 §10 계약 행이나 Q 입력 칸에서 원문을 인용할 수 있었다. 구현자가 남긴 곳에 적은 ‘세부 분기’와 같은 범주다.
 - 독립 축 2개에서 발견 1건(D1, 이행)이 나왔고, 다른 축은 통과했다.
 - 검증 환경 한계: AC10 Windows 실기, Electron ABI가 필요한 Q10 재측정.
+
+
+---
+
+# 발견 원장 재구성 — review round 50 (2026-11-25)
+
+**재구성 기록이다 — 판정은 바뀌지 않는다.** 발견 원장 형식(`handoff-verify` §11)이 생기기 전의 verify 1·2·3과 verify 3 정정을 이 문서의 기존 기록에서 다시 적었다. 증거 칸은 그 회차가 실제로 쓴 증거 종류다. 출처: verify 1 §11·⑦ 잔여 표 · verify 2 §11 · verify 3 §11 · verify 3 판정 정정 · plan `[검증자 기입] 파생 이슈`.
+
+- 직전 기록 근거: D10·D11~D18은 verify 1 ⑦ 잔여 표(VP-05 · EP7 ②~⑦ · VP-08 · EP2·EP3 등)에 있던 범위라 `명시 이월`. G1은 verify 1 plan validity 표가 규칙 칸 정합을 검사했다는 기록이 없어 `확인 불가`. G2·G3은 verify 3 원 판정 §0이 같은 검색을 "운반 줄은 목록과 같다"로 기록해 `검사 완료`. D19는 ΔV5가 VP-05 path에 넣은 edge라 `—`. X1은 창 안 확장이라 `—`.
+- verify 3 종료 보고의 리뷰 필요 여부(재구성): **리뷰 필수 — verify 3회째 비PASS. ΔV5 설계와 verify 3이 같은 검색 결과에서 운반 줄을 누락했다. 두 단계의 대조 절차가 왜 이 누락을 걸러내지 못했는지 검토.** 이 review는 round 49로 수행됐다(`0d7f6ed1`).
+- 이 원장에서 원인(구현·검증·설계 중 어느 단계의 결함인지)을 정하지 않는다 — 재발·회귀·잠복·정정 유래·신규 열거는 겹칠 수 있고, 판단은 review가 근거를 붙여 한다.
+
+### 발견 원장 — verify 1
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| D1 | BLOCKING | — | 열림 | — | 새 실행 |
+| D2 | BLOCKING | — | 열림 | — | 새 실행 |
+| D3 | BLOCKING | — | 열림 | — | 새 실행 |
+| D4 | BLOCKING | — | 열림 | — | 새 실행 |
+| D5 | BLOCKING | — | 열림 | — | 새 실행 |
+| D6 | BLOCKING | — | 열림 | — | 새 실행 |
+| D7 | BLOCKING | — | 열림 | — | 새 실행 |
+| D8 | BLOCKING | — | 열림 | — | 새 실행 |
+| D9 | BLOCKING | — | 열림 | — | 새 실행 |
+| N1 | NON_BLOCKING | — | 열림 | — | 새 실행 |
+
+### 발견 원장 — verify 2
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| D1 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D2 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D3 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D4 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D5 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D6 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D7 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D8 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D9 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| N1 | NON_BLOCKING | 열림 | 열림 | — | 새 실행 |
+| G1 | PLAN_GAP | — | 열림 | 확인 불가 | 새 실행 |
+| X1 | PLAN_GAP | — | 열림 | — | 새 실행 |
+| D10 | BLOCKING | — | 열림 | 명시 이월 | 새 실행 |
+| D11 | BLOCKING | — | 열림 | 명시 이월 | 새 실행 |
+| D12 | BLOCKING | — | 열림 | 명시 이월 | 새 실행 |
+| D13 | BLOCKING | — | 열림 | 명시 이월 | 새 실행 |
+| D14 | BLOCKING | — | 열림 | 명시 이월 | 새 실행 |
+| D15 | BLOCKING | — | 열림 | 명시 이월 | 새 실행 |
+| D16 | BLOCKING | — | 열림 | 명시 이월 | 새 실행 |
+| D17 | BLOCKING | — | 열림 | 명시 이월 | 새 실행 |
+| D18 | BLOCKING | — | 열림 | 명시 이월 | 새 실행 |
+
+### 발견 원장 — verify 3
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| D10 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D11 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D12 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D13 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D14 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D15 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D16 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D17 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D18 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| G1 | PLAN_GAP | closed 보고 | 닫힘 | — | 새 실행 |
+| X1 | PLAN_GAP | closed 보고 | 닫힘 | — | 새 실행 |
+| N1 | NON_BLOCKING | 열림 | 열림 | — | 새 실행 |
+| D19 | BLOCKING | — | 열림 | — | 새 실행 |
+| NX1 | NEXT_HANDOFF | — | 열림 | — | 새 실행 |
+
+### 발견 원장 — verify 3 정정(round 49)
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| D10 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D11 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D12 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D13 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D14 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D15 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D16 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D17 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| D18 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| G1 | PLAN_GAP | closed 보고 | 닫힘 | — | 새 실행 |
+| X1 | PLAN_GAP | closed 보고 | 닫힘 | — | 새 실행 |
+| N1 | NON_BLOCKING | 열림 | 열림 | — | 새 실행 |
+| D19 | BLOCKING | — | 열림 | — | 새 실행 |
+| NX1 | NEXT_HANDOFF | — | 열림 | — | 새 실행 |
+| G2 | PLAN_GAP | — | 열림 | 검사 완료 | 기존 증거 재분류 · 새 실행(자동 변이 9) |
+| G3 | PLAN_GAP | — | 열림 | 검사 완료 | 기존 증거 재분류 · 새 실행(자동 변이 9) |
