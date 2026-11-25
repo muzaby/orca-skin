@@ -318,3 +318,92 @@ describe('handleChatSend busy submission', () => {
     })
   })
 })
+
+describe('fork admission before runtime and queue allocation', () => {
+  it.each([
+    { backend: 'opencode', forkSupported: true, error: 'provider_connection_error' },
+    { backend: 'claude', forkSupported: false, error: 'capability_unsupported' },
+    { backend: 'claude', forkSupported: true, error: null }
+  ] as const)(
+    'checks the source harness and fork capability (backend=$backend, fork=$forkSupported)',
+    async ({ backend, forkSupported, error }) => {
+      const owner = {} as ClientRef
+      const leases = new SessionChainLeaseRegistry<ClientRef>()
+      const queue = new PendingMessageQueue()
+      const draft = 'draft-fork'
+      const source = 'display-parent'
+      leases.acquire({
+        logicalKey: clientLeaseKey(draft),
+        sessionId: null,
+        owner,
+        requestedProviderKey: null,
+        backend: 'claude',
+        agentKind: 'code'
+      })
+      const acquireChain = vi.fn((input) => leases.acquire(input))
+      const getSessionById = vi.fn((id: string) =>
+        id === source ? { backend: 'claude', agent_kind: 'code' } : undefined
+      )
+      const sendMessage = vi.fn()
+      const claude = {
+        id: 'claude',
+        describe: () => ({ session: { fork: forkSupported } }),
+        sendMessage
+      }
+      const opencode = {
+        id: 'opencode',
+        describe: () => ({ session: { fork: true } }),
+        sendMessage
+      }
+      const deps = {
+        ctx: withDataPort({
+          mockAdapter: null,
+          debugMock: { enabled: false },
+          registry: {
+            getActive: () => opencode,
+            get: (id: 'claude' | 'opencode') => ({ claude, opencode })[id]
+          },
+          db: { getSessionById }
+        }),
+        pendingMessages: queue,
+        listenRelease: new Map(),
+        supervisor: { acquireChain, getChainByKey: (key: string) => leases.getByKey(key) },
+        isUpdateInstallPending: () => false
+      } as unknown as ChatRuntimeDeps
+      vi.mocked(normalizeAttachments).mockResolvedValue({
+        attachmentTexts: [],
+        attachmentImages: []
+      })
+      await handleChatSend(deps, { sender: owner } as RequestEvent, {
+        sessionId: null,
+        forkFrom: source,
+        clientRequestId: draft,
+        projectId: null,
+        text: 'follow-up',
+        backend
+      })
+      expect(getSessionById).toHaveBeenCalledWith(source)
+      expect(sendMessage).not.toHaveBeenCalled()
+      if (error) {
+        expect(sendChatEvent).toHaveBeenCalledExactlyOnceWith(
+          owner,
+          expect.objectContaining({
+            type: 'error',
+            error: expect.objectContaining({ category: error })
+          })
+        )
+        expect(acquireChain).not.toHaveBeenCalled()
+        expect(queue.pending(draft)).toEqual([])
+      } else {
+        expect(acquireChain).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({ backend: 'claude' })
+        )
+        expect(queue.pending(draft)).toEqual([expect.objectContaining({ text: 'follow-up' })])
+        expect(sendChatEvent).toHaveBeenLastCalledWith(
+          owner,
+          expect.objectContaining({ type: 'message.queued' })
+        )
+      }
+    }
+  )
+})
