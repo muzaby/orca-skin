@@ -23,7 +23,8 @@
 // 종료 코드 — 세 경우를 섞지 않는다. 검색이 실패해 출력이 비면 "미분류 0"처럼 보이기 때문이다.
 //   0  정상 검사, 미분류 0 · 목록에만 있는 범위 0
 //   1  정상 검사, 미분류 > 0 또는 검색 줄이 하나도 없는 목록 범위(목록이 낡았거나 술어가 못 닿음)
-//   2  검색 실행 실패(rg 종료 코드 ≥ 2 — 없는 경로·잘못된 정규식·잘못된 인자) 또는 검색 줄 파일 읽기 실패
+//   2  검색 실행 실패(rg 종료 코드 ≥ 2 — 없는 경로·잘못된 정규식·잘못된 인자) · 검색 줄 파일 읽기 실패 ·
+//      명령에서 고른 정규식이 검색 줄과 맞지 않음(값을 받는 옵션을 건너뛰고 첫 위치 인자 또는 -e 값을 정규식으로 본다)
 //   3  검색은 성공했지만 0줄인데 --sites로 예상 자리가 주어짐
 // --emit-mutants: value 일치마다 mutate.py spec(JSONL) 한 줄을 stdout 끝에 낸다 — 속성 이름은
 // `__oo_mut`를 붙여 다른 키로, 단독 식별자는 `(void 0)`으로 바꾼다. 미분류 줄이 실제로 잠겼는지는
@@ -59,9 +60,36 @@ const cwdPrefix = (arg('--cwd', '') || '').replace(/\/?$/, '/')
 const inRanges = (ranges, file, line) =>
   ranges.some((r) => r.file === file && line >= r.from && line <= r.to)
 
+// rg 명령에서 정규식 인자를 고른다 — 값을 받는 옵션(-g '!*.test.*' 등)의 값을 건너뛴 첫 위치 인자, 또는 -e/--regexp의 값.
+// 고른 정규식이 검색 줄과 맞지 않으면(모르는 명령 형태) 분류하지 않고 실패한다 — 틀린 정규식은 모든 줄을 comment로 만들어
+// "미분류 0"처럼 보인다(-g를 정규식 앞에 둔 0329 §22-E 명령이 그랬다).
+const VALUE_OPTS = new Set(['-g', '--glob', '--iglob', '-t', '--type', '-T', '--type-not', '-m', '--max-count', '-A', '-B', '-C', '--context', '--after-context', '--before-context', '-M', '--max-columns', '--type-add', '-j', '--threads', '--max-depth', '-d', '--max-filesize', '--encoding', '-E', '--sort', '--sortr', '--color', '--colors', '-r', '--replace', '-f', '--file', '--ignore-file', '--pre', '--pre-glob', '--engine'])
+function shellWords(command) {
+  const words = []
+  const re = /'([^']*)'|"((?:[^"\\]|\\.)*)"|(\S+)/g
+  for (const m of command.matchAll(re)) words.push(m[1] ?? (m[2] !== undefined ? m[2].replace(/\\(["\\$`])/g, '$1') : m[3]))
+  return words
+}
 const rgPattern = (() => {
-  const m = search.match(/rg\s+(?:-\w+\s+)*(?:'([^']+)'|"([^"]+)")/)
-  return new RegExp(m ? (m[1] ?? m[2]).replace(/\\\|/g, '|').replace(/\\\(/g, '\\(') : '$^', 'g')
+  const words = shellWords(search)
+  const at = words.findIndex((w) => w === 'rg' || w.endsWith('/rg'))
+  let pattern = null
+  for (let i = at + 1; at >= 0 && i < words.length && pattern === null; i++) {
+    const w = words[i]
+    if (w === '-e' || w === '--regexp') pattern = words[i + 1] ?? null
+    else if (w.startsWith('--regexp=')) pattern = w.slice('--regexp='.length)
+    else if (VALUE_OPTS.has(w)) i++
+    else if (!w.startsWith('-') || w === '-') pattern = w
+  }
+  if (pattern === null) {
+    console.error('검색 명령에서 rg 정규식 인자를 찾지 못했다 — 미분류를 셀 수 없다')
+    process.exit(2)
+  }
+  const opts = words.slice(at + 1)
+  const fixed = opts.includes('-F') || opts.includes('--fixed-strings')
+  const source = fixed ? pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : pattern.replace(/\\\|/g, '|')
+  const caseless = opts.includes('-i') || opts.includes('--ignore-case') || ((opts.includes('-S') || opts.includes('--smart-case')) && pattern === pattern.toLowerCase())
+  return new RegExp(source, caseless ? 'gi' : 'g')
 })()
 
 // rg는 일치 0을 1로, 실행 오류를 2로 낸다. 오류가 나도 일부 경로의 결과를 찍을 수 있으므로 출력이 있어도 실패로 본다.
@@ -76,6 +104,12 @@ const hits = run.stdout
   .map((row) => row.match(/^(.+?):(\d+):(.*)$/))
   .filter(Boolean)
   .map(([, file, line, text]) => ({ file, line: Number(line), text }))
+
+const unmatched = hits.filter((hit) => ![...hit.text.matchAll(rgPattern)].length)
+if (unmatched.length) {
+  console.error(`검색 줄 ${unmatched.length}개가 고른 정규식 /${rgPattern.source}/와 맞지 않는다 — 명령에서 정규식을 잘못 골랐다. 예: ${unmatched[0].file}:${unmatched[0].line}`)
+  process.exit(2)
+}
 
 const sources = new Map()
 function source(file) {
