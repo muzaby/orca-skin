@@ -89,6 +89,24 @@ it('opens and refreshes the latest turn, then reads both sides of a large search
     const all = vi.spyOn(db, 'loadParts')
     await index.prepare(sessionId)
     all.mockClear()
+    const readParts = db.historyIndex.parts.bind(db.historyIndex)
+    vi.spyOn(db.historyIndex, 'parts').mockImplementationOnce((...args) => {
+      const value = readParts(...args)
+      sendChannel(CHANNELS.sessionLoadCancel, { requestId: 9123 }, sender)
+      return value
+    })
+    expect(
+      await invokeChannel(
+        CHANNELS.sessionHistoryPage,
+        {
+          kind: 'latest',
+          sessionId,
+          openGeneration,
+          requestId: 9123
+        },
+        sender
+      )
+    ).toMatchObject({ status: 'cancelled', requestId: 9123 })
     const loaded = await client.loadLatest(sessionId)
     expect(loaded?.messages.map((m) => m.id)).toEqual(turnKeys[99])
     const refreshed = await client.refresh(sessionId)
@@ -102,6 +120,11 @@ it('opens and refreshes the latest turn, then reads both sides of a large search
       CHANNELS.sessionHistoryPage,
       CHANNELS.sessionRefresh
     ])
+    expect(await page({ kind: 'latest', sessionId: 'absent', openGeneration })).toMatchObject({
+      status: 'missing',
+      sessionId: 'absent',
+      openGeneration
+    })
     const locator = db.searchMessages('needle')[0].locator!
     const query = { kind: 'target' as const, locator, sessionId, openGeneration }
     const target = await page(query)

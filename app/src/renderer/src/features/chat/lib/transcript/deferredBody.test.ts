@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { readDeferredParts } from './deferredBody'
 import {
   HISTORY_BODY_BYTES,
@@ -67,6 +67,47 @@ describe('deferred history bodies', () => {
         () => active
       )
     ).rejects.toThrow()
+  })
+  it.each([
+    'wrong offset',
+    'empty',
+    'oversized',
+    'wrong advance',
+    'invalid part',
+    'cancelled after reply',
+    'cancelled before publish'
+  ] as const)('rejects a deferred body with %s', async (problem) => {
+    let text = problem === 'invalid part' ? '[{}]' : '[]'
+    if (problem === 'oversized') text = text.padEnd(HISTORY_BODY_BYTES + 1)
+    const body = { ...ref, bytes: text.length }
+    const page = vi.fn<Parameters<typeof readDeferredParts>[2]>()
+    page.mockResolvedValueOnce({
+      status: 'body',
+      sessionId: 's',
+      requestId: 1,
+      openGeneration: 3,
+      offset: problem === 'wrong offset' ? 1 : 0,
+      nextOffset: problem === 'empty' ? 0 : problem === 'wrong advance' ? 1 : text.length,
+      done: problem !== 'empty' && problem !== 'wrong advance',
+      base64: Buffer.from(problem === 'empty' ? '' : text).toString('base64')
+    })
+    // A missing progress check must not turn a zero-length chunk into a test timeout.
+    page.mockRejectedValue(Error('unexpected second read'))
+    const current = vi.fn(() => true)
+    if (problem === 'cancelled after reply')
+      current.mockReturnValueOnce(true).mockReturnValue(false)
+    if (problem === 'cancelled before publish')
+      current.mockReturnValueOnce(true).mockReturnValueOnce(true).mockReturnValue(false)
+    const error =
+      problem === 'cancelled before publish'
+        ? 'Incomplete history body'
+        : problem === 'wrong offset' || problem === 'cancelled after reply'
+          ? 'Stale history body'
+          : problem === 'invalid part'
+            ? 'Invalid history body'
+            : 'Invalid history body range'
+    await expect(readDeferredParts(body, 3, page, current)).rejects.toThrow(error)
+    expect(page).toHaveBeenCalledTimes(1)
   })
   it.each(['code', 'work', 'opencode'] as const)(
     'shows one stable message placeholder between its original neighbours in %s',

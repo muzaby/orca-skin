@@ -18,12 +18,29 @@ function passes(record) {
     )
   if (
     record.requests !== 1 ||
-    !wheels[0]?.prevented ||
+    !wheels[scenario === 'nested' ? 1 : 0]?.prevented ||
     before.part !== after.part ||
     before.text !== after.text ||
     before.headerHeight !== after.headerHeight ||
     after.state !== 'end'
   )
+    return false
+  if (
+    scenario === 'nested' &&
+    (wheels.length !== 2 ||
+      wheels[0].prevented ||
+      record.nestedRead?.requests !== 0 ||
+      !(record.nestedRead.scrollTop < 40))
+  )
+    return false
+  if (
+    scenario === 'footerResize' &&
+    (!record.growth ||
+      record.growth.final - record.growth.initial !== 39 ||
+      !record.footerSizes.includes(record.growth.final))
+  )
+    return false
+  if (scenario === 'doublePrepend' && !(Math.abs(record.betweenPrepends - before.top) > 1))
     return false
   const writes = record.writes
   if (

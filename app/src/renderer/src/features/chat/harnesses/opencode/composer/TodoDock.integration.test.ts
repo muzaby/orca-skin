@@ -140,3 +140,59 @@ describe('OpenCode TodoDock reducer/parts integration', () => {
     expect(selectOpenCodeTodos(state)).toEqual([{ text: 'last completion', status: 'pending' }])
   })
 })
+
+it.each(['before send', 'empty current turn', 'current write'] as const)(
+  'preserves the current TODO boundary across overlapping and rejected history pages (%s)',
+  (phase) => {
+    const old = write(
+      begin({ ...initialChatState, backend: 'opencode', sessionId: 'A' }),
+      'past',
+      'old',
+      { status: 'in_progress' }
+    )
+    const tail = { id: 'tail', role: 'user' as const, createdAt: 3, parts: [] }
+    const priorUser = { ...tail, id: 'old-user' }
+    const priorAssistant = { ...old.messages.at(-1)!, id: 'old-todo' }
+    let state = chatReducer(initialChatState, {
+      type: 'LOAD_SESSION',
+      complete: false,
+      session: { id: 'A', backend: 'opencode', agentKind: 'code', title: null, messages: [tail] }
+    })
+    if (phase !== 'before send') state = begin(state)
+    if (phase === 'current write') {
+      state = receive(state, {
+        type: 'tool.call.started',
+        sessionId: 'A',
+        toolRunId: 'now',
+        toolName: 'TodoWrite',
+        args: { todos: [{ content: 'new', status: 'in_progress' }] }
+      })
+      state = receive(state, {
+        type: 'tool.call.completed',
+        sessionId: 'A',
+        toolRunId: 'now',
+        result: 'ok',
+        isError: false
+      })
+    }
+    const expected = phase === 'current write' ? [{ text: 'new', status: 'in_progress' }] : []
+    expect(selectOpenCodeTodos(state)).toEqual(expected)
+    const next = chatReducer(state, {
+      type: 'PREPEND_HISTORY',
+      reachedStart: false,
+      messages: [priorUser, priorUser, priorAssistant, tail]
+    })
+    expect(selectOpenCodeTodos(next)).toEqual(expected)
+    expect(next.openCodeTodoTurnStartIndex).toBe(3)
+    const diagnose = vi.fn()
+    const rejected = chatReducer(next, {
+      type: 'PREPEND_HISTORY',
+      reachedStart: true,
+      messages: [tail, priorUser],
+      diagnostic: diagnose
+    })
+    expect(diagnose).toHaveBeenCalledWith('prependRejected', 1)
+    expect(rejected).toBe(next)
+    expect(selectOpenCodeTodos(rejected)).toEqual(expected)
+  }
+)

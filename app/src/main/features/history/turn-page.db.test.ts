@@ -346,6 +346,38 @@ describe('turn pages from the published SQLite generation', () => {
     ])
   })
 
+  it('rebuilds for a dirty local row inside the native frontier or a tail over 128 rows', async () => {
+    const id = local('user', 'shadowed')
+    const observed = db.nativeHistory.observe(sessionId)
+    const native = {
+      id: 'native',
+      role: 'user' as const,
+      createdAt: 2,
+      parts: [{ type: 'text' as const, text: 'owner' }]
+    }
+    db.nativeHistory.replace({
+      sessionId,
+      frontier: observed.frontier,
+      expectedVersion: observed.version,
+      now: 2,
+      payloadJson: JSON.stringify({ messages: [native] }),
+      messages: [{ ...native, content: 'owner' }]
+    })
+    const published = (await index.prepare(sessionId))!.generation
+    db.appendPart({
+      messageId: id,
+      type: 'text',
+      toolRunId: null,
+      payloadJson: JSON.stringify({ text: 'updated' })
+    })
+    expect(db.historyIndex.localTail(sessionId, db.historyIndex.state(sessionId)!)).toBeUndefined()
+    const next = await index.prepare(sessionId)
+    expect(next?.generation).not.toBe(published)
+    for (let n = 0; n < 129; n++) local('assistant', 'tail ' + n)
+    expect(db.historyIndex.localTail(sessionId, db.historyIndex.state(sessionId)!)).toBeUndefined()
+    expect((await index.prepare(sessionId))?.generation).not.toBe(next?.generation)
+  })
+
   it('rechecks the archive epoch when ordinal zero is reused and confirms only the resolved cache key', async () => {
     const replaceArchive = (word: string): void => {
       const message = {
@@ -392,6 +424,18 @@ describe('turn pages from the published SQLite generation', () => {
     })
     expect(bodies).not.toHaveBeenCalled()
     const neighbor = db.searchMessages('neighbor')[0].locator!.projectedKey!
+    for (const [resumeGeneration, expected] of [
+      [generation, neighbor],
+      ['old-generation', 'archive-secondterm']
+    ]) {
+      expect(
+        await query({
+          ...target,
+          locator: current,
+          resume: { generation: resumeGeneration, messageKey: neighbor }
+        })
+      ).toMatchObject({ status: 'ok', targetMessage: expected })
+    }
     const page = await query({
       ...target,
       locator: current,

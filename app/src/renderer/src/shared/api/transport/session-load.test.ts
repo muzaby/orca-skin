@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SESSION_LOAD_CANCELLED, type ChunkedSession } from '../../../../../shared/data-host'
 import type { LoadedMessage } from '../../../../../shared/ipc'
+import { HISTORY_PAGE_PARTS, type HistoryQuery } from '../../../../../shared/history-page'
 import { createSessionLoadClient } from './session-load'
 
 const CHANNELS = { load: 'load', refresh: 'refresh', chunk: 'chunk', cancel: 'cancel' }
@@ -212,6 +213,83 @@ describe('bounded history page replies', () => {
     expect(port.calls[1].payload).toMatchObject({ requestId: 1, openGeneration: 1 })
     port.reply(1, { status: 'unchanged' })
     expect(await refresh).toEqual({ status: 'unchanged' })
+  })
+  const ref = { kind: 'parts' as const, message: 'tail', session: 's', generation: 'gen', bytes: 8 }
+  const withRef = (patch: Partial<typeof ref>): typeof ok.session => ({
+    ...ok.session,
+    messages: [{ ...message('tail'), parts: [], deferredBody: { ...ref, ...patch } }]
+  })
+  it.each([
+    ['inner session', { ...ok.session, id: 'wrong' }],
+    [
+      'total parts',
+      {
+        ...ok.session,
+        messages: ['a', 'b'].map((id) => ({
+          ...message(id),
+          parts: Array(Math.floor(HISTORY_PAGE_PARTS / 2) + 1).fill({ type: 'text', text: 'x' })
+        }))
+      }
+    ],
+    ['ref session', withRef({ session: 'other' })],
+    ['ref generation', withRef({ generation: 'other' })],
+    ['ref owner', withRef({ message: 'other' })]
+  ])('rejects a structurally valid page with a mismatched %s', async (_field, session) => {
+    const port = setup(true)
+    const pending = port.client.loadLatest('s')
+    port.reply(0, { ...ok, session })
+    await expect(pending).rejects.toThrow('Mismatched history reply')
+  })
+  it.each([
+    ['offset', { offset: 2 }],
+    ['nonadvancing', { nextOffset: 1 }],
+    ['beyond reference', { nextOffset: 9 }],
+    ['premature done', { done: true }],
+    ['missing done', { nextOffset: 8, done: false }],
+    ['page instead of body', ok]
+  ])('checks the body response against its request (%s)', async (_case, patch) => {
+    const port = setup(true)
+    const pending = port.client.page({
+      sessionId: 's',
+      openGeneration: 0,
+      kind: 'body',
+      ref,
+      offset: 1
+    })
+    port.reply(0, {
+      ...ok,
+      status: 'body',
+      offset: 1,
+      nextOffset: 4,
+      done: false,
+      base64: 'YWJj',
+      ...patch
+    })
+    await expect(pending).rejects.toThrow('Mismatched history reply')
+  })
+  it('rejects confirmation for a different cached message and cancels a target already in flight', async () => {
+    const port = setup(true)
+    const query: HistoryQuery = {
+      kind: 'target',
+      sessionId: 's',
+      openGeneration: 5,
+      locator: { v: 1, session: 's', source: 'local', epoch: 'e', identity: 'tail' },
+      cached: { generation: 'gen', messageKey: 'tail' }
+    }
+    const pending = port.client.page(query)
+    port.reply(0, {
+      sessionId: 's',
+      openGeneration: 5,
+      requestId: 0,
+      status: 'useCached',
+      generation: 'gen',
+      messageKey: 'other'
+    })
+    await expect(pending).rejects.toThrow('Mismatched history reply')
+    const late = port.client.page(query)
+    port.client.cancelLoad('s', 5)
+    port.reply(1, { ...ok, openGeneration: 5, requestId: 1 })
+    await expect(late).rejects.toThrow(SESSION_LOAD_CANCELLED)
   })
   it.each([
     { sessionId: 'other' },

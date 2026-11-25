@@ -43,6 +43,7 @@ function render(): ReturnType<typeof SearchModal> {
 type ElementProps = {
   children?: ReactNode
   onChange?: (event: { target: { value: string } }) => void
+  onClick?: () => void
   onKeyDown?: (event: { key: string; preventDefault: () => void }) => void
 } & Record<string, unknown>
 type TestElement = { type: unknown; props: ElementProps }
@@ -144,6 +145,20 @@ describe('actual search modal before and after responsibility relocation', () =>
     const html = renderToStaticMarkup(resultElement)
     expect(html).toContain('&lt;script&gt;unsafe&lt;/script&gt;')
     expect(html).toContain('<mark class="bg-rust-soft text-rust">answer</mark>')
+  })
+
+  it('opens the clicked result as a pointer selection before closing the modal', async () => {
+    h.states = ['query', [hit('a'), hit('b')], 0]
+    const results = elements(render()).find(
+      (el) => typeof el.type === 'function' && el.type.name === 'SearchResults'
+    )!
+    const options = elements(
+      (results.type as (props: ElementProps) => ReactNode)(results.props)
+    ).filter((el) => el.props.role === 'option')
+    options[1].props.onClick!()
+    expect(h.navigate).toHaveBeenCalledExactlyOnceWith(hit('b'), false)
+    await Promise.resolve()
+    expect(h.close).toHaveBeenCalledOnce()
   })
 
   it('closes on outside mousedown and Escape and removes both listeners on cleanup', () => {

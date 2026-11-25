@@ -1732,7 +1732,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           page.length,
           (toolRunId) => messageOrderFor(state, true).noticeOwner(toolRunId) !== undefined
         )
-        next = { ...state, ...writeMessages(state, merged.messages, change), ...merged }
+        next = {
+          ...state,
+          ...writeMessages(state, merged.messages, change),
+          ...merged,
+          openCodeTodoTurnStartIndex: state.openCodeTodoTurnStartIndex + page.length
+        }
       }
       if (!action.reachedStart) return next
       if (next.historyComplete && next.heldPatches.size === 0 && next.heldOutputs.size === 0)

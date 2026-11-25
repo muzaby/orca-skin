@@ -8,5 +8,8 @@ export const scenarios = [
   'reverse',
   'lateHeight',
   'firstMeasurement',
-  'ownership'
+  'ownership',
+  'nested',
+  'footerResize',
+  'doublePrepend'
 ]

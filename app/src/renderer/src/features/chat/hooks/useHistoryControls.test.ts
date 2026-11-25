@@ -10,11 +10,15 @@ interface Paging {
   beforeState?: 'loading' | 'error'
   afterState?: 'loading' | 'error'
 }
-type Entry = { history?: Paging; search?: { view: Paging } }
+type Entry = {
+  history?: Paging
+  search?: { view: Paging; returning?: boolean; returnFailed?: boolean }
+}
 const state = vi.hoisted(() => ({
   sessions: {} as Record<string, Entry>,
   readPrevious: vi.fn(),
-  readSearchEdge: vi.fn()
+  readSearchEdge: vi.fn(),
+  leaveSearch: vi.fn()
 }))
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -22,7 +26,11 @@ vi.mock('react', async (original) => ({
 }))
 vi.mock('../store/chatStore', () => ({
   useChatStore: (select: (s: typeof state) => unknown) => select(state),
-  chatActions: { readPrevious: state.readPrevious, readSearchEdge: state.readSearchEdge }
+  chatActions: {
+    readPrevious: state.readPrevious,
+    readSearchEdge: state.readSearchEdge,
+    leaveSearch: state.leaveSearch
+  }
 }))
 
 afterEach(() => {
@@ -37,7 +45,7 @@ function setup(): {
   dom: ReturnType<typeof installFakeDom>
   idle: Map<number, () => void>
   tickIdle: () => void
-  commit: (entry: Entry) => void
+  commit: (entry: Entry) => ReturnType<typeof useHistoryControls>
 } {
   vi.useFakeTimers()
   const dom = installFakeDom({ innerWidth: 800, innerHeight: 600 })
@@ -62,13 +70,15 @@ function setup(): {
     idle.delete(id)
     callback()
   }
+  let controls: ReturnType<typeof useHistoryControls>
   function Controls(): null {
-    useHistoryControls('s')
+    controls = useHistoryControls('s')
     return null
   }
-  const commit = (entry: Entry): void => {
+  const commit = (entry: Entry): ReturnType<typeof useHistoryControls> => {
     state.sessions = { s: entry }
     dom.render(createElement(Controls))
+    return controls
   }
   return { doc, dom, idle, tickIdle, commit }
 }
@@ -145,15 +155,23 @@ it('fills both sides of a search turn one committed page at a time', () => {
     commit({ search: { view: { before, after } } })
     tickIdle()
     expect(state.readSearchEdge).toHaveBeenCalledExactlyOnceWith('s', 'before', true)
-    for (const status of ['loading', 'error'] as const) {
-      commit({ search: { view: { before, after, beforeState: status } } })
-      expect(idle.size).toBe(0)
-      commit({ search: { view: { before, after, afterState: status } } })
+    for (const state of [
+      { beforeState: 'loading' },
+      { afterState: 'loading' },
+      { beforeState: 'error', afterState: 'error' }
+    ] as const) {
+      commit({ search: { view: { before, after, ...state } } })
       expect(idle.size).toBe(0)
     }
+    commit({ search: { view: { before, after, beforeState: 'error' } } })
+    tickIdle()
+    commit({ search: { view: { before, after, afterState: 'error' } } })
+    tickIdle()
     commit({ search: { view: { before: { kind: 'earlierTurn', cursor: 'previous' }, after } } })
     tickIdle()
     expect(state.readSearchEdge.mock.calls).toEqual([
+      ['s', 'before', true],
+      ['s', 'after', true],
       ['s', 'before', true],
       ['s', 'after', true]
     ])
@@ -167,6 +185,21 @@ it('fills both sides of a search turn one committed page at a time', () => {
     })
     expect(idle.size).toBe(0)
     expect(state.readPrevious).not.toHaveBeenCalled()
+  } finally {
+    dom.unmount()
+  }
+})
+
+it('exposes return-to-latest loading and retry state on the same search view', () => {
+  const { dom, commit } = setup()
+  const view = {}
+  try {
+    expect(commit({ search: { view } })?.latestState).toBeUndefined()
+    expect(commit({ search: { view, returning: true } })?.latestState).toBe('loading')
+    const failed = commit({ search: { view, returnFailed: true } })
+    expect(failed?.latestState).toBe('error')
+    failed?.returnToLatest?.()
+    expect(state.leaveSearch).toHaveBeenCalledExactlyOnceWith('s', true)
   } finally {
     dom.unmount()
   }

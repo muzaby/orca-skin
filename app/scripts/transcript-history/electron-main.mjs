@@ -24,6 +24,11 @@ async function measure(wc, screen, scenario) {
   if (scenario === 'states')
     return { start, states: await probe('states'), ...(await probe('result')) }
   wheel(-10)
+  if (scenario === 'nested') {
+    await probe('nestedBoundary')
+    await delay(230)
+    wheel(-10)
+  }
   const momentum =
     scenario === 'inertia'
       ? (async () => {
@@ -51,14 +56,18 @@ async function measure(wc, screen, scenario) {
       .map((w) => w.at - commit.commitAt)
   }
 }
+function report(result) {
+  return new Promise((resolve, reject) => {
+    process.stdout.write('OO_RESULT ' + JSON.stringify(result) + '\n', (error) =>
+      error ? reject(error) : resolve()
+    )
+  })
+}
+
 app.whenReady().then(async () => {
   const deadline = setTimeout(
-    () => {
-      process.stdout.write(
-        'OO_RESULT ' +
-          JSON.stringify({ records, discarded, error: 'History probe timed out' }) +
-          '\n'
-      )
+    async () => {
+      await report({ records, discarded, error: 'History probe timed out' })
       app.exit(1)
     },
     90000 * Math.max(1, Number(repetitions))
@@ -120,19 +129,15 @@ app.whenReady().then(async () => {
         }
       }
     }
-    process.stdout.write(
-      'OO_RESULT ' +
-        JSON.stringify({
-          electron: process.versions.electron,
-          platform: process.platform,
-          records,
-          discarded,
-          searches
-        }) +
-        '\n'
-    )
-  } catch (e) {
-    process.stdout.write('OO_RESULT ' + JSON.stringify({ error: String(e) }) + '\n')
+    await report({
+      electron: process.versions.electron,
+      platform: process.platform,
+      records,
+      discarded,
+      searches
+    })
+  } catch (error) {
+    await report({ error: String(error) })
   }
   clearTimeout(deadline)
   app.exit()
