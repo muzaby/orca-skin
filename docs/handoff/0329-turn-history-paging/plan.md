@@ -1,6 +1,6 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**impl/IMPL_DONE (r2 · V1 rev 5 + ΔV1~ΔV4). 검색 유휴 읽기의 동시 요청을 수정했고 검증 1의 D1~D9를 닫았다. 다음은 Claude의 독립 검증 2다.** [검증 1](verify.md). r1.5 기록: ΔV4(§23)는 r1.4가 반송한 묶음 수 등식을 정정했다 — 응답은 가장자리부터 메시지를 통째로 상한 직전까지 채우고(탐욕 채움), 묶음 수는 그 결과인 최소 연속 분할이며 max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉)는 하한이다. 구 DB 첫 클릭 게이트의 측정 조건(단독 실행)도 적었다.
+**plan/READY (V1 rev 5 + ΔV1~ΔV5). ΔV5(§24)는 verify 2의 PLAN_GAP 2건을 닫았다 — 검색 보기 유휴 채움의 오류는 방향별(D-025), ‘최신 대화로’ 반복 입력은 1회(X1 채택), OpenCode 현재 턴 TODO 경계는 앞삽입에 영향받지 않는다(현재 결함 D10의 입력). 다음은 Codex r3 — ΔV5와 verify 2 파생 이슈 D10~D18.** [검증 2](verify.md). r2 기록: 검색 유휴 읽기의 동시 요청을 고쳤고 검증 1의 D1~D9를 닫았다. ΔV4(§23)는 묶음 수 등식을 정정했다 — 응답은 가장자리부터 메시지를 통째로 상한 직전까지 채우고(탐욕 채움), 묶음 수는 그 결과인 최소 연속 분할이며 max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉)는 하한이다.
 
 ΔV3(§22)는 r1.3이 반송한 복구 키 충돌의 원인을 없앴다 — 사용자 제안대로 Claude 원본 복구는 Orca가 만든 새 UUID로 새 원본 세션을 시작하고, 화면·Orca 세션 ID는 그대로 둔다(D-023). 같은 ID로 이미 복구된 기존 세션은 배포가 없어 다루지 않는다(D-024). ΔV2(§21)는 앞삽입 앵커 좌표를, ΔV1(§20)은 고정 높이 머리 슬롯과 보정 취소 분류를 정정했다. rev 5는 PR #640 0329 보완 요청과 D-009(유휴 자동 채움)·D-012(세션 전체 패널)를 반영했다.
 
@@ -10,9 +10,9 @@
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) 2026-11-20 rev 1~4 · Claude Code rev 5 2026-11-24 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) · PR #640 코멘트 “0329 이력 페이징 · 구현 전 plan 보완 요청”(2026-11-24, 기준 `7db1c7ce`) |
-| 상태 / V | impl/IMPL_DONE (r2, 다음 독립 검증 2) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV4 |
+| 상태 / V | plan/READY (ΔV5, 다음 Codex r3) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) + ΔV5(§24 — verify 2 PLAN_GAP) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV5 |
 | 조사 기준 | rev 5: `codex-handoff-0326-plan-gap`의 `7db1c7ce`(PR #640 head) — 0326 verify 7 PASS · 0327 verify 5 PASS · 0328 verify 2 PASS(모두 기계 범위). rev 1~4의 `62125eaa` 관측은 §8 rev 5 표로 재대조했다. |
-| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 검증 1의 D1~D9를 r2에서 수정·재현했다. 다음 단계는 독립 검증 2다. |
+| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 검증 1의 D1~D9를 r2에서 수정·재현했다. 검증 2가 G1·X1로 반송했고 ΔV5가 닫았다. 다음 단계는 Codex r3다. |
 
 # Part I — 제품과 사용자 동작
 
@@ -64,6 +64,7 @@
 | D-022 | ACTIVE | (ΔV2, 설계자 — r1.2 구현 채택) 이전 턴 요청을 시작한 wheel과 같은 제스처의 후속 wheel은 기본 스크롤을 막는다 — 같은 플릭의 남은 관성이 새로 붙은 행으로 넘어가지 않는다. 다른 wheel은 기본 스크롤이며 non-passive 리스너는 부분 이력 보기에만 붙는다. | AC3′ · EP4″ ⑤ · Q4″·Q4b″ |
 | D-023 | ACTIVE | (ΔV3, 사용자 제안) Claude 원본 복구는 Orca가 만든 새 UUID를 SDK `Options.sessionId`로 넘겨 새 원본 세션을 시작한다. Orca 세션 ID·화면·검색·DB 행은 그대로이고 복구 행의 `native_id`만 바뀐다. 이후 턴·자동 연속·분기·인계는 그 `native_id`로 이어 쓰고, 원본이 낸 세션 ID(이벤트·권한 모드 통지·훅)는 Orca 세션 ID로 바꿔 전달한다. 옛 원본 파일이 다시 나타나도 읽지 않는다. | AC12 · EP10 · Q13~Q15 |
 | D-024 | ACTIVE | (ΔV3, 사용자 결정) 이 변경 전 같은 ID로 복구된 Claude 세션의 키 충돌 방어 규칙은 두지 않는다 — “배포가 없어 그런 사례가 없다고 여길 것”. 선언 경계다. | §22 D 선언 경계 |
+| D-025 | ACTIVE | (ΔV5, 설계자 — verify 2 G1 정합) 검색 보기 유휴 채움의 “오류 없음”은 방향별이다. 한 방향이 오류여도 다른 방향의 같은 턴 잔여는 계속 유휴 채움하고, 어느 방향이든 요청이 진행 중이면 예약하지 않는다. 오류 난 방향은 사용자 입력으로만 다시 읽는다. 근거: §10 ‘양방향 커서·끝’ “한 방향 실패가 다른 방향을 막지 않는다”, D-009 원문은 오류를 다루지 않는다. | AC2·6 · EP3 ⑤′ · Q4‴ |
 
 갱신 메모 — V1 초안. D-001~004·006~008은 각 행의 AC와 대조했다. 부모 0325 D-023의 상단 제스처·스피너·재시도는 0326에서 구체화됐고, 소비자 범위 결정은 남아 있다.
 
@@ -84,6 +85,8 @@ rev 5 — PR #640 항목 → 규범 행. 양방향 조회 → D-015·AC6·§10 �
 ΔV3 — r1.3 복구 키 PLAN_GAP 정정(§22). D-023·D-024 신설, AC12 신설, R-03 CHANGED·SD-06·AR-05 NEW(VP-03·19·18), EP10·Q13~Q15 신설. **ACTIVE 결정 ↔ AC 대조 (ΔV3)**: 충돌 0. D-002 “B의 메시지 키 보존” ↔ AC12 “보관 행 키 불변·새 원본은 새 UUID” 일치. D-013 “검색 결과는 그 행으로” ↔ AC12 “보관 hit는 보관 행으로” 일치. D-004 “복구에는 온전한 보관 이력” ↔ D-023(첫 prompt 구성 불변) 일치.
 
 ΔV4 — r1.4 묶음 수 PLAN_GAP 정정(§23). 사용자 결정 없음 — plan 내부 결함(§14 등식). MD-01 CHANGED(VP-11), §10 응답 채움 행 신설, §14 유휴 채움 행 대체, Q3 → Q3′, §17 게이트 측정 조건 명시. **ACTIVE 결정 ↔ AC 대조 (ΔV4)**: 충돌 0. D-009 “유휴 1묶음씩·같은 턴 한정” ↔ AC2 문장 불변. D-007 “응답 상한” ↔ §10 응답 채움(세 상한 그대로) 일치. D-018 ↔ §17 측정 조건 일치.
+
+ΔV5 — verify 2 PLAN_GAP 정정(§24). D-025 신설, §10 ‘한 턴과 조각’ → ‘한 턴과 조각′’, ‘최신 대화로’ 반복 입력·현재 턴 TODO 경계 행 추가, MD-04·SD-04·SD-02 CHANGED(VP-16·13·05), EP3 ⑤′·EP6 ⑦′·EP7 ⑥′, Q4‴·Q6e′·Q7′. **ACTIVE 결정 ↔ AC 대조 (ΔV5)**: 충돌 0. D-009 “같은 턴 한정·유휴 1묶음·입력 중 보류” ↔ 한 턴과 조각′(오류 범위만 방향별로) 일치. D-015 “방향마다 단일 flight·오류·재시도” ↔ D-025 일치. D-012 “현재 턴 TODO의 권위는 live 소유자” ↔ 현재 턴 TODO 경계 행 일치. AC2·AC6·AC7 문장은 바뀌지 않는다.
 
 ## 4. 현재 요구 검토
 
@@ -339,7 +342,7 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 |---|---|
 | 요청 / 응답 | 세션 키·창별 요청 id·창 열기 세대는 모든 응답에서 echo. 논리 커서는 `{v,session,projectionGeneration,kind,absoluteOrder/tieBreak}`를 data가 발급한 불투명 값이다. `ok`·`missing`·`stale`·`invalid`·`unavailable`·`cancelled`로 나눈다(rev 4의 `indexing` 응답은 쓰지 않는다 — 미출판 세션은 아래 ‘미색인 세션 열기’대로 요청을 보류한 뒤 `ok`). 세션/세대/종류 혼용·과대 입력은 data에서 거부하고 창도 일치 여부를 검사한다. |
 | 결정적 경계 | 정렬 키는 투영 내 절대 순번+안정 식별자. 시각·상대 배열 인덱스·SQL OFFSET을 커서로 쓰지 않는다. 마지막 turn의 직전 role/lookahead는 본문 없이 읽는다. `earlierTurn`은 이전 턴 하나, `laterTurn`은 다음 턴 하나에 한정(각각 그 턴이 크면 가까운 쪽 끝 묶음 + `moreInTurn`). `withinTurn`은 커서가 가리키는 논리 턴의 지정 방향 잔여만 반환. 형제 세션·다른 턴·다른 세대의 참조는 무효. |
-| 한 턴과 조각 (D-009) | 가장자리 턴이 크면 보일 쪽 끝 묶음과 `moreInTurn{direction,cursor}`을 준다(최신·이전 턴은 끝, 다음 턴은 처음, 검색 대상은 대상을 포함한 묶음). 창은 첫 본문 commit 뒤 유휴 콜백(`requestIdleCallback`)마다 그 턴 잔여 1묶음을 요청한다 — 같은 세션·같은 보기가 활성, 직전 유휴 요청 완료, 오류 없음, 사용자 입력 중 아님(아래 제스처 경계)일 때만. 잔여가 끝나면 멈추고 이전·다음 턴 커서로 넘어가지 않는다. 잔여가 남은 동안 그 방향 끝 입력은 같은 턴 다음 묶음을 읽는다. 세션 전환·보기 닫기·취소에서 예약을 지운다. 한 응답을 완전히 검사한 뒤 한 번만 적용. non-T 앞삽입은 B의 `reset{complete:false}`·안정 선택/앵커를 지킨다. |
+| 한 턴과 조각 (D-009) | **ΔV5에서 유휴 콜백 조건을 ‘한 턴과 조각′’(§24 D)으로 대체.** 가장자리 턴이 크면 보일 쪽 끝 묶음과 `moreInTurn{direction,cursor}`을 준다(최신·이전 턴은 끝, 다음 턴은 처음, 검색 대상은 대상을 포함한 묶음). 창은 첫 본문 commit 뒤 유휴 콜백(`requestIdleCallback`)마다 그 턴 잔여 1묶음을 요청한다 — 같은 세션·같은 보기가 활성, 직전 유휴 요청 완료, 오류 없음, 사용자 입력 중 아님(아래 제스처 경계)일 때만. 잔여가 끝나면 멈추고 이전·다음 턴 커서로 넘어가지 않는다. 잔여가 남은 동안 그 방향 끝 입력은 같은 턴 다음 묶음을 읽는다. 세션 전환·보기 닫기·취소에서 예약을 지운다. 한 응답을 완전히 검사한 뒤 한 번만 적용. non-T 앞삽입은 B의 `reset{complete:false}`·안정 선택/앵커를 지킨다. |
 | 본문 | 큰 메시지의 ID·role·createdAt 및 최소 소유 메타와 `BodyRef`를 보낸다. ref는 세션·세대·메시지/part 키·kind·원문 바이트 길이에 결합. 지연 표시는 창의 명시적 상태로 보존한다. 저장된 빈 parts나 빈 문자열과 구분. 주문한 조각만 읽고 UTF-8 경계에서 복원하며 종료·오류·취소 시 부분 자료를 완성본으로 승격하지 않는다. |
 | B의 끝 표식·응답 합류 | latest는 0326 합의대로 `complete:false`로 LOAD. 앞쪽 누락이 실제로 없으면 같은 store 공개 묶음 안에서 `prependHistory([], {reachedStart:true})`로 끝 처리. 이전 턴·같은 턴의 나머지 양쪽이 없는 최종 응답에서만 `reachedStart:true`. BodyRef가 가린 도구 소유는 data에서 안정 소유 키로 복원 가능해야 하며 유효한 보류를 고아로 버릴 수 없다. |
 | 빈 결과·겹침·오류 | 0326의 순서 검사 뒤 적용/정당한 중복/거부를 액션 결과로 구분한다. 거부는 커서·끝 갱신 0, 재조회는 사용자 재시도 1회/동작. 순서가 맞는 전부 중복이나 빈 마지막 페이지는 끝 표식을 적용한다. |
@@ -368,7 +371,7 @@ rev 5 기준 트리(`7db1c7ce`)에서 각 술어의 출현은 EP1 120줄/29파�
 |---|---|---|
 | EP1 · `loadParts\|payload_json\|archive_json\|local_frontier\|message_key\|turnStart\|isTurnStart` | ① local 쓰기·교체·빈 메시지 ② native replace/binding/sidecar·고아 ③ archive prepare·이전 버전 변환 ④ publish·롤백·삭제 ⑤ stable key와 턴 시작에 의한 seek | ①②③⑤ Q1, ②③④⑤ Q9. 전량 읽고 slice하는 변이를 ⑤에 넣어 Q1의 read 계수가 red인지 본다. 출판 포인터를 먼저 바꾸는 변이를 ④에 넣어 중간 세대 노출을 검출한다. |
 | EP2 · `sessionLoad\|sessionRefresh\|loadSession\|loadParts\|requestId\|reachedStart` | ① 일반/재접속/refresh 창 호출 ② 채널 route·스키마·세션 검사 ③ 예산 내 data reader·sender ④ 응답 검사/조립 ⑤ LOAD·끝 표식의 단일 공개 | 전 자리 Q2, data 결과는 Q1과 대조. ① 갱신과 ③ 최신 조회에 full reader를 각각 넣어 분기별로 과거 읽기 검출. 중복·조각 유실·재정렬·횟수 부조화 입력은 부분 적용 0. |
-| EP3 · `parts\|payload_json\|message_id\|projectionGeneration\|moreInTurn\|bodyRef\|requestIdleCallback\|idleFill` | ① 본문 길이·분할 저장 ② 한도 초과 시 ref 또는 같은 턴 커서 발급 ③ sender의 범위·소유 확인 ④ 창 제어·수신→원 ID 내용 결합 ⑤ 유휴 채움 예약: 첫 commit 뒤에만 · 같은 턴 한정 · 입력 중 보류 · 직전 요청 완료 대기 · 오류 정지 · 전환/닫기 해제 | ①② Q1·Q3, ③④ Q3, ⑤ Q4(UT-04). 정상 경계·1 초과·빈 part·비 ASCII·중간 취소·offset 초과·세대 교차·재시도 입력. ⑤ 분기 입력: commit 전 유휴 · 잔여 3묶음 턴 · 입력 중 유휴 · 응답 대기 중 유휴 · 오류 뒤 유휴 · 전환 뒤 유휴 · 잔여 끝 뒤 유휴(이전 턴 요청 0). 승인 전이나 다른 세션의 본문·로컬 파일 경로 노출 금지. |
+| EP3 · `parts\|payload_json\|message_id\|projectionGeneration\|moreInTurn\|bodyRef\|requestIdleCallback\|idleFill` | ① 본문 길이·분할 저장 ② 한도 초과 시 ref 또는 같은 턴 커서 발급 ③ sender의 범위·소유 확인 ④ 창 제어·수신→원 ID 내용 결합 ⑤ 유휴 채움 예약: 첫 commit 뒤에만 · 같은 턴 한정 · 입력 중 보류 · 직전 요청 완료 대기 · 오류 정지 · 전환/닫기 해제 | ①② Q1·Q3, ③④ Q3, ⑤ Q4(UT-04) — **ΔV5에서 검색 보기 방향 입력을 EP3 ⑤′(§24 E)로 보강.** 정상 경계·1 초과·빈 part·비 ASCII·중간 취소·offset 초과·세대 교차·재시도 입력. ⑤ 분기 입력: commit 전 유휴 · 잔여 3묶음 턴 · 입력 중 유휴 · 응답 대기 중 유휴 · 오류 뒤 유휴 · 전환 뒤 유휴 · 잔여 끝 뒤 유휴(이전 턴 요청 0). 승인 전이나 다른 세션의 본문·로컬 파일 경로 노출 금지. |
 | EP4 · `entryIntent\|scrollTop\|header\|footer\|wheel\|scrollHeight\|reachedStart\|gesture\|shouldCancelSelection` | **ΔV1에서 EP4′(§20 E)로 대체.** ① 세 화면 진입 intent→하단 ② 공통 상단 입력·짧은 턴 ③ 요청 상태→머리 당김 표시/스피너/닫기/재시도 ④ 앵커 캡처→크기 변경→단일 위치 복원 ⑤ 제스처 경계(간격·방향·키·버튼) → 요청 ≤1 ⑥ 새 행 마운트 → 선택 취소 규칙 승계 | ①~⑤ Q4, ③④⑤⑥ Q4b(Chromium). 클릭 없이 상단이 보이기만 함·위/아래·중복 wheel·관성 열(16ms 간격 30개)·간격 초과 두 번·방향 전환·짧은 턴·끝/오류를 구별. Q4b 선택 변이: ④의 머리 높이 복원 제거 → 글줄 >1px red, ⑤의 간격 판정 제거 → 관성 요청 >1 red. |
 | EP5 · `sessionLoads\|dropSession\|cancelLoad\|PREPEND_HISTORY\|LOAD_SESSION\|heldPatches\|heldOutputs\|prependRejected\|onSend\|activeKey` | ① store 요청 세대/중복 억제 ② 세션 닫기·delete·재접속 취소 ③ 응답의 세대/커서 재검사 ④ reducer 검증 및 보류 병합 ⑤ 성공일 때만 커서/끝 commit ⑥ 응답 적용 ↔ 컴포저 초안 비접촉, 송신 대상 = 송신 순간 활성 세션 | ①~⑤ Q5, ②③ Q2, ⑥ Q5b. A→B→A, old-first/new-first, 삭제, out-of-order, owner result·출력 양 순서, stale/error/empty/중복/전체중복뒤틀림을 교차. Q5b 선택 변이: 송신 대상을 늦은 응답의 세션 키로 맞바꿈 → red. |
 | EP6 · `searchMessages\|SearchHit\|SearchModal\|onChoose\|entryIntent\|messageId\|anchorKey\|scrollTop\|searchView\|laterTurn\|reachedLatest\|navigationId` | ① FTS→세션·출처 locator ② 선택(클릭·Enter)→고유 탐색·라우트(같은 세션 포함) ③ data 정체성/세대·캐시 확인→목표 묶음/실패 ④ 메시지→하네스별 행·마운트 ⑤ 단일 스크롤 쓰기→가시·포커스·행 표시 ⑥ 취소·2초 종료·복귀 ⑦ 검색 보기 방향별 커서·위/아래 입력·하단 슬롯 ⑧ `reachedLatest` → 세션 엔트리 합류(applied/duplicate/rejected) | ①③ Q6a·b, ②④⑤⑥ Q6c·d, ⑦⑧ Q6e. 타 세션·숫자 재사용·비가시 캐시·연속 선택·늦은 이전 navigationId 응답·사용자 선행 조작·일반 열기를 분리한다. ⑧ 분기 입력: 엔트리 최신 묶음 있음 · 엔트리 빈 메시지(cold) · 엔트리에 live 꼬리 · 세대 교체로 rejected. |
@@ -751,6 +754,73 @@ r1.4는 r1.3 코드에서 이어 가며 ΔV3을 먼저 한다(사용자 요구 �
 
 **선언 경계.** 묶음 수 자체에 상한을 두지 않는다 — 큰 턴의 총량은 §17 ‘단일 거대 턴’과 D-009가 정한 대로 그 턴 전체다.
 
+## 24. ΔV5 — verify 2 PLAN_GAP 정정 (2026-11-25)
+
+**판정: PLAN_GAP 2건 타당 → 정정 뒤 READY.** verify 2(`a36d40b9`)가 G1(규칙 칸 불일치)·X1(확장 후보)로 반송했다. 같은 턴에서 현재 결함 D10의 기대를 입력 칸에 적는다. verify 2회째 뒤의 설계 턴이라 **열거 원문을 늘릴 수 있는 마지막 턴**이다. 이후 새 열거 항목은 출처(현재 결함·plan 내부 정합·사용자 결정)를 적어야 한다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`).
+
+### 24-A. 반송 근거 대조 (이 턴 조사)
+
+| 지적 | 판정 | 관측 |
+|---|---|---|
+| G1 검색 보기 한쪽 오류 시 반대쪽 유휴 채움 | 타당 — plan 내부 불일치 | §10 ‘한 턴과 조각’ “오류 없음”은 범위를 정하지 않는다. ‘양방향 커서·끝’은 “방향마다 단일 flight·오류·재시도를 따로 갖고 한 방향 실패가 다른 방향을 막지 않는다”고 적는다. r2 `idleSearchDirection.ts:11`은 어느 쪽이든 오류면 예약 0이다. r2 이전 `6b063bb0` `useHistoryControls.ts:43-48`은 오류 난 쪽만 건너뛰었다 |
+| X1 ‘최신 대화로’ 반복 입력 | 타당 — 확장 후보, 채택 | `chatStore.ts:2724` `if (entry.search.returning) return`이 중복 요청을 막는다. 이를 지운 변이 L3이 렌더러 1,078건에서 green이었다(verify 2) |
+| D10 현재 턴 TODO 경계 | 현재 결함 — 계약은 있고 입력 칸이 없다 | EP7 ⑥ “현재 턴 TODO 위치” · §5-C 표 “어느 안이든 항상 보인다”. `chatReducer.ts:1043`이 경계를 배열 위치로 고정하고 PREPEND_HISTORY(`:1701-1743`)는 옮기지 않는다. verify 2 재현에서 `[]`가 `[{old, in_progress}]`로 바뀌었다 |
+
+### 24-B. Decision
+
+D-025(검색 보기 유휴 채움의 오류는 방향별)를 §3에 더했다. 설계자 판정이다 — ‘양방향 커서·끝’이 이미 방향 독립을 정했고, D-009 원문은 오류를 다루지 않는다. 그래서 두 칸을 함께 만족하는 읽기는 방향별 하나뿐이다. X1 채택과 D10 입력은 기존 D-015·D-012 안이라 새 Decision을 만들지 않는다.
+
+### 24-C. Delta V
+
+| 노드 | provenance | 변경 |
+|---|---|---|
+| MD-04 | CHANGED | 검색 보기 유휴 채움 방향 판정을 방향별 오류 규칙으로 정정한다(D-025) |
+| SD-04 | CHANGED | ‘최신 대화로’ 진행 중 반복 입력은 latest 요청을 더하지 않는다(X1 채택) |
+| SD-02 | CHANGED | OpenCode 현재 턴 TODO 경계가 앞삽입에 영향받지 않는다(출처: 현재 결함 D10) |
+| R-02·R-03 | INHERITED | AC 문장 불변. 경로가 위 노드를 지나므로 VP-02·VP-03을 다시 닫는다 |
+
+| Pair | 노드 ↔ 검증 | 등급 | production path · §10 자리 | 직접 관측 |
+|---|---|---|---|---|
+| VP-16 | MD-04 ↔ UT-04 | REQUIRED | 검색 보기 commit → `idleSearchDirection` → 훅 예약 / store 발사 → 같은 턴 1묶음 · EP3 ⑤′ G1 자리 3 | Q4‴ |
+| VP-13 | SD-04 ↔ ST-04 | REQUIRED | ‘최신 대화로’ 버튼 → `leaveSearch(key, true)` → latest 1회 → LOAD/합류 → 하단 고정 · EP6 ⑦′ X1 자리 4 | Q6e′ |
+| VP-05 | SD-02 ↔ ST-02 | REQUIRED | 전송(BEGIN_TURN)·LOAD → 경계 → 앞삽입 → `selectOpenCodeTodos` → `AboveInput` · EP7 ⑥′ D10 자리 4 | Q7′ |
+| VP-02 | R-02 ↔ AT-02 | REGRESSION | ΔV2 경로 + 검색 보기 유휴 채움 | Q4‴ · Q4b″ |
+| VP-03 | R-03 ↔ AT-03 | REGRESSION | ΔV3 경로 + ‘최신 대화로’·현재 TODO | Q6e′ · Q7′ |
+
+나머지 pair는 ΔV4까지의 행 그대로다.
+
+### 24-D. 대체·추가 계약 행
+
+| 대상 → 새 행 | 규칙 |
+|---|---|
+| §10 ‘한 턴과 조각 (D-009)’ → **한 턴과 조각′** | 원 행의 규칙 중 유휴 콜백 조건 “직전 유휴 요청 완료, 오류 없음”만 아래로 바꾼다. 나머지(보일 쪽 끝 묶음·`moreInTurn`·같은 턴 한정·입력 중 보류·전환 해제·한 번 적용·non-T 앞삽입)는 그대로다. **조건**: 같은 세션·같은 보기가 활성이고, 그 보기의 어느 방향에도 진행 중 요청(자동·수동)이 없고, 사용자 입력 중이 아닐 때 예약한다. **방향**(검색 보기, D-025): before가 `withinTurn`이고 before 오류가 없으면 before. 아니면 after가 `withinTurn`이고 after 오류가 없으면 after. 그 밖은 예약 0. 오류 난 방향은 자동 재시도하지 않고 사용자 입력(버튼·끝 입력)으로만 다시 읽는다. 다른 방향 자동 채움은 막지 않는다. 일반 보기는 before 하나라 before 오류면 예약 0(원 행과 같음) |
+| §10 ‘하단 슬롯·아래 입력′’에 추가 → **‘최신 대화로’ 반복 입력** | ‘최신 대화로’ 요청이 진행 중이면 같은 세션의 반복 입력(버튼 재클릭·라우트 동기화 `useChatRouteSync.ts:81` — 둘 다 EP6 ⑦′ ①을 지난다)은 latest 요청을 더 보내지 않고 진행 중 표시를 유지한다. 실패하면 재시도 표시로 바뀌고 다음 입력 한 번에 다시 1회 요청한다 |
+| §10 ‘세션 패널 요약’에 추가 → **현재 턴 TODO 경계** | OpenCode 현재 턴 TODO는 마지막 전송(BEGIN_TURN) 또는 LOAD 시점에 있던 메시지 뒤의 assistant 메시지만 읽는다. 앞삽입(이전 턴·같은 턴 유휴 채움·검색 합류의 PREPEND_HISTORY)으로 붙은 메시지는 그 경계 앞에 놓인다. 경계를 배열 위치로 두면 앞삽입한 수만큼 옮기고, 메시지 ID로 두어도 된다. 앞삽입이 거부(`prependRejected`)되면 경계는 그대로다 |
+
+### 24-E. 강제 지점·좌표
+
+자리 검색(저장소 루트, `-g '!*.test.*' -g '!*.testfixture.*'`) — 이 턴 출력에서 계약 값을 운반하는 자리를 아래에 고정한다. 나머지 줄은 import·타입·주석이다.
+
+| EP / 검색 명령 | 자리 | 규칙 | oracle · 분기 입력 |
+|---|---|---|---|
+| EP3 ⑤′ · `rg -n 'idleSearchDirection' app/src` (5줄) | ① `idleSearchDirection.ts:10-15` 판정 ② `useHistoryControls.ts:44-45` 예약 ③ `chatStore.ts:2776` 자동 발사 재확인 | 한 턴과 조각′ 방향 규칙 | Q4‴ — 입력: (i) 양쪽 `withinTurn`·무오류 → before (ii) before 오류 + after `withinTurn` → after 1회 (iii) after 오류 + before `withinTurn` → before 1회 (iv) 양쪽 오류 → 0 (v) before 진행 중 + after `withinTurn` → 0 (vi) after 수동 진행 중 + before `withinTurn` → 0 (vii) before `earlierTurn` + after `withinTurn` → after. ③은 (ii)를 store에서 `readSearchEdge(key,'after',true)` = true로, (v)를 false로 본다 |
+| EP6 ⑦′ · `rg -n 'returning\|returnFailed\|returnToLatest\|leaveSearch\(' app/src/renderer/src` (16줄) | ① `chatStore.ts:2724-2725` 진행 중 가드·설정 ② `chatStore.ts:2759` 실패 표시 ③ `useHistoryControls.ts:69-70` 상태·동작 노출 ④ `HistoryEdge.tsx:61-67` 버튼 | ‘최신 대화로’ 반복 입력 | Q6e′ — 입력: latest 응답 전 `leaveSearch(key,true)` 2회 → `page({kind:'latest'})` 1회 · 실패 뒤 1회 더 → 2회째 요청 · ③ 진행 중 `latestState='loading'`, 실패 `'error'` · ④ 진행 중 버튼 `disabled` |
+| EP7 ⑥′ · `rg -n 'openCodeTodoTurnStartIndex' app/src` (9줄) + PREPEND_HISTORY 분기 | ① `chatReducer.ts:1043` 전송 시 경계 ② `chatReducer.ts:1807` LOAD 경계 ③ `chatReducer.ts:1701-1743` PREPEND_HISTORY의 경계 보존(이번에 생기는 자리) ④ `todoState.ts:18` 소비 | 현재 턴 TODO 경계 | Q7′ — 입력: (a) 부분 LOAD → 전송 → 이전 턴(성공 TodoWrite ‘old’ in_progress) 앞삽입 → `[]` 유지 (b) 전송 → 현재 턴 TodoWrite ‘new’ → 앞삽입 → `['new']` 유지 (c) 앞삽입 거부(겹침 순서 불일치) → 경계·결과 불변 (d) 전송 전 LOAD 직후 앞삽입 → `sendCount=0`이라 `[]`. ③은 (a)(b), ①②④는 (a)~(d)가 지난다 |
+
+| 좌표 | 재현 입력 → 직접 관측 |
+|---|---|
+| Q4‴ · `renderer/src/features/chat/hooks/useHistoryControls.test.ts` + `renderer/src/features/chat/store/history-search.test.ts` | Q4″ 입력 전부 + EP3 ⑤′ (i)~(vii). 훅은 `readSearchEdge` 호출 인자·예약 수, store는 반환값과 `page` 호출 수를 본다. r2의 ‘fills both sides of a search turn one committed page at a time’에서 한쪽 `error`일 때 예약 0을 기대한 단언은 (ii)(iii)으로 기대가 바뀐다 |
+| Q6e′ · `renderer/src/features/chat/store/history-search.test.ts`(①②) + `renderer/src/features/chat/hooks/useHistoryControls.test.ts`(③) + 신규 `renderer/src/features/chat/components/transcript/HistoryEdge.test.ts`(④) | Q6e 입력 전부 + EP6 ⑦′ 입력. latest 응답을 지연시켜 반복 입력 사이의 요청 수를 센다. ④는 `latestState` `loading`·`error`·없음 세 값으로 버튼 `disabled`·문구를 본다 |
+| Q7′ · `renderer/src/features/chat/harnesses/opencode/composer/` reducer 통합 테스트(`TodoDock.integration.test.ts` 방식) | 실제 `chatReducer`의 `LOAD_SESSION`·`BEGIN_TURN`·`RECV_EVENT`·`PREPEND_HISTORY`와 `selectOpenCodeTodos`로 (a)~(d). 앞삽입 메시지 수는 1이 아닌 값(예: 2)으로 둬 경계 이동량을 구별한다 |
+
+**선택 변이(ΔV5).** EP3 ⑤′ ①에서 오류 조건을 “어느 방향이든 오류면 0”으로 되돌림(r2 동작) → Q4‴ (ii)(iii) red. EP6 ⑦′ ① 진행 중 가드 제거(verify 2 L3) → Q6e′ 반복 입력 red. EP7 ⑥′ ③ 경계 보존 제거(현재 코드) → Q7′ (a) red, 이동량을 1로 고정 → Q7′ (a)(b) red.
+
+**선언 경계.** (1) 오류 난 방향의 자동 재시도는 두지 않는다 — 사용자 입력으로만 다시 읽는다. (2) OpenCode 외 하네스에는 현재 턴 TODO가 없어 EP7 ⑥′을 적용하지 않는다(`AboveInput.tsx`는 OpenCode 전용 — `rg -n 'openCodeTodoTurnStartIndex'` 소비 2파일).
+
+### 24-F. 구현 재개 조건
+
+r3(라운드 3 첫 구현 턴)는 r2 코드에서 이어 간다. ΔV5 세 자리 묶음을 먼저 하고, 이어서 verify 2 파생 이슈 D10~D18과 verify 2 §4의 ⑦ 잔여 7항목을 닫는다. Q4‴가 r2 단언과 충돌하는 곳은 r2 단언을 고친다(기대가 바뀐 것이지 회귀가 아니다).
+
 ## READY self-review
 
 | 점검 | 결과 |
@@ -770,6 +840,7 @@ r1.4는 r1.3 코드에서 이어 가며 ΔV3을 먼저 한다(사용자 요구 �
 | ΔV2 | r1.2 반송 근거 5건을 §21 A에서 이 턴 Electron 실측(기준 실패 12/18 → 좌표 한 줄 수정 시 15회 실패 0)으로 대조했다. NEW MD-05 → VP-17(Q12), CHANGED MD-04 → VP-16, 경로가 바뀐 R-02 → VP-02 REQUIRED 재닫힘. EP4″ ④ 분기 입력 (i) 3 · (ii) 3 · (iii) 1, ⑤ 5, 선택 변이 4, 선언 경계 1(폴백). |
 | ΔV3 | r1.3 반송을 원인(같은 ID 복구 계약)에서 닫았다. SDK·CLI 지원은 설치 패키지 타입과 번들 CLI 검사 문자열로 확인했다(§22 A). NEW SD-06·AR-05 → VP-19·VP-18, CHANGED R-03 → VP-03. EP10 자리 8개와 Orca 계보 형제 1묶음을 검색 명령(36줄)으로 고정, 분기 입력 ③ 4 · ④ 3 · ⑥ 2, 선택 변이 6(형제 맞바꿈 포함), 선언 경계 3. 현재 상태 문서 1곳과 기대가 바뀌는 기존 테스트 1건을 적었다. |
 | ΔV4 | r1.4 반송을 이 턴 독립 계산(탐욕 = 동적 계획법 최소: 균등 5 · 편중 6)으로 확인하고 §14 등식을 하한 + 탐욕 채움 계약으로 바꿨다. CHANGED MD-01 → VP-11(Q3′), 선택 변이 3, 선언 경계 1, §17 게이트 측정 조건 명시. 사용자 결정 불필요(plan 내부 결함). |
+| ΔV5 | verify 2 반송 2건을 규칙 칸 원문(§10 ‘한 턴과 조각’ ↔ ‘양방향 커서·끝’)과 r2·r2 이전 코드(`idleSearchDirection.ts:11` · `6b063bb0` `useHistoryControls.ts:43-48`)로 대조했다. D-025 신설, CHANGED MD-04·SD-04·SD-02 → VP-16·13·05 REQUIRED, VP-02·03 REGRESSION. 자리 검색 3개(5·16·9줄)로 EP3 ⑤′ 3자리·EP6 ⑦′ 4자리·EP7 ⑥′ 4자리를 고정하고 분기 입력 7·4·4, 선택 변이 4, 선언 경계 2를 적었다. 새 열거 항목의 출처: G1 plan 내부 정합 · X1 확장 채택(verify 2회째 직후 — 마지막 창) · D10 현재 결함. 이 턴 뒤 plan 동결. 사용자 결정 불필요(D-025는 기존 §10 문장이 정한 방향 독립의 적용). |
 
 ---
 
@@ -1434,8 +1505,8 @@ r2 검산은 선택·회귀·EP10 근거 14 + 검증 1 인용 변이 14 + 새 �
 | D8 | 본문 ref 바이트 길이 결합 미잠금(P3) | verify r1 · VP-08 · §10 본문 | 길이가 다른 ref 입력 | 이행 | BLOCKING | closed (r2 · P3) |
 | D9 | locator epoch(P5)·target 캐시 키(P7) 미잠금, Q2·Q3·Q5·Q5b·Q6a~e·Q8 renderer·Q9 좌표 대응 누락 | verify r1 · VP-14 · Q6a·Q6b · §10 “Q는 … 좌표” | 해당 입력 추가와 Q별 `파일:테스트명` 대응표 | 이행 | BLOCKING | closed (r2 · P5·P7 · Q 대응표) |
 | N1 | Vitest 22 red(Windows 경로, diff 밖 9파일) | verify r1 · gate | — | 비귀속 | NON_BLOCKING | 기록 |
-| G1 | 검색 보기에서 한쪽 방향이 오류면 반대쪽 유휴 채움도 멈춘다(`idleSearchDirection.ts:11`). 계속해야 하는지 규칙 칸만으로 정할 수 없다 | verify r2 · VP-16 · §10 ‘한 턴과 조각’ “오류 없음” ↔ ‘양방향 커서·끝’ “한 방향 실패가 다른 방향을 막지 않는다” | 설계자가 한 규칙으로 고정하고 Q4″ 입력 칸에 그 분기를 적는다 | 이행(plan 내부 불일치) | PLAN_GAP | open |
-| X1 | ‘최신 대화로’ 반복 입력의 중복 요청 억제(`chatStore.ts:2724` `returning`)가 잠기지 않았다(L3) | verify r2 · VP-13 · 열거 원문 없음 | 채택(EP6 ⑦ 입력 추가) 또는 경계 선언 | 확장(창 안) | PLAN_GAP | open |
+| G1 | 검색 보기에서 한쪽 방향이 오류면 반대쪽 유휴 채움도 멈춘다(`idleSearchDirection.ts:11`). 계속해야 하는지 규칙 칸만으로 정할 수 없다 | verify r2 · VP-16 · §10 ‘한 턴과 조각’ “오류 없음” ↔ ‘양방향 커서·끝’ “한 방향 실패가 다른 방향을 막지 않는다” | 설계자가 한 규칙으로 고정하고 Q4″ 입력 칸에 그 분기를 적는다 | 이행(plan 내부 불일치) | PLAN_GAP | closed (ΔV5 §24 · D-025 · EP3 ⑤′) |
+| X1 | ‘최신 대화로’ 반복 입력의 중복 요청 억제(`chatStore.ts:2724` `returning`)가 잠기지 않았다(L3) | verify r2 · VP-13 · 열거 원문 없음 | 채택(EP6 ⑦ 입력 추가) 또는 경계 선언 | 확장(창 안) | PLAN_GAP | closed (ΔV5 §24 채택 · EP6 ⑦′) |
 | D10 | 앞삽입 뒤 OpenCode 현재 턴 TODO에 이전 턴 TODO가 보인다 — `openCodeTodoTurnStartIndex`(`chatReducer.ts:1043`)가 PREPEND_HISTORY(`:1701`)에서 옮겨지지 않는다(verify r2 독립 축 재현: `[]` → `[{old, in_progress}]`) | verify r2 · VP-05 · EP7 ⑥ · AC7 “OpenCode 현재 TODO … live 소유자” | 앞삽입 수만큼 경계를 옮기거나 메시지 ID 기준으로 바꾸고 재현 입력을 Q7에 더한다 | 이행(현재 결함 재현) | BLOCKING | open |
 | D11 | 창 응답·본문 검사 22자리 미잠금(T4·T6~T13·T15·DB4~DB7·DB10·O2~O4·R7·W6·PQ1·PQ4) | verify r2 · VP-08·14 · §10 요청/응답 “창도 일치 여부를 검사” · 본문 ref 결합 · EP2 ④ · EP3 ④ | 자리마다 그 항목만 다른 응답 입력 | 이행 | BLOCKING | open |
 | D12 | 취소·늦은 응답 16자리 미잠금(S12·S13·T14·DB1·DB9·B1~B6·L2·W5·O6·O8·EC1) | verify r2 · VP-08·13 · §10 “다른 navigationId의 응답은 적용 0” · 본문 취소 · 사용자 제어 · EP5 ②③ · Q6e | 같은 hit 재선택·전환·취소 입력 | 이행 | BLOCKING | open |
