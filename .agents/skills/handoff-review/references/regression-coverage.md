@@ -3906,3 +3906,73 @@ word-diff 지운 단어: 위 MOVE·REPLACE 범위 밖 0. DELETE 0 · 설명 없�
 - verify 회차: `Handoff`·`Status`·`Verified-By` trailer가 있는 커밋만 센다(첫 trailer 커밋 2026-06-09). trailer 없는 옛 verify와, 한 handoff의 설계·구현 커밋 없이 이어진 별개 verify(예: 외부 요청으로 같은 코드를 다시 검증)는 같은 회차로 합쳐진다.
 - 판정 불명 4회는 `Verified-By`가 비었거나 `pending`인 verify 커밋이다 — 판정을 복원하지 않고 비율에서 뺀다.
 - 구간: 절을 들인 커밋을 `git log -S`로 찾는다. 같은 접두가 지워졌다 다시 들어온 이력이 있으면 배정이 어긋날 수 있다(현재 이력에는 `구간 복원 불가` 0).
+
+# review round 52 — 사용자 피드백: 실패 회차가 집계에서 사라지거나 불완전한 원장이 개선으로 보이지 않게
+
+**발동/모드**: 사용자가 붙여 준 피드백 "다음은 보완점에 대한 피드백이다"(2026-11-25) → **APPLY**. 기준 `f4268eb1`.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | `Handoff:`가 여럿인 커밋을 첫 값만 읽어 0263 `RETURN_TO_PLAN → PASS`·0264 `FAIL → PASS`가 각각 1회 PASS로 축약됐다 | `ce7aa102` · `7be5d723`(0262~0265 공동 구현 커밋) | **A**(도구) — trailer마다 반영 |
+| 2 | 부모·트리가 같은 두 커밋(`7141791e` · `1e8e0486`, 0294 r5)을 두 회차로 세어 r7이 r8로 나왔다 | 0294 | **A**(도구) — (handoff, 부모, 트리, 종류)가 같으면 한 커밋. 트리만 같고 부모가 다르면 별개 재검증 |
+| 3 | 명시 기록과 커밋 추론의 충돌을 드러내지 않았다 · 판정 순서를 pass/fail로만 냈다 | 0263·0264·0294 | **A** — verify.md 명시 회차(H1 `# rN 검증`·`# 라운드 N`·`# verify N회째` 등의 최댓값)와 대조, 불일치는 `복원 불가`와 근거·구간 FAIL%에서 제외. 판정은 회차에서 판정을 밝힌 가장 최근 커밋 제목 |
+| 4 | 원장 — 빈 ID·`BLOCKING_typo` 통과 · 직전에 열린 ID가 사라져도 F를 냄 · 잘못된 최신 정정을 버리고 원 판정을 유효로 씀 · 확인 불가 전이를 0으로 | 피드백 재현 | **A**(도구) — 엄격 disposition 정규식, 누락·잘못된 정정은 `판정 불가`(종료 1), 직전 상태를 직전 원장과 대조, 확인 불가 전이는 `-` |
+| 5 | `instruction_delta` — 2글자 백틱 옵션(`-q`→`-v`) 미대조 · `--pset` 단독의 `--pool`·`--map` 무시 · Git 판본의 디렉터리를 텍스트로 읽음 | 피드백 재현 | **A**(도구) — TOKEN 2글자부터 · 조합 거부(종료 2) · blob 아닌 대상 거부 |
+| 6 | review frontmatter가 "권고를 보고했을 때" 로드 — 권고는 사용자 수락이 필요하다 · 직전 상태 `닫힘`이 SKILL·template에 없었다 | 지침 정합 | **A** — frontmatter "사용자가 권고를 수락했을 때(verify는 이 스킬을 부르지 않는다)" · `closed 보고`(구현자 보고) ↔ `닫힘`(verify 종결 확인) |
+
+**verify 분류 대조(§2)**: 판정 의미 불변 — 정정 대상 없음.
+
+## Tier
+
+**Tier 1.** 집계 도구의 판정 의미(회차·F·오류)와 verify 원장 값 정의가 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `f4268eb1`. `instruction_delta.py --prose`(review·verify SKILL · `verify.template.md`, pool AGENTS) 후보 **2**.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| review:177 word-diff 전체 명령 | MOVE | `instruction_delta.py` 머리말 "잡지 못하는 것"에 같은 명령. SKILL은 그 명령을 가리킨다 |
+| verify:248 `—`(이번에 처음) | REPLACE | `—`(직전에 안 열림) — 파서가 직전 원장과 대조할 수 있는 정의. `닫힘` 추가 |
+
+word-diff 지운 단어: review description의 절차 요약(본문 §0~§8에 있음) · verify `closed 보고` 설명의 표현. DELETE 0.
+
+## 6-B Historical Failure Regression
+
+- `--pset`(기준 `f4268eb1`): P 71 → 71, 삭제·추가·중복·번호 변경 없음. **COVERED 71**.
+- 강화: **P39 · P40**(합계·자기보고) — 회차 합계 검산에 더해 handoff별 회차·판정 순서와 명시 기록을 대조한다. **P41**(도구가 정의한 전수) — 불완전한 원장이 F로 나오지 않는다.
+
+| handoff | 원문 근거 | 수정 전(`f4268eb1`) | 수정 후 |
+|---|---|---|---|
+| 0263 | `c6d745c5` "r1 검증 RETURN_TO_PLAN" → 구현 `ce7aa102`·`7be5d723`(Handoff 4개) → `80fcaaa2` "r2 검증 PASS" · verify.md `# r2 검증` | 1회 `claude:pass` | 2회 `RETURN_TO_PLAN → PASS` · 명시 일치 |
+| 0264 | `c37553b3` "r1 검증 FAIL" → 같은 공동 구현 커밋 → `bec4cc2b` "r2 검증 PASS" · `# r2 검증` | 1회 `claude:pass` | 2회 `FAIL → PASS` · 명시 일치 |
+| 0294 | `7141791e`·`1e8e0486` 부모 `aac291f3`·트리 `f518cc71` 같음 · verify.md `# r2`~`# r7` | 8회 | 7회 `RTP → RTP → FAIL → RTP → RTP → FAIL → PASS` · 같은 변경 `1e8e0486` · 명시 일치 |
+| 0329 | 원장 4개(verify 1·2·3·3 정정 49) · `## 판정 — verify 3회째` | 3회 · F 9 → 11 → 3 | 3회 `FAIL → RTP → RTP` · F 9 → 11 → 3 · 이력 `원 F 1 → 정정 49 F 3` |
+| 전체 | — | verify 회차 447(handoff 276) | 450(handoff 278) · 판정 불명 4 · 복원 불가 handoff 7(회차 29) · 배정 합계 450 |
+| round 24 · 49·50 | 절을 들인 커밋 | 24·24b · 49·50 각 0 | 같음 — 24(`24585af6`)·24b(`56609af7`) · 49·50·51 각 0 |
+
+- **시나리오 replay(테스트 30개 = 기존 16 + 신규 14)**: 여러 Handoff 커밋 · 부모·트리 같은 중복(병합) · 트리만 같은 별개 재검증 · 명시 기록 충돌 → `복원 불가` · 빈 ID · `BLOCKING_typo` · `NEXT_HANDOFF(확장)` 허용 · 누락 ID → `판정 불가`(종료 1)와 다음 회차 전이 `-` · 잘못된 최신 정정 → 이력 보존·`판정 불가` · 근거 없는 `닫힘` · 유효한 빈 원장 F 0 · `--handoff` 범위 · `-q`→`-v` · `--pset`+`--pool`/`--map` 거부 · Git·작업 트리 디렉터리 거부 · 삭제 파일 정상 비교. 같은 테스트를 `f4268eb1` 스크립트에 돌리면 19개 실패(신규 재현 사례 전부 포함).
+
+## 6-C Cross-document Consistency
+
+- 직전 상태 값: verify SKILL §11 원장 표 = `verify.template.md` 원장 표 = `review_metrics.py` PREV·대조 규칙 = 테스트 — `—` · `열림` · `closed 보고` · `닫힘` 같다.
+- 리뷰 필요 여부: review frontmatter("필수 · 사용자가 수락한 권고 · verify는 부르지 않음") = AGENTS §handoff-review 트리거 = verify SKILL §Review Signals — 같다.
+- `check-doc-inventory --check` ok · `check-product-naming` OK · `site_census.test.mjs` 5/5 · `test_review_scripts.py` 30/30.
+
+## 효과 지표
+
+- 앞 라운드(49·50·51) 변경의 적용 기회: 그 뒤 verify 회차 0 → **적용 기회 없음**.
+- 핵심 지침 bytes `f4268eb1` 184,273 → 184,264(−9). 이번 이슈 A 6 · B 0.
+
+## 전환 (§8)
+
+판정 의미 불변 — 정정 대상 없음.
+
+## 남은 한계(과거 자료로 복원할 수 없는 범위)
+
+- 명시 기록과 충돌해 `복원 불가`인 handoff 7개: 0157(커밋 1 ↔ 명시 2) · 0198(8 ↔ 10) · 0209(8 ↔ 13) · 0223(1 ↔ 2) · 0237(4 ↔ 7) · 0238(3 ↔ 4) · 0249(4 ↔ 3). trailer 없던 verify 커밋, 명시 번호가 impl 라운드를 따른 기록, 재개 뒤 번호를 다시 쓴 기록 중 무엇인지는 각 verify.md를 사람이 읽어야 가른다.
+- 명시 회차가 없는 verify.md(H1 회차 표기 없음)는 커밋 추론만 쓴다(`명시 없음`) — 대조로 오류를 잡지 못한다.
+- fail 종류(FAIL·RETURN_TO_PLAN)는 제목에 판정어가 없고 `Next-Action`이 구현자가 아니면 `FAIL·RTP`로 남는다.
+- F(N)·전이는 원장 보유 1개(0329)만. 나머지 297개는 원장 형식 전 기록이다.
