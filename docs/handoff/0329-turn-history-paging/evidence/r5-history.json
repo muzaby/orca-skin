@@ -1,0 +1,504 @@
+{
+  "handoff": "0329-turn-history-paging",
+  "round": "r5",
+  "design": "V1 rev 5 + ΔV1–ΔV7 §26",
+  "base": "1a109284",
+  "controls": {
+    "beforeProductionFix": {
+      "counts": {
+        "files": 2,
+        "cases": 49,
+        "passed": 48,
+        "failed": 1,
+        "skipped": 0
+      },
+      "failures": [
+        {
+          "file": "src/main/app/chat-turn/send.busy.test.ts",
+          "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='opencode', fork=true)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ {}, ObjectContaining{…} ]\n\nReceived:\n\n  1st vi.fn() call:\n\n  [\n    {},\n-   ObjectContaining {\n-     \"error\": ObjectContaining {\n-       \"category\": \"schema_validation_error\",\n-       \"message\": StringContaining \"하네스 또는 작업 종류를 변경할 수 없습니다\",\n-       \"retryable\": false,\n+   {\n+     \"error\": {\n+       \"category\": \"provider_connection_error\",\n+       \"message\": \"이 대화의 하네스 또는 작업 종류를 변경할 수 없습니다. 새 대화에서 선택해 주세요.\",\n+       \"retryable\": true,\n      },\n      \"type\": \"error\",\n    },\n  ]\n\n\nNumber of calls: 1\n"
+        }
+      ]
+    },
+    "afterFix": {
+      "files": 2,
+      "cases": 49,
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0
+    },
+    "afterMutationsRestored": {
+      "files": 2,
+      "cases": 49,
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "coordinates": {
+    "Q13": [
+      {
+        "file": "src/main/adapters/claude/adapter.fork.test.ts",
+        "test": "ClaudeAdapter — forkFrom (0064) recreates an expired conversation with a new native UUID and hides archived context in its receipt"
+      },
+      {
+        "file": "src/main/adapters/claude/adapter.fork.test.ts",
+        "test": "ClaudeAdapter — forkFrom (0064) routes resumed events, permissions and hooks to the display session (recovered=true)"
+      }
+    ],
+    "Q14": [
+      {
+        "file": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+        "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns"
+      }
+    ],
+    "Q15": [
+      {
+        "file": "src/main/app/chat-turn/send.worktree.test.ts",
+        "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=true)"
+      },
+      {
+        "file": "src/main/app/chat-turn/send.worktree.test.ts",
+        "test": "handleChatSend worktree production wiring uses the native source for handoffFrom and the display parent for lineage (recovered=true)"
+      }
+    ],
+    "Q6e′": [
+      {
+        "file": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "test": "exposes return-to-latest loading and retry state on the same search view"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "search history in the chat store reads a bounded latest page for a cold search and preserves the view if returning fails"
+      },
+      {
+        "file": "src/renderer/src/features/chat/components/transcript/HistoryEdge.test.ts",
+        "test": "shows the pull indicator and disables only a pending return-to-latest button"
+      }
+    ],
+    "Q6e″": [
+      {
+        "file": "src/renderer/src/app/hooks/useChatRouteSync.test.ts",
+        "test": "returns to latest only on a new visit to the open search session, coalescing pending visits and retrying after failure"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "clears a departing search while latest is pending and ignores its late reply"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "preserves the search view when revalidating the active session"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "restores an origin visit with a pending latest read only for the active search (pinned=true)"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "restores an origin visit with a pending latest read only for the active search (pinned=false)"
+      }
+    ],
+    "Q7″": [
+      {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+        "test": "renders only current-turn TODOs across accepted and rejected history pages (before send)"
+      },
+      {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+        "test": "renders only current-turn TODOs across accepted and rejected history pages (empty current turn)"
+      },
+      {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+        "test": "renders only current-turn TODOs across accepted and rejected history pages (current write)"
+      }
+    ],
+    "Q6e″ ⑦ (iii)–(v)": [
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "reopens an inactive origin that still holds a search view after starting a new chat"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "cancels a pending target lookup when restoring the active origin without a search view"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "returns a pinned origin to latest even when its reading anchor and generation are available"
+      }
+    ],
+    "Q15″": [
+      {
+        "file": "src/main/app/chat-turn/send.busy.test.ts",
+        "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='opencode', fork=true)"
+      },
+      {
+        "file": "src/main/app/chat-turn/send.busy.test.ts",
+        "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='claude', fork=false)"
+      },
+      {
+        "file": "src/main/app/chat-turn/send.busy.test.ts",
+        "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='claude', fork=true)"
+      }
+    ]
+  },
+  "census": {
+    "EP6": {
+      "command": "SC=.agents/skills/handoff-verify/scripts/site_census.mjs; R=app/src/renderer/src; F=$R/features/chat; M=app/src/main\nnode $SC --search \"rg -n 'returning|returnFailed|returnToLatest|leaveSearch\\(' app/src/renderer/src -g '!*.test.*' -g '!*.testfixture.*'\" \\\n  --sites \"$F/store/chatStore.ts:2724-2725,$F/store/chatStore.ts:2759,$F/hooks/useHistoryControls.ts:69-70,$F/hooks/useHistoryControls.ts:78,$F/components/transcript/HistoryEdge.tsx:61-67,$R/app/hooks/useChatRouteSync.ts:80-81,$F/store/chatStore.ts:2005-2008,$F/store/chatStore.ts:2607-2609\"",
+      "summary": "검색 16줄 · 운반 후보 11 · 목록 11 · 제외 0 · 미분류 0 · 목록만 0"
+    },
+    "EP10": {
+      "command": "SC=.agents/skills/handoff-verify/scripts/site_census.mjs; M=app/src/main\nnode $SC --search \"rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|nativeSessionId|native_id|routeNativeSession|onPermissionModeChanged\\?\\.|forkFrom|session_id \\?\\? ' app/src/main/adapters/claude app/src/main/adapters/common app/src/main/app/chat-turn app/src/main/app/native-history.ts\" \\\n  --sites \"$M/adapters/claude/adapter.ts:374-379,$M/app/chat-turn/native-session.ts:61-90,$M/adapters/claude/adapter.ts:556,$M/adapters/claude/adapter.ts:679-682,$M/adapters/claude/adapter.ts:527-529,$M/adapters/claude/adapter.ts:948,$M/adapters/claude/adapt.ts:307,$M/app/chat-turn/send.ts:296-298,$M/app/chat-turn/send.ts:623,$M/app/chat-turn/continuation.ts:40,$M/app/chat-turn/resolve-turn.ts:122-125,$M/app/chat-turn/send.ts:602,$M/app/chat-turn/native-session.ts:41,$M/app/chat-turn/native-session.ts:113,$M/app/chat-turn/native-session.ts:120,$M/app/native-history.ts:37,$M/app/chat-turn/continuation.ts:88,$M/app/chat-turn/send.ts:400,$M/app/chat-turn/turn-context.ts:166,$M/app/chat-turn/resolve-turn.ts:70,$M/app/chat-turn/send.ts:83,$M/app/chat-turn/send.ts:122,$M/app/chat-turn/send.ts:155\" \\\n  --excluded \"$M/app/chat-turn/resolve-turn.ts:180\"",
+      "summary": "검색 41줄 · 운반 후보 28 · 목록 28 · 제외 1 · 미분류 0 · 목록만 0"
+    }
+  },
+  "mutations": [
+    {
+      "id": "V7-a",
+      "file": "src/main/app/chat-turn/send.ts",
+      "line": 99,
+      "old": "        'schema_validation_error',",
+      "new": "        forkSource && backendMismatch ? 'provider_connection_error' : 'schema_validation_error',",
+      "occ": 0,
+      "command": "node_modules/.bin/vitest run src/main/app/chat-turn/send.busy.test.ts --maxWorkers=1",
+      "exit": 1,
+      "failed": [
+        {
+          "file": "src/main/app/chat-turn/send.busy.test.ts",
+          "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='opencode', fork=true)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ {}, ObjectContaining{…} ]\n\nReceived:\n\n  1st vi.fn() call:\n\n  [\n    {},\n-   ObjectContaining {\n-     \"error\": ObjectContaining {\n-       \"category\": \"schema_validation_error\",\n-       \"message\": StringContaining \"하네스 또는 작업 종류를 변경할 수 없습니다\",\n-       \"retryable\": false,\n+   {\n+     \"error\": {\n+       \"category\": \"provider_connection_error\",\n+       \"message\": \"이 대화의 하네스 또는 작업 종류를 변경할 수 없습니다. 새 대화에서 선택해 주세요.\",\n+       \"retryable\": true,\n      },\n      \"type\": \"error\",\n    },\n  ]\n\n\nNumber of calls: 1\n"
+        }
+      ]
+    },
+    {
+      "id": "V4-R5",
+      "file": "src/main/app/chat-turn/send.ts",
+      "line": 83,
+      "old": "  const forkSource = payload.sessionId == null ? payload.forkFrom : undefined",
+      "new": "  const forkSource = undefined",
+      "occ": 0,
+      "command": "node_modules/.bin/vitest run src/main/app/chat-turn/send.busy.test.ts --maxWorkers=1",
+      "exit": 1,
+      "failed": [
+        {
+          "file": "src/main/app/chat-turn/send.busy.test.ts",
+          "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='opencode', fork=true)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ {}, ObjectContaining{…} ]\n\nReceived:\n\n  1st vi.fn() call:\n\n  [\n    {},\n-   ObjectContaining {\n-     \"error\": ObjectContaining {\n+   {\n+     \"error\": {\n        \"category\": \"schema_validation_error\",\n-       \"message\": StringContaining \"하네스 또는 작업 종류를 변경할 수 없습니다\",\n+       \"message\": \"대화의 작업 종류가 올바르지 않거나 시작 후 변경되었습니다. 새 대화에서 선택해 주세요.\",\n        \"retryable\": false,\n      },\n      \"type\": \"error\",\n    },\n  ]\n\n\nNumber of calls: 1\n"
+        },
+        {
+          "file": "src/main/app/chat-turn/send.busy.test.ts",
+          "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='claude', fork=false)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called with arguments: [ 'display-parent' ]\n\nNumber of calls: 0\n"
+        }
+      ]
+    },
+    {
+      "id": "V4-R6",
+      "file": "src/main/app/chat-turn/send.ts",
+      "line": 122,
+      "old": "    (payload.forkFrom || payload.handoffFrom) &&",
+      "new": "    (payload.handoffFrom) &&",
+      "occ": 0,
+      "command": "node_modules/.bin/vitest run src/main/app/chat-turn/send.busy.test.ts --maxWorkers=1",
+      "exit": 1,
+      "failed": [
+        {
+          "file": "src/main/app/chat-turn/send.busy.test.ts",
+          "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='claude', fork=false)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ {}, ObjectContaining{…} ]\n\nReceived:\n\n  1st vi.fn() call:\n\n  [\n    {},\n-   ObjectContaining {\n-     \"error\": ObjectContaining {\n-       \"category\": \"capability_unsupported\",\n-     },\n-     \"type\": \"error\",\n+   {\n+     \"id\": \"draft-fork\",\n+     \"text\": \"follow-up\",\n+     \"type\": \"message.queued\",\n    },\n  ]\n\n\nNumber of calls: 1\n"
+        }
+      ]
+    },
+    {
+      "id": "V4-W1",
+      "file": "src/main/app/chat-turn/send.ts",
+      "line": 83,
+      "old": "  const forkSource = payload.sessionId == null ? payload.forkFrom : undefined",
+      "new": "  const forkSource = payload.sessionId == null ? payload.handoffFrom : undefined",
+      "occ": 0,
+      "command": "node_modules/.bin/vitest run src/main/app/chat-turn/send.busy.test.ts --maxWorkers=1",
+      "exit": 1,
+      "failed": [
+        {
+          "file": "src/main/app/chat-turn/send.busy.test.ts",
+          "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='opencode', fork=true)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ {}, ObjectContaining{…} ]\n\nReceived:\n\n  1st vi.fn() call:\n\n  [\n    {},\n-   ObjectContaining {\n-     \"error\": ObjectContaining {\n+   {\n+     \"error\": {\n        \"category\": \"schema_validation_error\",\n-       \"message\": StringContaining \"하네스 또는 작업 종류를 변경할 수 없습니다\",\n+       \"message\": \"대화의 작업 종류가 올바르지 않거나 시작 후 변경되었습니다. 새 대화에서 선택해 주세요.\",\n        \"retryable\": false,\n      },\n      \"type\": \"error\",\n    },\n  ]\n\n\nNumber of calls: 1\n"
+        },
+        {
+          "file": "src/main/app/chat-turn/send.busy.test.ts",
+          "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='claude', fork=false)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called with arguments: [ 'display-parent' ]\n\nNumber of calls: 0\n"
+        }
+      ]
+    },
+    {
+      "id": "V4-B5",
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "line": 2607,
+      "old": "    if (getState().activeKey === origin.session && getState().sessions[origin.session]?.search)",
+      "new": "    if (getState().sessions[origin.session]?.search)",
+      "occ": 0,
+      "command": "node_modules/.bin/vitest run src/renderer/src/features/chat/store/history-search.test.ts --maxWorkers=1",
+      "exit": 1,
+      "failed": [
+        {
+          "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+          "test": "reopens an inactive origin that still holds a search view after starting a new chat",
+          "observation": "AssertionError: expected \"load\" to be called once with arguments: [ 'b' ]\n\nNumber of calls: 0\n"
+        }
+      ]
+    },
+    {
+      "id": "V4-B6",
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "line": 2607,
+      "old": "    if (getState().activeKey === origin.session && getState().sessions[origin.session]?.search)",
+      "new": "    if (getState().activeKey === origin.session)",
+      "occ": 0,
+      "command": "node_modules/.bin/vitest run src/renderer/src/features/chat/store/history-search.test.ts --maxWorkers=1",
+      "exit": 1,
+      "failed": [
+        {
+          "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+          "test": "cancels a pending target lookup when restoring the active origin without a search view",
+          "observation": "AssertionError: expected true to be false // Object.is equality"
+        }
+      ]
+    },
+    {
+      "id": "V4-B7",
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "line": 2606,
+      "old": "  if (origin.pinned || !origin.anchor?.messageId || !origin.generation) {",
+      "new": "  if (!origin.anchor?.messageId || !origin.generation) {",
+      "occ": 0,
+      "command": "node_modules/.bin/vitest run src/renderer/src/features/chat/store/history-search.test.ts --maxWorkers=1",
+      "exit": 1,
+      "failed": [
+        {
+          "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+          "test": "returns a pinned origin to latest even when its reading anchor and generation are available",
+          "observation": "AssertionError: expected [ 'target', 'visit' ] to deeply equal [ 'target', 'latest' ]"
+        }
+      ]
+    }
+  ],
+  "chromiumSearch": {
+    "electron": "39.8.10",
+    "platform": "linux",
+    "searches": [
+      {
+        "screen": "claude-code",
+        "keyboard": false,
+        "requests": [
+          "target"
+        ],
+        "focused": false,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "claude-code",
+        "keyboard": true,
+        "requests": [
+          "target"
+        ],
+        "focused": true,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "claude-work",
+        "keyboard": false,
+        "requests": [
+          "target"
+        ],
+        "focused": false,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "claude-work",
+        "keyboard": true,
+        "requests": [
+          "target"
+        ],
+        "focused": true,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "opencode-code",
+        "keyboard": false,
+        "requests": [
+          "target"
+        ],
+        "focused": false,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "opencode-code",
+        "keyboard": true,
+        "requests": [
+          "target"
+        ],
+        "focused": true,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      }
+    ],
+    "failures": []
+  },
+  "gates": {
+    "related": {
+      "files": 19,
+      "cases": 256,
+      "passed": 256,
+      "failed": 0,
+      "skipped": 0
+    },
+    "vitest": {
+      "files": 1152,
+      "cases": 10934,
+      "passed": 10900,
+      "failed": 22,
+      "skipped": 11,
+      "failedFiles": 9,
+      "baseline": "r4-history.json → gates.vitest and r3-history.json → gates.vitest.baselineFailures",
+      "added": [],
+      "resolved": [],
+      "failureList": [
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+          "test": "Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+          "test": "Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "preserves the configuration failure stage through the registered catalog handler"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "preserves the acquire failure stage through the registered catalog handler"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "prepares draft and saved directory with the same production settings and env resolution as turns"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "returns prepared plugin and agent parts through IPC before blocked MCP/models without a session"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "does not start a native server after caller cancellation or session scope change during preparation"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "wires the public handler through the production resolver and returns its shutdown cleanup"
+        },
+        {
+          "file": "src/main/app/composer-preparation-service.test.ts",
+          "test": "shares targets across catalog resources and warmup through the production assembly"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "reconciles plugin choices through the actual adapter while preserving provider flags"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "exposes runtime-native watch files and applies external project choices only after idle reconciliation"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "pins deployed MCP files for same-cwd peers and reloads until the final owner closes"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "reports a reconciled plugin revision as applied but not a later external edit"
+        },
+        {
+          "file": "src/main/adapters/claude/native-resources.test.ts",
+          "test": "applies session-only inline flags and reloads actual plugin state while preserving sibling flags"
+        },
+        {
+          "file": "src/main/adapters/claude/native-resources.test.ts",
+          "test": "commits a plugin choice only after verified reload and restores flags and commands when persistence fails"
+        },
+        {
+          "file": "src/main/adapters/claude/native-resources.test.ts",
+          "test": "waits for durable persistence and serializes subsequent plugin mutations"
+        },
+        {
+          "file": "src/main/adapters/claude/project-reconciliation.test.ts",
+          "test": "shows external selection with actual status immediately, waits for idle, and never saves it back"
+        },
+        {
+          "file": "src/main/adapters/claude/project-reconciliation.test.ts",
+          "test": "projects native plugin flag false during external reconciliation"
+        },
+        {
+          "file": "src/main/app/handlers/session-resources.claude-assembly.test.ts",
+          "test": "reconciles external plugin selections and publishes the final state through the real watcher"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+          "test": "exposes native resources from the live channel client and its directory without mutations"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.test.ts",
+          "test": "OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime"
+        }
+      ],
+      "unhandled": 1,
+      "unhandledSignature": "src/main/adapters/claude/native-resources.test.ts / native-resources.ts:152 / 이 플러그인은 프로젝트별 제어를 지원하지 않습니다.",
+      "expectedFail": 1
+    },
+    "testPool": {
+      "src/main/app/chat-turn/send.busy.test.ts": {
+        "pool": "unit",
+        "reasons": []
+      },
+      "src/renderer/src/features/chat/store/history-search.test.ts": {
+        "pool": "unit",
+        "reasons": []
+      }
+    },
+    "node": "1104/1104",
+    "lint": {
+      "errors": 0,
+      "warnings": 12
+    },
+    "typecheck": [
+      "node",
+      "web",
+      "test"
+    ],
+    "static": [
+      "check-migrations-appendonly",
+      "check-doc-inventory --check",
+      "check-product-naming",
+      "check-test-budgets",
+      "check-ui-thread"
+    ],
+    "buildAndSmoke": [
+      "electron-vite build",
+      "smoke-hosts out/main",
+      "smoke-preload out/preload"
+    ],
+    "sqlite": "Node ABI 127 for tests, Electron ABI 140 SELECT 1 after restore"
+  }
+}
