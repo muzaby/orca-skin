@@ -87,7 +87,7 @@ V는 기존 Decision·AC·강제 지점·production-path·선택된 mutation 증
 
 수정 subtree의 필수 gate와 repository/message-bus 검사는 **이번에 변경한 산출물의 완료 조건**이다. 현재 변경이 gate를 깨뜨렸거나 명시된 현재/상속 계약 위반을 드러내면 blocking이고, 관련 없는 기존 실패는 환경·기준선 한계로 분리해 현재 제품 범위를 확장하지 않는다.
 
-**기존 실패를 기준선으로 분리하려면 두 조건이 다 필요하다** — 변경 전 같은 명령의 실패 집합과 차집합이 ∅이고, 원인이 코드가 아니라 실행 환경(ABI·egress·다른 OS 전용 경로·미설치 바이너리 — 알려진 서명은 수정 subtree `AGENTS.md`)이다. 저장소 규칙을 강제하는 가드(app: unit 풀 가드 `[test-pools]`·예산 가드·트리 전체 소스 스캔 테스트)의 실패는 환경이 아니다 — 이번 변경이 추가·수정한 파일에서 나면 변경 전에도 났어도 현재 변경의 gate 실패이고, 손대지 않은 파일이면 비귀속이다. "변경 전에도 실패했다"만으로 나누면 이번 턴이 만진 파일의 규칙 위반이 기준선에 묻힌다(0299 r1: 수정한 두 파일의 `[test-pools]` 11건).
+**기존 실패를 기준선으로 분리하려면 두 조건이 다 필요하다** — 변경 전 같은 명령의 실패 집합과 차집합이 ∅이고, 원인이 코드가 아니라 실행 환경(ABI·egress·다른 OS 전용 경로·미설치 바이너리 — 알려진 서명은 수정 subtree `AGENTS.md`)이다. 저장소 규칙을 강제하는 가드(app: unit 풀 가드 `[test-pools]`·예산 가드·트리 전체 소스 스캔 테스트)의 실패는 환경이 아니다 — 이번 변경이 추가·수정한 파일에서 나면 변경 전에도 났어도 현재 변경의 gate 실패이고, 손대지 않은 파일이면 비귀속이다. "변경 전에도 실패했다"만으로 나누면 이번 턴이 만진 파일의 규칙 위반이 기준선에 묻힌다(0299 r1).
 
 **발견은 "무엇을 어겼나"로 가른다 — 어떻게 찾았나(적대 축인가)가 아니다.** plan이 열거한 것은 유한하니 끝까지 지키고, 열거되지 않은 잠금 공백은 탐색에 끝이 없으니 정해진 창 안에서만 다룬다(2026-11-05 사용자 결정).
 
@@ -267,8 +267,9 @@ docs/handoff/
 │   └── scripts/                         # scan-surface.sh(역방향 후보) · mutate.py(고장 내 보기 하네스) · site_census.mjs(§10 검색 줄 운반 분류)
 └── handoff-review/
     ├── SKILL.md
-    ├── scripts/instruction_delta.py      # 6-A 후보 줄 추출(표식·문장 대조)
-    ├── scripts/review_metrics.py         # 라운드 구간 결과 지표 · 지침 크기
+    ├── scripts/instruction_delta.py      # 6-A 후보 · --pset
+    ├── scripts/review_metrics.py         # 회차·구간·원장 F(N)·크기
+    ├── scripts/test_review_scripts.py
     └── references/
         ├── failure-patterns.md           # 현재 review 진입점
         ├── failure-patterns.corpus.md    # historical evidence 본문, 현재 규칙 SSOT 아님
