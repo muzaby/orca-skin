@@ -457,6 +457,45 @@ AC10 Windows 실기만 사람에게 넘긴다. D19는 구현자가 `AboveInput` 
 
 ---
 
+# verify 3 판정 정정 — review round 49 (2026-11-25)
+
+**정정 판정: RETURN_TO_PLAN.** review round 49가 §10 자리 목록의 운반 줄 분류를 `site_census.mjs`로 옮겼다. 그 도구로 verify 3이 §0에서 본 같은 검색 출력을 다시 가르면 EP7 ⑥′·EP6 ⑦′ 목록에 각각 미분류 운반 줄 4개가 있다 — 검색 출력 ↔ §10 목록 불일치라 `PLAN_GAP`이다. D19 이행 결함은 그대로 남는다. verify 횟수(3)·INDEX 라운드 칸(4)은 바꾸지 않는다.
+
+| 묶음 | 원 판정 | 새 분류 | 근거 | disposition |
+|---|---|---|---|---|
+| G2 EP7 ⑥′ 목록 | §0 “운반 줄은 자리 4개와 같다” | 이행(plan 내부 불일치 — 검색 출력 ↔ §10 목록) | `site_census.mjs --search "rg -n 'openCodeTodoTurnStartIndex' app/src …" --sites <EP7 ⑥′ 4자리>` → 검색 10줄 · 운반 후보 8 · 미분류 4(`AboveInput.tsx:11·13·14` · `chatReducer.ts:560`). 자동 변이: 아래 표 | PLAN_GAP |
+| G3 EP6 ⑦′ 목록 | §0 “운반 줄은 자리 4개와 같다” | 이행(plan 내부 불일치) | `site_census.mjs --search "rg -n 'returning\|returnFailed\|returnToLatest\|leaveSearch\(' app/src/renderer/src …"` → 검색 16줄 · 운반 후보 11 · 미분류 4(`useChatRouteSync.ts:81` · `useHistoryControls.ts:78` · `chatStore.ts:2006` · `chatStore.ts:2608`). 자동 변이: 아래 표 | PLAN_GAP |
+| D19 | 이행(pair path edge) | 같음 | §24-C VP-05 path “… → `AboveInput`” · E7i green(렌더러 3,485) | BLOCKING — 설계 정정 뒤 구현자가 닫는다 |
+| EP3 ⑤′ 목록 | §0 유효 | 같음 | 같은 도구로 검색 5줄 · 운반 후보 2 · 미분류 0 | — |
+| NX1 · N1 | 확장(창 밖) · 비귀속 | 같음 | — | NEXT_HANDOFF · NON_BLOCKING |
+
+**자동 변이 재실행** (`site_census.mjs --emit-mutants`, oracle = 렌더러 `features/chat` + `app` 전체 · 종료 코드 판정): 
+
+9개 중 red 2 · green 7.
+
+| 자동 변이 | 바꾼 것 | 결과 · 잡은 테스트 |
+|---|---|---|
+| `chatReducer.ts:560` | 초기 상태 키 이름 변경 | 잡음 · `chatReducer.opencode-todo.test.ts` ‘starts each todo projection at the current turn…’ |
+| `AboveInput.tsx:11` | 구조 분해에서 경계를 다른 키로 | 못 잡음(렌더러 3,485 green) |
+| `AboveInput.tsx:13` | selector 인자 키 이름 변경(E7i와 같은 효과) | 못 잡음 |
+| `AboveInput.tsx:14` | memo 의존에서 경계 제거 | 못 잡음 |
+| `useChatRouteSync.ts:81` | 라우트 동기화의 `leaveSearch` 호출 무력화 | 못 잡음 |
+| `chatStore.ts:2006` | 세션 전환 시 떠나는 검색 정리 호출 무력화 | 못 잡음 — 현재 동작은 맞다(verify 3 독립 축 (a) 임시 테스트) |
+| `chatStore.ts:2608` | 방문 복원의 `leaveSearch(…, true)` 호출 무력화 | 못 잡음 |
+| `useHistoryControls.ts:78` `returning` | memo 의존 키 이름 변경 | 잡음 · ‘exposes return-to-latest loading and retry state…’ |
+| `useHistoryControls.ts:78` `returnFailed` | memo 의존 키 이름 변경 | 못 잡음 — verify 3 E6g(두 항 함께 제거)의 red는 이 항을 잠그지 않았다 |
+
+처음 돌린 같은 9개는 oracle이 `… | tail -3`로 끝나 종료 코드가 늘 0이었다(무효 — 9개 모두 green으로 나옴). 위 표는 종료 코드를 보존한 재실행이다. 도구 설명에 이 함정을 적었다.
+
+**다음 설계 턴의 의무(ΔV6).** plan 동결 뒤라 새 열거 항목의 출처는 “plan 내부 정합(G2·G3)”이다.
+- EP7 ⑥′·EP6 ⑦′ 미분류 8줄을 각각 자리로 넣거나 사유와 함께 제외 줄로 적어 두 검색의 미분류를 0으로 만든다. 자리로 넣은 줄에는 직접 oracle 좌표(구별 입력 포함)를 적는다 — `AboveInput.tsx:13`은 D19의 좌표가 된다.
+- 같은 도구를 0329 §10의 다른 자리 검색에도 한 번 돌려, 목록 밖 운반 줄을 이 턴에 한꺼번에 고정한다(열린 분모를 라운드마다 하나씩 여는 것을 막는다 — 0262 r4~r8).
+- 그 뒤 구현 r4가 D19와 새로 고정한 자리를 닫는다.
+
+plan `[검증자 기입] 파생 이슈`에 G2·G3을 더하고 INDEX를 `verify/RETURN_TO_PLAN`·다음 Claude(설계 ΔV6)로 고쳤다.
+
+---
+
 # verify 2회째 기록
 
 ## 판정 — verify 2회째: **RETURN_TO_PLAN**
