@@ -18,6 +18,18 @@ const locator = (session: string, key = 'm:2'): HistoryLocator => ({
   projectedKey: key,
   epoch: 'e'
 })
+const originAnchor = {
+  messageId: 'm:1',
+  blockKey: 'b1',
+  partKey: 'p',
+  partIndex: 0,
+  blockIndex: 0,
+  charOffset: 27,
+  viewportOffsetPx: -9,
+  followingPartKeys: [],
+  followingBlockKeys: [],
+  precedingBlockKeys: new Set<string>()
+}
 const edge = (kind: 'earlierTurn' | 'laterTurn'): HistoryEdge => ({ kind, cursor: kind })
 function reply(
   session: string,
@@ -286,20 +298,8 @@ describe('search history in the chat store', () => {
 
   it('restores the ordinary pre-search visit at its reading offset without replaying a highlight', async () => {
     const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['m:1'], true, true))
-    const anchor = {
-      messageId: 'm:1',
-      blockKey: 'b1',
-      partKey: 'p',
-      partIndex: 0,
-      blockIndex: 0,
-      charOffset: 27,
-      viewportOffsetPx: -9,
-      followingPartKeys: [],
-      followingBlockKeys: [],
-      precedingBlockKeys: new Set<string>()
-    }
     chatActions.restoreOriginVisit(
-      { session: 'b', generation: 'g', anchor, pinned: false },
+      { session: 'b', generation: 'g', anchor: originAnchor, pinned: false },
       'default'
     )
     await vi.waitFor(() => expect(entry().search?.target).toBe('m:1'))
@@ -307,7 +307,7 @@ describe('search history in the chat store', () => {
     expect(page).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'visit', sessionId: 'b', messageKey: 'm:1', generation: 'g' })
     )
-    expect(entry().search).toMatchObject({ anchor, restore: true, keyboard: false })
+    expect(entry().search).toMatchObject({ anchor: originAnchor, restore: true, keyboard: false })
     expect(entry().search?.locator).toBeUndefined()
   })
   it('reads a bounded latest page for a cold search and preserves the view if returning fails', async () => {
@@ -574,3 +574,64 @@ it.each([true, false])(
     expect(page).toHaveBeenCalledTimes(2)
   }
 )
+
+it('reopens an inactive origin that still holds a search view after starting a new chat', async () => {
+  const page = vi
+    .spyOn(sessionApi, 'page')
+    .mockResolvedValueOnce(reply('b', ['hit'], true, true))
+    .mockResolvedValue(reply('b', ['latest']))
+  await chatActions.openSearchHit(locator('b', 'hit'), false)
+  chatActions.newChat()
+  expect(useChatStore.getState().activeKey).not.toBe('b')
+  expect(entry().search?.view).toBeDefined()
+  const load = vi.spyOn(sessionApi, 'load').mockResolvedValue(reply('b', ['ordinary']).session)
+
+  chatActions.restoreOriginVisit({ session: 'b', pinned: true }, 'back')
+  expect(load).toHaveBeenCalledExactlyOnceWith('b')
+  await Promise.resolve()
+  expect(useChatStore.getState().activeKey).toBe('b')
+  expect(entry().session.messages.map((message) => message.id)).toEqual(['ordinary'])
+  expect(page.mock.calls.map(([request]) => request.kind)).toEqual(['target'])
+})
+
+it('cancels a pending target lookup when restoring the active origin without a search view', async () => {
+  vi.spyOn(sessionApi, 'load').mockResolvedValue(reply('b', ['ordinary']).session)
+  await chatActions.loadSession('b')
+  let finish!: (result: HistoryPageReply) => void
+  const page = vi.spyOn(sessionApi, 'page').mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      })
+  )
+  const cancel = vi.spyOn(sessionApi, 'cancelLoad')
+  const opened = chatActions.openSearchHit(locator('b', 'hit'), false)
+  const [request] = page.mock.calls[0]
+  expect(request.kind).toBe('target')
+  expect(entry().search).toBeUndefined()
+
+  chatActions.restoreOriginVisit({ session: 'b', pinned: true }, 'back')
+  finish(reply('b', ['hit'], true, true))
+  expect(await opened).toBe(false)
+  expect(cancel).toHaveBeenCalledExactlyOnceWith('b', request.openGeneration)
+  expect(entry().search).toBeUndefined()
+  expect(entry().session.messages.map((message) => message.id)).toEqual(['ordinary'])
+  expect(page).toHaveBeenCalledTimes(1)
+})
+
+it('returns a pinned origin to latest even when its reading anchor and generation are available', async () => {
+  const page = vi
+    .spyOn(sessionApi, 'page')
+    .mockResolvedValueOnce(reply('b', ['hit'], true, true))
+    .mockResolvedValueOnce(reply('b', ['latest']))
+  await chatActions.openSearchHit(locator('b', 'hit'), false)
+
+  chatActions.restoreOriginVisit(
+    { session: 'b', pinned: true, generation: 'g', anchor: originAnchor },
+    'back'
+  )
+  expect(page.mock.calls.map(([request]) => request.kind)).toEqual(['target', 'latest'])
+  await Promise.resolve()
+  expect(entry().search).toBeUndefined()
+  expect(entry().session.messages.map((message) => message.id)).toEqual(['latest'])
+})

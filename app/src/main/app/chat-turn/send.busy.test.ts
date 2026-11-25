@@ -321,8 +321,16 @@ describe('handleChatSend busy submission', () => {
 
 describe('fork admission before runtime and queue allocation', () => {
   it.each([
-    { backend: 'opencode', forkSupported: true, error: 'provider_connection_error' },
-    { backend: 'claude', forkSupported: false, error: 'capability_unsupported' },
+    {
+      backend: 'opencode',
+      forkSupported: true,
+      error: {
+        category: 'schema_validation_error',
+        message: expect.stringContaining('하네스 또는 작업 종류를 변경할 수 없습니다'),
+        retryable: false
+      }
+    },
+    { backend: 'claude', forkSupported: false, error: { category: 'capability_unsupported' } },
     { backend: 'claude', forkSupported: true, error: null }
   ] as const)(
     'checks the source harness and fork capability (backend=$backend, fork=$forkSupported)',
@@ -389,7 +397,7 @@ describe('fork admission before runtime and queue allocation', () => {
           owner,
           expect.objectContaining({
             type: 'error',
-            error: expect.objectContaining({ category: error })
+            error: expect.objectContaining(error)
           })
         )
         expect(acquireChain).not.toHaveBeenCalled()

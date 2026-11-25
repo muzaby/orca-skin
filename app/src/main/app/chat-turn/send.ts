@@ -96,7 +96,7 @@ export async function handleChatSend(
       type: 'error',
       ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
       error: makeClassifiedError(
-        forkSource && backendMismatch ? 'provider_connection_error' : 'schema_validation_error',
+        'schema_validation_error',
         '이 대화의 하네스 또는 작업 종류를 변경할 수 없습니다. 새 대화에서 선택해 주세요.'
       )
     })
