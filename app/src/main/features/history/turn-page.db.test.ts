@@ -302,6 +302,107 @@ describe('turn pages from the published SQLite generation', () => {
     ).toMatchObject({ status: 'invalid' })
   })
 
+  it('rejects a cursor reused for another kind or direction before reading any message body', async () => {
+    sqlite.transaction(() => {
+      for (let i = 0; i < 140; i++) local(i === 0 ? 'user' : 'assistant', String(i))
+    })()
+    const tail = await latest()
+    if (tail.status !== 'ok') throw Error(tail.status)
+    const edge = tail.session.history.before!
+    expect(edge.kind).toBe('withinTurn')
+    const bodies = vi.spyOn(db.historyIndex, 'parts')
+    const request = { sessionId, openGeneration, cursor: edge.cursor }
+    expect(await query({ ...request, kind: 'earlierTurn' })).toMatchObject({ status: 'invalid' })
+    expect(await query({ ...request, kind: 'withinTurn', direction: 'after' })).toMatchObject({
+      status: 'invalid'
+    })
+    expect(bodies).not.toHaveBeenCalled()
+    const head = await readEdge(edge, 'before')
+    expect(head.status === 'ok' && head.session.messages.map((m) => m.id)).toEqual(
+      Array.from({ length: 12 }, (_, i) => 'm:' + (i + 1))
+    )
+  })
+
+  it('returns stale if a source write commits between prepare and the bounded read', async () => {
+    local('user', 'before')
+    const published = (await index.prepare(sessionId))!.generation
+    local('assistant', 'after')
+    const state = db.historyIndex.state(sessionId)!
+    expect(state.published).toBe(published)
+    expect(state.published_revision).not.toBe(state.revision)
+    const bodies = vi.spyOn(db.historyIndex, 'parts')
+    expect(
+      readHistoryPage(
+        { db, getCwd: () => '.' },
+        { kind: 'latest', sessionId, openGeneration, requestId: 15 },
+        published
+      )
+    ).toEqual({ status: 'stale', sessionId, openGeneration, requestId: 15 })
+    expect(bodies).not.toHaveBeenCalled()
+    const next = await latest()
+    expect(next.status === 'ok' && next.session.messages.map((m) => m.parts)).toEqual([
+      [{ type: 'text', text: 'before' }],
+      [{ type: 'text', text: 'after' }]
+    ])
+  })
+
+  it('rechecks the archive epoch when ordinal zero is reused and confirms only the resolved cache key', async () => {
+    const replaceArchive = (word: string): void => {
+      const message = {
+        id: 'archive-' + word,
+        role: 'user' as const,
+        createdAt: 1,
+        parts: [{ type: 'text', text: word }]
+      }
+      db.nativeHistory.prepareRecovery({
+        sessionId,
+        nativeId: sessionId,
+        freshStart: true,
+        frontier: 0,
+        expectedVersion: db.nativeHistory.observe(sessionId).version,
+        archiveJson: JSON.stringify([message]),
+        messages: [{ id: message.id, role: message.role, createdAt: 1, content: word }]
+      })
+    }
+    replaceArchive('firstterm')
+    await index.prepare(sessionId)
+    const old = db.searchMessages('firstterm')[0].locator!
+    replaceArchive('secondterm')
+    local('assistant', 'neighbor')
+    const generation = (await index.prepare(sessionId))!.generation
+    const current = db.searchMessages('secondterm')[0].locator!
+    expect(old).toMatchObject({
+      source: 'archive',
+      identity: '0',
+      projectedKey: 'archive-firstterm'
+    })
+    expect(current).toMatchObject({
+      source: 'archive',
+      identity: '0',
+      projectedKey: 'archive-secondterm'
+    })
+    expect(old.epoch).not.toBe(current.epoch)
+    const target = { kind: 'target' as const, sessionId, openGeneration }
+    const cached = { generation, messageKey: 'archive-secondterm' }
+    const bodies = vi.spyOn(db.historyIndex, 'parts')
+    expect(await query({ ...target, locator: old, cached })).toMatchObject({ status: 'stale' })
+    expect(await query({ ...target, locator: current, cached })).toMatchObject({
+      status: 'useCached',
+      messageKey: 'archive-secondterm'
+    })
+    expect(bodies).not.toHaveBeenCalled()
+    const neighbor = db.searchMessages('neighbor')[0].locator!.projectedKey!
+    const page = await query({
+      ...target,
+      locator: current,
+      cached: { generation, messageKey: neighbor }
+    })
+    expect(page.status === 'ok' && page.targetMessage).toBe('archive-secondterm')
+    expect(page.status === 'ok' && page.session.messages[0].parts).toEqual([
+      { type: 'text', text: 'secondterm' }
+    ])
+  })
+
   it('returns the ordinary reading position only for its published generation and confirms cached keys', async () => {
     local('user', 'original position')
     local('assistant', 'reply')
@@ -426,6 +527,13 @@ describe('turn pages from the published SQLite generation', () => {
     expect(ref.message).toBe('m:1')
     expect(read).not.toHaveBeenCalled()
     const base = { kind: 'body' as const, sessionId, openGeneration, ref }
+    const chunkRead = vi.spyOn(db.historyIndex, 'chunk')
+    for (const bytes of [ref.bytes - 1, ref.bytes + 1]) {
+      expect(await query({ ...base, ref: { ...ref, bytes }, offset: 0 })).toMatchObject({
+        status: 'invalid'
+      })
+    }
+    expect(chunkRead).not.toHaveBeenCalled()
     const chunks: Buffer[] = []
     let offset = 0
     while (offset < ref.bytes) {

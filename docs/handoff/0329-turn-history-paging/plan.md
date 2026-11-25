@@ -1,6 +1,6 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**verify/FAIL (verify 1 · V1 rev 5 + ΔV1~ΔV4) — 다음 r2 재구현, [verify.md](verify.md).** r1.5 기록: ΔV4(§23)는 r1.4가 반송한 묶음 수 등식을 정정했다 — 응답은 가장자리부터 메시지를 통째로 상한 직전까지 채우고(탐욕 채움), 묶음 수는 그 결과인 최소 연속 분할이며 max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉)는 하한이다. 구 DB 첫 클릭 게이트의 측정 조건(단독 실행)도 적었다.
+**impl/IMPL_DONE (r2 · V1 rev 5 + ΔV1~ΔV4). 검색 유휴 읽기의 동시 요청을 수정했고 검증 1의 D1~D9를 닫았다. 다음은 Claude의 독립 검증 2다.** [검증 1](verify.md). r1.5 기록: ΔV4(§23)는 r1.4가 반송한 묶음 수 등식을 정정했다 — 응답은 가장자리부터 메시지를 통째로 상한 직전까지 채우고(탐욕 채움), 묶음 수는 그 결과인 최소 연속 분할이며 max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉)는 하한이다. 구 DB 첫 클릭 게이트의 측정 조건(단독 실행)도 적었다.
 
 ΔV3(§22)는 r1.3이 반송한 복구 키 충돌의 원인을 없앴다 — 사용자 제안대로 Claude 원본 복구는 Orca가 만든 새 UUID로 새 원본 세션을 시작하고, 화면·Orca 세션 ID는 그대로 둔다(D-023). 같은 ID로 이미 복구된 기존 세션은 배포가 없어 다루지 않는다(D-024). ΔV2(§21)는 앞삽입 앵커 좌표를, ΔV1(§20)은 고정 높이 머리 슬롯과 보정 취소 분류를 정정했다. rev 5는 PR #640 0329 보완 요청과 D-009(유휴 자동 채움)·D-012(세션 전체 패널)를 반영했다.
 
@@ -10,9 +10,9 @@
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) 2026-11-20 rev 1~4 · Claude Code rev 5 2026-11-24 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) · PR #640 코멘트 “0329 이력 페이징 · 구현 전 plan 보완 요청”(2026-11-24, 기준 `7db1c7ce`) |
-| 상태 / V | verify/FAIL (verify 1, 다음 r2) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV4 |
+| 상태 / V | impl/IMPL_DONE (r2, 다음 독립 검증 2) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV4 |
 | 조사 기준 | rev 5: `codex-handoff-0326-plan-gap`의 `7db1c7ce`(PR #640 head) — 0326 verify 7 PASS · 0327 verify 5 PASS · 0328 verify 2 PASS(모두 기계 범위). rev 1~4의 `62125eaa` 관측은 §8 rev 5 표로 재대조했다. |
-| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 다음 단계는 독립 검증 r1이다. |
+| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 검증 1의 D1~D9를 r2에서 수정·재현했다. 다음 단계는 독립 검증 2다. |
 
 # Part I — 제품과 사용자 동작
 
@@ -1282,6 +1282,141 @@ VP-11·17·18·19는 SELF_PASS다. VP-11의 본문 전체 선조회는 Q1 읽기
 ---
 
 
+## [구현자 기입] 설계 리뷰 (r2)
+
+검증 1의 D1을 원격 기준에서 재현했다. 검색 결과가 큰 턴의 가운데에 있으면 앞·뒤에 모두 같은 턴의 메시지가 남는다. 앞쪽 요청이 진행 중인 화면을 커밋했을 때 유휴 콜백이 하나 더 예약됐다. §23-D는 이때 예약·요청이 모두 0이어야 한다.
+
+| 계약 | 구현한 경로 | 관측 |
+|---|---|---|
+| D-009 · EP3 ⑤ | 훅이 유휴 읽기 방향을 정할 때와 store가 포트 요청을 시작할 때 같은 함수로 양쪽 상태를 확인한다 | 양쪽이 준비되면 앞부터 한 묶음. 어느 쪽이든 로딩·오류면 예약 0. 앞쪽이 이전 턴에 닿은 뒤에는 뒤쪽 한 묶음 |
+| EP5 ①③ · §10 요청/응답 | 자동 읽기를 기다리는 사이 사용자가 먼저 같은 턴을 읽는 경우와 일반·검색의 잘못된 세대 응답을 분리해 시험했다 | 자동 반대쪽 요청 0회. 수동 양방향 요청은 역순으로 완료돼도 앞·대상·뒤 순서. 다른 세대의 응답 뒤에는 기존 커서로 재시도 |
+| EP1 ④ · EP2 · EP6 | 준비한 투영의 원본 revision, 커서의 종류·방향, 본문 길이, archive epoch 및 target 캐시 키를 독립 입력으로 바꿨다 | 세대 경합과 옛 locator는 stale, 혼용 커서와 길이 오류는 invalid. 같은 세대의 다른 캐시 키에는 정확한 대상 본문을 반환 |
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 확인한 지점 | 재현 명령 / 자리별 oracle | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-04·16 | 직전 커밋·입력·한 턴 | EP3 ⑤, EP4′·EP4″ | 유휴 예약·포트 발사, 양방향, wheel·keydown·장시간 드래그, 타이머 해제 | Q4″와 아래 I1~I13·B1~B5 | 로딩·오류 각각 예약 0. 수동 읽기의 반대 방향은 완료 전에도 동작 | 제스처 분류·DOM 경로의 verify 2 전수 |
+| VP-02·08·12 | 요청 소유·세대·중복·본문 | EP2·3, EP4′, EP5 ①~⑥ | 일반·검색 각 방향의 세대/재시도, 커서 종류·방향, 버튼 본문과 분할 IPC | Q2·3·4b″·5·5b, S7~S10·C1~C3·P3 | 같은 커서 연타 1회. 세대가 다르면 이전 메시지와 커서 유지. 버튼 실패 후 같은 ID로 재시도 | 닫기·거부·머리 슬롯과의 결합 분기 |
+| VP-01·07·15 | 출판과 재기동 | EP1 ①~⑤, EP9 ①~⑤ | prepare/read 사이 쓰기, 파일 DB 재개, 저장 진행 위치 | Q1·9·9b·10, P1·R3 | 같은 출판 포인터에서 원본 revision만 바뀌면 stale, 이때 본문 조회 0 | 각 writer에 대한 독립 변이 |
+| VP-03·05·09·13·14 | 검색 위치·패널 | EP6 ①~⑧, EP7 ①~⑦, EP8 | 보관 순번 재사용·다른 캐시 키·양방향 커서·창 선택·복귀·패널 회귀 | Q6a~e·7·8, P5·P7·R4·R5 | 새 archive의 동일 순번 0을 구분. 실제 포트로 63번째 턴의 600개 ID와 이웃 62·64턴 복원 | 최신 합류의 4개 분기, 패널의 세부 소비자 전수 |
+| VP-10 | 분기 · 전체 이력 | EP8 ①~④ | 부분 이력이 열린 부모에서 분기, 초안용 부모 커서 | Q8 | 첫·중간·끝 ID, 부모 화면과 초안의 독립성 | 복구 예산·물질화 분기 전수 |
+| VP-06 | REGRESSION · 보류·선택 | EP2·4·5 | 끝 표시·보류 병합·0326 앞삽입과 기존 선택 취소 | Q2·4″·4b″·5, REG-06 | 끝 표식 처리를 생략하면 최초 빈 페이지의 완료 상태가 달라짐 | 없음 |
+| VP-11·17 | 탐욕 분할 · 글자 앵커 | EP3 ② · EP4″ ④ | 균등·편중 두 분포, 캐럿 안·밖·머리 슬롯 | Q3′·12, R1·R2·SEL-11·SEL-17 | 600개를 120개씩 균분하면 5·6묶음의 크기 단언이 실패. part 상자를 쓰면 글자 기준 좌표가 달라짐 | 없음 |
+| VP-18·19 | 원본과 화면 세션 ID | EP10 ①~⑧ | 새 UUID, 권한·hook 라우팅, fork/handoff 계보, 원본 재열기 | Q13~15, EP10 변이 11개 | 잘못된 SDK·화면 ID·재조회 원본을 각각 검출 | 없음 |
+
+SELF_PASS는 VP-06·11·17·18·19의 5개다. SELF_BLOCKED는 VP-01~05·07~10·12~16의 14개다. D1~D9의 직접 실패 조건은 아래에서 닫았다. 위 표의 남은 전수 항목에 대한 독립 판정은 [검증 1의 ⑦ 잔여 목록](verify.md)을 이어간다.
+
+### Q와 실행된 테스트의 대응
+
+경로는 `app/` 기준이다. 한 Q를 여러 계층에서 관측한 경우 각 실행의 경계를 적었다.
+
+| Q | 관측 경계 | 파일:테스트명 또는 gate |
+|---|---|---|
+| Q1 | 선행 턴 증가·혼합 native/sidecar 순서 | `src/main/features/history/turn-page.db.test.ts:reads the same latest turn after 10000 older turns without opening their bodies`<br>`src/main/features/history/native-projection.test.ts:matches sidecars by IDs, keeps every merged attachment, preserves orphan sidecars and live tail` |
+| Q2 | 실제 data handler↔창 클라이언트의 최신/갱신. 요청 번호·동시 live와 화면 공개는 각각 transport·store에서 관측 | `src/main/app/data-host/history-port.integration.test.ts:opens and refreshes the latest turn, then reads both sides of a large search target and its body over the history port`<br>`src/renderer/src/shared/api/transport/session-load.test.ts:rejects mismatched or incomplete replies {"requestId":71}`<br>`src/renderer/src/features/chat/store/chatStore.native-history.test.ts:paints the DB body first, then lazily applies native additions without sending`<br>`src/renderer/src/features/chat/store/chatStore.native-history.test.ts:finishes the loading state without replacing live data that arrived during a cold load` |
+| Q3 | 실제 참조 분할·취소·재시도와 크기 경계·20만 ID 복원 | `src/main/app/data-host/history-port.integration.test.ts:opens and refreshes the latest turn, then reads both sides of a large search target and its body over the history port`<br>`src/main/features/history/turn-page.db.test.ts:keeps exactly 256 KiB inline and defers the same message one byte over`<br>`src/main/features/history/turn-page.db.test.ts:restores 200,000 partless messages in one turn using 1,563 bounded pages`<br>`src/main/features/history/turn-page.db.test.ts:retains the identity of a 2,000-part message and only defers an intrinsically oversized body` |
+| Q3 창 | 버튼 → store → 같은 메시지·이웃, UTF-8 경계 복원 | `src/renderer/src/features/chat/components/transcript/TranscriptViewport.body.test.ts:retries a deferred body from its button and resolves the original message in place`<br>`src/renderer/src/features/chat/lib/transcript/deferredBody.test.ts:decodes 4 MiB of Korean text including codepoints split at the 64 KiB boundary` |
+| Q3′ | 최대 연속 분할의 균등·편중 입력 | `src/main/features/history/turn-page.db.test.ts:greedy maximal pages for uniform and skewed turns (spread)`<br>`src/main/features/history/turn-page.db.test.ts:greedy maximal pages for uniform and skewed turns (clustered)` |
+| Q4″ | 입력 중 보류·관성·자동 읽기 직렬화와 수동 양방향 | `src/renderer/src/features/chat/hooks/useHistoryControls.test.ts:fills both sides of a search turn one committed page at a time`<br>`src/renderer/src/features/chat/hooks/useHistoryControls.test.ts:postpones idle history reads during pointerdown input and resumes after release`<br>`src/renderer/src/features/chat/store/history-search.test.ts:allows a manual read on the other search edge while the first read is pending`<br>`src/renderer/src/features/chat/lib/transcript/historyGesture.test.ts:consumes the momentum of a request across the reply and all 30 wheel events` |
+| Q4b″ | 세 화면에서 실제 Chromium 입력·앵커·휠 간격 | `gate:xvfb-run -a node scripts/check-transcript-history.mjs` |
+| Q5 | 일반/검색 응답 세대·오류와 재시도, 겹침, 도구·publication 순서 | `src/renderer/src/features/chat/store/history-search.test.ts:rejects a different publication and retries the same ordinary cursor`<br>`src/renderer/src/features/chat/store/history-search.test.ts:rejects a different publication and retries the same before cursor`<br>`src/renderer/src/features/chat/store/history-search.test.ts:discards an ordinary earlier page on session change without moving the inactive history cursor`<br>`src/renderer/src/features/chat/reducer/chatReducer.prepend.test.ts:deduplicates pages, rejects a misplaced overlap, and preserves existing messages`<br>`src/renderer/src/features/chat/reducer/chatReducer.prepend.test.ts:g7, g8, g15, g16 merge held patches and held outputs identically regardless of arrival order` |
+| Q5b | A의 늦은 페이지·썸네일 뒤 실제 컴포저가 B로 1회 전송 | `src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.session.test.ts:a late history page and thumbnail keep the draft for the active send` |
+| Q6a | FTS archive 동일 순번 재사용·epoch 구분, native/sidecar의 소유 키 순서 | `src/main/features/history/turn-page.db.test.ts:rechecks the archive epoch when ordinal zero is reused and confirms only the resolved cache key`<br>`src/main/features/history/native-projection.test.ts:uses native order for aliases and the smaller database ID on a tie, independent of binding order`<br>`src/main/app/chat-turn/native-session.restored-history.db.test.ts:keeps the archive searchable and follows only the replacement Claude file after the old UUID returns` |
+| Q6b | 실제 포트에서 정확한 캐시 키는 useCached, 이웃 캐시 키면 대상 묶음. DB 본문 조회·cold 및 보유된 보기 확인 | `src/main/app/data-host/history-port.integration.test.ts:opens and refreshes the latest turn, then reads both sides of a large search target and its body over the history port`<br>`src/main/features/history/turn-page.db.test.ts:rechecks the archive epoch when ordinal zero is reused and confirms only the resolved cache key`<br>`src/renderer/src/features/chat/store/history-search.test.ts:opens a cold target without latest, pages independently, joins the latest end and reuses a confirmed key` |
+| Q6c | 가시 프레임부터 2초·방문 복원과 사용자 입력의 취소 | `src/renderer/src/features/chat/lib/transcript/viewport/searchReveal.test.ts:starts the two-second outline only on a visible frame (keyboard=true)`<br>`src/renderer/src/features/chat/lib/transcript/viewport/searchReveal.test.ts:user input or restoring a visit leaves no focus, outline, or stale callback` |
+| Q6d | 검색 선택 경로와 store의 늦거나 삭제된 결과·방문 위치 복원 | `src/renderer/src/app/OverlayLayer.search.test.ts:passes the session selection into navigation after data confirms the target`<br>`src/renderer/src/features/chat/store/history-search.test.ts:drops a late or deleted target and leaves the current view in place`<br>`src/renderer/src/features/chat/store/history-search.test.ts:rechecks the source and restores the last reading anchor for that visit` |
+| Q6d 화면 | 실제 세 화면에서 클릭·Enter, 요청 종류·가시 행·포커스 6회 | `gate:xvfb-run -a node scripts/check-transcript-history.mjs` |
+| Q6e | 100턴 DB에서 63번째 턴의 양방향 커서와 62·64턴. 렌더러에서 독립 방향과 최신 합류 | `src/main/app/data-host/history-port.integration.test.ts:opens and refreshes the latest turn, then reads both sides of a large search target and its body over the history port`<br>`src/renderer/src/features/chat/store/history-search.test.ts:opens a cold target without latest, pages independently, joins the latest end and reuses a confirmed key`<br>`src/renderer/src/features/chat/store/history-search.test.ts:reads a bounded latest page for a cold search and preserves the view if returning fails` |
+| Q7 | 세션 전체 요약·선택 상세와 live 우선 표시 | `src/main/features/history/panel-summary.db.test.ts:isolates historical tasks, agents, processes and sources and reads only the selected detail`<br>`src/renderer/src/features/chat/components/rightpanel/partial-history.integration.test.ts:all session panels show unpublished live changes over a historical summary, and fetch one child detail` |
+| Q8 | 부모 커서를 쓰는 초안과 열린 부모의 격리, 실제 archive·자식 ID 유지 | `src/renderer/src/features/chat/store/history-search.test.ts:uses the parent cursor only for the fork draft and leaves the parent messages untouched`<br>`src/main/app/chat-turn/paged-recovery.integration.test.ts:full archive and fork retain the first, middle and last identities when only the fifth turn is open` |
+| Q9 | 준비 직후 쓰기, 직전 출판 유지와 재개, 옛 보관본 업그레이드 | `src/main/features/history/turn-page.db.test.ts:returns stale if a source write commits between prepare and the bounded read`<br>`src/main/features/history/turn-page.db.test.ts:keeps the previous publication intact when a resumed build has not finished`<br>`src/main/features/history/native-history.db.test.ts:upgrades a cursorless archive on its first native read` |
+| Q9b | 실제 DB의 우선권·슬라이스·중단 후 재개·출판 | `src/main/features/history/turn-index.job.db.test.ts:prioritizes the requested session, resumes after interrupted slices and publishes one complete revision` |
+| Q10 | Linux Electron 단독 구 DB 첫 클릭과 재열기. small 1회, long 3회 | `gate:xvfb-run -a node scripts/measure-stage-e.mjs --old-db small`<br>`gate:xvfb-run -a node scripts/measure-stage-e.mjs --old-db long` |
+| Q12 | 캐럿 밖에서 기준 글자 위치 보존 | `src/renderer/src/features/chat/lib/transcript/viewport/anchor.test.ts:captures the glyph top when the caret is outside the part or inside text (header)` |
+| Q13 | 새 원본 UUID와 표시 세션 라우팅 | `src/main/adapters/claude/adapter.fork.test.ts:recreates an expired conversation with a new native UUID and hides archived context in its receipt`<br>`src/main/adapters/claude/adapter.fork.test.ts:routes resumed events, permissions and hooks to the display session (recovered=true)` |
+| Q14 | 옛 UUID 복귀 후에도 새 원본과 보관본을 구분 | `src/main/app/chat-turn/native-session.restored-history.db.test.ts:keeps the archive searchable and follows only the replacement Claude file after the old UUID returns` |
+| Q15 | 분기·인계의 화면 계보와 SDK 원본 키 | `src/main/app/chat-turn/send.worktree.test.ts:uses the native source for forkFrom and the display parent for lineage (recovered=true)`<br>`src/main/app/chat-turn/send.worktree.test.ts:uses the native source for handoffFrom and the display parent for lineage (recovered=true)` |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+원격 기준에 새 훅 테스트를 먼저 실행해 D1의 예약 수 기대 0·실제 1을 확인했다. 아래 표의 ID마다 복사본에서 한 군데를 바꾸고 원본 테스트를 실행한 뒤 복원했다. [변경 원문과 실제 실패 단언](evidence/r2-history.json)에 각 ID의 파일·행·테스트명을 기록했다.
+
+| 심은 결함 / 대조 | 출처 | 수정 전 결과 | 실패한 좌표 · 구별 값 | 결과 |
+|---|---|---|---|---|
+| D1 원본 동작 재생 | §23-D · 직전 commit | 앞쪽 로딩 중 예약 1 | Q4″ 훅에서 0을 기대. 수정 뒤 양쪽 로딩·오류 네 입력 모두 0 | 재현 후 수정 |
+| I1·I2·I11·I12·I13 | D2·3 | verify 1 미검출 | wheel, keydown, 250ms 넘긴 드래그, 양쪽 잔여의 첫 요청 방향 | 5/5 검출 |
+| S7·S8·S10 | D4·5 | verify 1 미검출 | 다른 세대 메시지와 기존 커서, 즉시 두 번째 요청의 반환값 | 3/3 검출 |
+| C2·C3·P1·P3·P5·P7 | D6~9 | verify 1 미검출 | 종류만 변경, 방향만 변경, prepare 후 쓰기, bytes ±1, 동일 순번의 다른 archive, 같은 세대의 이웃 키 | 6/6 검출 |
+| I3·I4·I9·S9·C1·P2·P4·P8·R1~R5 | 직전 검증의 검출 이력 | 13건 검출 | 같은 영역 재실행. 로딩 중복은 정상 응답 가능한 포트 대역에서 두 번째 호출이 true가 되는 단언으로 확인 | 13/13 검출 |
+| I5~I8·I10·B1~B5 | 변경된 예약·발사 조건과 수동 형제 경로 | verify 1에서 I5~I8·I10은 동치로 기록 | 훅 양쪽 상태와 턴 경계·자동 플래그·재예약 취소, store의 늦은 콜백·수동 읽기 | 10/10 검출 |
+| O1~O4 | 새 포트·본문 버튼 oracle | 두 좌표 정상 통과 | 비제한 refresh, target 정렬 역전, 잘못된 본문 연결, 조각마다 UTF-8 디코더 종료 | 4/4 검출 |
+| SEL-11·SEL-17·REG-06, EP10 11건 | Q3′·Q12·0326·ΔV3 선택 근거 | 원본 사례 통과 | 120개 균분, 상자 좌표, 끝 표시, 복구 ID 운반 자리 | 14/14 검출 |
+
+r2 검산은 선택·회귀·EP10 근거 14 + 검증 1 인용 변이 14 + 새 포트·버튼 검출 4 + sweep 23 = 서로 다른 단일 변이 55개다. sweep 23/23은 직전 검출 13과 변경 조건·형제 10의 합이다. 인용·직전 검출 ID의 차집합과 기대한 55개 ID의 누락·추가 목록은 증거 파일에 남겼다. D1의 수정 전 원본 재현은 별도 1건이다. 전체 §10의 독립 sweep 분모와 r2의 수정·인용 분모는 각 표에서 따로 센다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 사용자 상황 | 관측한 동작 | 재현 |
+|---|---|---|
+| 큰 턴의 검색 결과에서 위·아래에 내용이 남음 | 앞쪽 한 묶음이 커밋된 뒤 다음 유휴 읽기를 예약하고 턴 경계에서는 멈춘다 | Q4″ · Q6e |
+| 읽는 중 휠·키 입력·긴 드래그, 또는 한 방향 실패 | 자동 읽기는 입력이나 오류에서 멈춘다. 사용자는 두 방향을 직접 읽거나 실패한 커서를 다시 누를 수 있다 | I1·I2·I11·I12 · B5 · D4 |
+| 지연 본문 열기 실패 | 버튼 로딩 해제와 재시도 표시를 확인했다. 재시도 성공 뒤 이웃 사이의 같은 메시지 ID에 본문을 채운다 | Q3 버튼 |
+| 중복·늦은 응답 | 같은 세대·같은 커서에 해당하는 메시지만 추가하고 전환 뒤의 컴포저 초안을 유지한다 | Q5·5b |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 잠재 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 훅이 예약한 후 사용자가 반대 방향 읽기를 시작할 수 있다 | store도 발사 직전에 양쪽 상태를 다시 읽는다 | B2 |
+| 2 | 자동 읽기를 직렬화하면서 수동 입력까지 막을 수 있다 | 앞쪽 요청을 보류하고 수동 뒤쪽 요청이 먼저 끝나는 순서를 시험했다 | B5 |
+| 3 | 잘못된 커서·본문 범위·캐시 키에도 비슷한 메시지로 성공할 수 있다 | 같은 자료의 정상 대조군, 반환 상태, 본문 조회 횟수와 정확한 메시지 ID를 함께 확인했다 | D6~D9 · Q3·6a·6b |
+
+### 설계 대비 명시적 차이 (r2)
+
+| 축 | 대체/관측 | 재확인한 AC·§10 |
+|---|---|---|
+| 만료·공유 | 같은 세대의 캐시 키만 바꾸거나 같은 순번의 보관 epoch만 바꿔 각 결과를 구분했다 | AC6·9, EP6 |
+| 재진입 | 정상 응답도 다른 세대면 재시도 표시를 둔다. 기존 커서로 재시도해 정상 페이지를 적용했다 | AC3′·4, EP5 |
+| 다른 무효화 | 입력 보류 타이머를 가진 화면을 닫고 시간 경과 후 예약 수를 확인했다 | AC2·3′, EP3 ⑤ |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 결과 |
+|---|---|
+| 변경 파일 | 유휴 방향 판정 함수, 이력 컨트롤 훅과 chat store, 훅·store·SQLite·포트·본문 버튼 회귀 테스트 5파일, 이 보고와 INDEX |
+| 테스트의 subtree 규칙 | 실제 SQLite 연결과 data handler는 io에서 실행했다. 훅·store·버튼은 renderer unit 프로젝트에서 실행했다. |
+| 실행 명령 | 필터 없는 Vitest, 수정 테스트 5파일, Node 스크립트 전수, lint, typecheck, 정적 검사 5개, Electron 빌드와 host·preload smoke, Q4b″·Q10 |
+| 관측한 게이트 산출 | Vitest 1,150파일 중 1,137 통과·9 실패·4 건너뜀. 10,865건 중 10,831 통과·22 실패·1 예상 실패·11 건너뜀. Linux 기준선과 실패 좌표 차집합 양방향 0, 같은 미처리 rejection 1건. 변경 테스트 40/40, Node 1,104/1,104, lint 오류 0·기존 경고 12. Electron 앵커 150/150·검색 6/6, 위치 보존 사례 최대 0.391px. [실행 기록](evidence/r2-history.json) |
+| V-pair 자기확인 · 강제 지점 | SELF_PASS 5 / SELF_BLOCKED 14. 검증 1 이행 D1~D9를 닫고 다음 독립 검증에 위 표의 잔여를 인계 |
+| 블로커 / 대상 커밋 | 새 PLAN_GAP 없음. 다음 주체는 Claude 검증 2. 대상 커밋 좌표는 INDEX에서 검증자가 기입 |
+
+| AC | 판정 | 이번 턴의 관측 |
+|---|---|---|
+| AC1 | ✅ | 선행 1·100·10,000턴 SQLite 테스트, 실제 포트의 100번째 턴 2개 ID, 전량 loadParts 0 |
+| AC2 | ✅ | 균등·편중 600개 최대성, 빈 메시지 200,000개 1,563회, 실제 포트의 양방향 복원과 4.2MB 이상 본문 재시도 |
+| AC3′ | ✅ | 중복 같은 커서 요청 1회. 세 화면 Q4b″ 150회·실패 0 |
+| AC4 | ✅ | Q5b에서 이전 응답·썸네일 후 활성 세션에만 전송 |
+| AC5 | ✅ | Q5에서 끝 표시 뒤 지연 본문까지 보류할 도구 결과와 publication 확인 |
+| AC6 | ✅ | 세 화면에서 클릭·Enter 6회. 같은 archive 순번과 잘못된 캐시 키를 분리하고 63턴에서 양쪽 이웃에 도달 |
+| AC7 | ✅ | Q7에서 세션별 작업·에이전트·프로세스·출처, 실시간 변화와 지연 상세 응답을 확인 |
+| AC8 | ✅ | Q8에서 부모 커서가 초안에만 붙고 복구·분기 뒤 첫·중간·끝 ID 유지 |
+| AC9 | ✅ | prepare 뒤 쓰기에서 stale, 새로운 출판 뒤 정상. 잘못된 길이·종류·방향은 본문 조회 전 거부 |
+| AC10 | ⚠️ | 목표 Windows 설치본과 실제 트랙패드 S-E1~S-E5 실기 대기 |
+| AC11 | ✅ | Linux 긴 구 DB 첫 클릭 2,001.0 / 2,086.1 / 2,149.2ms. 중앙값 2,086.1ms, 한도 3,729ms. 재열기 원본 payload 0 bytes |
+| AC12 | ✅ | 실제 복구 파일·FTS와 SDK·화면 계보 테스트, 복구 ID 변이 11/11 검출 |
+
+✅ 11 · ⚠️ 1 · ❌ 0 = 총 12. Criteria-Met 11/12. Windows 실기는 0330에서 추적한다.
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 검증 1의 제품 결함 D1은 기존 §23-D의 직전 커밋 조건에 해당한다. 일반 보기에서만 시험해 검색 보기의 반대 방향 요청을 놓쳤다.
+- 기준 세대·방향·길이·원본 식별자 중 한 값만 다른 입력으로 검증 1에서 살아남은 변이 14개를 검출했다.
+- Linux 게이트의 기준선과 Windows 실기 경계, 검증 2에서 이어갈 전수 목록을 기록했다.
+
+---
+
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
@@ -1289,13 +1424,13 @@ VP-11·17·18·19는 SELF_PASS다. VP-11의 본문 전체 선조회는 Q1 읽기
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| D1 | 검색 보기에서 대상 턴 앞 유휴 요청 진행 중 뒤쪽 유휴 요청을 또 발사(`useHistoryControls.ts:43-48`) | verify r1 · VP-16 · §23-D 유휴 채움′ “직전 commit 전 다음 요청 0” | 직전 유휴 요청 완료 전 어느 방향도 예약하지 않게 고치고 회귀 입력 추가 | 이행(재현) | BLOCKING | open |
-| D2 | 입력 중 보류의 wheel·키·드래그 분기 개별 미잠금(I1·I2·I11·I12) | verify r1 · VP-16 · EP3 ⑤ ‘입력 중 보류’ | 분기별 입력(드래그 단독 >200ms, wheel, keydown) | 이행 | BLOCKING | open |
-| D3 | 검색 보기 유휴 채움 분기 입력 없음(I13) | verify r1 · VP-16 · §10 한 턴과 조각 · §5-B | 훅 테스트에 검색 보기 before/after withinTurn 입력 | 이행 | BLOCKING | open |
-| D4 | 창의 응답 세대 재검사 미잠금(S7·S8) | verify r1 · VP-08 · §10 요청/응답 “창도 일치 여부를 검사” · EP5 ③ | 다른 세대 `ok` 응답 입력 | 이행 | BLOCKING | open |
-| D5 | 이전 턴 중복 요청 억제 미잠금(S10) | verify r1 · VP-12 · AC3′ “반복·동시 입력 1회” · EP5 ① | 같은 커서 연속 호출 입력 | 이행 | BLOCKING | open |
-| D6 | data 커서 종류·방향 혼용 거부 미잠금(C2·C3) | verify r1 · VP-08 · §10 요청/응답 “종류 혼용 … data에서 거부” | 혼용 요청 입력 | 이행 | BLOCKING | open |
-| D7 | 출판 revision 경쟁 stale 미잠금(P1) | verify r1 · VP-07 · EP1 ④ · Q9 ‘commit 직전 경쟁’ | prepare 뒤 원본 변경 입력 | 이행 | BLOCKING | open |
-| D8 | 본문 ref 바이트 길이 결합 미잠금(P3) | verify r1 · VP-08 · §10 본문 | 길이가 다른 ref 입력 | 이행 | BLOCKING | open |
-| D9 | locator epoch(P5)·target 캐시 키(P7) 미잠금, Q2·Q3·Q5·Q5b·Q6a~e·Q8 renderer·Q9 좌표 대응 누락 | verify r1 · VP-14 · Q6a·Q6b · §10 “Q는 … 좌표” | 해당 입력 추가와 Q별 `파일:테스트명` 대응표 | 이행 | BLOCKING | open |
+| D1 | 검색 보기에서 대상 턴 앞 유휴 요청 진행 중 뒤쪽 유휴 요청을 또 발사(`useHistoryControls.ts:43-48`) | verify r1 · VP-16 · §23-D 유휴 채움′ “직전 commit 전 다음 요청 0” | 직전 유휴 요청 완료 전 어느 방향도 예약하지 않게 고치고 회귀 입력 추가 | 이행(재현) | BLOCKING | closed (r2 · 수정 전 예약 1 → 0 · B2) |
+| D2 | 입력 중 보류의 wheel·키·드래그 분기 개별 미잠금(I1·I2·I11·I12) | verify r1 · VP-16 · EP3 ⑤ ‘입력 중 보류’ | 분기별 입력(드래그 단독 >200ms, wheel, keydown) | 이행 | BLOCKING | closed (r2 · I1·I2·I11·I12) |
+| D3 | 검색 보기 유휴 채움 분기 입력 없음(I13) | verify r1 · VP-16 · §10 한 턴과 조각 · §5-B | 훅 테스트에 검색 보기 before/after withinTurn 입력 | 이행 | BLOCKING | closed (r2 · I13·I5~I8) |
+| D4 | 창의 응답 세대 재검사 미잠금(S7·S8) | verify r1 · VP-08 · §10 요청/응답 “창도 일치 여부를 검사” · EP5 ③ | 다른 세대 `ok` 응답 입력 | 이행 | BLOCKING | closed (r2 · S7·S8) |
+| D5 | 이전 턴 중복 요청 억제 미잠금(S10) | verify r1 · VP-12 · AC3′ “반복·동시 입력 1회” · EP5 ① | 같은 커서 연속 호출 입력 | 이행 | BLOCKING | closed (r2 · S10) |
+| D6 | data 커서 종류·방향 혼용 거부 미잠금(C2·C3) | verify r1 · VP-08 · §10 요청/응답 “종류 혼용 … data에서 거부” | 혼용 요청 입력 | 이행 | BLOCKING | closed (r2 · C2·C3) |
+| D7 | 출판 revision 경쟁 stale 미잠금(P1) | verify r1 · VP-07 · EP1 ④ · Q9 ‘commit 직전 경쟁’ | prepare 뒤 원본 변경 입력 | 이행 | BLOCKING | closed (r2 · P1) |
+| D8 | 본문 ref 바이트 길이 결합 미잠금(P3) | verify r1 · VP-08 · §10 본문 | 길이가 다른 ref 입력 | 이행 | BLOCKING | closed (r2 · P3) |
+| D9 | locator epoch(P5)·target 캐시 키(P7) 미잠금, Q2·Q3·Q5·Q5b·Q6a~e·Q8 renderer·Q9 좌표 대응 누락 | verify r1 · VP-14 · Q6a·Q6b · §10 “Q는 … 좌표” | 해당 입력 추가와 Q별 `파일:테스트명` 대응표 | 이행 | BLOCKING | closed (r2 · P5·P7 · Q 대응표) |
 | N1 | Vitest 22 red(Windows 경로, diff 밖 9파일) | verify r1 · gate | — | 비귀속 | NON_BLOCKING | 기록 |
