@@ -1,5 +1,464 @@
 # Verify — 0329-turn-history-paging
 
+## 판정 — verify 3회째: **FAIL**
+
+막는 발견 1건(D19)이 남아 FAIL이다. verify 2의 D10~D18 인용 변이 87개와 X1(L3)은 모두 잡혔다. ΔV5 새 자리 24개와 ⑦ 잔여 7항목(변이 19개)도 모두 잡혔다. 남은 것은 VP-05 production path의 마지막 연결이다 — `AboveInput.tsx:13`이 TODO 경계를 `selectOpenCodeTodos`에 넘기는 항을 0으로 바꿔도 렌더러 3,485건이 green이다(E7i). verify 3회째가 PASS가 아니므로 다음 재구현 전에 `handoff-review`를 1회 한다(`docs/handoff/AGENTS.md §라운드`).
+
+## 메타 (verify 3)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `96cff315..077473e3`. production 2파일 +10/−4(`idleSearchDirection.ts` · `chatReducer.ts`), 테스트 20파일, Electron 진단 4파일, plan·INDEX·`evidence/r3-history.json`. r3 구현 커밋 `077473e3` — 브랜치 `ccr-ca3d795a-2t0cmj`, `origin/main` 조상 아님 |
+| 구현 전 plan 기준 | `96cff315`(V1 rev 5 + ΔV1~ΔV5). `077473e3`의 plan diff는 머리말·메타 2행·`[구현자 기입] r3` 7절·파생 이슈 상태 칸(D10~D18 `closed`)뿐 — Decision·AC·V·§10 변경 0 |
+| V mode / 유효 V | Baseline V V1 rev 5 + ΔV1~ΔV5 |
+| 라운드 | 3 |
+| 확장 창 | verify 3회째 — **창 밖**. ΔV5는 verify 2 PLAN_GAP 정정(사용자 요구 변경 아님)이라 창을 다시 열지 않는다. ΔV5 새 열거 항목 3묶음의 출처는 §24-B에 있다(G1 plan 내부 정합 · X1 창 안 채택 · D10 현재 결함) |
+| 독립 축(⑥) | 3축. (a) ‘최신 대화로’ 요청 중 다른 세션으로 갔다 돌아옴 → 결함 없음(아래 §4). (b) VP-05 path edge를 §10 자리 목록 밖까지 따라감 → E7i 못 잡음(D19). (c) EP6 ⑦′ ③의 `useMemo` 의존 배열(E6g)·호출 인자(E6h) → 잡음 |
+| 열거 sweep(⑦) | ③ verify 2 못 잡음 88 + 동치 16 + 단위 3 · ④ verify 2 잡음 전부(r3가 테스트 20파일·공용 픽스처를 고침) · ΔV5 새 자리·재앵커 · ⑦ 잔여 7항목. 시도 282 = 잡음 254 · 동치 16 · 못 잡음(단위, 등록 Electron 좌표가 잡음) 3 · 못 잡음 2 · 대조 green 6 · 무효 1(Y6 문법 오류 → Y6r) |
+| ⑦ 잔여 | **0** — verify 2가 넘긴 7항목을 이번에 다 돌렸다(아래 표) |
+| 발견 분류 | 이행 1(D19) · 확장(창 밖) 1(NX1 → 새 handoff 후보) · 비귀속 1(N1 기존 Vitest 22건) |
+| 구현 주체·문맥 | Codex 구현, Claude Code 검증. plan ΔV5는 Claude Code 설계 — plan validity는 자기 설계 감사다 |
+| 실행 환경 | 변이는 4개 git worktree에서 병렬로 돌렸다(4코어, load 12~13). 첫 실행은 2시간 백그라운드 한도로 254/281에서 끊겼다. 남은 27개는 worktree 원복 뒤 다시 돌렸고, 끝난 뒤 worktree 셋 모두 `원복 확인: 모든 파일 원문 그대로` |
+
+## 0. 기준선 / plan validity (verify 3)
+
+- 구현 커밋의 plan 변경: `git diff 96cff315 077473e3 -- …/plan.md`의 hunk 4개는 머리말·메타·`[구현자 기입] r3`·파생 이슈 상태 칸이다. 규범 행 변경 0.
+- 창 밖 ΔV의 새 열거 항목: ΔV5 §24-B가 출처를 항목마다 적었다(G1 plan 내부 정합 · X1 verify 2회째 직후 채택 · D10 현재 결함). 출처 없는 항목 0.
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| §24-E 자리 검색 3개 | 유효 — 차집합 0 | `rg -n 'idleSearchDirection' app/src -g '!*.test.*' -g '!*.testfixture.*'` 5줄 · EP6 ⑦′ 검색 16줄(`96cff315`의 `git grep`도 16줄, 같은 목록) · `openCodeTodoTurnStartIndex` 9줄. 계약 값을 운반하는 줄은 §24-E 자리 3·4·4개와 같다 |
+| 규칙 칸 ↔ 입력 칸 | 유효 | EP3 ⑤′ 분기 (i)~(vii)이 `useHistoryControls.test.ts` ‘fills both sides…’와 `history-search.test.ts` ‘automatically reads only the healthy side after a %s error’에 모두 있다. EP7 ⑥′ (a)~(d)는 `TodoDock.integration.test.ts` ‘preserves the current TODO boundary…(%s)’ 3사례 + 거부 페이지 |
+| VP-05 path ↔ Q7′ 좌표 | 이행 결함(D19) | §24-C path는 `selectOpenCodeTodos → AboveInput`에서 끝나고 Q7′ 좌표는 `selectOpenCodeTodos`에서 관측한다. 마지막 edge를 덮는 좌표가 없다. 구현자가 계약을 발명하지 않고 그 edge의 입력을 더해 닫을 수 있어 PLAN_GAP이 아니다 |
+| 운영 gate | 유효 | §19-3 열거 |
+
+## 1. Product & UX / ACTIVE Decision (verify 3 변경분)
+
+| Decision | 기대 | r3 production path | 판정 |
+|---|---|---|---|
+| D-025 오류 방향별 | 오류 난 방향만 자동 채움을 멈추고 반대 방향은 계속 | `idleSearchDirection.ts:11-13` — 진행 중이면 0, before는 `withinTurn`·비오류일 때, 그다음 after | ✅ E3a(r2 동작 복원)·E3b·E3c 잡음 |
+| D-015 · X1 ‘최신 대화로’ 반복 입력 | 진행 중 반복 입력은 요청을 더하지 않는다. 실패하면 재시도 표시 뒤 1회 | `chatStore.ts:2724-2725` 가드·설정 · `:2759` 실패 표시 · `useHistoryControls.ts:69-70` · `HistoryEdge.tsx:63-71` | ✅ L3·E6a~E6j 잡음 |
+| D-012 · AC7 OpenCode 현재 TODO | 앞삽입 뒤에도 현재 턴 TODO만 보인다 | `chatReducer.ts:1739` 앞삽입 수(중복·겹침 제외한 `page.length`)만큼 경계 이동 → `todoState.ts:18` → `AboveInput.tsx:13` | ⚠️ reducer·selector는 ✅(E7a~E7h 잡음). `AboveInput`이 경계를 넘기는 항은 미잠금(E7i, D19) |
+
+## 2. 구현 결과 비판적 검토 — AC 전에 (verify 3)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 경계 이동량 | ✅ | `page`는 중복 ID를 빼고(`:1705-1709`) 겹침에서 잘린(`:1718`) 배열이라 실제로 더한 메시지 수다. `mergeHeldParts`는 메시지 수를 바꾸지 않는다(`heldParts.ts:83-130` — part만 갱신) |
+| 거부 페이지 | ✅ | 겹침 순서 불일치는 `return state`(`:1715`) — 경계 불변. E7c(`action.messages.length`)는 중복·겹침 입력에서 red |
+| 한쪽 오류 뒤 진행 중 반대쪽 | ✅ | 훅 예약 시점과 발사 시점 사이 상태가 바뀌어도 store가 `idleSearchDirection`을 다시 본다(`chatStore.ts:2776`, E3f red) |
+| 전환 중 ‘최신 대화로’ | ✅ | `loadSession`이 떠나는 세션의 검색을 `leaveSearch(origin)`으로 지워(`chatStore.ts:2005-2007`) `returning`이 남지 않는다 — 독립 축 (a) |
+
+## 3. 역방향 탐색 (verify 3)
+
+production 변경이 2파일 14줄이라 `scan-surface.sh` 대신 직접 봤다.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `openCodeTodoTurnStartIndex` 소비처 | 1곳 — 미잠금 | `AboveInput.tsx:11-14`만 읽는다. 이 소비처를 렌더하는 테스트는 `Composer.selection.test.ts` 하나인데 TODO 상태를 만들지 않는다(E7i green) |
+| 앞삽입이 옮겨야 할 다른 위치 상태 | 없음 | `ChatState` 필드(`chatReducer.ts:330-420`) 중 메시지 배열 위치를 담는 것은 `openCodeTodoTurnStartIndex` 하나다 |
+| `idleSearchDirection` 소비처 | 2곳 배선 | `useHistoryControls.ts:44` · `chatStore.ts:2776` — E3e·E3f·E3g 잡음 |
+| 새 테스트 20파일 | production 진입 | ④ 재실행에서 verify 2 잡음 행이 red → green으로 바뀐 것 0(덮개 회귀 0) |
+
+## 4. 증거 재측정 (verify 3)
+
+- **①**: ΔV5 등록 변이 4개 — E3a(오류 조건을 r2의 “어느 쪽이든 오류면 0”으로 되돌림) · L3(EP6 ⑦′ ① 진행 중 가드 제거) · E7a(EP7 ⑥′ ③ 경계 이동 제거) · E7b(이동량 1 고정) — 모두 잡음. 이전 등록 변이(gA1·gV5·gV14·gE1·A1·Q5B·R3·X4·R4·R5·N1·N3a~c·N4·N5a~c·N6)도 모두 잡음.
+- **②**: D10~D18 인용 변이 87개 전부 잡음. 각 변이의 실패 테스트는 아래 표 ‘잡은 테스트’ 열이다(a·b·c 묶음은 하네스가 이름을 남기지 않아 실패 수만 적었다). D10은 E7a·E7b·E7c·E7h(경계 보존 자리)로 재현 기대가 바뀐 것을 확인했다.
+- **③**: verify 2 못 잡음 88 → 잡음 88. 동치 16(C4~C6·S1·S2·S5·S6·S11·P6·P9·P10·V3·E3·L1·X6·PQ6)은 이번에도 green이고 코드 근거는 verify 2와 같다(해당 줄 변경 0). 단위 단독 3(V5·V14·E1)은 등록 Electron 좌표가 잡는다(gV5·gV14·gE1 red).
+- **④**: verify 2 잡음 행 전부를 다시 돌렸다(r3가 공용 테스트 픽스처를 고쳤다). red → green 0, 덮개 회귀 0.
+- **⑤ 형제 맞바꿈**: I13r(before↔after 판정 순서) · E6d(`returning`↔`returnFailed` 중 실패 표시 누락) · E7e(LOAD 경계↔0) · RS6a·RS6b(계보 출발점↔native 원본)·RS6c(native 원본↔계보) — 모두 잡음.
+- **⑥ 독립 축**:
+  - (a) 임시 테스트(트리에 남기지 않음): 검색 hit을 연 뒤 `leaveSearch('b', true)`로 latest 요청을 띄우고, 응답 전에 `loadSession('c')` → latest 응답 도착 → `loadSession('b')`. 결과 `{"search":null,"ids":["b1"],"calls":["target","latest"]}` — 늦은 응답은 적용 0이고 진행 중 표시가 남지 않는다. 결함 없음.
+  - (b) VP-05 path의 마지막 edge(E7i) — 못 잡음. §11 D19.
+  - (c) E6g(`useMemo` 의존 배열에서 `returning`·`returnFailed` 제거) · E6h(`leaveSearch(key)`로 latest 인자 누락) — 잡음.
+- **⑦ 열거 sweep**: ΔV5가 새로 열거한 EP3 ⑤′ 3자리·EP6 ⑦′ 4자리·EP7 ⑥′ 4자리마다 항 하나씩 지우는 변이(E3a~E3g · I5r~I13r · E6a~E6k · E7a~E7h)와 VP-05 path edge(E7i)를 심었다. verify 2 ⑦ 잔여 7항목은 아래 표다.
+
+### ⑦ 잔여 7항목 (verify 2가 넘긴 것)
+
+| pair / §10 | 변이 | 결과 · 잡은 테스트 |
+|---|---|---|
+| VP-11 등록 변이 3 ‘하한 식으로 균분’ | RS1 `history-page.ts:221` 묶음마다 120개에서 끊음(600 ÷ 하한 5) | 잡음 · `turn-page.db.test.ts` ‘greedy maximal pages for uniform and skewed turns (spread)’·‘(clustered)’ |
+| EP4′ ① 세 화면 진입 intent | RS2a `useScrollAnchor.ts:143` · RS2b `ScrollController.tsx:102` intent → null | 잡음 · `TranscriptViewport.harness.test.ts` ‘claude code/work · opencode code places open, sync and resume…’ |
+| EP4′ ⑦ 새 행 마운트 → 선택 취소 | RS2c `TranscriptViewport.tsx:664` 취소 판정 무력화 | 잡음 · ‘s9-screens … switching the active session releases a suppressed drag’ 외 11 |
+| EP4′ ⑧ 하네스 pin 해제 공존 | RS2d `useScrollAnchor.ts:82` wheel 리스너 제거 · RS2e `ScrollController.tsx:122` unpin 제거 | 잡음 · 위 harness 테스트 |
+| VP-17 EP4″ ④ (iii) 창 안 쓰기 주입 | RS3a `scrollCorrection.ts:83-84` 이력 읽는 중 하네스 쓰기 차단 항 제거 | 잡음 · Q4b″ Electron ownership |
+| D-022 `consumedPull` `preventDefault` | RS3b `TranscriptViewport.tsx:738` `started`일 때만 막음 | 잡음 · Q4b″ Electron top |
+| EP6 ② 선택 → 탐색 번호·라우트 | RS4a 클릭 · RS4b Enter keyboard 인자 · RS4c 라우트 ID · RS4d `historyVisit` · RS4e `historyLocator` | 잡음 · `SearchModal.test.ts` ‘opens the clicked result…’·‘opens the highlighted result…’ · `OverlayLayer.search.test.ts` ‘passes the confirmed selection and visit into navigation (keyboard=%s)’ |
+| EP8 ① 원본 소실 판정 | RS5 `native-session.ts:61` `missing` 조건 제거 | 잡음 · `native-session.restored-history.db.test.ts` 등 11건 |
+| EP10 계보 출발점 형제 맞바꿈 | RS6a `send.ts:397` · RS6b `:398` · RS6c `:620` | 잡음 · `send.worktree.test.ts` ‘uses the native source for forkFrom/handoffFrom and the display parent for lineage (recovered=%s)’ |
+
+### 고장 이력 (verify 3)
+
+열은 ID · `파일:줄` · 종류 · 바꾼 내용 · 직전 결과(verify 2 같은 ID, 없으면 —) · 결과 · 잡은 테스트(잡음) 또는 근거 · 분류다. 줄 번호는 `077473e3` 트리 기준이다. `DB*`·`EC1`은 verify 2와 같은 이름 바꿈이다. `CTRL_*`은 변이 없는 대조 실행이다(oracle 묶음마다 1개, 모두 green). verify 2의 I5·I6·I7·I7b·I13은 r3가 `idleSearchDirection.ts`를 고쳐 원문이 사라져 I5r~I13r로 재앵커했다.
+
+| ID | 자리 | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 / 근거 | 분류 |
+|---|---|---|---|---|---|---|---|
+| gA1 | `anchor.ts:171` | 다른 값 | viewportOffsetPx: measureCharTop(targetEl, charO… → viewportOffsetPx: targetEl.getBoundingClientRect… | 잡음 | 잡음 | Q4b″ top | — |
+| gV5 | `TranscriptViewport.tsx:735` | 다른 값 | if (input !== 'consumedPull') cancel() → cancel() | 잡음 | 잡음 | Q4b″ inertia | — |
+| gV14 | `TranscriptViewport.tsx:513` | 다른 값 | (prevHeight !== undefined \|\| correcting) && → prevHeight !== undefined && | 잡음 | 잡음 | Q4b″ firstMeasurement | — |
+| gE1 | `HistoryEdge.tsx:35` | 다른 값 | className={`${HISTORY_HEAD_HEIGHT} flex → className={`${state === 'loading' ? 'h-10' : HIS… | 잡음 | 잡음 | Q4b″ top | — |
+| gV12 | `TranscriptViewport.tsx:835` | 제거 | if (footerRef.current) observer.observe(footerRe… → (삭제) | 못 잡음 | 잡음 | Q4b″ footerResize | — |
+| gV13 | `TranscriptViewport.tsx:289` | 다른 값 | const captured = activeAnchorRef.current ?? (el … → const captured = el ? captureAnchor(el) : null | 못 잡음 | 잡음 | Q4b″ doublePrepend | — |
+| gV2 | `TranscriptViewport.tsx:716` | 제거 | \|\| ⏎ nestedScrollConsumes(target, el, delta) → (삭제) | 못 잡음 | 잡음 | Q4b″ nested | — |
+| RS3a | `scrollCorrection.ts:83` | 제거 | \|\| ⏎ (element.dataset?.historyReading !== unde… → (삭제) | — | 잡음 | Q4b″ search | — |
+| RS3b | `TranscriptViewport.tsx:738` | 다른 값 | if (input !== 'userInput') event.preventDefault(… → if (input === 'started') event.preventDefault() | — | 잡음 | Q4b″ followup | — |
+| CTRL_G | `HistoryEdge.tsx` | 대조 | (파일 끝) → // v3 control | — | 대조 green |  | — |
+| C1 | `history-page.ts:53` | 제거 | id !== req.sessionId \|\| → (삭제) | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| C2 | `history-page.ts:54` | 제거 | kind !== req.kind \|\| → (삭제) | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| C3 | `history-page.ts:55` | 제거 | direction !== (before ? 'before' : 'after') \|\| → (삭제) | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| C4 | `history-page.ts:59` | 제거 | if (g !== gen) return 'stale' → (삭제) | 못 잡음 | 동치 | 출판 시 이전 세대 행 삭제(`history-index-queries.ts:407`)로 `header()` 없음 → 같은 st | — |
+| C5 | `history-page.ts:61` | 다른 값 | if (!at \|\| at.message_key !== key) → if (!at) | 못 잡음 | 동치 | verify 1 근거 유지(코드 무변경, 이번 실행 green) | — |
+| C6 | `history-page.ts:63` | 다른 값 | if (!next \|\| (kind === 'withinTurn') !== (at.t… → if (!next) | 못 잡음 | 동치 | verify 1 근거 유지(코드 무변경, 이번 실행 green) | — |
+| P1 | `history-page.ts:85` | 다른 값 | if (state.published !== generation \|\| state.pu… → if (state.published !== generation) | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| P2 | `history-page.ts:91` | 다른 값 | if (ref.session !== id \|\| offset % HISTORY_BOD… → if (offset % HISTORY_BODY_BYTES \|\| offset >= r… | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| P3 | `history-page.ts:113` | 다른 값 | if (!header \|\| header.body_bytes !== ref.bytes… → if (!header) | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| P4 | `history-page.ts:157` | 제거 | if (req.generation !== generation) return { ...e… → (삭제) | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| P5 | `history-page.ts:166` | 다른 값 | if (!current \|\| current.epoch !== locator.epoc… → if (!current) | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| P8 | `history-page.ts:109` | 다른 값 | if (ref.session !== id \|\| offset % HISTORY_BOD… → if (offset % HISTORY_BODY_BYTES !== 0 \|\| offse… | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| R1 | `history-page.ts:202` | 다른 값 | start, ascending, HISTORY_PAGE_MESSAGES) → start, ascending, HISTORY_PAGE_MESSAGES - 1) | 잡음 | 잡음 | vitest 5 failed · 222 passed (227) | — |
+| R4 | `projection.ts:641` | 제거 | entries.delete(observation.id) → (삭제) | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| P12 | `history-page.ts:111` | 다른 값 | if (ref.generation !== generation) return { ...e… → const header | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| W6 | `session-load.ts:127` | 제거 | if (!job) return { ...echo, status: 'missing' } → (삭제) | 못 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| F3 | `history-index-queries.ts:159` | 다른 값 | epoch: row.incarnation + '.' + row[source], → epoch: String(row.incarnation), | 잡음 | 잡음 | rechecks the archive epoch when ordinal zero is reused and c | — |
+| Y1 | `history-index-queries.ts:331` | 다른 값 | if (isTurnStart(previous, msg)) turn = ordinal ⏎… → this.putMessage(id, gen, ordinal++, turn, msg, [ | 잡음 | 잡음 | keeps partless messages and same-time turns, preserves earli | — |
+| Y3 | `history-index-queries.ts:282` | 다른 값 | !state.published \|\| ⏎ state.rebuild \|\| → !state.published \|\| | 잡음 | 잡음 | rechecks the archive epoch when ordinal zero is reused and c | — |
+| Y4b | `reader.ts:128` | 다른 값 | return { messages: [...archive, ...messages], al… → return { messages: [...messages], aliases | 잡음 | 잡음 | displays and recovers a separated snapshot after the native  | — |
+| Y7 | `history-index-queries.ts:359` | 다른 값 | this.stmt('UPDATE history_index_state SET publis… → this.stmt('UPDATE history_index_state SET publis… | 잡음 | 잡음 | isolates historical tasks, agents, processes and sources and | — |
+| Z3 | `history-page.ts:30` | 다른 값 | at.turn === other.turn ? 'withinTurn' : → false ? 'withinTurn' : | 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| X1 | `history-index-queries.ts:59` | 다른 값 | ORDER BY s.updated_at DESC,s.id → ORDER BY s.updated_at ASC,s.id | 잡음 | 잡음 | prioritizes the requested session, resumes after interrupted | — |
+| X3 | `history-index-queries.ts:381` | 다른 값 | if (performance.now() >= deadline) { → if (false) { | 잡음 | 잡음 | keeps the previous publication intact when a resumed build h | — |
+| X6 | `history-index-queries.ts:372` | 다른 값 | if (!state \|\| state.revision !== revision \|\|… → if (!state \|\| state.building !== gen) return '… | 못 잡음 | 동치 | `schedule()`가 조각마다 `begin()`(`turn-index.ts:93`)을 불러 revision이 바뀌면 bui | — |
+| X9 | `turn-index.ts:117` | 다른 값 | const next = this.queue.findIndex((other) => !ot… → this.queue.push(job) | 못 잡음 | 잡음 | interleaves foreground slices before background and drops a  | — |
+| PQ3 | `history-panel-queries.ts:143` | 제거 | if (cursor[3] !== checkpoint) return { ...echo, … → (삭제) | 못 잡음 | 잡음 | limits summary rows and rejects a cursor for another session | — |
+| PQ6 | `history-panel-queries.ts:40` | 다른 값 | messages.filter(contributesToPanels).map → messages.map | 못 잡음 | 동치 | `contributesToPanels`가 고르는 part(도구·첨부·자식)가 패널 투영의 입력 전부 — 확인 실행 green | — |
+| FK3 | `fork.ts:38` | 제거 | db.recordForkPrefix(arrival.childSessionId, mark… → (삭제) | 잡음 | 잡음 | full archive and fork retain the first, middle and last iden | — |
+| FK5b | `reader.ts:89` | 다른 값 | messages = [...prefix, ...projection.messages] → messages = projection.messages | 잡음 | 잡음 | full archive and fork retain the first, middle and last iden | — |
+| N1 | `adapter.ts:377` | 다른 값 | let replacement = randomUUID() ⏎ while (replacem… → return { sessionId, freshStart: true } | 잡음 | 잡음 | keeps the archive searchable and follows only the replacemen | — |
+| N3b | `adapter.ts:681` | 다른 값 | { resume: req.forkFrom ?? nativeId ?? undefined … → { resume: req.forkFrom ?? sessionId ?? undefined… | 잡음 | 잡음 | routes resumed events, permissions and hooks to the display  | — |
+| N5a | `adapter.ts:948` | 다른 값 | req.onPermissionModeChanged?.(routeSessionId(msg… → req.onPermissionModeChanged?.(msg.session_id, mo… | 잡음 | 잡음 | routes resumed events, permissions and hooks to the display  | — |
+| N6 | `send.ts:620` | 다른 값 | ...(forkNativeId ? { forkFrom: forkNativeId } : … → ...(continuitySource ? { forkFrom: continuitySou… | 잡음 | 잡음 | uses the native source for forkFrom and the display parent f | — |
+| N8 | `native-history.ts:37` | 다른 값 | const nativeId = recovery?.native_id ?? sessionI… → const nativeId = sessionId | 잡음 | 잡음 | keeps the archive searchable and follows only the replacemen | — |
+| RS5 | `native-session.ts:61` | 다른 값 | result.status === 'missing' && adapter.recoverSe… → adapter.recoverSession | — | 잡음 | keeps the archive searchable and follows only the replacemen | — |
+| RS6c | `send.ts:620` | 다른 값 | ...(forkNativeId ? { forkFrom: forkNativeId } : … → ...(forkNativeId ? { forkFrom: payload.forkFrom … | — | 잡음 | uses the native source for forkFrom and the display parent f | — |
+| I2 | `useHistoryControls.ts:50` | 다른 값 | performance.now() < input.current.until → false | 잡음 | 잡음 | vitest 2 failed · 1602 passed (1604) | — |
+| I8 | `useHistoryControls.ts:52` | 다른 값 | readSearchEdge(key, dir, true) → readSearchEdge(key, dir) | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| I10 | `useHistoryControls.ts:59` | 제거 | window.clearTimeout(timer) → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| I14 | `useHistoryControls.ts:30` | 제거 | document.addEventListener('pointerdown', down, t… → (삭제) | 잡음 | 잡음 | vitest 2 failed · 1602 passed (1604) | — |
+| I17 | `useHistoryControls.ts:51` | 다른 값 | timer = window.setTimeout(schedule, HISTORY_GEST… → timer = 0 | 잡음 | 잡음 | vitest 4 failed · 1600 passed (1604) | — |
+| S7 | `chatStore.ts:2799` | 다른 값 | reply.status !== 'ok' \|\| reply.session.history… → reply.status !== 'ok' | 잡음 | 잡음 | vitest 2 failed · 1602 passed (1604) | — |
+| S12 | `chatStore.ts:2785` | 다른 값 | return s?.seq === seq && → return s?.seq !== undefined && | 못 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| S6 | `chatStore.ts:2828` | 다른 값 | key !== state.activeKey \|\| ⏎ history.beforeSta… → history.beforeState === 'loading' \|\| | 못 잡음 | 동치 | 훅·컨트롤 키가 `useActiveSessionKey()`(`TranscriptView.tsx:14`) — verify 1 근 | — |
+| S13 | `chatStore.ts:2849` | 다른 값 | if (entry.history !== loading \|\| getState().ac… → if (getState().activeKey !== key) return entry | 못 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| T2 | `session-load.ts:113` | 제거 | result.requestId !== requestId \|\| → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T5 | `session-load.ts:121` | 제거 | new Set(result.session.messages.map((m) => m.id)… → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T8 | `session-load.ts:129` | 제거 | m.deferredBody.generation !== result.session.his… → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T11 | `session-load.ts:162` | 다른 값 | result.nextOffset <= result.offset \|\| ⏎ result… → result.nextOffset <= result.offset \|\| ⏎ result… | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T14 | `session-load.ts:109` | 다른 값 | if (request.cancelled \|\| result?.status === 'c… → if (result?.status === 'cancelled') | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| DB2 | `deferredBody.ts:60` | 제거 | reply.sessionId !== ref.session \|\| → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| DB5 | `deferredBody.ts:67` | 제거 | !raw.length \|\| → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| DB8 | `deferredBody.ts:77` | 다른 값 | { stream: !reply.done } → { stream: false } | 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| B1 | `chatStore.ts:2657` | 다른 값 | return ( ⏎ state.activeKey === key && ⏎ !!entry … → return ( ⏎ !!entry && | 못 잡음 | 잡음 | vitest 2 failed · 1474 passed (1476) | — |
+| B4 | `chatStore.ts:2661` | 제거 | && ⏎ (view?.messages ?? entry.session.messages).… → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| CTRL_d0 | `historyGesture.ts` | 대조 | (파일 끝) → // verify2 control | 못 잡음 | 대조 green |  | — |
+| G3 | `historyGesture.ts:28` | 다른 값 | if (continuing) return this.consumed ? 'consumed… → if (continuing) return 'consumedPull' | 잡음 | 잡음 | honors an intervening user scroll without treating further m | — |
+| G6 | `historyGesture.ts:23` | 제거 | if (!delta) return 'userInput' → (삭제) | 잡음 | 잡음 | keeps ordinary upward input ordinary even if the same flick  | — |
+| V3 | `TranscriptViewport.tsx:707` | 다른 값 | \|\| ⏎ controls[direction] === 'loading' ⏎ ) ⏎ r… → ) ⏎ return false | 못 잡음 | 동치 | store loading 가드(`chatStore.ts:2775`·`:2829`, S9·S10 잡음)가 같은 요청을 거절 | — |
+| V6 | `TranscriptViewport.tsx:770` | 다른 값 | { passive: !historyEnabled } → { passive: true } | 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| V9 | `TranscriptViewport.tsx:994` | 다른 값 | {history?.after ? ( → {false ? ( | 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| V14 | `TranscriptViewport.tsx:513` | 다른 값 | (prevHeight !== undefined \|\| correcting) && → prevHeight !== undefined && | 못 잡음 | 못 잡음(단위) | Electron gV14 잡음 — 등록 좌표 Q4b″ | — |
+| A1 | `anchor.ts:171` | 다른 값 | viewportOffsetPx: measureCharTop(targetEl, charO… → viewportOffsetPx: targetEl.getBoundingClientRect… | 잡음 | 잡음 | claude code keeps the reading character and open card across | — |
+| E3 | `HistoryEdge.tsx:46` | 다른 값 | disabled={busy} ⏎ aria-busy={busy} → aria-busy={busy} | 못 잡음 | 동치 | store loading 가드(`chatStore.ts:2775`·`:2829`, S9·S10 잡음)가 같은 요청을 거절 | — |
+| SR3 | `searchReveal.ts:90` | 제거 | row.setAttribute('data-history-highlight', '') → (삭제) | 잡음 | 잡음 | starts the two-second outline only on a visible frame (keybo | — |
+| SR6 | `searchReveal.ts:44` | 제거 | scroller.addEventListener('wheel', release, opti… → (삭제) | 잡음 | 잡음 | user input or restoring a visit leaves no focus, outline, or | — |
+| SR9 | `searchReveal.ts:33` | 제거 | highlighted?.removeAttribute('data-history-highl… → (삭제) | 잡음 | 잡음 | starts the two-second outline only on a visible frame (keybo | — |
+| R7 | `chatReducer.ts:1683` | 다른 값 | if (!owner \|\| owner.deferredBody !== action.re… → if (!owner) return state | 못 잡음 | 잡음 | keeps held events until all matching deferred bodies resolve | — |
+| R10 | `chatReducer.ts:868` | 다른 값 | (!owner \|\| owner.deferredBody) && → !owner && | 잡음 | 잡음 | retains a tool patch and its publication past the history st | — |
+| J2 | `chatStore.ts:2568` | 다른 값 | \|\| ⏎ (entry.history && entry.history.generatio… → ) ⏎ return entry ⏎ let rejected | 못 잡음 | 잡음 | keeps a separate search view when latest cannot join (other  | — |
+| J5 | `chatStore.ts:2587` | 다른 값 | generation: view.generation, ⏎ before: view.befo… → generation: view.generation, ⏎ before: undefined… | 잡음 | 잡음 | rejects a different publication and retries the same ordinar | — |
+| O2 | `chatStore.ts:2490` | 제거 | entry.history?.generation !== reply.generation \… → (삭제) | 못 잡음 | 잡음 | declines an inconsistent target response (generation) | — |
+| O5 | `chatStore.ts:2505` | 다른 값 | if ((!next.session.sessionId \|\| next.session.l… → if (false) | 잡음 | 잡음 | a late history page and thumbnail keep the draft for the act | — |
+| O8 | `chatStore.ts:2519` | 제거 | sessionApi.cancelLoad(previous?.history?.sourceS… → (삭제) | 못 잡음 | 잡음 | cancels the old lookup and ordinary source and discards a la | — |
+| L3 | `chatStore.ts:2724` | 제거 | if (entry.search.returning) return → (삭제) | 못 잡음 | 잡음 | reads a bounded latest page for a cold search and preserves  | — |
+| W3 | `chatStore.ts:488` | 다른 값 | if (window && !window.before) ⏎ session = chatRe… → if (false) ⏎ session = chatReducer | 못 잡음 | 잡음 | publishes the ordinary window and start marker and cancels i | — |
+| Q5B | `chatStore.ts:2847` | 다른 값 | .then((reply: HistoryPageReply) => { ⏎ patchEntr… → .then((reply: HistoryPageReply) => { ⏎ setState(… | 잡음 | 잡음 | discards an ordinary earlier page on session change without  | — |
+| K3 | `historyPanels.ts:314` | 제거 | for (const source of live.taskContextSources()) … → (삭제) | 못 잡음 | 잡음 | folds only parts beyond the published frontier into live age | — |
+| K6 | `historyPanels.ts:106` | 다른 값 | if (page.checkpoint === undefined \|\| !page.row… → if (page.checkpoint === undefined) return | 못 잡음 | 잡음 | rejects off-list and malformed details, restarts a stale con | — |
+| K9 | `historyPanels.ts:144` | 다른 값 | !PanelItemSchema.safeParse(value).success \|\| v… → !PanelItemSchema.safeParse(value).success | 못 잡음 | 잡음 | rejects off-list and malformed details, restarts a stale con | — |
+| K12 | `historyPanels.ts:86` | 다른 값 | if (version !== this.revision) return ⏎ if (resu… → if (result.status === 'stale' | 못 잡음 | 잡음 | rejects off-list and malformed details, restarts a stale con | — |
+| H2 | `chatReducer.ts:964` | 다른 값 | (state.publishedUserCount === undefined \|\| !is… → true | 못 잡음 | 잡음 | counts a published user once across loaded history and live  | — |
+| I5r | `idleSearchDirection.ts:11` | 다른 값 | view.beforeState === 'loading' \|\| view.afterSt… → view.afterState === 'loading' | 잡음(재앵커) | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| I7br | `idleSearchDirection.ts:12` | 다른 값 | view.before?.kind === 'withinTurn' && view.befor… → view.before && view.beforeState | 잡음(재앵커) | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| E3b | `idleSearchDirection.ts:12` | 제거 | && view.beforeState !== 'error' → (삭제) | — | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| E3e | `useHistoryControls.ts:45` | 다른 값 | if (view ? !dir : !page → if (view ? false : !page | — | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| E6a | `chatStore.ts:2724` | 제거 | if (entry.search.returning) return → (삭제) | — | 잡음 | reads a bounded latest page for a cold search and preserves  | — |
+| E6d | `chatStore.ts:2759` | 다른 값 | returning: false, returnFailed: true → returnFailed: true | — | 잡음 | reads a bounded latest page for a cold search and preserves  | — |
+| E6g | `useHistoryControls.ts:78` | 다른 값 | [key, page, view, search?.returning, search?.ret… → [key, page, view] | — | 잡음 | exposes return-to-latest loading and retry state on the same | — |
+| E6j | `HistoryEdge.tsx:70` | 다른 값 | history.latestState === 'error' ⏎ ? 'chat.transc… → 'chat.transcript.historyLatest' | — | 잡음 | shows the pull indicator and disables only a pending return- | — |
+| E7b | `chatReducer.ts:1739` | 다른 값 | state.openCodeTodoTurnStartIndex + page.length → state.openCodeTodoTurnStartIndex + 1 | — | 잡음 | preserves the current TODO boundary across overlapping and r | — |
+| E7e | `chatReducer.ts:1812` | 다른 값 | openCodeTodoTurnStartIndex: messages.length, → openCodeTodoTurnStartIndex: 0, | — | 잡음 | preserves the current TODO boundary across overlapping and r | — |
+| E7h | `chatReducer.ts:1739` | 다른 값 | state.openCodeTodoTurnStartIndex + page.length → page.length | — | 잡음 | preserves the current TODO boundary across overlapping and r | — |
+| RS2c | `TranscriptViewport.tsx:664` | 다른 값 | if (!shouldCancelSelection({ previousKeys, nextK… → if (previousKeys) return | — | 잡음 | s9-screens claude work: switching the active session release | — |
+| RS4a | `SearchModal.tsx:211` | 다른 값 | onClick={() => onChoose(hit)} → onClick={() => undefined} | — | 잡음 | opens the clicked result as a pointer selection before closi | — |
+| RS4d | `OverlayLayer.tsx:74` | 다른 값 | historyVisit: chatActions.currentSearchSequence(… → historyVisit: undefined | — | 잡음 | passes the confirmed selection and visit into navigation (ke | — |
+| P6 | `history-page.ts:164` | 제거 | if (locator.session !== id) return { ...echo, st… → (삭제) | 못 잡음 | 동치 | verify 1 근거 유지(코드 무변경, 이번 실행 green) | — |
+| P9 | `history-page.ts:210` | 제거 | \|\| (req.kind === 'latest' && ordinal > startOr… → (삭제) | 못 잡음 | 동치 | verify 1 근거 유지(코드 무변경, 이번 실행 green) | — |
+| R2 | `history-page.ts:240` | 다른 값 | if (bytes > available \|\| parts + h.part_count … → if (bytes > available) | 잡음 | 잡음 | vitest 2 failed · 225 passed (227) | — |
+| R5 | `projection.ts:645` | 제거 | for (const id of [...entries.keys()]) if (!seen.… → (삭제) | 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| W2 | `session-load.ts:172` | 다른 값 | if (req.openGeneration !== undefined && req.requ… → if (false) { | 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| F1 | `queries.ts:841` | 다른 값 | recovery ? 'archive' : row.native_id ? 'native' … → row.native_id ? 'native' : 'local' | 잡음 | 잡음 | keeps the archive searchable and follows only the replacemen | — |
+| F4 | `history-index-queries.ts:160` | 다른 값 | projectedKey ⏎ } → projectedKey: undefined ⏎ } | 잡음 | 잡음 | rechecks the archive epoch when ordinal zero is reused and c | — |
+| Y2 | `history-index-queries.ts:310` | 제거 | if (headers.some((h) => h.message_id <= frontier… → (삭제) | 못 잡음 | 잡음 | rebuilds for a dirty local row inside the native frontier or | — |
+| Y3b | `reader.ts:93` | 다른 값 | alias(projection.messages[i].id, 'native', key) → void key | 잡음 | 잡음 | keeps the archive searchable and follows only the replacemen | — |
+| Y5 | `history-page.ts:202` | 다른 값 | index.pageHeaders(id, generation, start, ascendi… → index.pageHeaders(id, generation, start, ascendi… | 잡음 | 잡음 | restores 200,000 partless messages in one turn using 1,563 b | — |
+| Z1 | `history-index-queries.ts:258` | 다른 값 | msg.parts.length, ⏎ body.length ⏎ ) → msg.parts.length, ⏎ body.length + 1 ⏎ ) | 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| Z4 | `history-page.ts:30` | 다른 값 | before ? 'earlierTurn' : 'laterTurn' → before ? 'laterTurn' : 'earlierTurn' | 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| X2 | `turn-index.ts:66` | 다른 값 | if (foreground) this.queue.unshift(job) ⏎ else t… → this.queue.push(job) | 못 잡음 | 잡음 | interleaves foreground slices before background and drops a  | — |
+| X4 | `history-index-queries.ts:387` | 다른 값 | 'UPDATE history_index_state SET next_ordinal=? W… → 'UPDATE history_index_state SET next_ordinal=?,p… | 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| X7 | `history-index-queries.ts:67` | 다른 값 | `SELECT h.* FROM history_index_state h JOIN sess… → `SELECT h.* FROM history_index_state h JOIN sess… | 못 잡음 | 잡음 | interleaves foreground slices before background and drops a  | — |
+| PQ1 | `history-panel-queries.ts:96` | 다른 값 | if (req.generation !== generation) return { ...e… → const scope | 못 잡음 | 잡음 | limits summary rows and rejects a cursor for another session | — |
+| PQ4 | `history-panel-queries.ts:136` | 제거 | cursor[0] !== sessionId \|\| → (삭제) | 못 잡음 | 잡음 | limits summary rows and rejects a cursor for another session | — |
+| FK1 | `fork-display.ts:31` | 제거 | if (alias.source === 'native') db.nativeHistory.… → (삭제) | 못 잡음 | 잡음 | full archive and fork retain the first, middle and last iden | — |
+| FK4 | `fork.ts:25` | 제거 | if (db.getLineage(arrival.childSessionId)) retur… → (삭제) | 잡음 | 잡음 | full archive and fork retain the first, middle and last iden | — |
+| FK8 | `native-session.ts:65` | 제거 | const blocked = overBudget(history) ⏎ if (blocke… → (삭제) | 잡음 | 잡음 | uses the selected engine model context limit before creating | — |
+| N2 | `native-session.ts:89` | 다른 값 | nativeSessionId: created.sessionId, → nativeSessionId: request.sessionId, | 잡음 | 잡음 | displays and recovers a separated snapshot after the native  | — |
+| N3c | `adapter.ts:556` | 다른 값 | const nativeId = req.nativeSessionId ?? sessionI… → const nativeId = sessionId | 잡음 | 잡음 | recreates an expired conversation with a new native UUID and | — |
+| N5b | `adapter.ts:738` | 다른 값 | adaptHooks(extensions.hooks, routeSessionId) → adaptHooks(extensions.hooks) | 잡음 | 잡음 | routes resumed events, permissions and hooks to the display  | — |
+| N7a | `continuation.ts:40` | 제거 | ...(input.base.nativeSessionId ? { nativeSession… → (삭제) | 잡음 | 잡음 | 첨부를 싣지 않고 프레임 위임을 전부 넘긴다 | — |
+| Y6r | `reader.ts:116` | 다른 값 | if (keys.has(key)) alias(key, 'local', String(ro… → if (keys.has(key)) void row | 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| RS6a | `send.ts:397` | 다른 값 | { forkFrom: payload.forkFrom } → { forkFrom: forkNativeId } | — | 잡음 | uses the native source for forkFrom and the display parent f | — |
+| CTRL_M | `native-session.ts` | 대조 | (파일 끝) → // v3 control | — | 대조 green |  | — |
+| I3 | `useHistoryControls.ts:45` | 다른 값 | page.before?.kind !== 'withinTurn' \|\| page.bef… → page.before?.kind !== 'withinTurn' | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| I8b | `useHistoryControls.ts:53` | 다른 값 | chatActions.readPrevious(key, true) → chatActions.readPrevious(key) | 잡음 | 잡음 | vitest 4 failed · 1600 passed (1604) | — |
+| I11 | `useHistoryControls.ts:28` | 제거 | document.addEventListener('wheel', note, { captu… → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| I15 | `useHistoryControls.ts:31` | 제거 | document.addEventListener('pointerup', up, true) → (삭제) | 잡음 | 잡음 | vitest 2 failed · 1602 passed (1604) | — |
+| S3 | `chatStore.ts:2775` | 다른 값 | view[stateKey] === 'loading' \|\| ⏎ (automatic &… → view[stateKey] === 'loading' | 잡음 | 잡음 | vitest 4 failed · 1600 passed (1604) | — |
+| S9 | `chatStore.ts:2775` | 다른 값 | view[stateKey] === 'loading' \|\| ⏎ (automatic → (automatic | 잡음 | 잡음 | vitest 3 failed · 1601 passed (1604) | — |
+| S1 | `chatStore.ts:2830` | 다른 값 | (automatic && (edge.kind !== 'withinTurn' \|\| h… → (automatic && history.beforeState === 'error') | 못 잡음 | 동치 | 훅 `useHistoryControls.ts:45` withinTurn 조건(I4 잡음) | — |
+| S8 | `chatStore.ts:2850` | 다른 값 | reply.status !== 'ok' \|\| reply.session.history… → reply.status !== 'ok' | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| S14 | `chatStore.ts:2862` | 다른 값 | return rejected ⏎ ? { ...entry, history: { ...hi… → return false ⏎ ? { ...entry, history: { ...histo… | 못 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| T3 | `session-load.ts:114` | 제거 | result.openGeneration !== query.openGeneration \… → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T6 | `session-load.ts:123` | 제거 | result.session.messages.reduce((sum, m) => sum +… → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T9 | `session-load.ts:129` | 다른 값 | m.deferredBody.generation !== result.session.his… → m.deferredBody.generation !== result.session.his… | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T12 | `session-load.ts:163` | 다른 값 | result.nextOffset > query.ref.bytes \|\| ⏎ resul… → result.nextOffset > query.ref.bytes)) ⏎ ) | 못 잡음 | 잡음 | vitest 2 failed · 1474 passed (1476) | — |
+| T15 | `session-load.ts:116` | 다른 값 | (query.kind === 'body' \|\| ⏎ query.kind === 'me… → (query.kind === 'metadata' \|\| | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| DB3 | `deferredBody.ts:61` | 제거 | reply.openGeneration !== openGeneration \|\| → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| DB6 | `deferredBody.ts:68` | 제거 | raw.length > HISTORY_BODY_BYTES \|\| → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| DB9 | `deferredBody.ts:82` | 다른 값 | if (!current() \|\| offset !== ref.bytes) → if (offset !== ref.bytes) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| B2 | `chatStore.ts:2659` | 다른 값 | !!entry && ⏎ entry.search?.seq === seq && → !!entry && | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| B5 | `chatStore.ts:2667` | 다른 값 | .then((parts) => { ⏎ if (!current()) return fals… → .then((parts) => { | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| G1 | `historyGesture.ts:25` | 제거 | && now - this.lastTime < HISTORY_GESTURE_GAP_MS → (삭제) | 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| G4 | `historyGesture.ts:33` | 다른 값 | userScroll(): void { ⏎ this.consumed = false → userScroll(): void { ⏎ void 0 | 잡음 | 잡음 | honors an intervening user scroll without treating further m | — |
+| V1 | `TranscriptViewport.tsx:713` | 다른 값 | canConsumeScroll( ⏎ { top: el.scrollTop, height:… → nestedScrollConsumes | 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| V4 | `TranscriptViewport.tsx:738` | 제거 | if (input !== 'userInput') event.preventDefault(… → (삭제) | 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| V7 | `TranscriptViewport.tsx:750` | 다른 값 | key === 'PageUp' \|\| key === 'Home' → key === 'Home' | 못 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| V12 | `TranscriptViewport.tsx:835` | 제거 | if (footerRef.current) observer.observe(footerRe… → (삭제) | 못 잡음 | 잡음 | coalesces above-viewport changes and respects footer-resize | — |
+| V16 | `TranscriptViewport.tsx:720` | 다른 값 | if (!controls.request(direction)) return false → controls.request(direction) | 못 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| E1 | `HistoryEdge.tsx:35` | 다른 값 | className={`${HISTORY_HEAD_HEIGHT} flex → className={`${state === 'loading' ? 'h-10' : HIS… | 못 잡음 | 못 잡음(단위) | Electron gE1 잡음 — 등록 좌표 Q4b″ | — |
+| EC1 | `chatStore.ts:2019` | 제거 | sessionApi.cancelLoad(s.sessions[s.activeKey]?.h… → (삭제) | 못 잡음 | 잡음 | publishes the ordinary window and start marker and cancels i | — |
+| SR1 | `searchReveal.ts:58` | 다른 값 | if (row && !row.closest('[inert],[hidden]')) → if (row) | 잡음 | 잡음 | starts the two-second outline only on a visible frame (keybo | — |
+| SR4 | `searchReveal.ts:92` | 다른 값 | selection.keyboard && ⏎ (document → (document | 잡음 | 잡음 | starts the two-second outline only on a visible frame (keybo | — |
+| SR7 | `searchReveal.ts:50` | 다른 값 | if (e.target !== highlighted && e.target !== ini… → if (e.target !== highlighted) release() | 못 잡음 | 잡음 | keeps the original focus event and positions a partially vis | — |
+| SR10 | `searchReveal.ts:74` | 다른 값 | (!positioned && (box.top < viewport.top \|\| box… → false | 못 잡음 | 잡음 | keeps the original focus event and positions a partially vis | — |
+| R8 | `chatReducer.ts:1696` | 다른 값 | state.historyComplete && !merged.messages.some((… → state.historyComplete | 못 잡음 | 잡음 | keeps held events until all matching deferred bodies resolve | — |
+| CTRL_e0 | `chatStore.ts` | 대조 | (파일 끝) → // verify2 control | 못 잡음 | 대조 green |  | — |
+| J3 | `chatStore.ts:2582` | 다른 값 | if (rejected) return entry ⏎ return { ⏎ ...entry… → return { ⏎ ...entry, ⏎ session, ⏎ history: { ⏎ g… | 못 잡음 | 잡음 | keeps a separate search view when latest cannot join (reject | — |
+| J6 | `chatStore.ts:2591` | 다른 값 | search: { ...selection, view: undefined } ⏎ } ⏎ … → search: selection ⏎ } ⏎ } | 잡음 | 잡음 | opens a cold target without latest, pages independently, joi | — |
+| O3 | `chatStore.ts:2491` | 다른 값 | messageOrderFor(entry.session).messagePosition(t… → false) ⏎ ) ⏎ return false | 못 잡음 | 잡음 | declines an inconsistent target response (absent key) | — |
+| O6 | `chatStore.ts:2447` | 다른 값 | ): Promise<boolean> { ⏎ cancelSearchRequest() → ): Promise<boolean> { | 못 잡음 | 잡음 | cancels the old lookup and ordinary source and discards a la | — |
+| L1 | `chatStore.ts:2732` | 다른 값 | if (reply.status !== 'ok') throw Error(reply.sta… → patchEntry(key, (e) => { | 못 잡음 | 동치 | 비-ok 응답에서 `reply.session` 접근이 TypeError → 같은 catch(`returnFailed`) | — |
+| L4 | `chatStore.ts:2719` | 다른 값 | if (!latest \|\| entry.history \|\| entry.sessio… → if (!latest \|\| entry.session.historyComplete) … | 못 잡음 | 잡음 | keeps a separate search view when latest cannot join (other  | — |
+| W4 | `chatStore.ts:498` | 다른 값 | history: window ? { ...window, openGeneration: +… → history: undefined | 못 잡음 | 잡음 | publishes the ordinary window and start marker and cancels i | — |
+| K1 | `historyPanels.ts:251` | 제거 | if (last.parts.length > frontier.parts) ⏎ tail.u… → (삭제) | 못 잡음 | 잡음 | folds only parts beyond the published frontier into live age | — |
+| K4 | `historyPanels.ts:281` | 제거 | for (const agent of live.subagentTasks(true)) ⏎ … → (삭제) | 못 잡음 | 잡음 | folds only parts beyond the published frontier into live age | — |
+| K7 | `historyPanels.ts:108` | 제거 | const pending = this.pendingDetails.get(id) ⏎ if… → (삭제) | 잡음 | 잡음 | all session panels show unpublished live changes over a hist | — |
+| K10 | `historyPanels.ts:101` | 다른 값 | if (version === this.revision) this.set(kind, { … → if (version === this.revision) this.set(kind, { … | 잡음 | 잡음 | all session panels show unpublished live changes over a hist | — |
+| K13 | `historyPanels.ts:124` | 제거 | if (this.revision !== version \|\| this.pages[ki… → (삭제) | 잡음 | 잡음 | retrieves the next keyset on demand and rejects stale detail | — |
+| TD1 | `chatReducer.ts:1043` | 다른 값 | openCodeTodoTurnStartIndex: state.messages.lengt… → openCodeTodoTurnStartIndex: 0, | 잡음 | 잡음 | uses actual BEGIN_TURN boundaries before a new user echo and | — |
+| I6r | `idleSearchDirection.ts:11` | 다른 값 | view.beforeState === 'loading' \|\| view.afterSt… → view.beforeState === 'loading' | 잡음(재앵커) | 잡음 | does not issue an automatic page while the after search edge | — |
+| I13r | `idleSearchDirection.ts:12` | 다른 값 | if (view.before?.kind === 'withinTurn' && view.b… → if (view.after?.kind === 'withinTurn' && view.af… | 잡음(재앵커) | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| E3c | `idleSearchDirection.ts:13` | 제거 | && view.afterState !== 'error' → (삭제) | — | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| E3f | `chatStore.ts:2776` | 다른 값 | (automatic && idleSearchDirection(view) !== dire… → false | — | 잡음 | does not issue an automatic page while the before search edg | — |
+| E6b | `chatStore.ts:2725` | 제거 | patchEntry(key, (e) => ({ ...e, search: e.search… → (삭제) | — | 잡음 | reads a bounded latest page for a cold search and preserves  | — |
+| E6e | `useHistoryControls.ts:69` | 다른 값 | latestState: search?.returning ? 'loading' : sea… → latestState: search?.returnFailed ? 'error' : un… | — | 잡음 | exposes return-to-latest loading and retry state on the same | — |
+| E6h | `useHistoryControls.ts:70` | 다른 값 | returnToLatest: () => chatActions.leaveSearch(ke… → returnToLatest: () => chatActions.leaveSearch(ke… | — | 잡음 | exposes return-to-latest loading and retry state on the same | — |
+| E6k | `HistoryEdge.tsx:66` | 제거 | aria-busy={history.latestState === 'loading'} → (삭제) | — | 못 잡음 | 렌더러 3,676 green | 확장(창 밖) NX1 |
+| E7c | `chatReducer.ts:1739` | 다른 값 | state.openCodeTodoTurnStartIndex + page.length → state.openCodeTodoTurnStartIndex + action.messag… | — | 잡음 | preserves the current TODO boundary across overlapping and r | — |
+| E7f | `todoState.ts:18` | 다른 값 | .slice(state.openCodeTodoTurnStartIndex) → .slice(0) | — | 잡음 | uses actual BEGIN_TURN boundaries before a new user echo and | — |
+| RS2a | `useScrollAnchor.ts:143` | 다른 값 | const intent = sessionId ? consumeEntryIntent(se… → const intent = null as ReturnType<typeof consume… | — | 잡음 | claude code places open, sync and resume through the store a | — |
+| RS2d | `useScrollAnchor.ts:82` | 제거 | el.addEventListener('wheel', onWheel, { passive:… → (삭제) | — | 잡음 | claude code places open, sync and resume through the store a | — |
+| RS4b | `SearchModal.tsx:107` | 다른 값 | if (hit) goto(hit, true) → if (hit) goto(hit, false) | — | 잡음 | opens the highlighted result and discards the old selection  | — |
+| RS4e | `OverlayLayer.tsx:73` | 다른 값 | historyLocator: hit.locator, → historyLocator: undefined, | — | 잡음 | passes the confirmed selection and visit into navigation (ke | — |
+| P7 | `history-page.ts:171` | 다른 값 | if (req.cached?.generation === generation && req… → if (req.cached?.generation === generation) ⏎ ret… | 잡음 | 잡음 | vitest 2 failed · 225 passed (227) | — |
+| P10 | `history-page.ts:244` | 다른 값 | if (messages.length && fitsAlone) break → if (fitsAlone) break | 못 잡음 | 동치 | verify 1 근거 유지(코드 무변경, 이번 실행 green) | — |
+| R3 | `history-index-queries.ts:387` | 제거 | this.stmt('UPDATE history_index_state SET next_o… → (삭제) | 잡음 | 잡음 | vitest 5 failed · 222 passed (227) | — |
+| P11 | `history-page.ts:169` | 제거 | if (req.resume?.generation === generation) ⏎ sta… → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 226 passed (227) | — |
+| W5 | `session-load.ts:132` | 다른 값 | return client.isClosed() \|\| !active.has(req.re… → return reply | 못 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| F2 | `queries.ts:842` | 다른 값 | recovery ? recovery[1] : (row.native_id ?? Strin… → row.native_id ?? String(row.message_id) | 잡음 | 잡음 | keeps the archive searchable and follows only the replacemen | — |
+| CTRL_f0 | `history-index-queries.ts` | 대조 | (파일 끝) → // verify2 control | 못 잡음 | 대조 green |  | — |
+| Y2b | `history-index-queries.ts:293` | 다른 값 | if (!headers.length \|\| headers.length > 128) r… → if (!headers.length) return undefined | 못 잡음 | 잡음 | rebuilds for a dirty local row inside the native frontier or | — |
+| Y4 | `reader.ts:122` | 제거 | if (headers && recovery) archive.forEach((m, i) … → (삭제) | 잡음 | 잡음 | keeps the archive searchable and follows only the replacemen | — |
+| Y6 | `reader.ts:116` | 제거 | if (keys.has(key)) alias(key, 'local', String(ro… → (삭제) | 무효 | 무효 | 파일 33개 변환 실패(문법 오류) — Y6r로 판정 | — |
+| Z2 | `history-page.ts:250` | 다른 값 | bytes: h.body_bytes → bytes: h.body_bytes + 1 | 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| Z5 | `history-index-queries.ts:265` | 다른 값 | putChunk.run(id, gen, ordinal, offset, body.suba… → putChunk.run(id, gen, ordinal, offset, body.suba… | 잡음 | 잡음 | opens and refreshes the latest turn, then reads both sides o | — |
+| X2b | `turn-index.ts:55` | 다른 값 | this.queue.unshift(pending) → this.queue.push(pending) | 잡음 | 잡음 | prioritizes the requested session, resumes after interrupted | — |
+| X5 | `turn-index.ts:112` | 다른 값 | sourceBytes: job.source.sourceBytes → sourceBytes: 0 | 못 잡음 | 잡음 | interleaves foreground slices before background and drops a  | — |
+| X8 | `history-index-queries.ts:407` | 다른 값 | if (state.published) ⏎ this.stmt('DELETE FROM hi… → if (false) ⏎ this.stmt('DELETE FROM history_gene… | 못 잡음 | 잡음 | interleaves foreground slices before background and drops a  | — |
+| PQ2 | `history-panel-queries.ts:99` | 제거 | if (req.checkpoint !== checkpoint) return { ...e… → (삭제) | 잡음 | 잡음 | isolates historical tasks, agents, processes and sources and | — |
+| PQ5 | `history-panel-queries.ts:172` | 제거 | reply.rows.length === HISTORY_PAGE_MESSAGES \|\| → (삭제) | 못 잡음 | 잡음 | limits summary rows and rejects a cursor for another session | — |
+| FK2 | `fork-display.ts:34` | 제거 | db.artifacts.copyForFork(parent, child, copies) → (삭제) | 못 잡음 | 잡음 | full archive and fork retain the first, middle and last iden | — |
+| FK5 | `fork-native.ts:18` | 다른 값 | return messages.slice(lastInherited >= 0 ? lastI… → return messages.slice(i) | 못 잡음 | 잡음 | full archive and fork retain the first, middle and last iden | — |
+| FK9 | `native-session.ts:73` | 다른 값 | archiveJson: JSON.stringify(archive.messages), → archiveJson: JSON.stringify(archive.messages.sli… | 잡음 | 잡음 | rejects oversized recovery before creation and preserves the | — |
+| N3a | `adapter.ts:680` | 다른 값 | ? { sessionId: nativeId ?? undefined } → ? { sessionId: sessionId ?? undefined } | 잡음 | 잡음 | recreates an expired conversation with a new native UUID and | — |
+| N4 | `adapter.ts:527` | 다른 값 | return req.nativeSessionId && req.sessionId ⏎ ? … → return live | 잡음 | 잡음 | routes resumed events, permissions and hooks to the display  | — |
+| N5c | `adapt.ts:307` | 다른 값 | sessionId: routeSessionId(input.session_id ?? ''… → sessionId: input.session_id ?? '', | 잡음 | 잡음 | routes resumed events, permissions and hooks to the display  | — |
+| N7b | `resolve-turn.ts:124` | 다른 값 | ? (await query.nativeRecovery(payload.sessionId)… → ? undefined ⏎ : undefined | 못 잡음 | 잡음 | resumes a warm runtime using the recovered native ID of the  | — |
+| RS1 | `history-page.ts:221` | 다른 값 | for (const h of candidates) { → for (const h of candidates) { ⏎ if (messages.len… | — | 잡음 | greedy maximal pages for uniform and skewed turns (spread) | — |
+| RS6b | `send.ts:398` | 다른 값 | { handoffFrom: payload.handoffFrom } → { handoffFrom: forkNativeId } | — | 잡음 | uses the native source for handoffFrom and the display paren | — |
+| I1 | `useHistoryControls.ts:50` | 다른 값 | if (input.current.dragging \|\| performance.now(… → if (performance.now() | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| I4 | `useHistoryControls.ts:45` | 다른 값 | page.before?.kind !== 'withinTurn' \|\| → !page.before \|\| | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| I9 | `useHistoryControls.ts:58` | 제거 | window.cancelIdleCallback(idle) → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| I12 | `useHistoryControls.ts:29` | 제거 | document.addEventListener('keydown', note, true) → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| I16 | `useHistoryControls.ts:52` | 다른 값 | } else if (dir) chatActions → } else if (false) chatActions | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| S5 | `chatStore.ts:2774` | 다른 값 | getState().activeKey !== key \|\| ⏎ view[stateKe… → view[stateKey] === 'loading' \|\| | 못 잡음 | 동치 | 훅·컨트롤 키가 `useActiveSessionKey()`(`TranscriptView.tsx:14`) — verify 1 근 | — |
+| S11 | `chatStore.ts:2787` | 제거 | s.view[direction]?.cursor === edge.cursor && → (삭제) | 못 잡음 | 동치 | 방향별 단일 flight(S9 잡음) 동안 같은 방향 커서는 바뀌지 않고 새 탐색은 seq가 가른다 | — |
+| S2 | `chatStore.ts:2830` | 다른 값 | (automatic && (edge.kind !== 'withinTurn' \|\| h… → (automatic && edge.kind !== 'withinTurn') | 못 잡음 | 동치 | 훅 `:45` beforeState 조건(I3 잡음) | — |
+| S10 | `chatStore.ts:2829` | 다른 값 | history.beforeState === 'loading' \|\| ⏎ (automa… → (automatic && (edge | 잡음 | 잡음 | vitest 1 failed · 1603 passed (1604) | — |
+| T1 | `session-load.ts:112` | 제거 | result.sessionId !== query.sessionId \|\| → (삭제) | 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T4 | `session-load.ts:120` | 제거 | result.session.id !== query.sessionId \|\| → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T7 | `session-load.ts:128` | 다른 값 | (m.deferredBody.session !== query.sessionId \|\|… → (m.deferredBody.generation | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T10 | `session-load.ts:160` | 다른 값 | (query.kind !== 'body' \|\| ⏎ query.offset !== r… → (query.kind !== 'body' \|\| | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| T13 | `session-load.ts:157` | 제거 | query.cached?.messageKey !== result.messageKey \… → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| DB1 | `deferredBody.ts:57` | 다른 값 | if ( ⏎ !current() \|\| ⏎ reply.status !== 'body'… → if ( ⏎ reply.status !== 'body' \|\| | 못 잡음 | 잡음 | vitest 2 failed · 1474 passed (1476) | — |
+| DB4 | `deferredBody.ts:61` | 다른 값 | reply.openGeneration !== openGeneration \|\| ⏎ r… → reply.openGeneration !== openGeneration | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| DB7 | `deferredBody.ts:69` | 제거 | reply.nextOffset !== offset + raw.length \|\| → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| DB10 | `deferredBody.ts:84` | 다른 값 | if (!Array.isArray(parts) \|\| !parts.every((par… → if (!Array.isArray(parts)) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| B3 | `chatStore.ts:2661` | 제거 | (view?.generation ?? entry.history?.generation) … → (삭제) | 못 잡음 | 잡음 | vitest 1 failed · 1475 passed (1476) | — |
+| B6 | `chatStore.ts:2647` | 제거 | const prior = readingBodies.get(ref) ⏎ if (prior… → (삭제) | 못 잡음 | 잡음 | vitest 5 failed · 1471 passed (1476) | — |
+| G2 | `historyGesture.ts:25` | 다른 값 | this.direction === direction && now → now | 잡음 | 잡음 | starts a new gesture on reversal, interruption, and at the g | — |
+| G5 | `historyGesture.ts:38` | 다른 값 | this.direction = undefined ⏎ this.consumed = fal… → this.consumed = false | 잡음 | 잡음 | starts a new gesture on reversal, interruption, and at the g | — |
+| V2 | `TranscriptViewport.tsx:716` | 제거 | \|\| ⏎ nestedScrollConsumes(target, el, delta) → (삭제) | 못 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| V5 | `TranscriptViewport.tsx:735` | 다른 값 | if (input !== 'consumedPull') cancel() → cancel() | 못 잡음 | 못 잡음(단위) | Electron gV5 잡음 — 등록 좌표 Q4b″ | — |
+| V8 | `TranscriptViewport.tsx:748` | 제거 | if ((event as KeyboardEvent).repeat) return → (삭제) | 못 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| V13 | `TranscriptViewport.tsx:289` | 다른 값 | const captured = activeAnchorRef.current ?? (el … → const captured = el ? captureAnchor(el) : null | 못 잡음 | 잡음 | coalesces above-viewport changes and respects active-anchor- | — |
+| V17 | `TranscriptViewport.tsx:358` | 제거 | b.partKeys?.some((part) => part.startsWith(targe… → (삭제) | 못 잡음 | 잡음 | reserves the browser default only for a consumed partial-his | — |
+| E2 | `HistoryEdge.tsx:29` | 다른 값 | const indicator = pulling && state === 'loading'… → const indicator = state | 못 잡음 | 잡음 | shows the pull indicator and disables only a pending return- | — |
+| SR2 | `searchReveal.ts:99` | 다른 값 | timer = window.setTimeout(release, 2000) → timer = window.setTimeout(release, 1000) | 잡음 | 잡음 | starts the two-second outline only on a visible frame (keybo | — |
+| SR5 | `searchReveal.ts:98` | 제거 | announce() → (삭제) | 잡음 | 잡음 | starts the two-second outline only on a visible frame (keybo | — |
+| SR8 | `searchReveal.ts:84` | 제거 | if (selection.restore) { ⏎ release() ⏎ return ⏎ … → (삭제) | 잡음 | 잡음 | user input or restoring a visit leaves no focus, outline, or | — |
+| R6 | `chatReducer.ts:1745` | 제거 | if (next.messages.some((message) => message.defe… → (삭제) | 못 잡음 | 잡음 | keeps held events until all matching deferred bodies resolve | — |
+| R9 | `chatReducer.ts:1759` | 다른 값 | complete && !messages.some((message) => message.… → complete | 못 잡음 | 잡음 | keeps held events until all matching deferred bodies resolve | — |
+| J1 | `chatStore.ts:2567` | 다른 값 | !view \|\| ⏎ view.after \|\| ⏎ (entry.history → !view \|\| ⏎ (entry.history | 잡음 | 잡음 | a late history page and thumbnail keep the draft for the act | — |
+| J4 | `chatStore.ts:2575` | 다른 값 | messages: view.messages, ⏎ reachedStart: !view.b… → messages: view.messages, ⏎ reachedStart: false, | 잡음 | 잡음 | opens a cold target without latest, pages independently, joi | — |
+| O1 | `chatStore.ts:2482` | 다른 값 | if (!current()) return false ⏎ if (reply.status … → if (reply.status !== 'ok' && reply.status !== 'u… | 잡음 | 잡음 | drops a late or deleted target and leaves the current view i | — |
+| O4 | `chatStore.ts:2494` | 제거 | if (reply.status === 'ok' && !reply.session.mess… → (삭제) | 못 잡음 | 잡음 | declines an inconsistent target response (absent target) | — |
+| O7 | `chatStore.ts:2469` | 다른 값 | messageOrderFor(cached.session).messagePosition(… → messageOrderFor(cached.session).messagePosition(… | 못 잡음 | 잡음 | declines an inconsistent target response (generation) | — |
+| L2 | `chatStore.ts:2730` | 다른 값 | .then((reply) => { ⏎ if (!current()) return ⏎ if… → .then((reply) => { ⏎ if (reply.status !== 'ok') … | 못 잡음 | 잡음 | cancels the old lookup and ordinary source and discards a la | — |
+| W1 | `oo.ts:367` | 다른 값 | sessionLoads.loadLatest(sessionId), → sessionLoads.load(sessionId), | 잡음 | 잡음 | wires DB load and lazy refresh as separate calls with the sa | — |
+| K2 | `historyPanels.ts:247` | 다른 값 | const at = frontier ? liveMessages.findIndex((m)… → const at = -1 | 못 잡음 | 잡음 | folds only parts beyond the published frontier into live age | — |
+| K5 | `historyPanels.ts:363` | 제거 | for (const p of active.processes) processes.set(… → (삭제) | 못 잡음 | 잡음 | folds only parts beyond the published frontier into live age | — |
+| K8 | `historyPanels.ts:132` | 제거 | if (bytes.length + offset !== reply.nextOffset) … → (삭제) | 못 잡음 | 잡음 | rejects off-list and malformed details, restarts a stale con | — |
+| K11 | `historyPanels.ts:87` | 다른 값 | if (result.status === 'stale' && prior.next) { → if (false) { | 못 잡음 | 잡음 | rejects off-list and malformed details, restarts a stale con | — |
+| H1 | `chatReducer.ts:959` | 다른 값 | let count = state.publishedUserCount ?? 0 → let count = 0 | 못 잡음 | 잡음 | counts a published user once across loaded history and live  | — |
+| FK6 | `chatStore.ts:1811` | 제거 | sourceSessionId: src.sessionId, → (삭제) | 잡음 | 잡음 | uses the parent cursor only for the fork draft and leaves th | — |
+| I7r | `idleSearchDirection.ts:13` | 다른 값 | view.after?.kind === 'withinTurn' && view.afterS… → view.after && view.afterState | 잡음(재앵커) | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| E3a | `idleSearchDirection.ts:11` | 다른 값 | if (view.beforeState === 'loading' \|\| view.aft… → if (view.beforeState \|\| view.afterState) retur… | — | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| E3d | `idleSearchDirection.ts:11` | 다른 값 | view.beforeState === 'loading' \|\| view.afterSt… → false | — | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| E3g | `useHistoryControls.ts:52` | 다른 값 | } else if (dir) chatActions.readSearchEdge(key, … → } else if (dir) chatActions.readSearchEdge(key, … | — | 잡음 | fills both sides of a search turn one committed page at a ti | — |
+| E6c | `chatStore.ts:2759` | 다른 값 | returning: false, returnFailed: true → returning: false | — | 잡음 | reads a bounded latest page for a cold search and preserves  | — |
+| E6f | `useHistoryControls.ts:69` | 다른 값 | latestState: search?.returning ? 'loading' : sea… → latestState: search?.returning ? 'loading' : und… | — | 잡음 | exposes return-to-latest loading and retry state on the same | — |
+| E6i | `HistoryEdge.tsx:65` | 제거 | disabled={history.latestState === 'loading'} → (삭제) | — | 잡음 | shows the pull indicator and disables only a pending return- | — |
+| E7a | `chatReducer.ts:1739` | 다른 값 | state.openCodeTodoTurnStartIndex + page.length → state.openCodeTodoTurnStartIndex | — | 잡음 | preserves the current TODO boundary across overlapping and r | — |
+| E7d | `chatReducer.ts:1043` | 다른 값 | openCodeTodoTurnStartIndex: state.messages.lengt… → openCodeTodoTurnStartIndex: 0, | — | 잡음 | uses actual BEGIN_TURN boundaries before a new user echo and | — |
+| E7g | `todoState.ts:16` | 다른 값 | \|\| state.sendCount === 0) return [] → ) return [] | — | 잡음 | uses actual BEGIN_TURN boundaries before a new user echo and | — |
+| RS2b | `ScrollController.tsx:102` | 다른 값 | const intent = consumeEntryIntent(sessionKey) → const intent = null as ReturnType<typeof consume… | — | 잡음 | opencode code places open, sync and resume through the store | — |
+| RS2e | `ScrollController.tsx:122` | 제거 | if (event.deltaY < 0) unpin() → (삭제) | — | 잡음 | opencode code places open, sync and resume through the store | — |
+| RS4c | `OverlayLayer.tsx:71` | 다른 값 | navigate('/chat/' + hit.sessionId → navigate('/chat/' + hit.messageId | — | 잡음 | passes the confirmed selection and visit into navigation (ke | — |
+| CTRL_R | `HistoryEdge.tsx` | 대조 | (파일 끝) → // v3 control | — | 대조 green |  | — |
+| E7i | `AboveInput.tsx:13` | 다른 값 | selectOpenCodeTodos({ backend, messages, sendCou… → selectOpenCodeTodos({ backend, messages, sendCou… | — | 못 잡음 | 렌더러 3,485 green — VP-05 path edge | 이행 D19 |
+
+## 5. 사람 실기 경계 (verify 3)
+
+AC10(Windows 설치본 S-E1~S-E5)만 사람 몫이다(0330). D19는 기계 검증 범위다 — `AboveInput`은 production `chatStore`·fake DOM으로 렌더할 수 있다(`Composer.selection.test.ts`가 이미 렌더한다).
+
+## 6. V-pair closeout (verify 3)
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-11 MD-01↔UT-01 | PASS | Q3′ ‘greedy maximal pages…’ — RS1(등록 변이 3)·Z1~Z5·R1·R2 잡음 |
+| VP-16 MD-04↔UT-04 | PASS | Q4‴ — E3a~E3g·I5r~I13r 잡음. G1은 ΔV5 D-025로 닫혔다. D14 10자리 · EP4′ ①⑦⑧ 잔여(RS2a~e) 잡음 |
+| VP-12 MD-02↔UT-02 | PASS | D13 S14 등 잡음 |
+| VP-14 MD-03↔UT-03 | PASS | D15 O7·P11 잡음 |
+| VP-17 MD-05↔UT-05 | PASS | A1·gV14·RS3a(창 안 쓰기)·RS3b(`consumedPull` 기본 동작) 잡음 |
+| VP-07 AR-01↔IT-01 | PASS | D17 Y2·Y2b·X8 잡음 |
+| VP-08 AR-02↔IT-02 | PASS | D11·D12 창 응답·본문·취소 38자리 잡음 |
+| VP-09 AR-03↔IT-03 | PASS | F1~F4·O1~O7 잡음 |
+| VP-10 AR-04↔IT-04 | PASS | D18 FK1·FK2·FK5 · RS5(원본 소실 판정) 잡음 |
+| VP-18 AR-05↔IT-05 | PASS | N7b · RS6a~c(계보 형제 맞바꿈) 잡음 |
+| VP-05 SD-02↔ST-02 | **PAIR_FAIL** (root) | D10·D16은 닫혔다(E7a~E7h · K1~K12 · PQ3·PQ5 · H1·H2 잡음). path 끝 edge `AboveInput.tsx:13`이 미잠금(E7i, D19) |
+| VP-04 SD-01↔ST-01 | PASS | Q4b″ 대조 실행(CTRL_G) 통과 · gV2·gV12·gV13 잡음 |
+| VP-13 SD-04↔ST-04 | PASS | Q6e′ — L3·E6a~E6j 잡음 · RS4a~e · J2·J3·L4 잡음 |
+| VP-15 SD-05↔ST-05 | PASS | X2·X5·X7·X9 잡음 |
+| VP-19 SD-06↔ST-06 | PASS | N1·N2·N8 잡음(Q14) |
+| VP-06 SD-03↔ST-03 REGRESSION | PASS | 전체 Vitest에서 0326 스위트 red 0 · RS2c 잡음 · Q4b″ 통과 |
+| VP-01 R-01↔AT-01 | PASS | VP-07·VP-11 근거 |
+| VP-02 R-02↔AT-02 REGRESSION | PASS | VP-16·VP-17 근거 |
+| VP-03 R-03↔AT-03 REGRESSION | BLOCKED_BY:VP-05 | ΔV5 경로에 ‘현재 TODO’가 들어 있다. ‘최신 대화로’ 쪽은 VP-13으로 닫혔다 |
+
+## 7. 숫자 재측정 (verify 3)
+
+- Vitest 전체: 파일 9 failed / 1,138 passed / 4 skipped(1,151), 케이스 22 failed / 10,886 passed / 1 expected fail / 11 skipped(10,920), 처리되지 않은 오류 1. 구현 보고(1,151파일·10,920건·기존 실패 9파일 22건·거부 1건)와 같다. 실패 9파일은 verify 1·2 기준선과 같은 목록이고 이번 diff(`96cff315..077473e3`)와 교집합 0이다. 처리되지 않은 오류는 `native-resources.test.ts`(`native-resources.ts:152`, 기준선 실패 파일)에서 나며 verify 2 실행에도 있었다.
+- Node 스크립트 테스트: 1,104/1,104(`# fail 0`).
+- Q4b″(`check-transcript-history.mjs`) 대조 실행: exit 0. 위치 보존 사례 최대 이동 0.4375px(`doublePrepend`), 방향 전환·만료 사례는 판정식이 기본 스크롤량과 대조한다.
+- 변이 282 = 잡음 254 + 동치 16 + 못 잡음(단위) 3 + 못 잡음 2 + 대조 green 6 + 무효 1. verify 2 못 잡음 88 → 잡음 88, verify 2 잡음 → green 0.
+
+## 8. gate (verify 3)
+
+| 단계 | 결과 |
+|---|---|
+| `check-migrations-appendonly` · `check-doc-inventory --check` · `check-product-naming` · `check-test-budgets` · `check-ui-thread` | 5/5 exit 0 (`append-only ok since v0.3.1` · `links ok` · `2743파일 · 허용 7항목` · `18 real-git suites ok · all budget sites scaled` · `OK`) |
+| `npm run typecheck` | exit 0 (node·web·test) |
+| `npm run lint` | exit 0 · 오류 0 · 경고 12. 실행 전후 `git status --short` 같음(빈 출력) |
+| `./node_modules/.bin/vitest run`(필터 없음) | 22 failed — 실패 9파일(`adapter.native-plugins`·`native-resources`·`project-reconciliation`·`opencode/v1/adapter{,.instances,.persistent}`·`composer-catalog`·`composer-preparation-service`·`session-resources.claude-assembly`)이 verify 1·2 기준선과 같고 이번 diff와 교집합 0. 비귀속 N1 |
+| `node --test scripts/*.test.mjs` | 1,104/1,104 |
+| `npx electron-vite build` · `smoke-hosts` · `smoke-preload out/preload` | exit 0 (`[smoke-hosts] OK` · `smoke-preload: OK`) |
+| `xvfb-run -a node scripts/check-transcript-history.mjs` | exit 0 |
+
+환경: Node ABI `better-sqlite3`를 그대로 썼다(`require('better-sqlite3')(':memory:')` 성공). gate 뒤 작업 트리 변경은 이 검증 문서 2개뿐이다.
+
+## 9. Repository operation checks (verify 3)
+
+- trailer: `git log -1 --format='%(trailers:only=true)' 077473e3`가 `Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met: 11/12`·`Criteria-Pending: AC10 Windows 실기`·`Verified-By: pending`을 돌려준다. 본문의 ✅ 11 · ⚠️ 1 = 12와 같다.
+- `[구현자 기입] r3` 일곱 필드: 7/7 있다. 강제 지점 표는 verify 2 판정 자리 231개와 §24-F 잔여를 범위별 개수로 적고 상세를 `evidence/r3-history.json`(변이 267개 원문·치환·실패 단언)으로 넘겼다. `남긴 곳` 열은 없고 0으로 보고했다 — 실제로는 VP-05 path edge 1개가 남았다(D19).
+- 대상 커밋 좌표: `077473e3`·`96cff315`는 `git cat-file -t` = commit, `origin/main` 조상 아님(브랜치 미병합). INDEX에 브랜치 해시로 적는다.
+- 테스트 소스 규칙: 수정한 테스트 20파일에 대해 `check-test-budgets`·`[test-pools]` 가드(전체 Vitest 실행 중)가 위반 0이다.
+- INDEX 행: 구현자가 `impl/IMPL_DONE`·다음 Claude로 바꿨다. 이 커밋에서 `verify/FAIL`·라운드 4·다음 Claude(handoff-review)로 고친다.
+
+## 10. 사람 vs 에이전트 (verify 3)
+
+AC10 Windows 실기만 사람에게 넘긴다. D19는 구현자가 `AboveInput` 렌더 입력으로 닫는다. verify 3회째 FAIL이라 재구현 전에 Claude가 `handoff-review`를 한다.
+
+## 11. 발견과 disposition (verify 3)
+
+| # | 발견 | 출처 원문 | 분류 | disposition |
+|---|---|---|---|---|
+| D19 | `AboveInput.tsx:13`이 `selectOpenCodeTodos`에 넘기는 `openCodeTodoTurnStartIndex`를 `0`으로 바꿔도 렌더러 3,485건 green(E7i). 현재 동작은 맞지만 VP-05 path 끝 edge가 어떤 좌표에도 없다 | §24-C VP-05 production path “… → `selectOpenCodeTodos` → `AboveInput`” · Q7′ 좌표는 `selectOpenCodeTodos`까지만 관측 | 이행(pair path edge) | BLOCKING |
+| NX1 | ‘최신 대화로’ 버튼 `aria-busy` 제거(E6k)가 렌더러 3,676건 green | EP6 ⑦′ ④ 입력은 `disabled`·문구만 적는다 — `aria-busy`가 “진행 중 표시”인지는 해석이 필요하다 | 확장(창 밖) | NEXT_HANDOFF(확장) |
+| N1 | Vitest 22건 red(Windows 경로, diff 밖 9파일) — verify 1·2와 같다 | — | 비귀속 | NON_BLOCKING |
+
+구현자는 D19를 `AboveInput`(또는 그 상위 `Composer`)을 production store로 렌더하는 입력으로 닫는다. Q7′ (a)~(d) 상태에서 앞삽입 뒤 렌더된 TodoDock 항목을 관측해 E7i가 red가 되어야 한다.
+
+## Review Signals — 사실만 (verify 3)
+
+- verify 2의 못 잡음 88건이 모두 잡혔다. 같은 증상 재발은 0이다.
+- 새 막는 발견 1건은 §10 자리 목록 밖의 pair path edge다. ΔV5 Q7′ 좌표가 path 끝 한 칸 앞(`selectOpenCodeTodos`)에서 관측을 멈췄고, r3 자기 sweep(`evidence/r3-history.json` `DV5-todo-selector` 등)도 §10 자리까지만 심었다.
+- 독립 축 3개에서 발견 1건(D19 이행).
+- 검증 환경 한계: AC10 Windows 실기. 4코어에서 변이 281개 × 스위트 재실행(렌더러 3,676건)이 2시간 백그라운드 한도를 넘어 한 번 끊겼다.
+- verify 3회째 FAIL — `handoff-review` 진입 조건.
+
+---
+
+# verify 2회째 기록
+
 ## 판정 — verify 2회째: **RETURN_TO_PLAN**
 
 PLAN_GAP 2건(G1 · X1)이 있어 설계자가 먼저 정정한다. 검증 1의 D1~D9는 인용 변이 14/14가 잡혀 닫혔다. 그러나 막는 발견이 9건(D10~D18) 새로 나왔다. D10은 독립 축에서 재현한 현재 동작 결함이다(앞쪽 이력을 끌어오면 OpenCode 현재 턴 TODO에 이전 턴 TODO가 보인다). D11~D18은 ⑦ 잔여 sweep에서 열거 자리 87곳(못 잡음 변이 87개)이 잠기지 않은 것이다. 설계자가 G1·X1을 정정한 뒤 구현자가 D10~D18을 닫는다.
