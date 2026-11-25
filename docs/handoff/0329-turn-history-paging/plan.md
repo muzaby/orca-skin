@@ -1,6 +1,6 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**IMPL_DONE (r1.5 · V1 rev 5 + ΔV1~ΔV4).** ΔV4(§23)는 r1.4가 반송한 묶음 수 등식을 정정했다 — 응답은 가장자리부터 메시지를 통째로 상한 직전까지 채우고(탐욕 채움), 묶음 수는 그 결과인 최소 연속 분할이며 max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉)는 하한이다. 구 DB 첫 클릭 게이트의 측정 조건(단독 실행)도 적었다.
+**verify/FAIL (verify 1 · V1 rev 5 + ΔV1~ΔV4) — 다음 r2 재구현, [verify.md](verify.md).** r1.5 기록: ΔV4(§23)는 r1.4가 반송한 묶음 수 등식을 정정했다 — 응답은 가장자리부터 메시지를 통째로 상한 직전까지 채우고(탐욕 채움), 묶음 수는 그 결과인 최소 연속 분할이며 max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉)는 하한이다. 구 DB 첫 클릭 게이트의 측정 조건(단독 실행)도 적었다.
 
 ΔV3(§22)는 r1.3이 반송한 복구 키 충돌의 원인을 없앴다 — 사용자 제안대로 Claude 원본 복구는 Orca가 만든 새 UUID로 새 원본 세션을 시작하고, 화면·Orca 세션 ID는 그대로 둔다(D-023). 같은 ID로 이미 복구된 기존 세션은 배포가 없어 다루지 않는다(D-024). ΔV2(§21)는 앞삽입 앵커 좌표를, ΔV1(§20)은 고정 높이 머리 슬롯과 보정 취소 분류를 정정했다. rev 5는 PR #640 0329 보완 요청과 D-009(유휴 자동 채움)·D-012(세션 전체 패널)를 반영했다.
 
@@ -10,7 +10,7 @@
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) 2026-11-20 rev 1~4 · Claude Code rev 5 2026-11-24 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) · PR #640 코멘트 “0329 이력 페이징 · 구현 전 plan 보완 요청”(2026-11-24, 기준 `7db1c7ce`) |
-| 상태 / V | impl/IMPL_DONE (r1.5) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV4 |
+| 상태 / V | verify/FAIL (verify 1, 다음 r2) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV4 |
 | 조사 기준 | rev 5: `codex-handoff-0326-plan-gap`의 `7db1c7ce`(PR #640 head) — 0326 verify 7 PASS · 0327 verify 5 PASS · 0328 verify 2 PASS(모두 기계 범위). rev 1~4의 `62125eaa` 관측은 §8 rev 5 표로 재대조했다. |
 | 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 다음 단계는 독립 검증 r1이다. |
 
@@ -1289,4 +1289,13 @@ VP-11·17·18·19는 SELF_PASS다. VP-11의 본문 전체 선조회는 Q1 읽기
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| D1 | … | verify r<N> · VP-… · AC<N> / §10 <N>행 / gate | … | 이행 / 현재 / 확장 / 경계 / 비귀속 | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | open / 구현중 / 해결 / 후보 표 |
+| D1 | 검색 보기에서 대상 턴 앞 유휴 요청 진행 중 뒤쪽 유휴 요청을 또 발사(`useHistoryControls.ts:43-48`) | verify r1 · VP-16 · §23-D 유휴 채움′ “직전 commit 전 다음 요청 0” | 직전 유휴 요청 완료 전 어느 방향도 예약하지 않게 고치고 회귀 입력 추가 | 이행(재현) | BLOCKING | open |
+| D2 | 입력 중 보류의 wheel·키·드래그 분기 개별 미잠금(I1·I2·I11·I12) | verify r1 · VP-16 · EP3 ⑤ ‘입력 중 보류’ | 분기별 입력(드래그 단독 >200ms, wheel, keydown) | 이행 | BLOCKING | open |
+| D3 | 검색 보기 유휴 채움 분기 입력 없음(I13) | verify r1 · VP-16 · §10 한 턴과 조각 · §5-B | 훅 테스트에 검색 보기 before/after withinTurn 입력 | 이행 | BLOCKING | open |
+| D4 | 창의 응답 세대 재검사 미잠금(S7·S8) | verify r1 · VP-08 · §10 요청/응답 “창도 일치 여부를 검사” · EP5 ③ | 다른 세대 `ok` 응답 입력 | 이행 | BLOCKING | open |
+| D5 | 이전 턴 중복 요청 억제 미잠금(S10) | verify r1 · VP-12 · AC3′ “반복·동시 입력 1회” · EP5 ① | 같은 커서 연속 호출 입력 | 이행 | BLOCKING | open |
+| D6 | data 커서 종류·방향 혼용 거부 미잠금(C2·C3) | verify r1 · VP-08 · §10 요청/응답 “종류 혼용 … data에서 거부” | 혼용 요청 입력 | 이행 | BLOCKING | open |
+| D7 | 출판 revision 경쟁 stale 미잠금(P1) | verify r1 · VP-07 · EP1 ④ · Q9 ‘commit 직전 경쟁’ | prepare 뒤 원본 변경 입력 | 이행 | BLOCKING | open |
+| D8 | 본문 ref 바이트 길이 결합 미잠금(P3) | verify r1 · VP-08 · §10 본문 | 길이가 다른 ref 입력 | 이행 | BLOCKING | open |
+| D9 | locator epoch(P5)·target 캐시 키(P7) 미잠금, Q2·Q3·Q5·Q5b·Q6a~e·Q8 renderer·Q9 좌표 대응 누락 | verify r1 · VP-14 · Q6a·Q6b · §10 “Q는 … 좌표” | 해당 입력 추가와 Q별 `파일:테스트명` 대응표 | 이행 | BLOCKING | open |
+| N1 | Vitest 22 red(Windows 경로, diff 밖 9파일) | verify r1 · gate | — | 비귀속 | NON_BLOCKING | 기록 |
