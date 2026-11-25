@@ -1,5 +1,281 @@
 # Verify — 0329-turn-history-paging
 
+## 판정 — verify 4회째: **RETURN_TO_PLAN**
+
+PLAN_GAP 1건(G4)과 막는 이행 결함 1건(D20)이 있어 RETURN_TO_PLAN이다. 이전 실패 D19·G2·G3은 먼저 다시 확인했고 모두 닫혔다 — E7i가 Q7″에서 red이고, census 4개가 미분류 0이며, 새 자리 자동 변이 61개는 잡음 59 · 동치 2(계획서가 예상한 두 자리)다. G4는 ΔV6 Q15′ (i)의 기대 오류 분류(`provider_connection_error`)가 규칙 칸·기존 분류와 어긋난다. r4는 그 기대에 맞추려고 production 분류를 바꿨고(`send.ts:99`), 결정적인 거절이 화면에서 "백엔드 연결 오류 · 재시도 가능"으로 보이게 됐다. D20은 EP6 ⑦″ ⑦ 규칙 칸의 세 분기에 입력이 없다(B5·B6·B7 못 잡음).
+
+## 메타 (verify 4)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `9cde0d6c..9f8d9806`. production 1파일(`send.ts` +7/−2), 테스트 4파일(신규 1), plan·INDEX·`evidence/r4-history.json`. r4 구현 커밋 `9f8d9806` — 브랜치 `ccr-ca3d795a-2t0cmj`, `origin/main` 조상 아님 |
+| 구현 전 plan 기준 | `9cde0d6c`(V1 rev 5 + ΔV1~ΔV6). `9f8d9806`의 plan diff는 머리말·메타 2행·`[구현자 기입] r4` 7절·D19 상태 칸뿐 — Decision·AC·V·§10 변경 0 |
+| V mode / 유효 V | Baseline V V1 rev 5 + ΔV1~ΔV6 |
+| 라운드 | 4 |
+| 확장 창 | verify 4회째 — **창 밖**. ΔV6은 verify 3 정정 PLAN_GAP 정정이라 창을 다시 열지 않는다. ΔV6 새 열거 항목의 출처는 모두 plan 내부 정합(G2·G3 · §25 머리말) — 출처 없는 항목 0 |
+| 점검 순서 | 이전 실패(D19 인용 변이 · G2·G3 census · verify 3 못 잡음·동치 행) → 이번 ΔV6 새 열거 항목 sweep(⑦) → 독립 축(⑥) |
+| 독립 축(⑥) | 5축. (a) r4 diff의 새 오류 분류를 화면까지 추적 → G4. (b) 새 대화로 나간 뒤 출발 방문 복원(임시 테스트) → B5 비동치(D20) · NX2. (c) 활성 세션에서 검색 결과 해석 중 출발 방문 복원(임시 테스트) → B6 비동치(D20). (d) `send.ts:122` 인계 항 제거(X1) → 못 잡음, NX3. (e) `AboveInput.tsx:14` memo 의존에서 `messages` 제거(X2) → 잡음 |
+| 열거 sweep(⑦) | ΔV6가 새로 열거하거나 바꾼 항목 전부: census 자동 변이 61 + 등록 변이 6(R1~R6) + 형제 맞바꿈 4(W1~W4) + 규칙 칸 분기 10(B1~B10, `send.ts` 새 항 포함). ③ verify 3 동치 16 + 단위 3 · ④ `send.ts` 이동 줄의 이전 잡음 4. 시도 106 = 잡음 77 · 동치 20 · 못 잡음 9(B5·B6·B7 이행 · B8·B9 G4 · X1 확장 · 단위 3은 등록 Electron 좌표가 잡음) |
+| ⑦ 잔여 | **0** — verify 3 잔여 0, 이번 ΔV6 새 항목은 위에서 다 돌렸다 |
+| 발견 분류 | 이행 1(D20) · plan 내부 불일치 1(G4 → PLAN_GAP) · 확장(창 밖) 2(NX2·NX3 → 새 handoff 후보) · 비귀속 1(N1 기존 Vitest 22건) |
+| 구현 주체·문맥 | Codex 구현, Claude Code 검증. ΔV6는 Claude Code 설계 — G4는 자기 설계의 oracle 칸 결함이다 |
+| 실행 환경 | 4코어. 변이는 저장소 트리에서 순차로 돌렸고, 임시 테스트·gate는 별도 git worktree(검증 뒤 삭제)에서 돌렸다. 끝난 뒤 `원복 확인: 모든 파일 원문 그대로` · `git status` 빈 출력 |
+
+## 0. 기준선 / plan validity (verify 4)
+
+- 구현 커밋의 plan 변경: `git diff 9cde0d6c 9f8d9806 -- …/plan.md`의 hunk는 머리말·메타·`[구현자 기입] r4`·D19 상태 칸이다. 규범 행 변경 0.
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| §25-E census 4개 | 유효 — 미분류 0 · 목록만 0 | EP6 16줄·운반 11 · EP7 10줄·운반 8 · EP3 5줄·운반 2 · EP10 41줄·운반 28·제외 1. EP10은 r4가 `send.ts:83` 뒤 줄을 3씩 밀어 구현자 명령(`:296-298`·`:623`·`:602`·`:400`·`:122`·`:155`)으로 다시 돌렸다. 이동량 3 = `forkSource` 1줄 + `backendMismatch` 2줄 |
+| Q15′ (i) 기대 ↔ 규칙 칸 | **plan 내부 불일치(G4)** | 규칙 칸은 "§22-E 형제 그대로 — Orca 세션 ID 계보"이고 §25-D는 "계약 행 변경 없음". Q15′ (i) 입력 칸만 `provider_connection_error`를 요구한다. 변경 전 코드는 같은 거절을 `schema_validation_error`로 냈고(`9cde0d6c` `send.ts:96`), 뒤 검사 두 곳도 같다(`send.ts:192` · `resolve-turn.ts:70` 테스트 `{ category: 'schema_validation_error' }`) |
+| EP6 ⑦″ ⑦ 규칙 칸 ↔ 입력 칸 | 입력 칸이 좁음 — 이행(D20) | 규칙 “하단 고정(또는 앵커 없는) … 그 세션이 활성이고 검색 보기가 있으면 … 아니면 출발 세션을 연다”의 분기 중 입력은 (i) 활성+검색 · (ii) 다른 세션 활성(출발 세션 검색 없음)뿐이다. 규칙 칸만으로 기대가 정해져 구현자가 입력을 더해 닫을 수 있다 |
+| 운영 gate | 유효 | §19-3 열거 |
+
+## 1. Product & UX / ACTIVE Decision (verify 4 변경분)
+
+| Decision | 기대 | r4 production path | 판정 |
+|---|---|---|---|
+| D-012 · AC7 OpenCode 현재 TODO | 화면 TodoDock은 현재 턴 TODO만 | `AboveInput.tsx:11-14` → `selectOpenCodeTodos` → `OpenCodeTodoDock` | ✅ R1(E7i)·W2(경계↔`sendCount`)·X2 red — Q7″ ‘renders only current-turn TODOs …’ |
+| D-015 · X1 ‘최신 대화로’ 입력 경로 | 라우트·세션 전환·출발 방문 복원이 같은 단일 flight를 지난다 | `useChatRouteSync.ts:80-81` · `chatStore.ts:2005-2008` · `:2606-2609` | ⚠️ ⑤⑥과 ⑦ (i)은 ✅(R2~R4·W3·W4·B1~B3 red). ⑦의 세 분기 입력 없음(D20) |
+| D-023 · AC8·AC12 분기·인계 | Orca 출발 세션으로 하네스·지원 검사 | `send.ts:83-122` | ⚠️ 검사 위치는 ✅(R5·R6·W1 red). 하네스 불일치 오류 분류가 바뀌었다(G4) |
+
+## 2. 구현 결과 비판적 검토 — AC 전에 (verify 4)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| `boundId` 동등성 | ✅ | `payload.sessionId ?? forkSource ?? handoffFrom`은 이전 식과 같다 — 스키마가 `sessionId`와 `forkFrom`을 함께 받지 않는다(`protocol.ts:216`). B10(`forkSource = payload.forkFrom`) green은 같은 근거로 동치 |
+| 오류 분류 변경의 화면 결과 | ❌ G4 | `provider_connection_error`는 기본 `retryable: true`(`infra/errors.ts:33`)다. `TurnErrorBanner.tsx:13-27`이 "에러: 백엔드 연결 오류 · 재시도 가능 · 일시적 오류일 수 있습니다. 다시 보내보세요."를 그리고 본문은 "새 대화에서 선택해 주세요"다. 같은 입력을 다시 보내도 결과는 같다 |
+| 분류 변경이 잠금에 필요했나 | 아니다 | 별도 worktree에서 분류를 되돌리고 Q15′ (i)이 오류 문구 “하네스 또는 작업 종류를 변경할 수 없습니다”를 단언하게 하면 무변이 15/15 green, R5(`forkFrom` 항 제거) 2 red(opencode 사례 포함). 뒤 검사(`send.ts:192`)는 다른 문구를 낸다 |
+| 새 항의 다른 분기 | G4에 귀속 | B8(`forkSource &&` 제거 → 인계·기존 세션 불일치도 연결 오류) · B9(`&& backendMismatch` 제거 → providerKey 불일치도 연결 오류) 모두 green |
+
+## 3. 역방향 탐색 (verify 4)
+
+production 변경이 1파일 9줄이라 직접 봤다.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `forkSource` 소비처 | 2곳 — `:84` boundId · `:99` 분류 | `:99`가 r4의 새 표면이다(G4) |
+| `provider_connection_error` 소비처 | 렌더러 라벨·재시도 표시 | `errorLabels.ts:10` · `ko.ts:680` · `TurnErrorBanner.tsx:15-27` |
+| 새 테스트 4파일 | production 진입 | Q7″는 production `AboveInput`+store, Q6e″는 production store·훅, Q15′는 실제 `handleChatSend`. 기존 단언 수정은 `useLocation` 흉내의 `key` 추가 하나 — ④ 재실행에서 red → green 0 |
+
+## 4. 증거 재측정 (verify 4)
+
+- **이전 실패 먼저**: D19 인용 변이 R1(=E7i) red · G2·G3 census 미분류 0 · round 49 못 잡음 7자리(AboveInput `:11·13·14` · `useChatRouteSync.ts:81` · `chatStore.ts:2006·2608` · `useHistoryControls.ts:78` `returnFailed`)는 자동 변이에서 잡음 5 · 동치 2. 동치 2는 계획서 §25-E의 예상과 같고 근거를 코드에서 다시 확인했다(아래 표).
+- **①**: ΔV6 등록 변이 R1~R6 모두 red.
+- **②**: D19 인용 변이 E7i(R1) red — `AboveInput.integration.test.ts` 1건.
+- **③**: verify 3 동치 16(C4~C6·P6·P9·P10·X6·PQ6·L1·S1·S2·S5·S6·S11·V3·E3) green 그대로 — 해당 줄 변경 0, 근거는 verify 3과 같다. 단위 3(V5·V14·E1) green 그대로 — 등록 Electron 좌표 Q4b″는 이번 gate에서 exit 0이고 해당 줄·하네스 변경 0이라 gV5·gV14·gE1은 다시 돌리지 않았다. E7i는 이제 잡음.
+- **④**: r4가 바꾼 `send.ts`의 이전 잡음 행 N6·RS6a·RS6b·RS6c(줄 +3 이동)를 다시 돌려 모두 red. red → green 0.
+- **⑤ 형제 맞바꿈**: W1(`forkFrom`↔`handoffFrom`) · W2(TODO 경계↔`sendCount`) · W3·W4(`leaveSearch` latest 인자 누락) 모두 red.
+- **⑥ 독립 축**: 메타 표의 (a)~(e).
+- **⑦ 열거 sweep**: census 자동 변이 61 · 규칙 칸 분기 B1~B10(EP6 ⑦″ ⑤ 두 항 · ⑥ 두 항 · ⑦ 세 항 · Q15′ diff 세 항).
+
+### 규칙 칸 분기 못 잡음 — 비동치 확인 (임시 테스트, 트리에 남기지 않음)
+
+| 변이 | 입력 | 실제 코드 | 변이 |
+|---|---|---|---|
+| B5 `:2607` `activeKey === origin.session &&` 제거 | b 검색 결과 열기 → `newChat()` → `restoreOriginVisit({session:'b', pinned:true})` | `load('b')` 1 · 활성 b | `load` 0 · 활성 `__new__`에 머묾(테스트 실패) |
+| B6 `:2607` `&& …?.search` 제거 | b 활성(검색 보기 없음) → b 검색 결과 해석 중 → 같은 복원 | `cancelLoad` 1 · 검색 보기 없음 | `cancelLoad` 0 · 검색 보기 열림 |
+| B7 `:2606` `origin.pinned ||` 제거 | b 검색 보기 + `pinned:true`·`generation`·`anchor` 있는 출발 방문 | `page` 종류 `['target','latest']` | `['target','visit']` |
+
+### 고장 이력 (verify 4)
+
+열은 ID · `파일:줄` · 종류 · 바꾼 내용 · 결과 · 잡은 테스트(잡음) 또는 근거 · 분류다. 줄 번호는 `9f8d9806` 트리 기준이다. oracle: 렌더러 = `vitest run src/renderer/src/features/chat src/renderer/src/app`(무변이 426파일·3,493건 green) · main = `adapters/claude`·`app/chat-turn`·`native-history` 120파일(기준선 red 플러그인 3파일 제외, 무변이 1,352건 green) · history = `features/history`·`infra/db`·`app/data-host` 등 40파일(무변이 292건 green). 자동 변이는 site_census `--emit-mutants`의 spec 그대로다.
+
+| ID | 자리 | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 / 근거 | 분류 |
+|---|---|---|---|---|---|---|
+| V4-R1 | `AboveInput.tsx:13` | 고정값 | 경계 → `0`(E7i) | 잡음 | 1 red — `AboveInput.integration.test.ts` | — |
+| V4-R2 | `useChatRouteSync.ts:81` | 제거 | `leaveSearch(urlSessionId, true)` → `void 0` | 잡음 | 1 red — `useChatRouteSync.test.ts` ‘returns to latest only on a new visit…’ | — |
+| V4-R3 | `chatStore.ts:2006` | 제거 | 떠나는 세션 `leaveSearch` 삭제 | 잡음 | 1 red — ‘clears a departing search while latest is pending…’ | — |
+| V4-R4 | `chatStore.ts:2608` | 제거 | 출발 방문 `leaveSearch(…, true)` → `void 0` | 잡음 | 2 red — ‘restores an origin visit … (pinned=%s)’ | — |
+| V4-R5 | `send.ts:83` | 제거 | `forkSource` → `undefined` | 잡음 | 2 red — `send.busy.test.ts` ‘checks the source harness and fork capability…’ | — |
+| V4-R6 | `send.ts:122` | 제거 | `payload.forkFrom ||` 삭제 | 잡음 | 1 red — 같은 테스트 (fork=false) | — |
+| V4-W1 | `send.ts:83` | 맞바꿈 | `forkFrom` → `handoffFrom` | 잡음 | 2 red — 같은 테스트 | — |
+| V4-W2 | `AboveInput.tsx:13` | 맞바꿈 | 경계 → `sendCount` | 잡음 | 2 red — Q7″ | — |
+| V4-W3 | `chatStore.ts:2608` | 맞바꿈 | latest 인자 누락 | 잡음 | 2 red — ‘restores an origin visit…’ | — |
+| V4-W4 | `useChatRouteSync.ts:81` | 맞바꿈 | latest 인자 누락 | 잡음 | 1 red — ‘returns to latest only on a new visit…’ | — |
+| V4-B1 | `useChatRouteSync.ts:80` | 제거 | `newVisit &&` 삭제 | 잡음 | 1 red — 같은 테스트(같은 방문 재실행 입력) | — |
+| V4-B2 | `useChatRouteSync.ts:80` | 제거 | `&& currentSearchSequence() !== undefined` 삭제 | 잡음 | 1 red — 같은 테스트(검색 보기 없음 입력) | — |
+| V4-B3 | `chatStore.ts:2005` | 제거 | `activeKey !== sessionId &&` 삭제 | 잡음 | 1 red — ‘preserves the search view when revalidating the active session’ | — |
+| V4-B4 | `chatStore.ts:2005` | 제거 | `&& …?.search` 삭제 | 동치 | `leaveSearch`가 검색 보기 없으면 즉시 반환(`chatStore.ts:2710`) | — |
+| V4-B5 | `chatStore.ts:2607` | 제거 | `activeKey === origin.session &&` 삭제 | 못 잡음 | 비동치(위 표) — 규칙 “그 세션이 활성이고” | 이행 D20 |
+| V4-B6 | `chatStore.ts:2607` | 제거 | `&& …?.search` 삭제 | 못 잡음 | 비동치(위 표) — 규칙 “검색 보기가 있으면 … 아니면 출발 세션을 연다” | 이행 D20 |
+| V4-B7 | `chatStore.ts:2606` | 제거 | `origin.pinned ||` 삭제 | 못 잡음 | 비동치(위 표) — 규칙 “하단 고정(또는 앵커 없는)” | 이행 D20 |
+| V4-B8 | `send.ts:99` | 제거 | `forkSource &&` 삭제 | 못 잡음 | r4 새 항 — 분류 자체가 G4 | G4 |
+| V4-B9 | `send.ts:99` | 제거 | `&& backendMismatch` 삭제 | 못 잡음 | r4 새 항 — 분류 자체가 G4 | G4 |
+| V4-B10 | `send.ts:83` | 제거 | `sessionId == null ?` 조건 삭제 | 동치 | 스키마가 `sessionId`+`forkFrom` 조합을 거절(`protocol.ts:216`) | — |
+| V4-X1 | `send.ts:122` | 제거 | `|| payload.handoffFrom` 삭제 | 못 잡음 | Q15′는 분기 항만 요구 — 인계 항이 지원 검사 대상인지는 해석 필요 | 확장 NX3 |
+| V4-X2 | `AboveInput.tsx:14` | 제거 | memo 의존에서 `messages` 삭제 | 잡음 | 2 red — Q7″ | — |
+| N6 | `send.ts:623` | 다른 값 | `forkNativeId` → `continuitySource` | 잡음 | 2 red | — |
+| RS6c | `send.ts:623` | 맞바꿈 | `forkNativeId` → `payload.forkFrom` | 잡음 | 3 red | — |
+| RS6a | `send.ts:400` | 맞바꿈 | 계보 `forkFrom` → `forkNativeId` | 잡음 | 1 red | — |
+| RS6b | `send.ts:401` | 맞바꿈 | 계보 `handoffFrom` → `forkNativeId` | 잡음 | 1 red | — |
+| C4 · C5 · C6 · P6 · P9 · P10 | `history-page.ts:59·61·63·164·210·244` | verify 3과 같음 | verify 3과 같음 | 동치 | history 292건 green — 줄 변경 0, verify 3 근거 | — |
+| X6 · PQ6 | `history-index-queries.ts:372` · `history-panel-queries.ts:40` | verify 3과 같음 | verify 3과 같음 | 동치 | 같음 | — |
+| L1 · S1 · S2 · S5 · S6 · S11 | `chatStore.ts:2732·2830·2830·2774·2828·2787` | verify 3과 같음 | verify 3과 같음 | 동치 | 렌더러 3,493 green — 줄 변경 0 | — |
+| V3 · E3 | `TranscriptViewport.tsx:707` · `HistoryEdge.tsx:46` | verify 3과 같음 | verify 3과 같음 | 동치 | 같음 | — |
+| V5 · V14 · E1 | `TranscriptViewport.tsx:735·513` · `HistoryEdge.tsx:35` | verify 3과 같음 | verify 3과 같음 | 못 잡음(단위) | 등록 Electron 좌표 Q4b″(gV5·gV14·gE1) — 줄·하네스 변경 0 | — |
+| SC-native-history.ts:37:31 | `native-history.ts:37` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-resolve-turn.ts:70:35 | `resolve-turn.ts:70` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 3 failed · 1346 passed · 3 skipped (1352) | — |
+| SC-resolve-turn.ts:123:4 | `resolve-turn.ts:123` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-resolve-turn.ts:124:57 | `resolve-turn.ts:124` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-resolve-turn.ts:180:25 | `resolve-turn.ts:180` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 18 failed · 1331 passed · 3 skipped (1352) (제외 줄 — 메서드 이름 일치, 참고 실행) | — |
+| SC-send.ts:83:57 | `send.ts:83` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-send.ts:122:13 | `send.ts:122` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-send.ts:155:48 | `send.ts:155` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 3 failed · 1346 passed · 3 skipped (1352) | — |
+| SC-send.ts:297:66 | `send.ts:297` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-send.ts:400:24 | `send.ts:400` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-send.ts:400:51 | `send.ts:400` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-send.ts:400:69 | `send.ts:400` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-send.ts:602:19 | `send.ts:602` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-send.ts:602:39 | `send.ts:602` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-send.ts:602:63 | `send.ts:602` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-send.ts:623:29 | `send.ts:623` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 4 failed · 1345 passed · 3 skipped (1352) | — |
+| SC-continuation.ts:40:19 | `continuation.ts:40` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-continuation.ts:40:39 | `continuation.ts:40` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-continuation.ts:40:67 | `continuation.ts:40` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-continuation.ts:88:17 | `continuation.ts:88` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-turn-context.ts:166:35 | `turn-context.ts:166` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 3 failed · 1346 passed · 3 skipped (1352) | — |
+| SC-adapt.ts:307:36 | `adapt.ts:307` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 3 failed · 1346 passed · 3 skipped (1352) | — |
+| SC-native-session.ts:41:31 | `native-session.ts:41` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 5 failed · 1344 passed · 3 skipped (1352) | — |
+| SC-native-session.ts:61:47 | `native-session.ts:61` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 9 failed · 1340 passed · 3 skipped (1352) | — |
+| SC-native-session.ts:68:36 | `native-session.ts:68` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 9 failed · 1340 passed · 3 skipped (1352) | — |
+| SC-native-session.ts:89:10 | `native-session.ts:89` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 5 failed · 1344 passed · 3 skipped (1352) | — |
+| SC-native-session.ts:113:14 | `native-session.ts:113` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-native-session.ts:120:34 | `native-session.ts:120` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 5 failed · 1344 passed · 3 skipped (1352) | — |
+| SC-adapter.ts:527:17 | `adapter.ts:527` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-adapter.ts:528:10 | `adapter.ts:528` | 제거 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-adapter.ts:528:39 | `adapter.ts:528` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 1348 passed · 3 skipped (1352) | — |
+| SC-adapter.ts:556:25 | `adapter.ts:556` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-adapter.ts:681:28 | `adapter.ts:681` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-adapter.ts:682:18 | `adapter.ts:682` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 1347 passed · 3 skipped (1352) | — |
+| SC-adapter.ts:948:18 | `adapter.ts:948` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 3 failed · 1346 passed · 3 skipped (1352) | — |
+| SC-todoState.ts:18:17 | `todoState.ts:18` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 3 failed · 3490 passed (3493) | — |
+| SC-AboveInput.tsx:11:40 | `AboveInput.tsx:11` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-AboveInput.tsx:13:62 | `AboveInput.tsx:13` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-AboveInput.tsx:14:35 | `AboveInput.tsx:14` | 제거 | 자동(`__oo_mut`·`void 0`) | 동치 | 동치 — 경계를 바꾸는 액션이 모두 같은 상태에서 `messages`·`sendCount`도 바꾼다(`chatReducer.ts:1043`·`:1739`·`:1812`, 초기 전개 `:1549`·`:1670`) | — |
+| SC-chatReducer.ts:560:2 | `chatReducer.ts:560` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-chatReducer.ts:1043:8 | `chatReducer.ts:1043` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 3491 passed (3493) | — |
+| SC-chatReducer.ts:1739:10 | `chatReducer.ts:1739` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 4 failed · 3489 passed (3493) | — |
+| SC-chatReducer.ts:1739:44 | `chatReducer.ts:1739` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 4 failed · 3489 passed (3493) | — |
+| SC-chatReducer.ts:1812:8 | `chatReducer.ts:1812` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 3491 passed (3493) | — |
+| SC-useChatRouteSync.ts:81:22 | `useChatRouteSync.ts:81` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-chatStore.ts:2006:4 | `chatStore.ts:2006` | 제거 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-chatStore.ts:2608:6 | `chatStore.ts:2608` | 제거 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 3491 passed (3493) | — |
+| SC-chatStore.ts:2724:19 | `chatStore.ts:2724` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 4 failed · 3489 passed (3493) | — |
+| SC-chatStore.ts:2725:69 | `chatStore.ts:2725` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 5 failed · 3488 passed (3493) | — |
+| SC-chatStore.ts:2759:45 | `chatStore.ts:2759` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 3491 passed (3493) | — |
+| SC-chatStore.ts:2759:63 | `chatStore.ts:2759` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 3491 passed (3493) | — |
+| SC-HistoryEdge.tsx:61:40 | `HistoryEdge.tsx:61` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-HistoryEdge.tsx:67:27 | `HistoryEdge.tsx:67` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-useHistoryControls.ts:69:33 | `useHistoryControls.ts:69` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-useHistoryControls.ts:69:65 | `useHistoryControls.ts:69` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-useHistoryControls.ts:70:12 | `useHistoryControls.ts:70` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-useHistoryControls.ts:70:46 | `useHistoryControls.ts:70` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-useHistoryControls.ts:78:30 | `useHistoryControls.ts:78` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 | 1 failed · 3492 passed (3493) | — |
+| SC-useHistoryControls.ts:78:49 | `useHistoryControls.ts:78` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 동치 | 동치 — `returnFailed`를 쓰는 곳은 `chatStore.ts:2759` 하나이고 같은 patch가 `returning`을 바꾼다(`git grep returnFailed` 3줄) | — |
+| SC-chatStore.ts:2776:18 | `chatStore.ts:2776` | 제거 | 자동(`__oo_mut`·`void 0`) | 잡음 | 4 failed · 3489 passed (3493) | — |
+| SC-useHistoryControls.ts:44:24 | `useHistoryControls.ts:44` | 제거 | 자동(`__oo_mut`·`void 0`) | 잡음 | 2 failed · 3491 passed (3493) | — |
+
+합계: 자동 61(잡음 59 · 동치 2) + 수동 22(잡음 14 · 동치 2 · 못 잡음 5(B5~B9) · 확장 못 잡음 1(X1)) + ④ 4(잡음) + ③ 19(동치 16 · 단위 3) = 106 = 잡음 77 · 동치 20 · 못 잡음 9.
+
+## 5. 사람 실기 경계 (verify 4)
+
+AC10(Windows 설치본 S-E1~S-E5)만 사람 몫이다(0330). G4는 오류 분류를 바꿀지에 대한 제품 판단이 섞이면 사용자 확인이 필요하다(§11).
+
+## 6. V-pair closeout (verify 4)
+
+이번 변경이 닿은 pair와 ΔV6가 다시 연 pair만 판정한다. 나머지는 verify 3 §6의 좌표 그대로다(코드 변경 0 · ④ 재실행 red → green 0).
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-05 SD-02↔ST-02 | PASS | EP7 ⑥″ 6자리 — 자동 변이 9(잡음 8 · 동치 1 `:14`) · R1 · W2 · X2 red. Q7″가 화면 항목을 본다. D19 닫힘 |
+| VP-13 SD-04↔ST-04 | **PAIR_FAIL** (root D20) | ①~⑥과 ⑦ (i)은 닫혔다(자동 변이 15 중 잡음 14 · 동치 1 · R2~R4 · W3·W4 · B1~B3). ⑦의 세 분기 입력 없음(B5·B6·B7) |
+| VP-18 AR-05↔IT-05 | **PAIR_FAIL** (G4 — PLAN_GAP) | EP10′ 9자리+형제 — 자동 변이 35 전부 잡음 · R5·R6·W1·N6·RS6a~c red. Q15′ (i)의 기대 분류가 규칙 칸과 모순이라 좌표를 정할 수 없다 |
+| VP-19 SD-06↔ST-06 | PASS | EP10′ ①②③⑦⑧ 자동 변이 잡음 — `native-session.restored-history.db.test.ts` 등 |
+| VP-16 MD-04↔UT-04 | PASS | EP3 자동 변이 2 잡음 · 목록 불변 |
+| VP-03 R-03↔AT-03 REGRESSION | BLOCKED_BY:VP-13 | ΔV5 경로의 ‘최신 대화로’ 입력 중 출발 방문 복원이 VP-13에 걸린다. 현재 TODO는 VP-05로 닫혔다 |
+
+## 7. 숫자 재측정 (verify 4)
+
+- Vitest 전체: 파일 9 failed / 1,139 passed / 4 skipped(1,152), 케이스 22 failed / 10,897 passed / 1 expected fail / 11 skipped(10,931), 처리되지 않은 오류 1. 구현 보고(1,152파일·10,931건·기존 실패 9파일 22건)와 같다. 실패 9파일은 verify 3 기준선과 같은 목록이고 이번 diff와 교집합 0.
+- Node 스크립트 테스트: 1,104/1,104(`# fail 0`).
+- Q4b″(`check-transcript-history.mjs`): exit 0.
+- 구현 보고 자동 변이 “61개 중 59개 검출, 동치 2개” — 이번 재실행과 같다. 구현 보고의 “선택 증거 5 · 인용 변이 1 · 새 관측 좌표 3 · 자동 변이 61/61 = 70항목”은 합계가 맞다.
+
+## 8. gate (verify 4)
+
+| 단계 | 결과 |
+|---|---|
+| `check-migrations-appendonly` · `check-doc-inventory --check` · `check-product-naming` · `check-test-budgets` · `check-ui-thread` | 5/5 exit 0 (`append-only ok since v0.3.1` · `links ok` · `2748파일 · 허용 7항목` · `18 real-git suites ok` · `OK`) |
+| `npm run typecheck` | exit 0 · `error TS` 0 |
+| `npm run lint` | exit 0 · 오류 0 · 경고 12. 별도 worktree에서 실행, 전후 `git status --short` 빈 출력 |
+| `./node_modules/.bin/vitest run`(필터 없음) | 22 failed — 9파일이 verify 3 기준선과 같고 이번 diff와 교집합 0. 비귀속 N1 |
+| `node --test scripts/*.test.mjs` | 1,104/1,104 |
+| `npx electron-vite build` · `smoke-hosts` · `smoke-preload out/preload` | exit 0 (`[smoke-hosts] OK` · `smoke-preload: OK`) |
+| `xvfb-run -a node scripts/check-transcript-history.mjs` | exit 0 |
+
+환경: Node ABI `better-sqlite3`를 그대로 썼다(`require('better-sqlite3')(':memory:')` 성공). gate 뒤 작업 트리 변경은 이 검증 문서들뿐이다.
+
+## 9. Repository operation checks (verify 4)
+
+- trailer: `git log -1 --format='%(trailers:only=true)' 9f8d9806`가 `Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met: 11/12`·`Criteria-Pending: AC10 …`·`Verified-By: pending`을 돌려준다. 본문 ✅ 11 · ⚠️ 1 = 12와 같다.
+- `[구현자 기입] r4` 일곱 필드: 7/7. 강제 지점 표는 다시 연 pair 5개와 census 4개를 담았고 `남긴 곳`은 0으로 보고했다 — 실제로는 EP6 ⑦″ ⑦ 세 분기가 남았다(D20).
+- 대상 커밋 좌표: `9f8d9806`·`9cde0d6c`·`4f5c1620`은 `git cat-file -t` = commit, `origin/main` 조상 아님(브랜치 미병합). INDEX에 브랜치 해시로 적는다.
+- 테스트 소스 규칙: 수정한 테스트 4파일에 대해 `check-test-budgets`·`[test-pools]` 가드(전체 Vitest 실행 중) 위반 0.
+- INDEX 행: 구현자가 `impl/IMPL_DONE`·다음 Claude로 바꿨다. 이 커밋에서 `verify/RETURN_TO_PLAN`·라운드 5·다음 Claude(설계 ΔV7)로 고친다.
+
+## 10. 사람 vs 에이전트 (verify 4)
+
+AC10 Windows 실기만 사람에게 넘긴다. G4는 설계자가 정정한다 — 기존 분류(`schema_validation_error`)를 유지하면 사용자 결정이 필요 없고, 분류를 바꾸려면 화면 문구·재시도 표시가 달라지므로 사용자에게 묻는다.
+
+## 11. 발견과 disposition (verify 4)
+
+| # | 발견 | 출처 원문 | 분류 | disposition |
+|---|---|---|---|---|
+| G4 | Q15′ (i)이 하네스 불일치 분기 거절에 `provider_connection_error`를 요구한다. 규칙 칸·기존 분류와 다르고, r4는 이 기대에 맞춰 `send.ts:99`를 바꿨다 — 결정적 거절이 “백엔드 연결 오류 · 재시도 가능”으로 보인다. 분류를 바꾸지 않고 문구 단언으로 R5를 잡을 수 있다(§2) | §25-E 형제 행 “§22-E 형제 그대로 — Orca 세션 ID 계보” · §25-D “변경 없음” ↔ Q15′ (i) “`provider_connection_error` 1” | 이행(plan 내부 불일치 — 규칙 칸↔입력 칸 기대 모순) | PLAN_GAP |
+| D20 | EP6 ⑦″ ⑦ 출발 방문 복원의 세 분기 입력 없음 — B5·B6·B7 못 잡음, 셋 다 비동치(§4 표) | §25-E EP6 ⑦″ ⑦ 규칙 “하단 고정(또는 앵커 없는) … 그 세션이 활성이고 검색 보기가 있으면 … 아니면 출발 세션을 연다” | 이행(규칙 칸 분기) | BLOCKING |
+| NX2 | 새 대화로 나가도(`newChat`, `chatStore.ts:1690-1697`) 떠난 세션의 검색 보기가 남고, 그 세션의 하단 고정 출발 방문으로 돌아오면 검색 보기가 그대로 열린다(임시 테스트 `{"active":"b","bSearch":true}`) | EP6 ⑦″ ⑥은 `loadSession` 전환만 적는다 — `newChat`이 “다른 세션을 열면”인지는 해석이 필요 | 확장(창 밖) | NEXT_HANDOFF(확장) |
+| NX3 | `send.ts:122`의 인계 항(`|| payload.handoffFrom`) 제거가 main 1,352건 green(X1) | Q15′는 분기 항만 요구한다 | 확장(창 밖) | NEXT_HANDOFF(확장) |
+| NX1 | ‘최신 대화로’ `aria-busy` — verify 3 그대로 | — | 확장(창 밖) | INDEX 후보 표(기존) |
+| N1 | Vitest 22건 red(diff 밖 9파일) — verify 3과 같다 | — | 비귀속 | NON_BLOCKING |
+
+**다음 설계 턴(ΔV7)의 의무.** plan 동결 뒤라 새 항목의 출처는 “plan 내부 정합(G4)”이다.
+- Q15′ (i)의 기대를 규칙 칸에 맞춘다 — 권장: `schema_validation_error` 유지 + 문구 “하네스 또는 작업 종류를 변경할 수 없습니다” 단언(뒤 검사 `send.ts:192`의 문구와 구별된다). 분류를 바꾸려면 사용자 결정으로 올린다.
+- 구현 r5는 `send.ts:99` 분류 변경을 되돌리고(B8·B9 표면이 함께 사라진다), D20 입력 셋을 Q6e″ ⑦에 더한다 — (iii) 출발 세션 비활성 + 검색 보기 남음 → 출발 세션 열기 1·latest 0 (iv) 출발 세션 활성 + 검색 보기 없음 + 검색 결과 해석 중 → 해석 취소 1·검색 보기 없음 (v) `pinned` + 앵커·세대 있음 → latest 경로.
+
+### 발견 원장 — verify 4
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| D19 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| G2 | PLAN_GAP | 열림 | 닫힘 | — | 새 실행 |
+| G3 | PLAN_GAP | 열림 | 닫힘 | — | 새 실행 |
+| N1 | NON_BLOCKING | 열림 | 열림 | — | 새 실행 |
+| NX1 | NEXT_HANDOFF | 열림 | 열림 | — | 기존 증거 재분류 |
+| G4 | PLAN_GAP | — | 열림 | — | 새 실행 |
+| D20 | BLOCKING | — | 열림 | — | 새 실행 |
+| NX2 | NEXT_HANDOFF | — | 열림 | — | 새 실행 |
+| NX3 | NEXT_HANDOFF | — | 열림 | — | 새 실행 |
+
+F(4) = 2(G4 · D20). G4·D20은 ΔV6가 새로 넣은 항목(Q15′ · EP6 ⑦″ ⑦)이라 직전 기록이 없다.
+
+## Review Signals — 사실만 (verify 4)
+
+- 이전 실패 D19·G2·G3은 모두 닫혔다. 같은 증상 재발 0.
+- G4: 설계(ΔV6)가 oracle 입력 칸에 기존 코드와 다른 기대값을 적었고, 구현(r4)은 PLAN_GAP으로 돌리지 않고 production 동작을 그 기대에 맞췄다. plan §25-D는 “계약 행 변경 없음”이라 적었다.
+- D20: ΔV6 READY self-review가 EP6 ⑦″ ⑦ 분기 입력을 “2”로 적었고, 규칙 칸의 세 분기(활성 여부 · 검색 보기 여부 · 하단 고정)는 그보다 많다.
+- 독립 축 5개에서 발견 4건(G4 · D20의 B5·B6 비동치 확인 · NX2 · NX3).
+- 사용자 지적(2026-11-25): 이전 실패 항목을 먼저 점검하고 다 통과했을 때 전체 점검으로 넘어가는 순서가 맞다. 이번 회차는 그 순서로 기록했고, SKILL §검증 순서에는 그 단계가 명시돼 있지 않다.
+
+| 리뷰 필요 여부 | 근거 | 검토할 질문 |
+|---|---|---|
+| 권고 | G4 — plan의 oracle 칸이 제품 동작(오류 분류·재시도 표시)을 바꾸는 기대를 담았는데 READY self-review·impl 모두 그것을 계약 변경으로 식별하지 못했다. 사용자 지적 — 검증 순서에 “이전 실패 우선 재확인 → 통과 시 전체 점검” 단계가 없다 | oracle 입력 칸의 기대값이 기존 동작과 다를 때 plan(§25-D “변경 없음” 대조)과 impl(PLAN_GAP 반환)이 그것을 잡게 하려면 어느 지침을 고쳐야 하는가 · verify 절차에 이전 실패 우선 점검과 조기 판정을 둘 것인가 |
+
+---
+
+# verify 3회째 기록
+
 ## 판정 — verify 3회째: **FAIL**
 
 막는 발견 1건(D19)이 남아 FAIL이다. verify 2의 D10~D18 인용 변이 87개와 X1(L3)은 모두 잡혔다. ΔV5 새 자리 24개와 ⑦ 잔여 7항목(변이 19개)도 모두 잡혔다. 남은 것은 VP-05 production path의 마지막 연결이다 — `AboveInput.tsx:13`이 TODO 경계를 `selectOpenCodeTodos`에 넘기는 항을 0으로 바꿔도 렌더러 3,485건이 green이다(E7i). verify 3회째가 PASS가 아니므로 다음 재구현 전에 `handoff-review`를 1회 한다(`docs/handoff/AGENTS.md §라운드`).
