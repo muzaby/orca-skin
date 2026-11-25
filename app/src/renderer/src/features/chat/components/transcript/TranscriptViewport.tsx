@@ -26,6 +26,8 @@ import {
   nestedScrollConsumes,
   canConsumeScroll
 } from '../../lib/transcript/viewport/scrollGeometry'
+import { revealSearchRow, type SearchReveal } from '../../lib/transcript/viewport/searchReveal'
+import { useI18n } from '../../../../shared/i18n'
 import { HistoryEdge } from './HistoryEdge'
 import { VirtualRowMountContext } from '../../../../shared/ui/virtual/rowMount'
 import {
@@ -142,6 +144,7 @@ export interface TranscriptViewportProps<Block extends ViewportBlockBase> {
   /** When true, computes Claude 0008 reserveGap from the last block with `reserveTarget: true`. */
   readonly enableReserveGap?: boolean
   /** Controls exist only for a view opened with partial history. */
+  readonly search?: SearchReveal
   readonly history?: TranscriptHistoryControls
   /** Optional header slot rendered above virtualized blocks (EP-12 ① · a9 · a10). */
   readonly header?: ReactNode
@@ -198,6 +201,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   enableReserveGap = false,
   header,
   history,
+  search,
   footer,
   isPinned,
   anchorKey,
@@ -343,6 +347,54 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     return Math.min(readingAnchor.blockIndex, snapshot.count - 1)
   }, [snapshot, readingAnchor])
 
+  const target = search?.target
+  const targetBlock = useMemo(() => {
+    if (!target) return undefined
+    for (let i = 0; i < snapshot.count; i++) {
+      const b = snapshot.blockAt(i)
+      if (
+        b.messageId === target ||
+        b.partKeys?.some((part) => part.startsWith(target + ':')) ||
+        ('items' in b &&
+          Array.isArray(b.items) &&
+          b.items.some((item) => item.messageId === target)) ||
+        ('turn' in b &&
+          (b.turn as { messages?: { id: string }[] }).messages?.some((m) => m.id === target))
+      )
+        return { index: i, key: b.key }
+    }
+    return undefined
+  }, [snapshot, target])
+  const [announced, setAnnounced] = useState(0)
+  const [releasedSequence, setReleasedSequence] = useState(0)
+  const revealKey = targetBlock?.key
+  const selectionSequence = search?.seq
+  const keyboard = search?.keyboard ?? false
+  const restoring = search?.restore ?? false
+  useLayoutEffect(() => {
+    const root = scrollRef.current
+    if (!root || !target || selectionSequence === undefined || !revealKey) return
+    cancelCorrection(root)
+    return revealSearchRow(
+      root,
+      { seq: selectionSequence, target, keyboard, restore: restoring },
+      () => {
+        const block = root.querySelector<HTMLElement>(
+          '[data-block-key="' + CSS.escape(revealKey) + '"]'
+        )
+        return (
+          block?.querySelector<HTMLElement>(
+            '[data-part-key="' + CSS.escape(target + ':user') + '"]'
+          ) ??
+          block ??
+          undefined
+        )
+      },
+      (top) => writeScrollTop(root, top),
+      () => setAnnounced(selectionSequence),
+      () => setReleasedSequence(selectionSequence)
+    )
+  }, [scrollRef, target, selectionSequence, revealKey, keyboard, restoring])
   const rangeExtractor = useCallback(
     (range: {
       startIndex: number
@@ -359,10 +411,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
             : -1
       return viewportMountSet(
         range,
-        anchorKey == null && displacedAnchorIndex >= 0 ? displacedAnchorIndex : anchorIdx
+        (selectionSequence !== releasedSequence ? targetBlock?.index : undefined) ??
+          (anchorKey == null && displacedAnchorIndex >= 0 ? displacedAnchorIndex : anchorIdx)
       )
     },
-    [anchorKey, displacedAnchorIndex]
+    [anchorKey, displacedAnchorIndex, targetBlock, selectionSequence, releasedSequence]
   )
 
   const flushAnchorRestore = useCallback((): void => {
@@ -679,8 +732,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     }
     const onScroll = (): void => {
       if (selfWritingScrollRef.current) return
+      // Chromium can deliver multiple scroll notifications for the same rounded position.
+      // A changed position or an explicit input clears the correction in cancel().
       const adjustedTop = adjustedScrollTopRef.current
-      adjustedScrollTopRef.current = null
       if (adjustedTop !== null && Math.abs(el.scrollTop - adjustedTop) <= 0.5) return
       gesture.userScroll()
       cancel()
@@ -853,6 +907,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
           onPointerDown={(event) => dispatchGesture({ type: 'pointerdown', button: event.button })}
           className={suppressed ? 'w-full select-none' : 'w-full'}
         >
+          {search && <SearchAnnouncement key={search.seq} found={announced === search.seq} />}
           <div ref={headerRef} data-transcript-header="">
             {header}
             {history && (
@@ -921,5 +976,14 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         </div>
       </TranscriptRevealContext.Provider>
     </VirtualRowMountContext.Provider>
+  )
+}
+
+function SearchAnnouncement({ found }: { found: boolean }): React.JSX.Element {
+  const { tr } = useI18n()
+  return (
+    <span role="status" className="sr-only">
+      {found ? tr('search.locationFound') : ''}
+    </span>
   )
 }

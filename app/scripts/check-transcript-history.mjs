@@ -1,7 +1,7 @@
 import { SCREENS, resolveElectron, runElectron, serveProbe } from './check-transcript-selection.mjs'
 
 import { scenarios } from './transcript-history/scenarios.mjs'
-const repetitions = 5
+const repetitions = process.argv.includes('--search') ? 0 : 5
 // Q4b″. Raw line coordinates are CSS pixels in the renderer's clock domain.
 function passes(record) {
   if (record.error || !record.after) return false
@@ -107,6 +107,21 @@ try {
     repetitions
   )
   const failures = []
+  for (const screen of SCREENS) {
+    for (const keyboard of [false, true]) {
+      const resultForHit = result.searches?.find(
+        (sample) => sample.screen === screen && sample.keyboard === keyboard
+      )
+      if (
+        !resultForHit?.visible ||
+        resultForHit.selected !== 'u:63' ||
+        resultForHit.owner !== 'u:63:user' ||
+        resultForHit.focused !== keyboard ||
+        resultForHit.requests?.join(',') !== 'target'
+      )
+        failures.push({ screen, keyboard, scenario: 'search' })
+    }
+  }
   const maximumShift = {}
   for (const screen of SCREENS) {
     maximumShift[screen] = {}

@@ -99,7 +99,7 @@ export function mergeHeldParts(
   const notices = new Set<string>()
   for (let index = 0; index < count; index++) {
     const message = messages[index]
-    if (message.role !== 'assistant') continue
+    if (message.role !== 'assistant' || message.deferredBody) continue
     const pending: HeldPart[] = []
     if (message.id !== undefined) {
       for (const patch of heldPatches.get(message.id) ?? []) pending.push(patch)

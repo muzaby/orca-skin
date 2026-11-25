@@ -33,6 +33,13 @@ export interface AgentPresentation {
 }
 
 export interface TranscriptViewProps {
+  search?: {
+    seq: number
+    target: string
+    keyboard: boolean
+    restore: boolean
+    view?: { changes: import('../lib/transcript/changeLog').TranscriptChanges }
+  }
   history?: TranscriptHistoryControls
   backend?: Backend | null
   agentKind: AgentKind

@@ -17,7 +17,7 @@ describe('turn pages from the published SQLite generation', () => {
   const sessionId = 'session',
     openGeneration = 57
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'orca-turn-index-'))
+    root = mkdtempSync(join(tmpdir(), 'turn-history-index-'))
     sqlite = new Database(join(root, 'history.db'))
     sqlite.pragma('foreign_keys = ON')
     applyMigrations(sqlite)
@@ -65,6 +65,58 @@ describe('turn pages from the published SQLite generation', () => {
         ? { sessionId, openGeneration, kind: edge.kind, cursor: edge.cursor, direction }
         : { sessionId, openGeneration, kind: edge.kind, cursor: edge.cursor }
     )
+
+  it.each(['spread', 'clustered'] as const)(
+    'restores a 600-message turn with 900 small parts (%s) under all three page limits',
+    async (distribution) => {
+      sqlite.transaction(() => {
+        for (let i = 0; i < 600; i++) {
+          const messageId = local(i === 0 ? 'user' : 'assistant', String(i))
+          if (distribution === 'spread' ? i % 4 === 0 : i >= 450)
+            for (const text of ['one', 'two'])
+              db.appendPart({
+                messageId,
+                type: 'text',
+                toolRunId: null,
+                payloadJson: JSON.stringify({ text })
+              })
+        }
+      })()
+      const pages: { headers: number; parts: number; bytes: number }[] = []
+      let reply = await latest()
+      let collected: string[] = []
+      for (;;) {
+        if (reply.status !== 'ok') throw Error(reply.status)
+        const { messages, history } = reply.session
+        const counts = {
+          headers: messages.length,
+          parts: messages.reduce((n, m) => n + m.parts.length, 0),
+          bytes: Buffer.byteLength(JSON.stringify(reply))
+        }
+        expect(counts.headers).toBeLessThanOrEqual(128)
+        expect(counts.parts).toBeLessThanOrEqual(256)
+        expect(counts.bytes).toBeLessThanOrEqual(HISTORY_PAGE_BYTES)
+        expect(messages.every((m) => !m.deferredBody)).toBe(true)
+        pages.push(counts)
+        collected = [...messages.map((m) => m.id), ...collected]
+        if (!history.before) break
+        expect(history.before.kind).toBe('withinTurn')
+        reply = await readEdge(history.before, 'before')
+      }
+      expect(collected).toEqual(Array.from({ length: 600 }, (_, i) => 'm:' + (i + 1)))
+      expect(pages.reduce((n, p) => n + p.parts, 0)).toBe(900)
+      if (distribution === 'spread') expect(pages).toHaveLength(5)
+      else
+        expect(pages.map((p) => [p.headers, p.parts])).toEqual([
+          [85, 255],
+          [126, 256],
+          [128, 128],
+          [128, 128],
+          [128, 128],
+          [5, 5]
+        ])
+    }
+  )
 
   it('keeps partless messages and same-time turns, preserves earlier cursors across local tail append', async () => {
     local('assistant', 'leading')

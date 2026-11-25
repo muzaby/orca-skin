@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { HistoryLocatorSchema } from '../../../../shared/history-page'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { chatActions, getActiveChatSession, useChatSession } from '../../features/chat'
 import { useSessionsState } from '../../features/sessions'
@@ -24,7 +25,7 @@ import { useProjectsState } from '../../features/projects'
 // AppLayout 은 Routes 위에 있으므로 `useParams` 가 비어 있다 — `matchPath` 로 직접
 // 추출. cross-feature wiring(chat + sessions) 이라 셸이 호스트.
 export function useChatRouteSync(): void {
-  const { pathname } = useLocation()
+  const { pathname, key: visitKey, state: visitState } = useLocation()
   const navigate = useNavigate()
 
   const onNew = pathname === '/new'
@@ -46,10 +47,13 @@ export function useChatRouteSync(): void {
   // 랜딩 리셋은 실제 경로 진입일 때만 수행한다. 확정 직후의 카탈로그 재조회도 이 effect를
   // 깨우므로 같은 경로에서 sessionId가 생겼다는 이유로 reset하면 방금 보낸 본문이 사라진다.
   const prevPathnameRef = useRef<string | null>(null)
+  const previousVisit = useRef<string | undefined>(undefined)
   const armedRef = useRef<string | null>(null)
   useEffect(() => {
     const entered = prevPathnameRef.current !== pathname
     prevPathnameRef.current = pathname
+    const newVisit = previousVisit.current !== visitKey
+    previousVisit.current = visitKey
     const cur = getActiveChatSession()
     if (onNew) {
       // `/new` 는 깨끗한 새 대화. 직전에 프로젝트 랜딩에서 `pendingProjectId` 가
@@ -60,7 +64,19 @@ export function useChatRouteSync(): void {
       return
     }
     if (urlSessionId != null) {
-      if (cur.sessionId === urlSessionId && !cur.loadingSession) return
+      if (visitState?.historyLocator) {
+        if (newVisit) {
+          const parsed = HistoryLocatorSchema.safeParse(visitState.historyLocator)
+          if (parsed.success && parsed.data.session === urlSessionId)
+            chatActions.restoreSearchVisit(parsed.data, visitState.historyVisit)
+        }
+        return
+      }
+      if (cur.sessionId === urlSessionId && !cur.loadingSession) {
+        if (newVisit && chatActions.currentSearchSequence() !== undefined)
+          chatActions.leaveSearch(urlSessionId, true)
+        return
+      }
       // 0064 continuity — /chat/<원본> URL 에 머문 채 fork/handoff draft 가 활성인 상태.
       // **URL 이 draft 의 소스 세션을 가리킬 때만** 재로드를 막는다(승격 시 방향 2 가
       // /chat/<새 id> 로 이동). 다른 세션으로의 이동(urlSessionId ≠ 소스)은 정상 로드 —
@@ -83,7 +99,16 @@ export function useChatRouteSync(): void {
       return
     }
     // chat 라우트(비채팅, 예: /projects, /agent 등) → no-op.
-  }, [onNew, urlSessionId, urlProjectId, urlSessionMeta, urlProject, pathname])
+  }, [
+    onNew,
+    urlSessionId,
+    urlProjectId,
+    urlSessionMeta,
+    urlProject,
+    pathname,
+    visitKey,
+    visitState
+  ])
 
   // 방향 2 — State → URL (armed-ref)
   const sessionId = useChatSession((s) => s.sessionId)

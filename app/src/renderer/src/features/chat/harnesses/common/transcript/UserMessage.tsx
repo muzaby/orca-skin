@@ -1,3 +1,4 @@
+import { DeferredBody } from './DeferredBody'
 import { userBlockKey } from '../../../lib/transcript/blockKeys'
 import { partsAttachments, partsDiffRequirements, partsText } from '../../../lib/parts'
 import { AttachmentThumb } from '../composer/AttachmentThumb'
@@ -24,6 +25,7 @@ export function UserMessage({ message }: UserMessageProps): React.JSX.Element {
   const origin = originPart?.type === 'text' ? originPart.origin : undefined
   return (
     <div className="flex flex-col items-end gap-1.5" data-part-key={userBlockKey(message.id)}>
+      {message.deferredBody && <DeferredBody body={message.deferredBody} />}
       {origin && (
         <div
           data-message-origin={origin.kind}

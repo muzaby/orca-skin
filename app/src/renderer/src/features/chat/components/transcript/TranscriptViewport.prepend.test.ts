@@ -734,6 +734,7 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
       // A delayed DOM scroll can acknowledge our own write or report a newer reader position.
       if (cause === 'async-user-scroll') scrollTop += 11
       scroller.dispatchEvent(new Event('scroll'))
+      if (cause === 'async-own-scroll') scroller.dispatchEvent(new Event('scroll'))
       resize(48)
       vi.runOnlyPendingTimers()
       expect(writes).toEqual(cause === 'async-own-scroll' ? [285, 298] : [285])

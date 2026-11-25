@@ -7,7 +7,9 @@ import {
 
 export function useHistoryControls(key: string): TranscriptHistoryControls | undefined {
   const page = useChatStore((s) => s.sessions?.[key]?.history)
-  const active = page !== undefined
+  const search = useChatStore((s) => s.sessions?.[key]?.search)
+  const view = search?.view
+  const active = page !== undefined || search !== undefined
   const input = useRef({ until: 0, dragging: false })
   useEffect(() => {
     if (!active) return
@@ -38,14 +40,21 @@ export function useHistoryControls(key: string): TranscriptHistoryControls | und
     }
   }, [key, active])
   useEffect(() => {
-    if (!page || page.before?.kind !== 'withinTurn' || page.beforeState) return
+    const dir =
+      view?.before?.kind === 'withinTurn' && !view.beforeState
+        ? 'before'
+        : view?.after?.kind === 'withinTurn' && !view.afterState
+          ? 'after'
+          : undefined
+    if (view ? !dir : !page || page.before?.kind !== 'withinTurn' || page.beforeState) return
     let idle = 0,
       timer = 0
     function schedule(): void {
       idle = window.requestIdleCallback(() => {
         if (input.current.dragging || performance.now() < input.current.until) {
           timer = window.setTimeout(schedule, HISTORY_GESTURE_GAP_MS)
-        } else chatActions.readPrevious(key, true)
+        } else if (dir) chatActions.readSearchEdge(key, dir, true)
+        else chatActions.readPrevious(key, true)
       })
     }
     schedule()
@@ -53,15 +62,23 @@ export function useHistoryControls(key: string): TranscriptHistoryControls | und
       window.cancelIdleCallback(idle)
       window.clearTimeout(timer)
     }
-  }, [key, page])
+  }, [key, page, view])
   return useMemo(
     () =>
-      page
+      view
         ? {
-            before: page.beforeState ?? (page.before ? 'ready' : 'end'),
-            request: (direction) => direction === 'before' && chatActions.readPrevious(key)
+            before: view.beforeState ?? (view.before ? 'ready' : 'end'),
+            after: view.afterState ?? (view.after ? 'ready' : 'end'),
+            request: (direction) => chatActions.readSearchEdge(key, direction),
+            latestState: search?.returning ? 'loading' : search?.returnFailed ? 'error' : undefined,
+            returnToLatest: () => chatActions.leaveSearch(key, true)
           }
-        : undefined,
-    [key, page]
+        : page
+          ? {
+              before: page.beforeState ?? (page.before ? 'ready' : 'end'),
+              request: (direction) => direction === 'before' && chatActions.readPrevious(key)
+            }
+          : undefined,
+    [key, page, view, search?.returning, search?.returnFailed]
   )
 }

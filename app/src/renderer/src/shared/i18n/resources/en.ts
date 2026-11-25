@@ -136,6 +136,8 @@ export const en: typeof ko = {
     capturesBreadcrumb: 'Capture History'
   },
   search: {
+    locationMissing: 'The message could not be located. Select a search result to try again.',
+    locationFound: 'Moved to the selected message.',
     placeholder: 'Search conversations…',
     inputAria: 'Search conversations',
     typeToSearch: 'Type to search',
@@ -894,9 +896,12 @@ export const en: typeof ko = {
       historyEnd: 'End of conversation',
       historyStart: 'Start of conversation',
       historyPull: 'Loading previous messages',
+      historyBody: 'Load message',
+      historyBodyLoading: 'Loading message…',
       historyRetry: 'Retry',
       historyBefore: 'Show previous messages',
       historyAfter: 'Show next messages',
+      historyRetryLatest: 'Retry opening latest',
       historyLatest: 'Back to latest',
       reasoning: 'Reasoning',
       incompleteResponse: 'The response was not completed',

@@ -4,7 +4,7 @@ import { OverlayLayer } from './OverlayLayer'
 import { SearchModal } from '../features/sessions/components/SearchModal'
 import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
 
-const h = vi.hoisted(() => ({ navigate: vi.fn() }))
+const h = vi.hoisted(() => ({ navigate: vi.fn(), open: vi.fn(async () => true), cancel: vi.fn() }))
 vi.mock('react-router-dom', () => ({ useNavigate: () => h.navigate }))
 vi.mock('../features/backend', () => ({
   backendActions: {},
@@ -13,7 +13,11 @@ vi.mock('../features/backend', () => ({
   AuthExpiredModal: () => null
 }))
 vi.mock('../features/chat', () => ({
-  chatActions: {},
+  chatActions: {
+    openSearchHit: h.open,
+    cancelSearchRequest: h.cancel,
+    currentSearchSequence: () => 7
+  },
   useChatSession: () => false,
   AutomaticFeedDebugSection: () => null
 }))
@@ -25,14 +29,25 @@ vi.mock('../features/update', () => ({
 vi.mock('../features/debug', () => ({ DebugPanel: () => null }))
 vi.mock('../features/providers', () => ({ ProviderDebugSection: () => null }))
 
-function findSearch(
-  node: ReactNode
-): { onChoose: (id: string) => void; onClose: () => void } | undefined {
+function findSearch(node: ReactNode):
+  | {
+      onChoose: (
+        hit: import('../../../shared/ipc').SearchHit,
+        keyboard: boolean
+      ) => Promise<boolean>
+      onClose: () => void
+    }
+  | undefined {
   if (Array.isArray(node)) return node.map(findSearch).find(Boolean)
   if (
-    !isValidElement<{ children?: ReactNode; onChoose: (id: string) => void; onClose: () => void }>(
-      node
-    )
+    !isValidElement<{
+      children?: ReactNode
+      onChoose: (
+        hit: import('../../../shared/ipc').SearchHit,
+        keyboard: boolean
+      ) => Promise<boolean>
+      onClose: () => void
+    }>(node)
   )
     return
   return node.type === SearchModal ? node.props : findSearch(node.props.children)
@@ -52,14 +67,34 @@ describe('shell wiring to the sessions search feature', () => {
     }
   })
 
-  it('passes the session selection into navigation and retains the close callback', () => {
+  it('passes the session selection into navigation after data confirms the target', async () => {
     const close = vi.fn()
     const search = findSearch(OverlayLayer({ searchOpen: true, onCloseSearch: close }))
     expect(search).toBeDefined()
-    search!.onChoose('selected-session')
-    expect(h.navigate).toHaveBeenCalledExactlyOnceWith('/chat/selected-session')
-    expect(search!.onClose).toBe(close)
+    const locator = {
+      v: 1 as const,
+      session: 'selected-session',
+      source: 'local' as const,
+      epoch: '1',
+      identity: '42'
+    }
+    const hit = {
+      sessionId: locator.session,
+      messageId: 42,
+      role: 'user' as const,
+      createdAt: 1,
+      sessionTitle: null,
+      snippet: 'result',
+      locator
+    }
+    expect(await search!.onChoose(hit, true)).toBe(true)
+    expect(h.open).toHaveBeenCalledExactlyOnceWith(locator, true)
+    expect(h.navigate).toHaveBeenCalledExactlyOnceWith('/chat/selected-session', {
+      state: { historyLocator: locator, historyVisit: 7 }
+    })
     expect(close).not.toHaveBeenCalled()
+    search!.onClose()
+    expect(close).toHaveBeenCalledOnce()
     expect(findSearch(OverlayLayer({ searchOpen: false, onCloseSearch: close }))).toBeUndefined()
   })
 })

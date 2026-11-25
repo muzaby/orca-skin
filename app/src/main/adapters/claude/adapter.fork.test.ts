@@ -1,3 +1,4 @@
+import type { Options } from '@anthropic-ai/claude-agent-sdk'
 import { loadClaudeSdk } from './sdk'
 // 0064 continuity — TurnRequest.forkFrom 이 SDK query 옵션(resume+forkSession)으로
 // 어댑트되는지 배선 단위 검증(claude.effort.test.ts 패턴).
@@ -41,7 +42,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
-import type { LiveTurn } from '../common/types'
+import type { LiveTurn, ProviderMessageBatch } from '../common/types'
 import type { NormalizedEvent, ProviderReportedTelemetry } from '../../../shared/ipc'
 import { sendPrepared } from './prepared.testfixture'
 
@@ -55,23 +56,26 @@ const baseReq = (): TurnRequest => ({
   }
 })
 
-type QueryOptions = { resume?: string; forkSession?: boolean; sessionId?: string }
+type QueryOptions = Pick<Options, 'resume' | 'forkSession' | 'sessionId' | 'hooks'>
 const lastOptions = (): QueryOptions =>
   (queryMock.mock.calls.at(-1)?.[0] as { options: QueryOptions }).options
 
 describe('ClaudeAdapter — forkFrom (0064)', () => {
-  it('recreates an expired conversation with the original UUID and hides archived context in its receipt', async () => {
+  it('recreates an expired conversation with a new native UUID and hides archived context in its receipt', async () => {
     const adapter = new ClaudeAdapter()
-    const sessionId = '821292dc-0963-4a57-9b77-f0d678cf3121'
-    expect(await adapter.recoverSession({ sessionId, cwd: '/tmp' })).toEqual({
+    const sessionId = 'display-session'
+    const { sessionId: nativeId, freshStart } = await adapter.recoverSession({
       sessionId,
-      freshStart: true
+      cwd: '/tmp'
     })
+    expect(nativeId).toMatch(/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/)
+    expect(nativeId).not.toBe(sessionId)
+    expect(freshStart).toBe(true)
     const onPrompt = vi.fn()
     sdkMessages.queue = [
       {
         type: 'user',
-        session_id: sessionId,
+        session_id: nativeId,
         uuid: 'recovery-prompt',
         message: { role: 'user', content: 'archived context + hello' }
       }
@@ -79,10 +83,11 @@ describe('ClaudeAdapter — forkFrom (0064)', () => {
     const live = await sendPrepared(adapter, {
       ...baseReq(),
       sessionId,
+      nativeSessionId: nativeId,
       promptUuid: 'recovery-prompt',
       recovery: { history: 'archived context', freshStart: true, onPrompt }
     })
-    expect(lastOptions()).toMatchObject({ sessionId })
+    expect(lastOptions()).toMatchObject({ sessionId: nativeId })
     expect(lastOptions().resume).toBeUndefined()
     expect(onPrompt).toHaveBeenCalledWith('recovery-prompt')
     const prompt = (
@@ -99,6 +104,68 @@ describe('ClaudeAdapter — forkFrom (0064)', () => {
     )
     live.close()
   })
+  it.each([false, true])(
+    'routes resumed events, permissions and hooks to the display session (recovered=%s)',
+    async (recovered) => {
+      const sessionId = 'display-session'
+      const nativeId = recovered ? '1858689d-6d68-4fc5-990c-54e81fe5e73d' : sessionId
+      const permission = vi.fn()
+      const hook = vi.fn(async () => ({}))
+      sdkMessages.queue = [
+        { type: 'system', subtype: 'init', session_id: nativeId, permissionMode: 'acceptEdits' },
+        {
+          type: 'system',
+          subtype: 'task_started',
+          session_id: nativeId,
+          task_id: 'task',
+          description: 'work'
+        }
+      ]
+      const live = await sendPrepared(new ClaudeAdapter(), {
+        ...baseReq(),
+        sessionId,
+        ...(recovered ? { nativeSessionId: nativeId } : {}),
+        onPermissionModeChanged: permission,
+        extensions: { skills: [], hooks: { normalized: { 'on-prompt': [hook] } } }
+      })
+      const options = lastOptions()
+      expect(options.resume).toBe(nativeId)
+      expect(options.sessionId).toBeUndefined()
+      const callback = options.hooks!.UserPromptSubmit![0].hooks[0]
+      for (const rawId of [nativeId, 'unrelated']) {
+        await callback(
+          { session_id: rawId, hook_event_name: 'UserPromptSubmit', prompt: 'test' } as Parameters<
+            typeof callback
+          >[0],
+          undefined,
+          { signal: new AbortController().signal }
+        )
+        expect(hook).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            sessionId: rawId === nativeId ? sessionId : rawId,
+            raw: expect.objectContaining({ session_id: rawId })
+          })
+        )
+      }
+      const batches: ProviderMessageBatch[] = []
+      for await (const batch of live.eventBatches) batches.push(batch)
+      expect(batches.flatMap((b) => b.events)).toContainEqual(
+        expect.objectContaining({ type: 'session.updated', sessionId })
+      )
+      const provider = batches.flatMap((b) => b.providerEvents ?? [])
+      expect(provider).toContainEqual(
+        expect.objectContaining({
+          type: 'provider.message',
+          sessionId,
+          raw: expect.objectContaining({ subtype: 'task_started', session_id: nativeId })
+        })
+      )
+      expect(provider.every((event) => event.sessionId === sessionId)).toBe(true)
+      expect(permission).toHaveBeenCalledWith(sessionId, 'accept_edits')
+      live.close()
+    }
+  )
+
   it('forkFrom 을 resume + forkSession:true 로 어댑트한다 (sessionId=null 새 세션 의미론)', async () => {
     const adapter = new ClaudeAdapter()
     await sendPrepared(adapter, { ...baseReq(), forkFrom: 'src-session' })

@@ -79,7 +79,10 @@ export function applyScrollWrite(
   write: () => void
 ): void {
   const correction = corrections.get(element)
-  if (correction && owner !== 'anchor') {
+  if (
+    (correction && owner !== 'anchor') ||
+    (element.dataset?.historyReading !== undefined && (owner === 'claude' || owner === 'opencode'))
+  ) {
     trace(element, 'blocked', owner)
     return
   }

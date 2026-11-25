@@ -290,6 +290,9 @@ export async function handleChatSend(
       effectiveText,
       native
     } = resolution.value
+    const forkNativeId = continuitySource
+      ? ((await ctx.data.query.nativeRecovery(continuitySource))?.native_id ?? continuitySource)
+      : undefined
     const modelRecord = sessionModelRecordFor({ sessionId: payload.sessionId, resolved })
     if (modelRecord) {
       await ctx.data.write.updateSessionProviderKey(
@@ -614,7 +617,7 @@ export async function handleChatSend(
         ...(payload.harnessAgent ? { harnessAgent: payload.harnessAgent } : {}),
         ...(payload.modelVariant ? { modelVariant: payload.modelVariant } : {}),
         // 0064 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.
-        ...(continuitySource ? { forkFrom: continuitySource } : {}),
+        ...(forkNativeId ? { forkFrom: forkNativeId } : {}),
         // 0127 — 핸드오프 도착 턴 표식: 매퍼가 압축 경계 전의 승계 컨텍스트 usage 를 무효화한다.
         ...(payload.handoffFrom ? { handoff: true } : {}),
         // 본 프롬프트 = 큐에서 방금 flush 한 아이템 배치(0067 AC5). promptUuid=item id 가 echo

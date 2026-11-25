@@ -52,6 +52,19 @@ export function TilePanel({
   const overlayOpen = !!viewer || !!detail
   const overviewViewportLeft = useRef(0)
   const [expansion, setExpansion] = useState<{ key: string; id: RightPanelTileId } | null>(null)
+  const searchSequence = useChatStore((s) => s.sessions?.[activeKey]?.search?.seq)
+  const [lastSearch, setLastSearch] = useState(searchSequence)
+  if (searchSequence !== undefined && lastSearch !== searchSequence) {
+    setLastSearch(searchSequence)
+    if (expansion?.key === activeKey) setExpansion(null)
+  }
+  const appliedSearch = useRef<number | undefined>(undefined)
+  useLayoutEffect(() => {
+    if (searchSequence === undefined || appliedSearch.current === searchSequence) return
+    appliedSearch.current = searchSequence
+    if (viewer?.expanded) closeArtifactViewer()
+    if (detail?.expanded) detail.onClose()
+  }, [searchSequence, viewer, detail])
   const widths = useChatSession((s) => s.rightPanelColWidths)
   const splits = useChatSession((s) => s.rightPanelRowSplits)
   const reveal = useChatStore((state) => state.sessions[state.activeKey]?.panelReveal)

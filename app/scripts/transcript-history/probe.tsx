@@ -3,6 +3,9 @@ import {
   observeScrollWrites,
   type ScrollTrace
 } from '@renderer/features/chat/lib/transcript/viewport/scrollCorrection'
+import { useState } from 'react'
+import type { HistoryQuery, HistoryLocator } from '../../src/shared/history-page'
+import { SearchModal } from '@renderer/features/sessions/components/SearchModal'
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import type { LoadedMessage } from '../../src/shared/ipc'
@@ -42,9 +45,56 @@ function turn(index: number, paragraphs: number): LoadedMessage[] {
     }
   ]
 }
+const searchCase = new URLSearchParams(location.search).get('scenario') === 'search'
+const target = 'u:63'
+const locator: HistoryLocator = {
+  v: 1,
+  session: id,
+  source: 'local',
+  identity: '63',
+  epoch: 'g',
+  projectedKey: target
+}
+const searchRequests: string[] = []
 Object.assign(window, {
   oo: {
+    search: {
+      messages: async () => [
+        {
+          messageId: 63,
+          sessionId: id,
+          locator,
+          role: 'user',
+          snippet: 'fixture',
+          sessionTitle: 'fixture',
+          createdAt: 1
+        }
+      ]
+    },
     session: {
+      page: async (query: HistoryQuery) => {
+        searchRequests.push(query.kind)
+        return {
+          status: 'ok',
+          sessionId: id,
+          requestId: 1,
+          openGeneration: query.openGeneration,
+          targetMessage: target,
+          session: {
+            id,
+            backend,
+            agentKind,
+            title: id,
+            complete: false,
+            messages: [...turn(62, 45), ...turn(63, 1), ...turn(64, 30)],
+            history: {
+              generation: 'g',
+              before: { kind: 'earlierTurn', cursor: 'before' },
+              after: { kind: 'laterTurn', cursor: 'after' }
+            }
+          }
+        }
+      },
       load: async () => ({
         id,
         backend,
@@ -79,29 +129,40 @@ function request(direction: string): boolean {
 }
 // eslint-disable-next-line react-refresh/only-export-components -- Standalone diagnostic entry point.
 function Screen(): React.JSX.Element {
+  const [searchOpen, setSearchOpen] = useState(searchCase)
   const state = useChatStore((store) => store.sessions[id].session)
   return (
-    <HarnessScrollController
-      backend={backend}
-      sessionKey={id}
-      sessionId={id}
-      messages={state.messages}
-      sendCount={0}
-      inflight={false}
-    >
-      {(scroll) => (
-        <TranscriptView
-          {...scroll}
-          backend={backend}
-          agentKind={agentKind}
-          messages={state.messages}
-          history={{ before: edge, request }}
-          pendingSteer={[]}
-          inflight={false}
-          loadingSession={false}
-        />
+    <>
+      {searchOpen && (
+        <div className="absolute z-50">
+          <SearchModal
+            onClose={() => setSearchOpen(false)}
+            onChoose={(hit, keyboard) => chatActions.openSearchHit(hit.locator!, keyboard)}
+          />
+        </div>
       )}
-    </HarnessScrollController>
+      <HarnessScrollController
+        backend={backend}
+        sessionKey={id}
+        sessionId={id}
+        messages={state.messages}
+        sendCount={0}
+        inflight={false}
+      >
+        {(scroll) => (
+          <TranscriptView
+            {...scroll}
+            backend={backend}
+            agentKind={agentKind}
+            messages={state.messages}
+            history={searchCase ? undefined : { before: edge, request }}
+            pendingSteer={[]}
+            inflight={false}
+            loadingSession={false}
+          />
+        )}
+      </HarnessScrollController>
+    </>
   )
 }
 function render(): void {
@@ -202,6 +263,61 @@ async function waitForRequest(): Promise<void> {
 }
 Object.assign(window, {
   historyProbe: {
+    async searchInput() {
+      await document.fonts.ready
+      for (let i = 0; i < 80; i++) {
+        if (document.querySelector('#search-modal-input') === document.activeElement) return true
+        await frame()
+      }
+      throw Error('Search input did not receive focus')
+    },
+    async searchOption() {
+      for (let i = 0; i < 100; i++) {
+        const item = document.querySelector('[role="option"]')
+        if (item) {
+          const box = item.getBoundingClientRect()
+          return {
+            x: Math.round(box.left + box.width / 2),
+            y: Math.round(box.top + box.height / 2)
+          }
+        }
+        await frame()
+      }
+      throw Error('No search hit')
+    },
+    async searchResult() {
+      for (let i = 0; i < 90; i++) {
+        const row = scroller().querySelector<HTMLElement>('[data-history-highlight]')
+        if (row) {
+          const box = row.getBoundingClientRect(),
+            area = scroller().getBoundingClientRect()
+          return {
+            requests: searchRequests,
+            focused: document.activeElement === row,
+            owner: row.dataset.partKey ?? row.dataset.blockKey,
+            visible: box.bottom > area.top && box.top < area.bottom,
+            selected: useChatStore.getState().sessions[id].search?.target
+          }
+        }
+        await frame()
+      }
+      const element = scroller()
+      const targetRow = element.querySelector<HTMLElement>('[data-part-key="u:63:user"]')
+      throw Error(
+        'Search target did not become visible ' +
+          JSON.stringify({
+            requests: searchRequests,
+            target: useChatStore.getState().sessions[id].search?.target,
+            focus: document.activeElement?.tagName,
+            top: element.scrollTop,
+            viewport: element.getBoundingClientRect().toJSON(),
+            row: targetRow?.getBoundingClientRect().toJSON(),
+            keys: [...element.querySelectorAll<HTMLElement>('[data-block-key]')].map(
+              (row) => row.dataset.blockKey
+            )
+          })
+      )
+    },
     async prepare() {
       await document.fonts.ready
       await settle()

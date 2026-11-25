@@ -364,7 +364,7 @@ export function createOo({ bridge, hosts, onHostLifecycle }: OoTransport) {
       refresh: (sessionId: string): Promise<RefreshSessionResult> =>
         sessionLoads.refresh(sessionId),
       load: (sessionId: string): Promise<LoadedSession | null> => sessionLoads.load(sessionId),
-      cancelLoad: (sessionId: string): void => sessionLoads.cancelLoad(sessionId),
+      cancelLoad: sessionLoads.cancelLoad,
       page: sessionLoads.page,
       delete: (sessionId: string): Promise<DeleteSessionResult> =>
         invoke(CHANNELS.sessionDelete, { sessionId }),

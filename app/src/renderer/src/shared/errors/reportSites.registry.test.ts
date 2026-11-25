@@ -21,8 +21,8 @@ interface Site {
 export const sites: Site[] = [
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 14,
-    line: 2560,
+    ordinal: 17,
+    line: 2930,
     disposition: 'TOAST',
     id: 'T-boot-cwd',
     event: 'chat.cwd.load-failed',
@@ -443,7 +443,11 @@ export const sites: Site[] = [
     line: 1652,
     disposition: 'CONSUMED'
   },
-  { file: 'features/chat/store/chatStore.ts', ordinal: 13, line: 2363, disposition: 'CONSUMED' },
+  // The modal, body button, return-to-latest button and before edge each own a retry or failure state.
+  { file: 'features/chat/store/chatStore.ts', ordinal: 13, line: 2464, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 14, line: 2579, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 15, line: 2614, disposition: 'CONSUMED' },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 16, line: 2726, disposition: 'CONSUMED' },
   { file: 'features/chat/store/chatStore.ts', ordinal: 11, line: 1767, disposition: 'CONSUMED' },
   {
     file: 'features/chat/store/chatStore.ts',
