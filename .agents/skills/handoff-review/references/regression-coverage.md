@@ -3761,3 +3761,74 @@ DELETE 0 · 설명 없이 사라진 gate·command·reference 0. reference·scrip
 - 도구는 검색이 돌려준 줄만 가른다. 검색 술어·범위가 틀리면 미분류 0도 틀린다(P41) — 그 확인은 사람 몫이다.
 - 구간 지표는 handoff 규모·종류를 통제하지 않는다. "효과 있음"을 말하려면 여러 라운드의 추세가 필요하다.
 - `--emit-mutants` oracle을 `… | tail`로 끝내면 종료 코드가 늘 0이라 모든 변이가 green으로 나온다 — 이 라운드의 첫 실행 9개가 그랬고 재실행으로 바로잡았다. 도구 머리 주석에 적었다.
+
+# review round 50 — 사용자 피드백(PR #654): verify가 리뷰 필요 여부를 보고 · 발견 원장 F(N) · site_census 실패 구별
+
+**발동/모드**: 사용자가 붙여 준 피드백 "PR #654의 최신 HEAD를 기준으로 `handoff-review`와 `handoff-verify`의 역할을 보완하라"(2026-11-25) → **APPLY**. 기준 `4f5c1620`(PR #654 head와 같음).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | review 발동이 의무 트리거(3·6·9회째)에만 묶여, verify가 본 지침 신호(앞 기록이 `검사 완료`였던 범위의 누락)가 review 질문으로 넘어가지 않았다 | 0329 verify 3 · 피드백 | **A** — verify §Review Signals에 `리뷰 필요 여부(필수·권고·불필요) · 근거 · 검토할 질문`, 종료 보고 한 줄. verify는 review를 호출하지 않고 A~F를 가르지 않는다. 권고는 사용자가 열지 정한다(AGENTS 트리거) |
+| 2 | "실패 건수"의 정의가 없어 증감을 원인으로 읽었다 — 대화에서 F를 R+G+L+P+E로 나누고 "구현 결함 0"을 도출했다 | round 49 뒤 대화 · 피드백 | **A** — F(N) = 판정 시점 열린 `BLOCKING`·`PLAN_GAP` 고유 ID 수(verify §11 발견 원장). 출처는 겹칠 수 있어 분해를 강제하지 않는다. review의 효과 기준을 "더 일찍 잡혔는가 · 독립 축 · ⑦ 잔여"로 바꾸고 구간 FAIL 비율은 맥락으로 내렸다 |
+| 3 | `site_census.mjs`가 검색 실패(없는 경로)를 빈 출력으로 받아 `미분류 0`·종료 0을 냈다 | 피드백 · round 49 도구 | **A**(도구 결함) — 종료 코드 0 정상 · 1 불일치(미분류·목록만) · 2 검색 실패 · 3 0줄인데 예상 자리. 테스트 5/5 |
+
+**verify 분류 대조(§2)**: 판정 의미(분류·disposition·창·하한)는 바뀌지 않는다 — 리뷰 필요 여부는 판정과 별개 항목이다. 0329 verify 3 정정의 판정·다음 주체는 그대로다.
+
+## Tier
+
+**Tier 1.** verify의 기록·보고 의무(원장·리뷰 필요 여부)와 review의 증거·효과 기준이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `4f5c1620`. `instruction_delta.py --prose`(대상 plan·impl·verify·review SKILL · `verify.template.md` · AGENTS — 두 번 돌려 서로 pool) 후보 **23**.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| impl:159 `no-stray-auth-subscribe` · impl:163 `[test-pools]` 외 사례 괄호 11곳(plan 1 · impl 7 · verify 3) | MOVE | 60~89바이트 사례 서사 괄호를 ID로 줄였다. 괄호 밖 문장 차이 0(기계 대조), 서사의 표식은 corpus·이 문서에 있다. `[test-pools]`는 AGENTS §판정 범위에 남는다 |
+| verify:256 CLOSED 줄의 "같은 시점에 review" | REPLACE | 마무리 라운드 bullet "(CLOSED는 같은 시점에 그 handoff를 대상으로)"로 합침. "(사용자 요구 변경 턴 제외)"는 되돌려 유지 |
+| review:63 효과 지표 행 · review:308 종료 보고 | REPLACE | 세 행(리뷰 필요 여부 질문 · F(N) · 효과 기준)으로. "효과가 없으면 같은 축의 다음 변경은 도구·순서·필드로"는 유지 |
+| template:279 "(3·6회째 PASS가 아니면 … review)" | REPLACE | `리뷰 필요 여부` 줄로 |
+| AGENTS:166 0190 · AGENTS:339 0188 서사 | MOVE | 한 줄 요지만 남김 — 원문 수치(13,190자 · 33,510자 · 10회 · r10)는 이 문서에 있다 |
+| AGENTS:278 round 문서 정책 | MOVE | `handoff-review` §7이 정본(보존 사유 · 동시에 1개 · 실제 출처) — AGENTS는 참조 |
+| AGENTS:402~415 §단계별 절차 3의 14줄 | MOVE | verify SKILL에 같은 규칙: 기준선 §0 · diff §1 · Product/UX §3 · 좌표 §6 · gate §8 · 대상 커밋 §9 · 인용 변이·덮개 회귀·형제 순서·독립 축·⑦ 잔여·소거 잔여물 §4 · 9회째 §11 · Review Signals(15개 구절 `grep -c` 각 1 이상). 검증자는 skill을 읽으므로 최소 계약이 필요 없다(§단계별 절차 2 구현 최소 계약은 유지) |
+
+word-diff 지운 단어: 위 MOVE·REPLACE 범위 밖 0. DELETE 0 · 설명 없이 사라진 gate·command·reference 0. reference·script 이동 0(새 표·종료 코드만) → inbound `N`/`M/M` 대상 없음. `failure-patterns.md`에 "§단계별 절차 3 → verify SKILL 같은 규칙" 대응 한 줄.
+
+## 6-B Historical Failure Regression
+
+- **71 P 전수** · 변경 후 **COVERED 71** / PARTIAL 0 / GAP 0 / OBSOLETE 0. `현재 방어`에 §단계별 절차 3을 적은 P 14개(P47 · P52~P56 · P60 · P62 · P63 · P65 · P66 · P68 · P70 · P71)는 모두 verify SKILL 또는 AGENTS 본문 절을 함께 적어 방어가 남는다.
+- 강화: **P41**(도구가 정의한 전수) — 검색 실패·빈 검색·낡은 목록이 `미분류 0`으로 보이지 않는다. **P66 · P70**(⑦ 전수·잔여) — 원장 `직전 기록`이 `명시 이월`과 `검사 완료`를 갈라 늦은 발견의 출처가 기록된다. **P71** — 같은 이유.
+
+| replay | 리뷰 필요 여부(새 규칙) | 실제 review | 판정 |
+|---|---|---|---|
+| 0329 verify 1(FAIL · 첫 회차) | 불필요 | 없음 | 같음 |
+| 0329 verify 2(RTP · D10~D18 `명시 이월` · G1 `확인 불가`) | 불필요(이월 범위 · 검사 완료 기록 없음) | 없음 | 같음 — inflation 0 |
+| 0329 verify 3 정정(F 3 · G2·G3 `검사 완료`) | 필수(3회째 비PASS) + 권고 신호 2 | round 49 | 같음 |
+| 0327 verify 3(L2~L4 `명시 이월`) | 필수 | round 48 | 같음 |
+
+- 집계 재생: `review_metrics.py --handoff 0329` → `(0329, 1) F 9 · (0329, 2) F 11 · (0329, 3 정정 round 49) F 3` — 회차 3개, 정정이 원 판정(F 1)을 대체했다.
+- **시나리오 replay**: 창 안 FAIL 단독 → 불필요(review 남발 0) / `검사 완료` 범위의 늦은 발견 → 권고 → 사용자 결정, 판정·다음 주체는 그대로(교착 0) / verify 없는 impl 턴 > 3 → AGENTS 트리거로 필수(verify 없이 작동) / 9회째 CLOSED → 필수 / 판정 정정 → 정정 원장이 같은 회차를 대체, verify 횟수 불변. verify가 review를 호출하거나 A~F를 가르는 경로 0.
+
+## 6-C Cross-document Consistency
+
+- 리뷰 필요 여부: verify SKILL §Review Signals(정의) = `verify.template.md` 메타·§14·§15 = AGENTS §handoff-review 트리거(필수 = 의무 항목 · 권고 = 사용자 결정) = review SKILL §1(출발 질문) — 같다. verify description에 보고 의무를 적었다.
+- 발견 원장: verify SKILL §11 = template §13 원장 표 = review §1·§8(정정 원장) = `review_metrics.py` 파서(`### 발견 원장 — verify N[ 정정(round K)]`) — 같다.
+- `site_census.mjs` 종료 코드: 스크립트 머리 주석 = 테스트 5개. 지침은 "미분류"만 말하고 종료 코드를 재서술하지 않는다.
+- root `AGENTS.md` 충돌 없음 · `app/AGENTS.md`·`ci.yml` 불변 · `check-doc-inventory --check` ok · `check-product-naming` OK.
+
+## 효과 지표
+
+- 핵심 지침 bytes `4f5c1620` 185,054 → 184,291(−763, 새 의무 포함). 사례 인용 116 → 116.
+- 이번 이슈 A 3 · B 0.
+- 효과 확인 기준(다음 라운드): 리뷰 필요 여부가 `권고`로 올린 질문이 review에서 지침 변경으로 이어졌는지 · `검사 완료` 범위의 늦은 발견이 다음 적용 대상에서 줄었는지.
+
+## 전환 (§8)
+
+판정 의미 불변 — 정정 대상 없음. 0329 verify.md에 회차별 발견 원장을 재구성해 붙였다(별도 검증 커밋, 판정 불변).
+
+## 남은 한계
+
+- 원장의 `직전 기록`은 앞 기록의 문장을 사람이 읽어 고른다. 앞 회차가 범위를 모호하게 적으면 `확인 불가`가 늘고 권고 신호가 약해진다.
+- `권고`는 사용자 결정이라 응답이 없으면 review가 열리지 않는다 — 다음 verify의 리뷰 필요 여부가 같은 신호를 다시 낸다.

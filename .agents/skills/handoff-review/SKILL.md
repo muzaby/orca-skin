@@ -60,7 +60,9 @@ plan·impl·verify는 작업을 수행하고, review는 그 수행을 정하는 
 | 독립 축(⑥)의 축 이름·발견 | verify 메타 · Review Signals | 하한을 건너뜀(B), 또는 하한이 plan의 사각을 찌르지 못함(A) |
 | 열거 sweep(⑦) 항목·`못 잡음`·`S/N`·전수 잔여 | plan `[구현자 기입]` 잠금 표 · verify 메타·§4 | 구현 sweep에서 빠진 항목이 verify 1회째 이행 결함으로 나옴 · 전수 잔여가 회차를 넘어 줄지 않음 |
 | 후보 표 행 | INDEX `## 새 handoff 후보` | 같은 축이 handoff를 넘어 쌓이면 plan 설계 지침(검사기 설계·선언 경계)의 gap 후보 |
-| 라운드 효과 — 구간 verify FAIL 비율 · handoff당 verify 수 · 핵심 지침 bytes·사례 인용 | `python3 .agents/skills/handoff-review/scripts/review_metrics.py` | 직전 라운드 기록의 같은 표와 비교한다. 같은 축을 고친 뒤에도 지표가 나아지지 않으면 그 문장 변경은 효과가 없었다 — 다음 변경은 도구·순서·필드로 간다 |
+| verify의 `리뷰 필요 여부`·검토할 질문 | 발동 verify의 Review Signals | review의 출발 질문이다. 질문마다 A~F와 근거로 답하고, 질문 없이 열린 review는 발동 근거를 따로 적는다 |
+| 발견 원장 F(N) · `직전 기록` | `python3 .agents/skills/handoff-review/scripts/review_metrics.py` | F의 증감만으로 원인을 정하지 않는다 — 재발·회귀·잠복·정정 유래·신규 열거는 겹칠 수 있다. `검사 완료`였던 범위의 늦은 발견은 그 단계 지침의 적용 실패 후보다 |
+| 앞 라운드 지침 변경의 효과 | 같은 스크립트 · 다음 적용 대상의 verify 원장 | 같은 문제가 다음 적용 대상에서 더 일찍 잡혔는가 · 독립 축을 수행했는가 · ⑦ 전수 잔여가 줄었는가. 구간 FAIL 비율·지침 bytes는 맥락으로만 적는다(handoff 규모를 통제하지 않는다). 효과가 없으면 같은 축의 다음 변경은 도구·순서·필드로 간다 |
 
 ## 2. 원인을 A~F로 가른다
 
@@ -242,7 +244,7 @@ references / scripts
 - `references/failure-patterns.md`는 현재 정책을 설명하는 **진입점**이고, 사례 본문은 그것이 가리키는 corpus에 둔다. plan/impl/verify는 이를 직접 갱신하지 않는다.
 - corpus에는 기존 P에 없는 새 causal class이거나 새 지침의 대표 evidence일 때만 더한다. 같은 causal class의 재발은 장문 사례로 쌓지 않는다. 지침 리팩터링 중 생긴 운영지식 삭제는 design-failure P를 억지로 늘리지 말고 6-A 기록으로 남길 수 있다.
 - 규칙이 바뀌어 기존 P의 규칙·현재 방어가 달라지면 그 P 끝에 개정 메모를 단다 — `> round K(날짜, 출처)이 위 규칙의 …을 대체했다 — … 정본: …`. 본문은 당시의 증거라 고치지 않는다.
-- 라운드 기록은 `regression-coverage.md` 끝에 `# review round K — <대상>(<발동>): <요약>` 절로 더한다: 발동/모드 · 분류 표(`# · 발견 · 사례 · 조치`, `발견 → 사례 → 조치`는 표나 3문장 이내) · Tier · 6-A(기준 commit · 도구 후보 수 · 판정 표) · 6-B(P 전수 수 · 판정 분포 · 바뀐 P · replay 표) · 6-C · 효과 지표(`review_metrics.py` 구간 표의 직전 라운드 대비 · 핵심 지침 bytes 전후 · 이번 이슈의 A/B 수) · 남은 한계. 기록 문장도 §산출물 문장 규칙을 따른다.
+- 라운드 기록은 `regression-coverage.md` 끝에 `# review round K — <대상>(<발동>): <요약>` 절로 더한다: 발동/모드 · 분류 표(`# · 발견 · 사례 · 조치`, `발견 → 사례 → 조치`는 표나 3문장 이내) · Tier · 6-A(기준 commit · 도구 후보 수 · 판정 표) · 6-B(P 전수 수 · 판정 분포 · 바뀐 P · replay 표) · 6-C · 효과 지표(앞 라운드 변경이 다음 적용 대상에서 더 일찍 잡혔는지 · 독립 축 · ⑦ 잔여 — `review_metrics.py` F(N) 표 · 핵심 지침 bytes 전후 · 이번 이슈의 A/B 수) · 남은 한계. 기록 문장도 §산출물 문장 규칙을 따른다.
 - 압축 대상은 서술이다. tier 판정 · 세 축 결과 · inbound `N`/semantic `M/M` evidence · P 전수 판정은 줄이지 않는다.
 - 별도 `roundN-review.md`는 기본 산출물이 아니다. 사용자가 감사·원문 보존을 요구했거나, 압축으로 잃는 rationale이 있다고 판단해 **보존 사유를 문서 첫머리에 적을 때만** 만들며 실행 정본이 아니다. **동시에 1개만 유지한다** — 새로 만들면 이전 것을 교체하고, 지침으로 승격된 내용은 SKILL·`regression-coverage.md`에만 남긴다. 라운드마다 파일이 늘면 corpus에서 몰아낸 사례 누적을 이 디렉토리에서 재현하게 된다.
 - 보존 사유에는 실제 출처를 적는다. 요구가 없었는데 "사용자 요청"으로 적으면 그 자체가 자기 정당화 기록이다.
@@ -254,7 +256,7 @@ review가 판정 의미(발견 분류·disposition·확장 창·하한이 막는
 - 정정은 새 verify가 아니다. verify 횟수(확장 창·9회 상한)와 INDEX 라운드 칸을 바꾸지 않고, 마지막 `verify.md` 끝에 `# rN 판정 정정 — review round K (날짜)` 절을 더한다. 원문은 그대로 둔다.
 - 이미 있는 발견만 새 규칙으로 다시 가른다. 정정은 증거를 만들지 않으므로 **정정으로 PASS를 주지 않는다** — 막는 발견이 0이 되면 `PASS 후보`로 적고 INDEX를 `impl/IMPL_DONE`·다음 주체 검증자로 두어, 다음 verify가 현재 하한으로 확인한다.
 - 절에는 정정 판정을 첫 문장에 쓰고, 묶음별 `원 판정 → 새 분류 → 근거(원문 인용·재현) → disposition` 표, 다음 구현의 의무, 후보 표 등록을 적는다.
-- plan `[검증자 기입]` 파생 이슈의 상태·disposition과 INDEX 행(상태·다음 주체·비고)을 정정에 맞추고, 창 밖 확장 후보는 `## 새 handoff 후보` 표에 올린다.
+- plan `[검증자 기입]` 파생 이슈의 상태·disposition, `### 발견 원장 — verify N 정정(round K)`, INDEX 행(상태·다음 주체·비고)을 정정에 맞추고, 창 밖 확장 후보는 `## 새 handoff 후보` 표에 올린다.
 - 커밋은 review 커밋과 나눈다 — 검증 커밋 형식(`Handoff: docs/handoff/<slug>/` · `Status: verified` · `Verified-By` · `Next-Action`)이다. 섞이면 지침 변경과 판정 변경을 따로 되돌릴 수 없다.
 - 다른 주체가 진행 중인 턴(INDEX `impl/IN_PROGRESS` 등)은 건드리지 않는다 — 그 턴 뒤의 verify가 새 규칙으로 판정한다(round 40). 그 밖의 진행 중 handoff는 일괄 정정하지 않고 다음 verify부터 새 규칙을 쓴다(`docs/handoff/AGENTS.md §신규 템플릿 적용 경계`). `verify/CLOSED`는 종료 상태라 정정하지 않는다.
 - DIAGNOSE_ONLY면 정정안만 보고한다.
@@ -291,7 +293,7 @@ review가 판정 의미(발견 분류·disposition·확장 창·하한이 막는
 - [ ] INDEX·commit trailer 같은 협업 운영 규칙이 의도치 않게 지워지지 않았다(§6-A 축).
 - [ ] 정상 plan/impl/verify가 failure corpus를 매번 읽거나 직접 갱신하지 않는다(§5·§7).
 - [ ] 판정 의미가 바뀌었으면 발동 handoff를 §8대로 별도 커밋으로 정정했거나, 정정할 대상이 없음을 적었다.
-- [ ] 효과 지표를 직전 라운드와 비교해 기록했고, 핵심 지침 bytes가 늘었으면 상쇄했거나 이유를 적었다(§1·§4·§7).
+- [ ] verify의 검토할 질문마다 답했고, 효과 지표(더 일찍 잡혔는지 · 독립 축 · ⑦ 잔여)를 기록했고, 핵심 지침 bytes가 늘었으면 상쇄했거나 이유를 적었다(§1·§4·§7).
 - [ ] `regression-coverage.md`에 라운드 기록을 남겼고, 서술만 줄이고 증거(tier·세 축 결과·`N`/`M/M`·P 전수 판정)는 줄이지 않았다(§7).
 
 ## 종료 보고
@@ -305,5 +307,5 @@ review가 판정 의미(발견 분류·disposition·확장 창·하한이 막는
 - Tier 1이면 6-B 결과(P 수·판정 분포·replay), Tier 2면 생략 근거.
 - 6-C와 reference semantic-integrity 결과.
 - 전환 결과 — 정정한 handoff와 판정, 또는 해당 없음.
-- 효과 지표 — 직전 라운드 대비 구간 지표, 핵심 지침 bytes 전후.
+- 효과 지표 — 앞 라운드 변경이 더 일찍 잡혔는지 · 독립 축 · ⑦ 잔여, 핵심 지침 bytes 전후.
 - skill 변경으로 해결할 수 없는 capability·환경 한계.

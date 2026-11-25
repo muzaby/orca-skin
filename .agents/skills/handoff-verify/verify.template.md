@@ -22,6 +22,7 @@
 | 독립 축(⑥) | 축 이름·시도 수 — 구현 주체와 무관하게 최소 1개. 만들 수 없었으면 그 사실(PASS 불가) |
 | 열거 sweep(⑦) | 범위(1회째 전수 / diff 범위 + 직전 실패 + 앞 verify 전수 잔여) · 항목 N · 못 잡음 M · 남긴 전수 잔여: 0 / 항목 목록(0이 아니면 PASS 불가 — 다음 verify로 넘어감) |
 | 발견 분류 | 이행 a · 현재 b · 확장 c(막음 c1 / 후보 표 c2) · 경계 d · 비귀속 e |
+| 리뷰 필요 여부 | 필수 / 권고 / 불필요 — §14 표의 한 줄 요약(판정과 별개) |
 | 구현 주체·문맥 | 기록만 — 판정에 쓰지 않는다 · 설계자 = 검증자면 plan validity가 자기 설계 감사임을 적는다 |
 
 ## 0. 기준선 / plan 변경 확인
@@ -260,12 +261,24 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 | D… | … | 이행(원문 인용) / 현재(재현) / 확장 / 경계 / 비귀속 | VP-… / Decision·AC·§10·현재 산출물 gate | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF(확장·독립) | … | 구현 / planner(채택·경계) / 기록 / 후보 표 |
 
 > plan의 `[검증자 기입] 파생 이슈`로 이관한다. 분류와 disposition의 정본은 `docs/handoff/AGENTS.md §판정 범위와 운영 gate`다.
+
+### 발견 원장 — verify N
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| D… | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | — / 열림 / closed 보고 | 열림 / 닫힘 | — / 검사 완료 / 명시 이월 / 확인 불가 | 새 실행 / 기존 증거 재분류 |
+
+> 이번 판정 시점에 남은 것과 이번에 닫힌 것을 모두 적는다. 합계(F)는 적지 않는다 — `review_metrics.py`가 `이번 결과 = 열림`인 `BLOCKING`·`PLAN_GAP` 고유 ID를 센다(SKILL §11 발견 원장). 판정 정정은 `### 발견 원장 — verify N 정정(round K)`로 다시 적는다.
 > 이행·현재 결함은 창과 무관하게 막는다(`BLOCKING`, 계약 정정이 필요하면 `PLAN_GAP`). 확장 후보는 verify 1·2회째에만 `PLAN_GAP`(설계자 채택·경계)이고, 3회째부터는 `NEXT_HANDOFF(확장)`로 후보 표에 간다 — 고칠 의무·재실행 의무 없음.
 > `PLAN_GAP`이 하나라도 있으면 결과는 `RETURN_TO_PLAN`이고 다음 주체는 설계자다. 명시 계약 위반은 `PAIR_FAIL`로 유지하며 gap으로 낮추지 않는다.
 
-## 14. Review Signals — 사실만
+## 14. Review Signals — 사실과 리뷰 필요 여부
 
-> 원인 분류와 SKILL 변경은 `handoff-review`가 한다.
+> 원인 분류와 SKILL 변경은 `handoff-review`가 한다. verify는 review를 호출하지 않는다.
+
+| 리뷰 필요 여부 | 근거 | 검토할 질문 |
+|---|---|---|
+| 필수 / 권고 / 불필요 | 필수: AGENTS 의무 트리거(3·6회째 비PASS · 9회째 CLOSED) / 권고: 발견 ID와 앞 회차 기록(예: `검사 완료` 범위의 늦은 발견) / 불필요: — | 한 문장. 특정할 수 없고 의무 트리거도 없으면 `불필요` — 단순 FAIL · F 증가 · `명시 이월` 범위의 발견만으로는 권고하지 않는다 |
 
 - 이전 라운드와 동일/유사 증상: 없음 / …
 - 관련 plan 지침/AC의 존재 여부: …
@@ -276,7 +289,8 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 ## 15. 결론
 
 - 상태: PASS / FAIL / RETURN_TO_PLAN / CLOSED(이 handoff의 verify 9회째, PASS 아님)
-- verify 횟수: N회째 — 확장 창 안/밖 (3·6회째 PASS가 아니면 다음 재구현 전 handoff-review · 9회째면 종료)
+- verify 횟수: N회째 — 확장 창 안/밖 (9회째면 종료)
+- 리뷰 필요 여부: `리뷰 <필수|권고|불필요> — <근거>. <검토할 질문>` (예: 리뷰 필수 — verify 3회째 비PASS. ΔV5 설계와 verify 3이 같은 검색 결과에서 운반 줄을 누락했다. 두 단계의 대조 절차가 왜 이 누락을 걸러내지 못했는지 검토.)
 - 후보 표로 간 확장 후보: 없음 / N건(INDEX `## 새 handoff 후보` 행)
 - 종료 이관 목록(CLOSED일 때만): 남은 BLOCKING · PLAN_GAP · 고장 이력 `못 잡음` · ⑦ 전수 잔여 → 새 handoff 후보
 - pair 결과: REQUIRED/REGRESSION PASS N · root PAIR_FAIL M · BLOCKED_BY K
