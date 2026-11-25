@@ -1,6 +1,8 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**impl/IMPL_DONE (r4 · V1 rev 5 + ΔV1~ΔV6).** D19를 실제 TodoDock 렌더로 확인했다. 검색 복귀 세 경로와 분기 요청의 하네스·기능 검사를 검증했고, 잘못된 분기 오류 분류를 고쳤다. 다음은 Claude 독립 검증 4다. [r4 구현 보고](#구현자-기입-구현-보고-r4) · [실행 기록](evidence/r4-history.json)
+**plan/READY (ΔV7 · V1 rev 5 + ΔV1~ΔV7).** verify 4는 PLAN_GAP G4(Q15′ 기대 분류 모순)와 이행 결함 D20(출발 방문 복원 세 분기 입력 누락)으로 RETURN_TO_PLAN이었다. ΔV7(§26)은 Q15′를 기존 분류 + 문구 단언(Q15″)으로 정정했다. 다음은 Codex r5 — `send.ts:99`를 되돌리고 D20을 닫는다. [ΔV7](#26-δv7--verify-4-plan_gap-정정-2026-11-25)
+
+r4 기록: D19를 실제 TodoDock 렌더로 닫았고 검색 복귀 세 경로와 분기 검사를 시험했다. [r4 구현 보고](#구현자-기입-구현-보고-r4) · [실행 기록](evidence/r4-history.json)
 
 r3 기록: 검색 유휴 읽기의 방향별 오류 처리와 OpenCode 현재 턴 TODO 경계를 고쳤다. 최신 이동의 반복 입력은 한 요청으로 합쳐진다. 검증 2의 D10~D18을 닫았다. AC10은 Windows 실기 대기다. [r3 구현 보고](#구현자-기입-구현-보고-r3) · [실행 기록](evidence/r3-history.json)
 
@@ -14,9 +16,9 @@ r2 기록: 검색 유휴 읽기의 동시 요청을 고쳤고 검증 1의 D1~D9�
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) 2026-11-20 rev 1~4 · Claude Code rev 5 2026-11-24 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) · PR #640 코멘트 “0329 이력 페이징 · 구현 전 plan 보완 요청”(2026-11-24, 기준 `7db1c7ce`) |
-| 상태 / V | impl/IMPL_DONE (r4, 다음 Claude 독립 검증 4) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) + ΔV5(§24 — verify 2 PLAN_GAP) + ΔV6(§25 — verify 3 정정 PLAN_GAP) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV6 |
+| 상태 / V | plan/READY (ΔV7, 다음 Codex r5) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) + ΔV5(§24 — verify 2 PLAN_GAP) + ΔV6(§25 — verify 3 정정 PLAN_GAP) + ΔV7(§26 — verify 4 PLAN_GAP) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV7 |
 | 조사 기준 | rev 5: `codex-handoff-0326-plan-gap`의 `7db1c7ce`(PR #640 head) — 0326 verify 7 PASS · 0327 verify 5 PASS · 0328 verify 2 PASS(모두 기계 범위). rev 1~4의 `62125eaa` 관측은 §8 rev 5 표로 재대조했다. |
-| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 검증 1의 D1~D9를 r2에서 수정·재현했다. 검증 2가 G1·X1로 반송했고 ΔV5가 닫았다. r3에서 D10~D18을 닫았다. 검증 3이 D19로 FAIL, review round 49가 G2·G3로 RETURN_TO_PLAN 정정했고 ΔV6가 닫았다. r4에서 D19·ΔV6의 새 자리를 확인했다. 다음 단계는 Claude 독립 검증 4다. |
+| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 검증 1의 D1~D9를 r2에서 수정·재현했다. 검증 2가 G1·X1로 반송했고 ΔV5가 닫았다. r3에서 D10~D18을 닫았다. 검증 3이 D19로 FAIL, review round 49가 G2·G3로 RETURN_TO_PLAN 정정했고 ΔV6가 닫았다. r4에서 D19·ΔV6의 새 자리를 확인했다. 검증 4가 G4·D20으로 반송했고 ΔV7이 G4를 닫았다. 다음 단계는 r5다. |
 
 # Part I — 제품과 사용자 동작
 
@@ -94,6 +96,8 @@ rev 5 — PR #640 항목 → 규범 행. 양방향 조회 → D-015·AC6·§10 �
 ΔV5 — verify 2 PLAN_GAP 정정(§24). D-025 신설, §10 ‘한 턴과 조각’ → ‘한 턴과 조각′’, ‘최신 대화로’ 반복 입력·현재 턴 TODO 경계 행 추가, MD-04·SD-04·SD-02 CHANGED(VP-16·13·05), EP3 ⑤′·EP6 ⑦′·EP7 ⑥′, Q4‴·Q6e′·Q7′. **ACTIVE 결정 ↔ AC 대조 (ΔV5)**: 충돌 0. D-009 “같은 턴 한정·유휴 1묶음·입력 중 보류” ↔ 한 턴과 조각′(오류 범위만 방향별로) 일치. D-015 “방향마다 단일 flight·오류·재시도” ↔ D-025 일치. D-012 “현재 턴 TODO의 권위는 live 소유자” ↔ 현재 턴 TODO 경계 행 일치. AC2·AC6·AC7 문장은 바뀌지 않는다.
 
 ΔV6 — verify 3 정정 PLAN_GAP 정정(§25). D-026 신설, EP6 ⑦′ → EP6 ⑦″ · EP7 ⑥′ → EP7 ⑥″ · EP10 → EP10′, SD-02·SD-04·AR-05·SD-06 CHANGED(VP-05·13·18·19), VP-03 REGRESSION, Q6e″·Q7″ 신설. 계약 규칙·AC 변경 0. **ACTIVE 결정 ↔ AC 대조 (ΔV6)**: 충돌 0. D-012·AC7 “현재 턴 TODO만 보인다” ↔ EP7 ⑥″ ⑥(화면 렌더까지 관측) 일치. D-015 “방향마다 단일 flight” · X1 반복 입력 ↔ EP6 ⑦″ ⑤⑦(같은 가드를 지나는 입력 경로) 일치. D-023 ↔ EP10′(자리 재앵커 · 같은 규칙) 일치. D-026은 검증 범위 결정이라 AC와 겹치지 않는다.
+
+ΔV7 — verify 4 PLAN_GAP 정정(§26). Decision 변경 0, AR-05 CHANGED(VP-18), Q15′ → Q15″(기대 분류를 r4 전 `schema_validation_error`로, 구별 값은 문구), EP10′ → EP10″(줄 재앵커 +3). D20(EP6 ⑦″ ⑦ 입력 누락)은 이행 결함이라 규범 행을 바꾸지 않는다. **ACTIVE 결정 ↔ AC 대조 (ΔV7)**: 충돌 0. D-023·AC8·AC12 “분기·인계는 Orca 출발 세션 계보” ↔ Q15″(진입 관문의 하네스 검사가 Orca 출발 세션으로 일어난다) 일치. AC 문장 불변 — AC8·AC12는 오류 분류를 정하지 않는다(§7 R-03 행).
 
 ## 4. 현재 요구 검토
 
@@ -912,7 +916,7 @@ node $SC --search "rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|na
 | ⑤ `features/chat/reducer/chatReducer.ts:560` 초기값 | 새 상태의 경계는 0 | `reducer/chatReducer.opencode-todo.test.ts` ‘starts each todo projection at the current turn and excludes hydrated history’(round 49 자동 변이 잡음) |
 | ⑥ `features/chat/harnesses/opencode/composer/AboveInput.tsx:11-14` 소비 — **D19** | 화면의 TodoDock은 store 경계를 그대로 `selectOpenCodeTodos`에 넘긴 결과를 그린다(VP-05 path 끝 edge) | Q7″ — Q7′ (a)~(d) 상태에서 렌더 결과를 본다. 구별 값: (a)는 앞삽입 2개 뒤 경계 ≠ 0이고 경계 앞에 ‘old’ in_progress가 있다(경계를 0·undefined로 바꾸면 ‘old’가 보인다). `:14`의 경계 항 단독 제거는 **동치 예상** — 경계를 바꾸는 액션(`BEGIN_TURN` `:1042-1043` `sendCount` · `PREPEND_HISTORY` `:1736-1739` `messages` · `LOAD_SESSION` `:1809-1812` `messages` · `NEW_CHAT`·`START_LOAD_SESSION`의 초기 상태 전개 `:1549`·`:1670`)이 모두 같은 상태에서 의존 배열의 다른 항(`sendCount`·`messages`)도 바꾼다 |
 
-**EP10′** — Claude 원본 ID 바인딩(§22-E 대체).
+**EP10′** — Claude 원본 ID 바인딩(§22-E 대체). **ΔV7에서 EP10″(§26 E)로 줄 재앵커 — 자리·규칙 불변.**
 
 | 자리 (현재 줄) | 규칙 | oracle · 분기 입력 |
 |---|---|---|
@@ -931,7 +935,7 @@ node $SC --search "rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|na
 | 좌표 | 재현 입력 → 직접 관측 |
 |---|---|
 | Q6e″ · `renderer/src/features/chat/store/history-search.test.ts`(⑥⑦) + `renderer/src/app/hooks/useChatRouteSync.test.ts`(⑤) | Q6e′ 입력 전부 + EP6 ⑦″ ⑤~⑦ 입력. latest 응답을 지연시켜 반복 사이의 `page({kind:'latest'})` 수를 센다. ⑤는 그 파일의 훅 하네스(effect 모형 + `installChatStoreHarness`)에서 라우트 모형에 방문 키(`useLocation().key` — 훅의 `visitKey`)를 더해 같은 세션 새 방문으로 두 번 바꾼다 |
-| Q15′ · 신규 사례 `main/app/chat-turn/send.busy.test.ts`(실제 `handleChatSend` + 가짜 data·어댑터, 그 파일 방식) | 형제 `send.ts:83`·`:119` — 분기 요청의 하네스 검사·지원 검사는 Orca 출발 세션으로 한다. (i) `forkFrom` = `claude` 출발 세션(세션 ID 없음) + 요청 `backend: 'opencode'` → `provider_connection_error` 1 · 런타임·큐 0, 같은 하네스면 진행 (ii) `describe().session.fork === false` 어댑터 + `forkFrom` 요청 → `capability_unsupported` 1 · 턴 0. 인계(`handoffFrom`) 입력과 따로 둔다 — `\|\|`의 분기 항만 지워도 관측이 달라야 한다 |
+| Q15′ · 신규 사례 `main/app/chat-turn/send.busy.test.ts`(실제 `handleChatSend` + 가짜 data·어댑터, 그 파일 방식) | **ΔV7에서 Q15″(§26 E)로 대체 — (i)의 기대 분류가 규칙 칸과 모순(G4).** 형제 `send.ts:83`·`:119` — 분기 요청의 하네스 검사·지원 검사는 Orca 출발 세션으로 한다. (i) `forkFrom` = `claude` 출발 세션(세션 ID 없음) + 요청 `backend: 'opencode'` → `provider_connection_error` 1 · 런타임·큐 0, 같은 하네스면 진행 (ii) `describe().session.fork === false` 어댑터 + `forkFrom` 요청 → `capability_unsupported` 1 · 턴 0. 인계(`handoffFrom`) 입력과 따로 둔다 — `\|\|`의 분기 항만 지워도 관측이 달라야 한다 |
 | Q7″ · 신규 `renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts` | 실제 chatStore(`installChatStoreHarness`)에 Q7′ (a)~(d)를 store 동작·reducer 액션으로 만들고 `shared/ui/renderHarness.testfixture`로 production `AboveInput`을 렌더한다. TodoDock이 그린 항목 텍스트·개수를 본다(selector 반환이 아니라 렌더 결과) |
 
 **선택 변이(ΔV6).** EP7 ⑥″ ⑥ `:13` 경계 → `0`(verify 3 E7i) → Q7″ (a) red. EP6 ⑦″ ⑤ `:81` 호출 무력화 → Q6e″ ⑤ (i) red. ⑥ `:2006` 호출 제거 → Q6e″ ⑥ (i) red. ⑦ `:2608` 호출 제거 → Q6e″ ⑦ (i) red. EP10′ 형제 `send.ts:83`·`:119`의 `forkFrom` 항 제거(이 턴 자동 변이 green) → Q15′ (i)(ii) red.
@@ -941,6 +945,73 @@ node $SC --search "rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|na
 ### 25-F. 구현 재개 조건
 
 r4(라운드 4 첫 구현 턴)는 r3 코드에서 이어 간다. D19(EP7 ⑥″ ⑥)를 먼저 닫고, EP6 ⑦″ ⑤~⑦과 EP10′ 형제 `send.ts:83`·`:119`(Q15′)를 닫는다. EP7 ⑥″ ⑤와 EP10′의 나머지 새 자리는 이 턴 자동 변이에서 기존 좌표가 잡았다 — 구현자는 같은 명령으로 다시 확인만 한다. 끝나면 25-E 명령 넷의 `미분류 0 · 목록만 0`과 `--emit-mutants` 결과(자리마다 잡음 또는 근거 붙은 동치)를 `[구현자 기입]`에 적는다. verify 3이 잡음으로 판정한 기존 자리는 다시 닫지 않는다.
+
+## 26. ΔV7 — verify 4 PLAN_GAP 정정 (2026-11-25)
+
+**판정: PLAN_GAP 1건(G4) 타당 → Q15′ (i)의 기대 분류를 기존 동작으로 되돌린 뒤 READY.** verify 4가 RETURN_TO_PLAN으로 반송했다. Q15′ (i)이 요구한 `provider_connection_error`는 규칙 칸(“§22-E 형제 그대로”)·§25-D(“변경 없음”)·기존 분류와 모순이었고, r4가 그 기대에 맞춰 production 분류를 바꿨다. 동결 뒤라 이 턴의 새 열거 항목 출처는 plan 내부 정합(G4)이며 Decision·AC·§10 규칙 칸은 바꾸지 않는다.
+
+### 26-A. 반송 근거 대조 (이 턴 실측, 트리 `4fea120d`)
+
+| 지적 | 판정 | 관측 |
+|---|---|---|
+| G4 Q15′ (i) 기대 분류 | 타당 | r4 전 `9cde0d6c` `send.ts:96` = `'schema_validation_error'`. 같은 거절의 뒤 검사 `send.ts:192`도 같은 분류이고, `resolve-turn.agent.test.ts` ‘rejects a changed source harness after provider preparation (forkFrom)’의 기대도 `{ category: 'schema_validation_error' }`다 |
+| r4 분류의 화면 결과 | 회귀 | `provider_connection_error`는 기본 `retryable: true`(`infra/errors.ts:33`)라 `TurnErrorBanner.tsx:15-27`이 “재시도 가능 · 일시적 오류일 수 있습니다. 다시 보내보세요.”를 붙인다. 같은 입력은 다시 보내도 거절된다 |
+| 분류를 바꾸지 않고 잠기는가 | 잠긴다 | 별도 worktree: `send.ts:99` → `'schema_validation_error'`, Q15′ (i)에 문구 단언을 더하면 무변이 15/15 green. 아래 등록 변이 4개 red · 대조 green(`mutate.py` 원복 확인) |
+| 구별 값 | 분류가 아니라 문구 | `send.ts:83` `forkFrom` 항을 지우면 거절이 뒤 검사 `send.ts:179-196`으로 넘어가 분류는 같고 문구가 “대화의 작업 종류가 올바르지 않거나 시작 후 변경되었습니다…”로 바뀐다(opencode 사례 실패 메시지로 관측) |
+| ΔV6가 이 기대를 적은 경위 | 미확인 기대 | §25-A EP10′ 행은 `:83`·`:119` 못 잡음만 기록했고 기대 분류를 코드에서 확인한 관측이 없다 |
+| D20 EP6 ⑦″ ⑦ 세 분기 | 이행 결함 — plan 변경 없음 | 규칙 칸이 세 분기의 기대를 이미 정한다. 입력 칸만 좁아 구현자가 규칙 칸을 따라 입력을 더한다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate` “입력 칸이 규칙 칸보다 좁기만 하면”) |
+| EP10′ 줄 번호 | 재앵커 | r4가 `send.ts:83` 뒤 줄을 3씩 밀었다(`forkSource` 1줄 + `backendMismatch` 2줄). `[구현자 기입] r4`의 명령이 이 턴 트리와 `:99`만 되돌린 트리에서 모두 미분류 0 · 목록만 0 |
+| NX2 · NX3 | 창 밖 확장 — 채택하지 않음 | INDEX `## 새 handoff 후보` 0329 행 |
+
+### 26-B. Decision
+
+변경 없음. Q15′ (i)의 정정은 기존 동작(§25-D “계약 행 변경 없음”)으로 돌아가는 것이라 사용자 결정이 필요 없다. 분기 하네스 불일치 거절의 분류를 바꾸는 일은 화면 문구·재시도 표시가 달라지는 제품 결정이라 이번 범위 밖이다(26-E 선언 경계).
+
+### 26-C. Delta V
+
+| 노드 | provenance | 변경 |
+|---|---|---|
+| AR-05 | CHANGED | EP10′ → **EP10″**: 자리·규칙 불변, 줄 재앵커(`send.ts` +3). 형제 `send.ts:83`·`:122`의 좌표 Q15′ → **Q15″**(출처: plan 내부 정합 G4) |
+| SD-04 · R-03 | 변경 없음 | D20은 이행 결함이라 VP-13은 ΔV6 행 그대로 REQUIRED, VP-03은 REGRESSION 그대로 |
+
+| Pair | 노드 ↔ 검증 | 등급 | production path · §10 자리 | 직접 관측 |
+|---|---|---|---|---|
+| VP-18 | AR-05 ↔ IT-05 | REQUIRED | §22-C 경로 · EP10″ ①~⑨ + 형제 | Q13 · Q15 · Q15″ · EP10′ 칸의 좌표 |
+
+나머지 pair는 ΔV6까지의 행 그대로다. VP-13·VP-03은 r5가 D20을 닫은 뒤 다시 판정한다.
+
+### 26-D. 계약 행
+
+변경 없음. Q15″의 기대는 §22-E 형제 “그대로”에서 온다 — 진입 관문(`send.ts:84-104`)의 하네스 불일치 거절은 r4 전과 같은 `schema_validation_error`와 문구 “이 대화의 하네스 또는 작업 종류를 변경할 수 없습니다. 새 대화에서 선택해 주세요.”다.
+
+### 26-E. 강제 지점·좌표
+
+EP10″ 자리 검색(저장소 루트, 이 턴 트리와 `:99` 되돌림 트리 모두 `미분류 0 · 목록만 0`):
+
+```sh
+SC=.agents/skills/handoff-verify/scripts/site_census.mjs; M=app/src/main
+node $SC --search "rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|nativeSessionId|native_id|routeNativeSession|onPermissionModeChanged\?\.|forkFrom|session_id \?\? ' app/src/main/adapters/claude app/src/main/adapters/common app/src/main/app/chat-turn app/src/main/app/native-history.ts" \
+  --sites "$M/adapters/claude/adapter.ts:374-379,$M/app/chat-turn/native-session.ts:61-90,$M/adapters/claude/adapter.ts:556,$M/adapters/claude/adapter.ts:679-682,$M/adapters/claude/adapter.ts:527-529,$M/adapters/claude/adapter.ts:948,$M/adapters/claude/adapt.ts:307,$M/app/chat-turn/send.ts:296-298,$M/app/chat-turn/send.ts:623,$M/app/chat-turn/continuation.ts:40,$M/app/chat-turn/resolve-turn.ts:122-125,$M/app/chat-turn/send.ts:602,$M/app/chat-turn/native-session.ts:41,$M/app/chat-turn/native-session.ts:113,$M/app/chat-turn/native-session.ts:120,$M/app/native-history.ts:37,$M/app/chat-turn/continuation.ts:88,$M/app/chat-turn/send.ts:400,$M/app/chat-turn/turn-context.ts:166,$M/app/chat-turn/resolve-turn.ts:70,$M/app/chat-turn/send.ts:83,$M/app/chat-turn/send.ts:122,$M/app/chat-turn/send.ts:155" \
+  --excluded "$M/app/chat-turn/resolve-turn.ts:180"
+```
+
+**EP10″** — §25-E EP10′ 표 그대로이고 줄만 옮긴다: ⑥ `send.ts:296-298` · `:623`, ⑦의 `send.ts:599` → `:602`, 형제 `send.ts:397` → `:400` · `:119` → `:122` · `:152` → `:155`. 형제 `send.ts:83`·`:122`의 좌표만 바뀐다.
+
+| 좌표 | 재현 입력 → 직접 관측 |
+|---|---|
+| Q15″ · `main/app/chat-turn/send.busy.test.ts` ‘checks the source harness and fork capability (backend=$backend, fork=$forkSupported)’(r4 신규 사례의 기대 정정) | (i) `forkFrom` = `claude` 출발 세션(세션 ID 없음) + 요청 `backend: 'opencode'` → 오류 1건 `{ category: 'schema_validation_error', message ⊇ '하네스 또는 작업 종류를 변경할 수 없습니다' }` · `acquireChain` 0 · 큐 0 (ii) `describe().session.fork === false` + `forkFrom` → `capability_unsupported` 1 · 턴 0 (iii) 같은 하네스·분기 지원 → 큐 1 · `message.queued`. 구별 값은 (i)의 문구다 — `:83` `forkFrom` 항을 지우면 뒤 검사 문구가 나온다 |
+
+**선택 변이(ΔV7).** V7-a `send.ts:99`를 r4 분류식(`forkSource && backendMismatch ? 'provider_connection_error' : 'schema_validation_error'`)으로 → Q15″ (i) red. ΔV6 등록 변이 `send.ts:83` `forkFrom` 항 제거 → Q15″ (i)(ii) red, `:122` 분기 항 제거 → Q15″ (ii) red. 형제 맞바꿈 `:83` `forkFrom` → `handoffFrom` → Q15″ (i)(ii) red. 이 턴 worktree 실측: 넷 다 red, 대조 green.
+
+**선언 경계.** (1) 분기 하네스 불일치 거절의 오류 분류·재시도 표시를 바꾸는 일은 이번 범위 밖이다 — 사용자 요청이 있으면 새 handoff로 다룬다. (2) D-026과 ΔV6 선언 경계는 그대로다.
+
+### 26-F. 구현 재개 조건
+
+r5(라운드 5 첫 구현 턴)는 r4 코드에서 이어 간다.
+
+1. **G4**: `send.ts:99`를 `'schema_validation_error'` 한 줄로 되돌리고 Q15′ 사례를 Q15″ 기대로 고친다. `forkSource`·`backendMismatch` 변수는 둬도 된다 — 스키마가 `sessionId`와 `forkFrom`을 함께 받지 않아(`protocol.ts:216`) boundId 식이 r4 전과 같다. 줄이 옮겨지면 EP10″의 같은 자리를 새 줄로 옮긴 명령을 적고 미분류 0을 다시 보인다.
+2. **D20**: EP6 ⑦″ ⑦ 규칙 칸을 따라 Q6e″ ⑦에 입력 셋을 더해 verify 4의 B5·B6·B7을 red로 만든다 — (iii) 출발 세션 비활성 + 그 세션에 검색 보기 남음(`newChat` 뒤) → 출발 세션 열기 (iv) 출발 세션 활성 + 검색 보기 없음 + 검색 결과 해석 중 → 해석 취소 (v) `pinned` + 앵커·세대 있음 → ‘최신 대화로’ 경로. 비동치 재현은 [verify 4 §4](verify.md).
+3. 끝나면 V7-a · ΔV6 `:83`·`:122` 변이 · 형제 맞바꿈 · B5·B6·B7과 EP10″ census 결과를 `[구현자 기입]`에 적는다. verify 4가 잡음으로 판정한 자리는 다시 닫지 않는다.
 
 ## READY self-review
 
@@ -963,6 +1034,7 @@ r4(라운드 4 첫 구현 턴)는 r3 코드에서 이어 간다. D19(EP7 ⑥″ 
 | ΔV4 | r1.4 반송을 이 턴 독립 계산(탐욕 = 동적 계획법 최소: 균등 5 · 편중 6)으로 확인하고 §14 등식을 하한 + 탐욕 채움 계약으로 바꿨다. CHANGED MD-01 → VP-11(Q3′), 선택 변이 3, 선언 경계 1, §17 게이트 측정 조건 명시. 사용자 결정 불필요(plan 내부 결함). |
 | ΔV5 | verify 2 반송 2건을 규칙 칸 원문(§10 ‘한 턴과 조각’ ↔ ‘양방향 커서·끝’)과 r2·r2 이전 코드(`idleSearchDirection.ts:11` · `6b063bb0` `useHistoryControls.ts:43-48`)로 대조했다. D-025 신설, CHANGED MD-04·SD-04·SD-02 → VP-16·13·05 REQUIRED, VP-02·03 REGRESSION. 자리 검색 3개(5·16·9줄)로 EP3 ⑤′ 3자리·EP6 ⑦′ 4자리·EP7 ⑥′ 4자리를 고정하고 분기 입력 7·4·4, 선택 변이 4, 선언 경계 2를 적었다. 새 열거 항목의 출처: G1 plan 내부 정합 · X1 확장 채택(verify 2회째 직후 — 마지막 창) · D10 현재 결함. 이 턴 뒤 plan 동결. 사용자 결정 불필요(D-025는 기존 §10 문장이 정한 방향 독립의 적용). |
 | ΔV6 | verify 3 정정의 G2·G3를 이 턴 `site_census` 재측정(트리 `69c068fa`, 도구 정정 뒤)으로 대조했다. 줄 단위 목록 넷 — EP6 ⑦″ 검색 16줄·운반 11 → 자리 7 · EP7 ⑥″ 10줄·운반 8 → 자리 6 · EP3 ⑤′ 5줄·운반 2(변경 없음) · EP10′ 41줄·운반 28 → 자리 9 + 형제 6줄 + 제외 1 — 모두 미분류 0·목록만 0(§25-E 명령). 새로 자리에 넣은 운반 줄 19개(EP6 4·EP7 4·EP10 11). 자동 변이: EP6·EP7 9개는 round 49 결과(잡음 2·못 잡음 7 → Q6e″·Q7″ 입력, 동치 예상 2는 근거 인용), EP10′ 35개는 이 턴(잡음 33·못 잡음 2 → Q15′). 분기 입력: EP6 ⑦″ ⑤ 4 · ⑥ 2 · ⑦ 2, EP7 ⑥″ ⑥ Q7′ (a)~(d), Q15′ 2. 선택 변이 5, 선언 경계 3. D-026(단계 목록은 줄 분류 밖) 신설. 새 열거 항목의 출처: 모두 plan 내부 정합. 사용자 결정 불필요(규칙·AC 불변). |
+| ΔV7 | verify 4 반송 G4를 r4 전 코드(`9cde0d6c` `send.ts:96`)·뒤 검사(`send.ts:192`)·`resolve-turn.agent.test.ts` 기대와 대조했다. 이 턴 worktree에서 `:99` 되돌림 + 문구 단언으로 무변이 15/15 green, 등록 변이 4(V7-a · `:83` 제거 · `:122` 분기 항 제거 · `:83` 맞바꿈) red, 대조 green. EP10″ census(r4 줄) 미분류 0 · 목록만 0 — 이 턴 트리와 되돌림 트리 둘 다. CHANGED AR-05 → VP-18 REQUIRED. D20은 규칙 칸이 기대를 정하므로 규범 행 변경 없이 r5 의무로 넘겼다. 새 열거 항목의 출처: plan 내부 정합(G4). 선언 경계 1(분류 변경은 범위 밖). 사용자 결정 불필요(기존 동작 유지). |
 
 ---
 
