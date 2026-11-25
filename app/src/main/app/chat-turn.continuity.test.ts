@@ -1,3 +1,4 @@
+import { copyForkDisplay } from '../features/history/fork-display'
 // 0064 r2 — fork/handoff 도착 파이프라인 통합 테스트. 실 in-memory DB + 실 HistoryWriter 를
 // turn.event 버스 구독자로 TurnCoordinator 에 물려, 어댑터가 init(새 id)→telemetry 를 흘릴 때
 // sessions 행 + lineage 영속(fork 는 display 복사까지)이 보장됨을 잠근다 — 실기에서 "세션은
@@ -101,7 +102,7 @@ async function runTurn(
   const persistence = new HistoryWriter(
     db,
     () => false,
-    (arrival) => materializeContinuityArrival(db, arrival)
+    (arrival) => materializeContinuityArrival(db, arrival, copyForkDisplay)
   )
   const bus = new TypedBus<OoBusEvents<unknown>>()
   bus.on('turn.event', ({ turn: t, ev }) => persistence.persist(t, ev), { critical: true })

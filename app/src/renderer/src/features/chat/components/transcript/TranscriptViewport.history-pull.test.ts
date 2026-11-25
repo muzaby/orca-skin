@@ -49,10 +49,13 @@ describe('common wheel listener for the three harnesses', () => {
           snapshot,
           sessionKey: 's',
           scrollRef: { current: scroller as unknown as HTMLDivElement },
-          history: partial ? { before: 'ready', request } : undefined,
+          history: partial ? { before: 'ready', after: 'ready', request } : undefined,
+          footer: createElement('div', { 'data-live-footer': 'active' }),
           renderBlock: () => null
         })
       )
+      expect(Boolean(dom.query('[data-history-edge="after"]'))).toBe(partial)
+      expect(Boolean(dom.query('[data-live-footer="active"]'))).toBe(!partial)
       expect(register.mock.calls.find(([type]) => type === 'wheel')?.[2]).toEqual({
         passive: !partial
       })

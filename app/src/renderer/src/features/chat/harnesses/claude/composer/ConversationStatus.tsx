@@ -1,3 +1,4 @@
+import { hasHandoffHistory } from '../../../reducer/chatReducer'
 import { useMemo, useRef, useState } from 'react'
 import { useI18n } from '../../../../../shared/i18n'
 import { Popover } from '../../../../../shared/ui/Popover'
@@ -16,9 +17,7 @@ export function ClaudeConversationStatus({
   const { tr } = useI18n()
   const leaseBusy = useChatBusy()
   const sessionId = useChatSession((s) => s.sessionId)
-  const userTurnCount = useChatSession((s) =>
-    s.messages.reduce((n, m) => (m.role === 'user' ? n + 1 : n), 0)
-  )
+  const enoughHistory = useChatSession(hasHandoffHistory)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
   const sessionCostUsd = useChatSession((s) => s.sessionCostUsd)
   const conversationStatusButtonRef = useRef<HTMLButtonElement>(null)
@@ -60,7 +59,7 @@ export function ClaudeConversationStatus({
       ? tr('chat.composer.handoffNoSession')
       : leaseBusy
         ? tr('chat.composer.handoffWaitTurn')
-        : userTurnCount < 2
+        : !enoughHistory
           ? tr('chat.composer.handoffNeedMoreTurns')
           : null
   const onHandoff = (): void => {

@@ -4,6 +4,9 @@ import { installFakeDom } from '../../../../../shared/ui/renderHarness.testfixtu
 import { fakeComputeClient } from '../../../../../shared/compute/fakeClient.testfixture'
 import { setComputeClient } from '../../../../../shared/compute/client'
 import { composerModule } from '../../claude/composer/Module'
+import { chatActions, useChatStore } from '../../../store/chatStore'
+import type { HistoryPageReply } from '../../../../../../../shared/history-page'
+import { sessionApi } from '../../../../../shared/api/ipc'
 import { ComposerInputController } from './ComposerInputController'
 
 vi.mock('react', async (original) => ({
@@ -28,14 +31,18 @@ vi.mock('../../../../../shared/i18n', async (original) => ({
   useI18n: () => ({ tr: (key: string) => key, locale: 'en' })
 }))
 
-it('sends the shared draft and both completed previews to the session active at submit', async () => {
+it('a late history page and thumbnail keep the draft for the active send', async () => {
   vi.useFakeTimers()
   const dom = installFakeDom({ innerWidth: 800, innerHeight: 600 })
   const compute = fakeComputeClient()
   setComputeClient(compute.client)
   const noop = (): void => {}
+  const sent = vi.fn().mockResolvedValue({})
+  const priorStore = useChatStore.getState()
   Object.assign(window, {
     oo: {
+      chat: { send: sent },
+      settings: { set: async () => undefined },
       files: {
         pathForFile: (file: File) => '/' + file.name,
         readAttachment: async () => ({ mimeType: 'image/png', data: 'AAAA' })
@@ -43,13 +50,44 @@ it('sends the shared draft and both completed previews to the session active at 
       provider: { state: async () => ({ providers: [] }), onState: () => noop },
       skills: { list: async () => [] },
       session: {
+        cancelLoad: noop,
         onManagedMcpChanged: () => noop,
         nativeResources: async () => ({ items: [], revision: 1 })
       }
     }
   })
-  const sendA = vi.fn(() => true)
-  const sendB = vi.fn(() => true)
+  const sendA = vi.fn(chatActions.send)
+  const sendB = vi.fn(chatActions.send)
+  const makePage = (id: string): HistoryPageReply => ({
+    sessionId: id,
+    openGeneration: 1,
+    requestId: 1,
+    status: 'ok',
+    targetMessage: 'target',
+    session: {
+      id,
+      agentKind: 'code',
+      backend: 'claude',
+      title: null,
+      complete: false,
+      messages: [{ id: 'target', role: 'user', createdAt: 1, parts: [{ type: 'text', text: id }] }],
+      history: {
+        generation: 'g',
+        before: { kind: 'earlierTurn', cursor: 'before' },
+        after: { kind: 'laterTurn', cursor: 'after' }
+      }
+    }
+  })
+  const page = vi.spyOn(sessionApi, 'page')
+  const select = async (id: string): Promise<void> => {
+    page.mockResolvedValueOnce(makePage(id))
+    expect(
+      await chatActions.openSearchHit(
+        { v: 1, session: id, source: 'local', identity: '1', epoch: '1' },
+        false
+      )
+    ).toBe(true)
+  }
   const render = (session: string, onSend: typeof sendA): void => {
     activeSession.sessionId = session
     dom.render(
@@ -78,6 +116,7 @@ it('sends the shared draft and both completed previews to the session active at 
     )
   }
   try {
+    await select('a')
     render('a', sendA)
     const fields = { value: 'draft', selectionStart: 5, selectionEnd: 5 }
     const change = dom.query('[aria-label="chat.composer.inputAria"]')!.props.onChange as (event: {
@@ -96,6 +135,17 @@ it('sends the shared draft and both completed previews to the session active at 
     await Promise.resolve()
     compute.resolveNext({ thumbnail: 'data:image/jpeg;base64,ONE' })
     await Promise.resolve()
+    let deliver!: (page: HistoryPageReply) => void
+    page.mockReturnValueOnce(
+      new Promise((resolve) => {
+        deliver = resolve
+      })
+    )
+    expect(chatActions.readSearchEdge('a', 'before')).toBe(true)
+    await select('b')
+    deliver(makePage('a'))
+    await Promise.resolve()
+    expect(useChatStore.getState().activeKey).toBe('b')
     render('b', sendB)
     expect(compute.cancelled).toHaveLength(0)
     expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe('draft')
@@ -107,6 +157,8 @@ it('sends the shared draft and both completed previews to the session active at 
     await Promise.resolve()
     dom.act(noop)
     dom.click(dom.query('[data-behavior="action:send"]')!)
+    expect(sent).toHaveBeenCalledTimes(1)
+    expect(sent.mock.calls[0][0]).toMatchObject({ sessionId: 'b', text: 'draft' })
     expect(sendA).not.toHaveBeenCalled()
     expect(sendB).toHaveBeenCalledExactlyOnceWith(
       'draft',
@@ -124,6 +176,8 @@ it('sends the shared draft and both completed previews to the session active at 
     expect(dom.query('[aria-label="chat.composer.inputAria"]')!.props.value).toBe('')
     expect(dom.queryAll('[src]')).toHaveLength(0)
   } finally {
+    page.mockRestore()
+    useChatStore.setState(priorStore, true)
     dom.unmount()
     setComputeClient(null)
     vi.unstubAllGlobals()

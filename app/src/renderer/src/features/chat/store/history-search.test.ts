@@ -8,6 +8,8 @@ import { chatActions, useChatStore, type SessionEntry } from './chatStore'
 import { installChatStoreHarness } from './chatStore.testHarness'
 import { sessionApi } from '../../../shared/api/ipc'
 
+import { saveSearchPosition } from '../lib/transcript/viewport/searchVisit'
+
 const locator = (session: string, key = 'm:2'): HistoryLocator => ({
   v: 1,
   session,
@@ -87,6 +89,27 @@ describe('search history in the chat store', () => {
     expect(entry().search?.seq).not.toBe(previous)
     expect(full).not.toHaveBeenCalled()
   })
+  it('discards an ordinary earlier page on session change without moving the inactive history cursor', async () => {
+    const page = vi
+      .spyOn(sessionApi, 'page')
+      .mockResolvedValueOnce(reply('b', ['m:3'], true, false))
+    await chatActions.openSearchHit(locator('b', 'm:3'), false)
+    const cursor = entry().history!.before
+    let deliver!: (value: HistoryPageReply) => void
+    page.mockReturnValueOnce(
+      new Promise((resolve) => {
+        deliver = resolve
+      })
+    )
+    expect(chatActions.readPrevious('b')).toBe(true)
+    page.mockResolvedValueOnce(reply('c', ['m:c'], true, true))
+    await chatActions.openSearchHit(locator('c', 'm:c'), false)
+    deliver(reply('b', ['m:1']))
+    await Promise.resolve()
+    expect(entry('b').session.messages.map((m) => m.id)).toEqual(['m:3'])
+    expect(entry('b').history?.before).toEqual(cursor)
+    expect(useChatStore.getState().activeKey).toBe('c')
+  })
   it('uses the parent cursor only for the fork draft and leaves the parent messages untouched', async () => {
     const parent = reply('s', ['m:2'], true, false)
     const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(parent)
@@ -109,6 +132,64 @@ describe('search history in the chat store', () => {
     ).toEqual(['m:1', 'm:2'])
     expect(entry('s').session.messages.map((m) => m.id)).toEqual(['m:2'])
     expect(entry(draft).session.historyComplete).toBe(true)
+  })
+  it('rechecks the source and restores the last reading anchor for that visit', async () => {
+    const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['m:2'], true, true))
+    await chatActions.openSearchHit(locator('b'), false)
+    const visit = entry().search!.seq
+    const anchor = {
+      messageId: 'm:1',
+      blockKey: 'block',
+      partKey: 'm:1:user',
+      blockIndex: 0,
+      partIndex: 0,
+      charOffset: 14,
+      viewportOffsetPx: -6,
+      followingPartKeys: [],
+      followingBlockKeys: [],
+      precedingBlockKeys: new Set<string>()
+    }
+    saveSearchPosition(visit, 'b', 'g', anchor)
+    page.mockResolvedValueOnce(reply('c', ['c:1'], true, true))
+    await chatActions.openSearchHit(locator('c'), false)
+    page.mockResolvedValueOnce(reply('b', ['m:1'], true, true))
+    chatActions.restoreSearchVisit(locator('b'), visit)
+    await vi.waitFor(() => expect(entry().search?.target).toBe('m:1'))
+    expect(page).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        kind: 'target',
+        locator: locator('b'),
+        resume: { generation: 'g', messageKey: 'm:1' }
+      })
+    )
+    expect(entry().search).toMatchObject({ visit, anchor, restore: true, keyboard: false })
+  })
+
+  it('restores the ordinary pre-search visit at its reading offset without replaying a highlight', async () => {
+    const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['m:1'], true, true))
+    const anchor = {
+      messageId: 'm:1',
+      blockKey: 'b1',
+      partKey: 'p',
+      partIndex: 0,
+      blockIndex: 0,
+      charOffset: 27,
+      viewportOffsetPx: -9,
+      followingPartKeys: [],
+      followingBlockKeys: [],
+      precedingBlockKeys: new Set<string>()
+    }
+    chatActions.restoreOriginVisit(
+      { session: 'b', generation: 'g', anchor, pinned: false },
+      'default'
+    )
+    await vi.waitFor(() => expect(entry().search?.target).toBe('m:1'))
+    expect(page).toHaveBeenCalledTimes(1)
+    expect(page).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'visit', sessionId: 'b', messageKey: 'm:1', generation: 'g' })
+    )
+    expect(entry().search).toMatchObject({ anchor, restore: true, keyboard: false })
+    expect(entry().search?.locator).toBeUndefined()
   })
   it('reads a bounded latest page for a cold search and preserves the view if returning fails', async () => {
     const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['m:2'], true, true))

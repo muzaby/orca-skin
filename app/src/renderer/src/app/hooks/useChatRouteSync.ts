@@ -72,6 +72,10 @@ export function useChatRouteSync(): void {
         }
         return
       }
+      if (visitState?.historyOrigin?.session === urlSessionId) {
+        if (newVisit) chatActions.restoreOriginVisit(visitState.historyOrigin, visitKey)
+        return
+      }
       if (cur.sessionId === urlSessionId && !cur.loadingSession) {
         if (newVisit && chatActions.currentSearchSequence() !== undefined)
           chatActions.leaveSearch(urlSessionId, true)

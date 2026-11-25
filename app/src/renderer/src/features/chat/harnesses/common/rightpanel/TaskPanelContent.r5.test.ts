@@ -29,6 +29,7 @@ vi.mock('../../../store/chatStore', async () => {
       if (domain === 'childMessage') return idx.childMessage(arg!)
       return []
     },
+    useTileHistoryPages: () => ({ store: undefined }),
     useChatBusy: () => false,
     useUnseenSettledTaskCount: () => 0,
     chatActions: { selectTask: vi.fn(), restoreComposerDraft: vi.fn() }

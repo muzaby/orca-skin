@@ -1662,6 +1662,8 @@ export type RefreshSessionResult =
   | { status: 'missing' | 'unavailable' | 'migration-required'; message: string }
 
 export interface LoadedSession {
+  metadataRef?: import('./history-page').HistoryMetadataRef
+  userMessageCount?: number
   history?: import('./history-page').HistoryWindow
   id: string
   backend: Backend

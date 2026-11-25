@@ -1,19 +1,6 @@
-import type { SubagentTaskSummary } from '../../../lib/parts'
 import type { TaskContextDirectory, TaskContextSource } from '../../../lib/taskContext'
-import type { ToolCall } from '../../../reducer/chatReducer'
-import type { describeTool } from '../toolPresentation'
-
-export interface SessionPanelModel {
-  agents: (SubagentTaskSummary & { model: string | null | undefined })[]
-  processes: {
-    id: string
-    command: string
-    status: ReturnType<typeof describeTool>['outcome']
-    output: string
-    truncated: boolean
-    call: ToolCall
-  }[]
-}
+import type { SessionPanelModel } from '../../../../../../../shared/history-panels/types'
+export type { SessionPanelModel } from '../../../../../../../shared/history-panels/types'
 
 export function activePanelProcesses(model: SessionPanelModel): SessionPanelModel['processes'] {
   return model.processes.filter((process) => process.status === 'running')

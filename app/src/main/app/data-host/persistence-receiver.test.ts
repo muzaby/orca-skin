@@ -1,3 +1,4 @@
+import { copyForkDisplay } from '../../features/history/fork-display'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -55,7 +56,7 @@ function writerFor(db: DbQueries): HistoryWriter {
   return new HistoryWriter(
     db,
     (kind) => resolveAgentProfile(kind).persistResponseBoundaries,
-    (arrival) => materializeContinuityArrival(db, arrival),
+    (arrival) => materializeContinuityArrival(db, arrival, copyForkDisplay),
     db.artifacts
   )
 }

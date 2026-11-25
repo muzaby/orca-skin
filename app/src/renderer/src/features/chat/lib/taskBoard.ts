@@ -24,37 +24,9 @@ import type { SubagentTaskSummary } from './parts'
 // `paused` 는 SDK `task_updated` 로만 관측되는 **살아 있는 일시정지**다(0212 D-014) — 정착이
 // 아니므로 완료 그룹으로 내려가지 않고, SDK 에 resume API 가 없어 여기서 나갈 사용자 경로는
 // 중단뿐이다(D-022 — 그래서 중단 버튼을 유지한다).
-export type TaskBoardStatus =
-  | 'in_progress'
-  | 'stopping'
-  | 'paused'
-  | 'pending'
-  | 'completed'
-  | 'aborted'
-  | 'failed'
-  | 'rejected'
-  | 'cancelled'
-  | 'not_executed'
-
-export interface TaskBoardItem {
-  // 목록/선택 키. `agent:` 접두사를 유지한다 — `taskStopErrors` 등 다른 상태가 여전히
-  // `bg:<toolUseId>` 를 쓰므로 두 네임스페이스는 계속 공존한다(0215 이후에도 키는 갈린다).
-  key: string
-  id: string
-  // **표시** 제목. `in_progress` 인 동안은 `activeForm`(현재진행형)으로 교체된다(0212 D-006).
-  title: string
-  // **안정** 이름 — 상태와 무관하게 같은 값이다. `aria-label` 과 상세 화면이 이것을 쓴다:
-  // 접근성 라벨이 상태에 따라 흔들리면 스크린리더 사용자가 같은 항목을 다른 항목으로 읽는다
-  // (0212 D-007 · §10 EP-05). 두 필드를 맞바꾸면 그 계약이 깨진다.
-  subject: string
-  description: string | null
-  status: TaskBoardStatus
-  blockedBy: string[]
-}
-
-export function agentTaskKey(id: string): string {
-  return `agent:${id}`
-}
+export { agentTaskKey } from '../../../../../shared/history-panels/types'
+export type { TaskBoardItem, TaskBoardStatus } from '../../../../../shared/history-panels/types'
+import type { TaskBoardItem, TaskBoardStatus } from '../../../../../shared/history-panels/types'
 
 export function backgroundTaskKey(toolUseId: string): string {
   return `bg:${toolUseId}`

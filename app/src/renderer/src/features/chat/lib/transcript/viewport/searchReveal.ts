@@ -1,4 +1,9 @@
+import type { AnchorTarget } from './anchor'
 export interface SearchReveal {
+  visit?: number
+  generation?: string
+  sessionId?: string
+  anchor?: AnchorTarget
   seq: number
   target: string
   keyboard: boolean
@@ -11,7 +16,8 @@ export function revealSearchRow(
   locate: () => HTMLElement | undefined,
   scroll: (top: number) => void,
   announce: () => void,
-  finished?: () => void
+  finished?: () => void,
+  restorePosition?: () => number | null
 ): () => void {
   let frame = 0
   let timer = 0
@@ -53,6 +59,15 @@ export function revealSearchRow(
       const box = row.getBoundingClientRect()
       const viewport = scroller.getBoundingClientRect()
       if (viewport.height > 0 && box.height > 0) {
+        const anchorTop = selection.restore ? restorePosition?.() : undefined
+        if (anchorTop != null) {
+          if (Math.abs(anchorTop - scroller.scrollTop) > 0.5 && !positioned) {
+            scroll(anchorTop)
+            positioned = true
+            frame = requestAnimationFrame(measure)
+          } else release()
+          return
+        }
         if (
           box.bottom <= viewport.top ||
           box.top >= viewport.bottom ||
