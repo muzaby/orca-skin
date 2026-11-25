@@ -99,6 +99,29 @@ test('separates a failed search, an empty search with expected sites, and a clea
   assert.match(clean.out, /상태: 정상 — 미분류 0/)
 })
 
+test('skips option values before the pattern and refuses a pattern that does not match the hit lines', () => {
+  const globFirst = execFileSync('node', [script, '--search', `rg -n -g '!*.test.*' -g '!*.md' '\\bboundary\\b' ${dir}`], { encoding: 'utf8' })
+  assert.deepEqual(classes(globFirst), classes(run().out))
+  const wrong = (() => {
+    try {
+      execFileSync('node', [script, '--search', `rg -n -i 'BOUNDARY' ${dir}`, '--sites', `${file}:5`], { encoding: 'utf8', stdio: 'pipe' })
+      return 0
+    } catch (error) {
+      return error.status
+    }
+  })()
+  assert.equal(wrong, 1, '-i 는 대소문자를 무시한 정규식으로 맞춘다 — 정상 검사(미분류 있음)지 명령 해석 실패(2)가 아니다')
+  const mismatch = (() => {
+    try {
+      execFileSync('node', [script, '--search', `rg -n 'boundary' ${dir} | sed 's/boundary/x/'`], { encoding: 'utf8', stdio: 'pipe' })
+      return 0
+    } catch (error) {
+      return error.status
+    }
+  })()
+  assert.equal(mismatch, 2)
+})
+
 test('flags a listed range the search no longer reaches', () => {
   const stale = run('--sites', `${file}:5-8,${file}:10,${file}:40`)
   assert.equal(stale.code, 1)
