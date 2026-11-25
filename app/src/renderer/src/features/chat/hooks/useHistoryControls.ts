@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { idleSearchDirection } from '../lib/idleSearchDirection'
 import { chatActions, useChatStore } from '../store/chatStore'
 import {
   HISTORY_GESTURE_GAP_MS,
@@ -40,12 +41,7 @@ export function useHistoryControls(key: string): TranscriptHistoryControls | und
     }
   }, [key, active])
   useEffect(() => {
-    const dir =
-      view?.before?.kind === 'withinTurn' && !view.beforeState
-        ? 'before'
-        : view?.after?.kind === 'withinTurn' && !view.afterState
-          ? 'after'
-          : undefined
+    const dir = view && idleSearchDirection(view)
     if (view ? !dir : !page || page.before?.kind !== 'withinTurn' || page.beforeState) return
     let idle = 0,
       timer = 0

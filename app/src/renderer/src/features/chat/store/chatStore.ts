@@ -10,6 +10,7 @@ import { transcriptIndexFor } from '../lib/transcriptIndex'
 import type { BackgroundSessionState } from '../../../../../shared/background-task'
 import type { LoadedMessage } from '../../../../../shared/ipc'
 import type { TranscriptDiagnostic } from '../lib/transcript/heldParts'
+import { idleSearchDirection } from '../lib/idleSearchDirection'
 import { messageOrderFor } from '../lib/transcript/messageOrder'
 import { newTranscriptChanges, recordChange } from '../lib/transcript/changeLog'
 import { rendererMessageId, userMessageId } from '../../../../../shared/message-id'
@@ -2772,7 +2773,7 @@ function readSearchEdge(key: string, direction: 'before' | 'after', automatic = 
     !edge ||
     getState().activeKey !== key ||
     view[stateKey] === 'loading' ||
-    (automatic && (edge.kind !== 'withinTurn' || view[stateKey] === 'error'))
+    (automatic && idleSearchDirection(view) !== direction)
   )
     return false
   const seq = search.seq

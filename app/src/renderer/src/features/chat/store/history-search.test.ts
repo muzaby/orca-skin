@@ -19,7 +19,12 @@ const locator = (session: string, key = 'm:2'): HistoryLocator => ({
   epoch: 'e'
 })
 const edge = (kind: 'earlierTurn' | 'laterTurn'): HistoryEdge => ({ kind, cursor: kind })
-function reply(session: string, ids: string[], before = false, after = false): HistoryPageReply {
+function reply(
+  session: string,
+  ids: string[],
+  before = false,
+  after = false
+): Extract<HistoryPageReply, { status: 'ok' }> {
   return {
     status: 'ok',
     sessionId: session,
@@ -89,6 +94,97 @@ describe('search history in the chat store', () => {
     expect(entry().search?.seq).not.toBe(previous)
     expect(full).not.toHaveBeenCalled()
   })
+  it.each(['before', 'after'] as const)(
+    'does not issue an automatic page while the %s search edge is pending',
+    async (first) => {
+      const initial = reply('b', ['m:2'])
+      initial.session.history.before = { kind: 'withinTurn', cursor: 'left' }
+      initial.session.history.after = { kind: 'withinTurn', cursor: 'right' }
+      const page = vi.spyOn(sessionApi, 'page').mockResolvedValue(initial)
+      await chatActions.openSearchHit(locator('b'), false)
+      let deliver!: (value: HistoryPageReply) => void
+      page.mockReturnValueOnce(
+        new Promise((resolve) => {
+          deliver = resolve
+        })
+      )
+      expect(chatActions.readSearchEdge('b', first)).toBe(true)
+      const opposite = first === 'before' ? 'after' : 'before'
+      expect(chatActions.readSearchEdge('b', opposite, true)).toBe(false)
+      expect(page).toHaveBeenCalledTimes(2)
+      const next = reply('b', [first === 'before' ? 'm:1' : 'm:3'], true, true)
+      next.session.history[opposite] = initial.session.history[opposite]
+      deliver(next)
+      await Promise.resolve()
+      page.mockResolvedValueOnce(reply('b', ['final']))
+      expect(chatActions.readSearchEdge('b', opposite, true)).toBe(true)
+      expect(page).toHaveBeenCalledTimes(3)
+      await Promise.resolve()
+    }
+  )
+
+  it('allows a manual read on the other search edge while the first read is pending', async () => {
+    const initial = reply('b', ['m:2'], true, true)
+    const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(initial)
+    await chatActions.openSearchHit(locator('b'), false)
+    let finishBefore!: (value: HistoryPageReply) => void
+    page.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishBefore = resolve
+      })
+    )
+    page.mockResolvedValueOnce(reply('b', ['m:3'], true, true))
+    expect(chatActions.readSearchEdge('b', 'before')).toBe(true)
+    expect(chatActions.readSearchEdge('b', 'after')).toBe(true)
+    await Promise.resolve()
+    expect(entry().search?.view?.beforeState).toBe('loading')
+    finishBefore(reply('b', ['m:1'], true, true))
+    await Promise.resolve()
+    expect(entry().search?.view?.messages.map((m) => m.id)).toEqual(['m:1', 'm:2', 'm:3'])
+    expect(page.mock.calls.map(([query]) => query.kind)).toEqual([
+      'target',
+      'earlierTurn',
+      'laterTurn'
+    ])
+  })
+
+  it.each(['ordinary', 'before', 'after'] as const)(
+    'rejects a different publication and retries the same %s cursor',
+    async (direction) => {
+      const ordinary = direction === 'ordinary'
+      const side = direction === 'after' ? 'after' : 'before'
+      const page = vi
+        .spyOn(sessionApi, 'page')
+        .mockResolvedValueOnce(reply('b', ['m:2'], true, !ordinary))
+      await chatActions.openSearchHit(locator('b'), false)
+      const request = (): boolean =>
+        ordinary ? chatActions.readPrevious('b') : chatActions.readSearchEdge('b', side)
+      const wrong = reply('b', ['foreign'])
+      wrong.session.history.generation = 'other-generation'
+      page.mockResolvedValue(wrong)
+      expect(request()).toBe(true)
+      expect(request()).toBe(false)
+      expect(page).toHaveBeenCalledTimes(2)
+      const originalQuery = page.mock.lastCall![0]
+      await Promise.resolve()
+      const current = ordinary ? entry().history : entry().search?.view
+      expect(current).toMatchObject({
+        generation: 'g',
+        [side]: edge(side === 'before' ? 'earlierTurn' : 'laterTurn'),
+        [side + 'State']: 'error'
+      })
+      expect(
+        (ordinary ? entry().session.messages : entry().search!.view!.messages).map((m) => m.id)
+      ).toEqual(['m:2'])
+      page.mockResolvedValueOnce(reply('b', ['valid'], side === 'after', side === 'before'))
+      expect(request()).toBe(true)
+      expect(page.mock.lastCall![0]).toEqual(originalQuery)
+      await Promise.resolve()
+      expect(
+        (entry().search?.view?.messages ?? entry().session.messages).map((m) => m.id)
+      ).toContain('valid')
+    }
+  )
   it('discards an ordinary earlier page on session change without moving the inactive history cursor', async () => {
     const page = vi
       .spyOn(sessionApi, 'page')

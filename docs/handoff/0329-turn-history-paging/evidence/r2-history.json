@@ -1,0 +1,1490 @@
+{
+  "handoff": "0329",
+  "round": "r2",
+  "base": "04958717",
+  "design": "V1 rev 5 + ΔV1–ΔV4",
+  "gates": {
+    "vitest": {
+      "files": "9 failed | 1137 passed | 4 skipped (1150)",
+      "cases": "22 failed | 10831 passed | 1 expected fail | 11 skipped (10865)",
+      "baselineCommit": "6b063bb0",
+      "independentBaseline": "04958717",
+      "failedCases": [
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "exposes runtime-native watch files and applies external project choices only after idle reconciliation"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "pins deployed MCP files for same-cwd peers and reloads until the final owner closes"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "reconciles plugin choices through the actual adapter while preserving provider flags"
+        },
+        {
+          "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+          "test": "reports a reconciled plugin revision as applied but not a later external edit"
+        },
+        {
+          "file": "src/main/adapters/claude/native-resources.test.ts",
+          "test": "applies session-only inline flags and reloads actual plugin state while preserving sibling flags"
+        },
+        {
+          "file": "src/main/adapters/claude/native-resources.test.ts",
+          "test": "commits a plugin choice only after verified reload and restores flags and commands when persistence fails"
+        },
+        {
+          "file": "src/main/adapters/claude/native-resources.test.ts",
+          "test": "waits for durable persistence and serializes subsequent plugin mutations"
+        },
+        {
+          "file": "src/main/adapters/claude/project-reconciliation.test.ts",
+          "test": "projects native plugin flag false during external reconciliation"
+        },
+        {
+          "file": "src/main/adapters/claude/project-reconciliation.test.ts",
+          "test": "shows external selection with actual status immediately, waits for idle, and never saves it back"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+          "test": "Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+          "test": "Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+          "test": "exposes native resources from the live channel client and its directory without mutations"
+        },
+        {
+          "file": "src/main/adapters/opencode/v1/adapter.test.ts",
+          "test": "OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "does not start a native server after caller cancellation or session scope change during preparation"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "prepares draft and saved directory with the same production settings and env resolution as turns"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "preserves the acquire failure stage through the registered catalog handler"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "preserves the configuration failure stage through the registered catalog handler"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "returns prepared plugin and agent parts through IPC before blocked MCP/models without a session"
+        },
+        {
+          "file": "src/main/app/composer-catalog.test.ts",
+          "test": "wires the public handler through the production resolver and returns its shutdown cleanup"
+        },
+        {
+          "file": "src/main/app/composer-preparation-service.test.ts",
+          "test": "shares targets across catalog resources and warmup through the production assembly"
+        },
+        {
+          "file": "src/main/app/handlers/session-resources.claude-assembly.test.ts",
+          "test": "reconciles external plugin selections and publishes the final state through the real watcher"
+        }
+      ],
+      "newFailures": [],
+      "resolvedFailures": [],
+      "unhandled": "Error: 이 플러그인은 프로젝트별 제어를 지원하지 않습니다."
+    },
+    "changedTests": {
+      "files": 5,
+      "passed": 40
+    },
+    "node": {
+      "passed": 1104,
+      "failed": 0
+    },
+    "lint": {
+      "errors": 0,
+      "warnings": 12
+    },
+    "typecheck": [
+      "node",
+      "web",
+      "test",
+      "Q4b host",
+      "Q4b probe"
+    ],
+    "static": [
+      "migrations-appendonly",
+      "doc-inventory",
+      "product-naming",
+      "test-budgets",
+      "ui-thread"
+    ],
+    "electron": [
+      "build",
+      "smoke-hosts",
+      "smoke-preload"
+    ]
+  },
+  "originalFailure": {
+    "file": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+    "test": "fills both sides of a search turn one committed page at a time",
+    "pendingBeforeExpectedIdle": 0,
+    "observedAtBase": 1,
+    "observedAfterFix": 0
+  },
+  "electronViewport": {
+    "platform": "linux",
+    "electron": "39.8.10",
+    "samples": 150,
+    "discarded": 0,
+    "failures": [],
+    "maxShiftByScreenPx": {
+      "claude-code": {
+        "top": 0.265625,
+        "followup": 0.265625,
+        "expired": 9.734375,
+        "middle": 0.265625,
+        "inertia": 0.265625,
+        "states": 0,
+        "reverse": 18.265625,
+        "lateHeight": 0.265625,
+        "firstMeasurement": 0.265625,
+        "ownership": 0.265625
+      },
+      "claude-work": {
+        "top": 0.265625,
+        "followup": 0.265625,
+        "expired": 9.734375,
+        "middle": 0.265625,
+        "inertia": 0.265625,
+        "states": 0,
+        "reverse": 18.265625,
+        "lateHeight": 0.265625,
+        "firstMeasurement": 0.265625,
+        "ownership": 0.265625
+      },
+      "opencode-code": {
+        "top": 0.390625,
+        "followup": 0.390625,
+        "expired": 9.609375,
+        "middle": 0.390625,
+        "inertia": 0.390625,
+        "states": 0,
+        "reverse": 18.390625,
+        "lateHeight": 0.390625,
+        "firstMeasurement": 0.390625,
+        "ownership": 0.390625
+      }
+    },
+    "searches": [
+      {
+        "screen": "claude-code",
+        "keyboard": false,
+        "requests": [
+          "target"
+        ],
+        "focused": false,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "claude-code",
+        "keyboard": true,
+        "requests": [
+          "target"
+        ],
+        "focused": true,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "claude-work",
+        "keyboard": false,
+        "requests": [
+          "target"
+        ],
+        "focused": false,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "claude-work",
+        "keyboard": true,
+        "requests": [
+          "target"
+        ],
+        "focused": true,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "opencode-code",
+        "keyboard": false,
+        "requests": [
+          "target"
+        ],
+        "focused": false,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      },
+      {
+        "screen": "opencode-code",
+        "keyboard": true,
+        "requests": [
+          "target"
+        ],
+        "focused": true,
+        "owner": "u:63:user",
+        "visible": true,
+        "selected": "u:63"
+      }
+    ]
+  },
+  "oldDatabases": {
+    "small": {
+      "env": true,
+      "phase": "projection",
+      "baseline": "7db1c7ce",
+      "oldDb": "small",
+      "receivedMessages": 2,
+      "loadingFrameMs": 34.899999998509884,
+      "visible": true,
+      "firstBodyId": "n:native-98",
+      "clickToBodyFrameMs": 105.39999999850988,
+      "sessions": 20,
+      "prepared": {
+        "queuedMs": 4.388810999999919,
+        "buildMs": 8.503137000000038,
+        "sourceBytes": 10434
+      },
+      "readBodyBytes": 90,
+      "backgroundPayloadBytes": 146076,
+      "before": {
+        "db": 782336,
+        "wal": 0
+      },
+      "after": {
+        "db": 782336,
+        "wal": 2838712
+      },
+      "readerPayloadBytes": 10434,
+      "requestJsonBytes": 145,
+      "replyJsonBytes": 918,
+      "replyFrames": 1,
+      "warm": {
+        "receivedMessages": 2,
+        "loadingFrameMs": 4,
+        "visible": true,
+        "firstBodyId": "n:native-98",
+        "clickToBodyFrameMs": 37.899999998509884,
+        "sessions": 20,
+        "readBodyBytes": 90,
+        "backgroundPayloadBytes": 52170,
+        "before": {
+          "db": 782336,
+          "wal": 2838712
+        },
+        "after": {
+          "db": 782336,
+          "wal": 3765712
+        },
+        "readerPayloadBytes": 0,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 828,
+        "replyFrames": 1
+      },
+      "platform": "linux",
+      "electron": "39.8.10",
+      "verdict": true
+    },
+    "long-1": {
+      "env": true,
+      "phase": "projection",
+      "baseline": "7db1c7ce",
+      "oldDb": "long",
+      "receivedMessages": 2,
+      "loadingFrameMs": 29.799999997019768,
+      "visible": true,
+      "firstBodyId": "n:native-99998",
+      "clickToBodyFrameMs": 2001,
+      "sessions": 200,
+      "prepared": {
+        "queuedMs": 2.806438999999955,
+        "buildMs": 1919.9395220000006,
+        "sourceBytes": 11316684
+      },
+      "readBodyBytes": 96,
+      "backgroundPayloadBytes": 239982,
+      "before": {
+        "db": 28631040,
+        "wal": 0
+      },
+      "after": {
+        "db": 83021824,
+        "wal": 4902832
+      },
+      "readerPayloadBytes": 11316684,
+      "requestJsonBytes": 145,
+      "replyJsonBytes": 951,
+      "replyFrames": 1,
+      "warm": {
+        "receivedMessages": 2,
+        "loadingFrameMs": 5.599999997764826,
+        "visible": true,
+        "firstBodyId": "n:native-99998",
+        "clickToBodyFrameMs": 27.599999997764826,
+        "sessions": 200,
+        "readBodyBytes": 96,
+        "backgroundPayloadBytes": 386058,
+        "before": {
+          "db": 83021824,
+          "wal": 4902832
+        },
+        "after": {
+          "db": 85299200,
+          "wal": 4902832
+        },
+        "readerPayloadBytes": 0,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 857,
+        "replyFrames": 1
+      },
+      "platform": "linux",
+      "electron": "39.8.10",
+      "latencyGate": {
+        "limitMs": 3729,
+        "pass": true
+      },
+      "verdict": true
+    },
+    "long-2": {
+      "env": true,
+      "phase": "projection",
+      "baseline": "7db1c7ce",
+      "oldDb": "long",
+      "receivedMessages": 2,
+      "loadingFrameMs": 43.30000000074506,
+      "visible": true,
+      "firstBodyId": "n:native-99998",
+      "clickToBodyFrameMs": 2086.10000000149,
+      "sessions": 200,
+      "prepared": {
+        "queuedMs": 3.8733210000000327,
+        "buildMs": 1995.6263799999997,
+        "sourceBytes": 11316684
+      },
+      "readBodyBytes": 96,
+      "backgroundPayloadBytes": 239982,
+      "before": {
+        "db": 28631040,
+        "wal": 0
+      },
+      "after": {
+        "db": 83021824,
+        "wal": 5141792
+      },
+      "readerPayloadBytes": 11316684,
+      "requestJsonBytes": 145,
+      "replyJsonBytes": 952,
+      "replyFrames": 1,
+      "warm": {
+        "receivedMessages": 2,
+        "loadingFrameMs": 5.399999998509884,
+        "visible": true,
+        "firstBodyId": "n:native-99998",
+        "clickToBodyFrameMs": 31.399999998509884,
+        "sessions": 200,
+        "readBodyBytes": 96,
+        "backgroundPayloadBytes": 302586,
+        "before": {
+          "db": 83021824,
+          "wal": 5141792
+        },
+        "after": {
+          "db": 84176896,
+          "wal": 5141792
+        },
+        "readerPayloadBytes": 0,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 857,
+        "replyFrames": 1
+      },
+      "platform": "linux",
+      "electron": "39.8.10",
+      "latencyGate": {
+        "limitMs": 3729,
+        "pass": true
+      },
+      "verdict": true
+    },
+    "long-3": {
+      "env": true,
+      "phase": "projection",
+      "baseline": "7db1c7ce",
+      "oldDb": "long",
+      "receivedMessages": 2,
+      "loadingFrameMs": 39.899999998509884,
+      "visible": true,
+      "firstBodyId": "n:native-99998",
+      "clickToBodyFrameMs": 2149.199999999255,
+      "sessions": 200,
+      "prepared": {
+        "queuedMs": 4.75756199999978,
+        "buildMs": 2036.6154620000002,
+        "sourceBytes": 11316684
+      },
+      "readBodyBytes": 96,
+      "backgroundPayloadBytes": 219114,
+      "before": {
+        "db": 28631040,
+        "wal": 0
+      },
+      "after": {
+        "db": 83021824,
+        "wal": 5129432
+      },
+      "readerPayloadBytes": 11316684,
+      "requestJsonBytes": 145,
+      "replyJsonBytes": 950,
+      "replyFrames": 1,
+      "warm": {
+        "receivedMessages": 2,
+        "loadingFrameMs": 5,
+        "visible": true,
+        "firstBodyId": "n:native-99998",
+        "clickToBodyFrameMs": 30.199999999254942,
+        "sessions": 200,
+        "readBodyBytes": 96,
+        "backgroundPayloadBytes": 386058,
+        "before": {
+          "db": 83021824,
+          "wal": 5129432
+        },
+        "after": {
+          "db": 84176896,
+          "wal": 5129432
+        },
+        "readerPayloadBytes": 0,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 857,
+        "replyFrames": 1
+      },
+      "platform": "linux",
+      "electron": "39.8.10",
+      "latencyGate": {
+        "limitMs": 3729,
+        "pass": true
+      },
+      "verdict": true
+    }
+  },
+  "mutationSweep": {
+    "cited": [
+      "I1",
+      "I2",
+      "I11",
+      "I12",
+      "I13",
+      "S7",
+      "S8",
+      "S10",
+      "C2",
+      "C3",
+      "P1",
+      "P3",
+      "P5",
+      "P7"
+    ],
+    "previousDetections": [
+      "I3",
+      "I4",
+      "I9",
+      "S9",
+      "C1",
+      "P2",
+      "P4",
+      "P8",
+      "R1",
+      "R2",
+      "R3",
+      "R4",
+      "R5"
+    ],
+    "changedBranches": [
+      "I5",
+      "I6",
+      "I7",
+      "I8",
+      "I10",
+      "B1",
+      "B2",
+      "B3",
+      "B4",
+      "B5"
+    ],
+    "newOracles": [
+      "O1",
+      "O2",
+      "O3",
+      "O4"
+    ],
+    "selectedEvidence": [
+      "SEL-11",
+      "SEL-17",
+      "REG-06",
+      "EP10-old-uuid",
+      "EP10-resume-orca",
+      "EP10-unrouted-events",
+      "EP10-unrouted-permission",
+      "EP10-unrouted-hook",
+      "EP10-fork-orca",
+      "EP10-lineage-native",
+      "EP10-handoff-lineage-native",
+      "EP10-bind-old",
+      "EP10-next-send-old",
+      "EP10-reopen-old"
+    ],
+    "missingCited": [],
+    "missingPreviousDetections": [],
+    "missingPlanned": [],
+    "unplanned": [],
+    "detected": 55,
+    "cases": [
+      {
+        "id": "I1",
+        "source": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "line": 50,
+        "original": "input.current.dragging || ",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "postpones idle history reads",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "postpones idle history reads during pointerdown input and resumes after release",
+            "observation": "AssertionError: expected \"vi.fn()\" to not be called at all, but actually been called 1 times"
+          }
+        ]
+      },
+      {
+        "id": "I2",
+        "source": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "line": 50,
+        "original": "performance.now() < input.current.until",
+        "replacement": "false",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "postpones idle history reads",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "postpones idle history reads during wheel input and resumes after release",
+            "observation": "AssertionError: expected \"vi.fn()\" to not be called at all, but actually been called 1 times"
+          },
+          {
+            "test": "postpones idle history reads during keydown input and resumes after release",
+            "observation": "AssertionError: expected \"vi.fn()\" to not be called at all, but actually been called 1 times"
+          }
+        ]
+      },
+      {
+        "id": "I11",
+        "source": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "line": 28,
+        "original": "document.addEventListener('wheel', note, { capture: true, passive: true })",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "postpones idle history reads",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "postpones idle history reads during wheel input and resumes after release",
+            "observation": "AssertionError: expected \"vi.fn()\" to not be called at all, but actually been called 1 times"
+          }
+        ]
+      },
+      {
+        "id": "I12",
+        "source": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "line": 29,
+        "original": "document.addEventListener('keydown', note, true)",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "postpones idle history reads",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "postpones idle history reads during keydown input and resumes after release",
+            "observation": "AssertionError: expected \"vi.fn()\" to not be called at all, but actually been called 1 times"
+          }
+        ]
+      },
+      {
+        "id": "I13",
+        "source": "src/renderer/src/features/chat/lib/idleSearchDirection.ts",
+        "line": 12,
+        "original": "return 'before'",
+        "replacement": "return 'after'",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "fills both sides",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "fills both sides of a search turn one committed page at a time",
+            "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ 's', 'before', true ]"
+          }
+        ]
+      },
+      {
+        "id": "S7",
+        "source": "src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 2799,
+        "original": " || reply.session.history.generation !== view.generation",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "filter": "rejects a different publication",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "search history in the chat store rejects a different publication and retries the same before cursor",
+            "observation": "AssertionError: expected { …(6) } to match object { generation: 'g', …(2) }"
+          },
+          {
+            "test": "search history in the chat store rejects a different publication and retries the same after cursor",
+            "observation": "AssertionError: expected undefined to match object { generation: 'g', …(2) }"
+          }
+        ]
+      },
+      {
+        "id": "S8",
+        "source": "src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 2850,
+        "original": " || reply.session.history.generation !== history.generation",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "filter": "rejects a different publication",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "search history in the chat store rejects a different publication and retries the same ordinary cursor",
+            "observation": "AssertionError: expected { generation: 'g', …(3) } to match object { generation: 'g', …(2) }"
+          }
+        ]
+      },
+      {
+        "id": "S10",
+        "source": "src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 2829,
+        "original": "history.beforeState === 'loading' ||",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "filter": "rejects a different publication",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "search history in the chat store rejects a different publication and retries the same ordinary cursor",
+            "observation": "AssertionError: expected true to be false // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "C2",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 54,
+        "original": "kind !== req.kind ||",
+        "replacement": "",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "rejects a cursor reused",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation rejects a cursor reused for another kind or direction before reading any message body",
+            "observation": "AssertionError: expected { sessionId: 'session', …(4) } to match object { status: 'invalid' }"
+          }
+        ]
+      },
+      {
+        "id": "C3",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 55,
+        "original": "direction !== (before ? 'before' : 'after') ||",
+        "replacement": "",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "rejects a cursor reused",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation rejects a cursor reused for another kind or direction before reading any message body",
+            "observation": "AssertionError: expected { sessionId: 'session', …(4) } to match object { status: 'invalid' }"
+          }
+        ]
+      },
+      {
+        "id": "P1",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 85,
+        "original": " || state.published_revision !== state.revision",
+        "replacement": "",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "returns stale if a source write",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation returns stale if a source write commits between prepare and the bounded read",
+            "observation": "AssertionError: expected { sessionId: 'session', …(4) } to deeply equal { status: 'stale', …(3) }"
+          }
+        ]
+      },
+      {
+        "id": "P3",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 113,
+        "original": " || header.body_bytes !== ref.bytes",
+        "replacement": "",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "reads a deferred UTF-8",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation reads a deferred UTF-8 body across chunk boundaries and rejects stale or foreign references",
+            "observation": "AssertionError: expected { sessionId: 'session', …(7) } to match object { status: 'invalid' }"
+          }
+        ]
+      },
+      {
+        "id": "P5",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 166,
+        "original": " || current.epoch !== locator.epoch",
+        "replacement": "",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "rechecks the archive epoch",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation rechecks the archive epoch when ordinal zero is reused and confirms only the resolved cache key",
+            "observation": "AssertionError: expected { sessionId: 'session', …(5) } to match object { status: 'stale' }"
+          }
+        ]
+      },
+      {
+        "id": "P7",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 171,
+        "original": " && req.cached.messageKey === start.message_key",
+        "replacement": "",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "rechecks the archive epoch",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation rechecks the archive epoch when ordinal zero is reused and confirms only the resolved cache key",
+            "observation": "AssertionError: expected false to be 'archive-secondterm' // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "I3",
+        "source": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "line": 45,
+        "original": " || page.beforeState)",
+        "replacement": ")",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "requests one same-turn page",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "requests one same-turn page after commit and idle, pauses during input and stops at the previous turn, errors or unmount",
+            "observation": "AssertionError: expected 1 to be +0 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "I4",
+        "source": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "line": 45,
+        "original": "page.before?.kind !== 'withinTurn'",
+        "replacement": "!page.before",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "requests one same-turn page",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "requests one same-turn page after commit and idle, pauses during input and stops at the previous turn, errors or unmount",
+            "observation": "AssertionError: expected 1 to be +0 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "I9",
+        "source": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "line": 58,
+        "original": "window.cancelIdleCallback(idle)",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "requests one same-turn page",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "requests one same-turn page after commit and idle, pauses during input and stops at the previous turn, errors or unmount",
+            "observation": "AssertionError: expected 1 to be +0 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "S9",
+        "source": "src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 2775,
+        "original": "view[stateKey] === 'loading' ||",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "filter": "rejects a different publication",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "search history in the chat store rejects a different publication and retries the same before cursor",
+            "observation": "AssertionError: expected true to be false // Object.is equality"
+          },
+          {
+            "test": "search history in the chat store rejects a different publication and retries the same after cursor",
+            "observation": "AssertionError: expected true to be false // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "C1",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 53,
+        "original": "id !== req.sessionId ||",
+        "replacement": "",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "keeps partless messages",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation keeps partless messages and same-time turns, preserves earlier cursors across local tail append",
+            "observation": "AssertionError: expected { sessionId: 'session', …(3) } to match object { status: 'invalid' }"
+          }
+        ]
+      },
+      {
+        "id": "P2",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 91,
+        "original": "ref.session !== id || offset % HISTORY_BODY_BYTES ||",
+        "replacement": "offset % HISTORY_BODY_BYTES ||",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "defers oversized control",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation defers oversized control metadata while returning the latest text on the first page",
+            "observation": "AssertionError: expected { sessionId: 'session', …(8) } to match object { status: 'invalid' }"
+          }
+        ]
+      },
+      {
+        "id": "P4",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 157,
+        "original": "if (req.generation !== generation) return { ...echo, status: 'stale' }",
+        "replacement": "",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "returns the ordinary reading position",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation returns the ordinary reading position only for its published generation and confirms cached keys",
+            "observation": "AssertionError: expected { sessionId: 'session', …(5) } to match object { status: 'stale' }"
+          }
+        ]
+      },
+      {
+        "id": "P8",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 109,
+        "original": "ref.session !== id || offset % HISTORY_BODY_BYTES !== 0",
+        "replacement": "offset % HISTORY_BODY_BYTES !== 0",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "reads a deferred UTF-8",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation reads a deferred UTF-8 body across chunk boundaries and rejects stale or foreign references",
+            "observation": "AssertionError: expected { sessionId: 'session', …(7) } to match object { status: 'invalid' }"
+          }
+        ]
+      },
+      {
+        "id": "R1",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 202,
+        "original": "start, ascending, HISTORY_PAGE_MESSAGES)",
+        "replacement": "start, ascending, HISTORY_PAGE_MESSAGES-1)",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "greedy maximal",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation greedy maximal pages for uniform and skewed turns (spread)",
+            "observation": "AssertionError: expected false to be true // Object.is equality"
+          },
+          {
+            "test": "turn pages from the published SQLite generation greedy maximal pages for uniform and skewed turns (clustered)",
+            "observation": "AssertionError: expected false to be true // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "R2",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 240,
+        "original": "parts + h.part_count > HISTORY_PAGE_PARTS",
+        "replacement": "false",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "greedy maximal",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation greedy maximal pages for uniform and skewed turns (clustered)",
+            "observation": "AssertionError: expected 384 to be less than or equal to 256"
+          }
+        ]
+      },
+      {
+        "id": "R3",
+        "source": "src/main/infra/db/history-index-queries.ts",
+        "line": 387,
+        "original": "SET next_ordinal=? WHERE",
+        "replacement": "SET next_ordinal=0*? WHERE",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "resumed build",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation keeps the previous publication intact when a resumed build has not finished",
+            "observation": "AssertionError: expected { session_id: 'session', …(7) } to match object { next_ordinal: 1, …(2) }"
+          }
+        ]
+      },
+      {
+        "id": "R4",
+        "source": "src/shared/history-panels/projection.ts",
+        "line": 641,
+        "original": "entries.delete(observation.id)",
+        "replacement": "void observation.id",
+        "oracle": "src/main/features/history/panel-summary.db.test.ts",
+        "filter": "isolates historical",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "published panel summary replay isolates historical tasks, agents, processes and sources and reads only the selected detail",
+            "observation": "AssertionError: expected { sessionId: 'S', requestId: 1, …(8) } to match object { total: +0, checkpoint: 200 }"
+          }
+        ]
+      },
+      {
+        "id": "R5",
+        "source": "src/shared/history-panels/projection.ts",
+        "line": 645,
+        "original": "if (!seen.has(id)) entries.delete(id)",
+        "replacement": "if (!seen.has(id)) void id",
+        "oracle": "src/main/features/history/panel-summary.db.test.ts",
+        "filter": "isolates historical",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "published panel summary replay isolates historical tasks, agents, processes and sources and reads only the selected detail",
+            "observation": "AssertionError: expected [ 'agent:8', 'agent:9' ] to deeply equal [ 'agent:9' ]"
+          }
+        ]
+      },
+      {
+        "id": "I5",
+        "source": "src/renderer/src/features/chat/lib/idleSearchDirection.ts",
+        "line": 11,
+        "original": "view.beforeState || ",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "fills both sides",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "fills both sides of a search turn one committed page at a time",
+            "observation": "AssertionError: expected 1 to be +0 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "I6",
+        "source": "src/renderer/src/features/chat/lib/idleSearchDirection.ts",
+        "line": 11,
+        "original": " || view.afterState",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "fills both sides",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "fills both sides of a search turn one committed page at a time",
+            "observation": "AssertionError: expected 1 to be +0 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "I7",
+        "source": "src/renderer/src/features/chat/lib/idleSearchDirection.ts",
+        "line": 13,
+        "original": "view.after?.kind === 'withinTurn'",
+        "replacement": "view.after",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "fills both sides",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "fills both sides of a search turn one committed page at a time",
+            "observation": "AssertionError: expected 1 to be +0 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "I8",
+        "source": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "line": 52,
+        "original": "readSearchEdge(key, dir, true)",
+        "replacement": "readSearchEdge(key, dir)",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "fills both sides",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "fills both sides of a search turn one committed page at a time",
+            "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ 's', 'before', true ]"
+          }
+        ]
+      },
+      {
+        "id": "B1",
+        "source": "src/renderer/src/features/chat/lib/idleSearchDirection.ts",
+        "line": 12,
+        "original": "view.before?.kind === 'withinTurn'",
+        "replacement": "view.before",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "fills both sides",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "fills both sides of a search turn one committed page at a time",
+            "observation": "AssertionError: expected [ [ 's', 'before', true ], …(1) ] to deeply equal [ [ 's', 'before', true ], …(1) ]"
+          }
+        ]
+      },
+      {
+        "id": "B2",
+        "source": "src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 2776,
+        "original": "(automatic && idleSearchDirection(view) !== direction)",
+        "replacement": "false",
+        "oracle": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "filter": "does not issue an automatic page",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "search history in the chat store does not issue an automatic page while the before search edge is pending",
+            "observation": "AssertionError: expected true to be false // Object.is equality"
+          },
+          {
+            "test": "search history in the chat store does not issue an automatic page while the after search edge is pending",
+            "observation": "AssertionError: expected true to be false // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "B3",
+        "source": "src/renderer/src/features/chat/lib/idleSearchDirection.ts",
+        "line": 11,
+        "original": "view.beforeState || view.afterState",
+        "replacement": "view.beforeState === 'loading' || view.afterState === 'loading'",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "fills both sides",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "fills both sides of a search turn one committed page at a time",
+            "observation": "AssertionError: expected 1 to be +0 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "B4",
+        "source": "src/renderer/src/features/chat/lib/idleSearchDirection.ts",
+        "line": 11,
+        "original": "view.beforeState || view.afterState",
+        "replacement": "view.beforeState === 'error' || view.afterState === 'error'",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "fills both sides",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "fills both sides of a search turn one committed page at a time",
+            "observation": "AssertionError: expected 1 to be +0 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "I10",
+        "source": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "line": 59,
+        "original": "window.clearTimeout(timer)",
+        "replacement": "",
+        "oracle": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "filter": "requests one same-turn page",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "requests one same-turn page after commit and idle, pauses during input and stops at the previous turn, errors or unmount",
+            "observation": "AssertionError: expected 1 to be +0 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "B5",
+        "source": "src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 2776,
+        "original": "(automatic && idleSearchDirection(view) !== direction)",
+        "replacement": "(idleSearchDirection(view) !== direction)",
+        "oracle": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "filter": "allows a manual read",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "search history in the chat store allows a manual read on the other search edge while the first read is pending",
+            "observation": "AssertionError: expected false to be true // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "O1",
+        "source": "src/renderer/src/shared/api/transport/session-load.ts",
+        "line": 206,
+        "original": "boundedSessions.has(sessionId)",
+        "replacement": "false",
+        "oracle": "src/main/app/data-host/history-port.integration.test.ts",
+        "filter": "opens and refreshes",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "opens and refreshes the latest turn, then reads both sides of a large search target and its body over the history port",
+            "observation": "AssertionError: expected 798 to be 2 // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "O2",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 199,
+        "original": "req.kind === 'target' ||\n      req.kind === 'visit'",
+        "replacement": "false ||\n      req.kind === 'visit'",
+        "oracle": "src/main/app/data-host/history-port.integration.test.ts",
+        "filter": "opens and refreshes",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "opens and refreshes the latest turn, then reads both sides of a large search target and its body over the history port",
+            "observation": "AssertionError: expected 'm:298' to be 'm:425' // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "O3",
+        "source": "src/renderer/src/features/chat/harnesses/common/transcript/DeferredBody.tsx",
+        "line": 16,
+        "original": "openHistoryBody(body)",
+        "replacement": "openHistoryBody({ ...body, message: 'wrong' })",
+        "oracle": "src/renderer/src/features/chat/components/transcript/TranscriptViewport.body.test.ts",
+        "filter": "retries a deferred body",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "retries a deferred body from its button and resolves the original message in place",
+            "observation": "AssertionError: expected false to be true // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "O4",
+        "source": "src/renderer/src/features/chat/lib/transcript/deferredBody.ts",
+        "line": 77,
+        "original": "stream: !reply.done",
+        "replacement": "stream: false",
+        "oracle": "src/main/app/data-host/history-port.integration.test.ts",
+        "filter": "opens and refreshes",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "opens and refreshes the latest turn, then reads both sides of a large search target and its body over the history port",
+            "observation": "TypeError: The encoded data was not valid for encoding utf-8"
+          }
+        ]
+      },
+      {
+        "id": "SEL-11",
+        "source": "src/main/features/history/history-page.ts",
+        "line": 202,
+        "original": "start, ascending, HISTORY_PAGE_MESSAGES)",
+        "replacement": "start, ascending, 120)",
+        "oracle": "src/main/features/history/turn-page.db.test.ts",
+        "filter": "greedy maximal",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "turn pages from the published SQLite generation greedy maximal pages for uniform and skewed turns (spread)",
+            "observation": "AssertionError: expected false to be true // Object.is equality"
+          },
+          {
+            "test": "turn pages from the published SQLite generation greedy maximal pages for uniform and skewed turns (clustered)",
+            "observation": "AssertionError: expected false to be true // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "SEL-17",
+        "source": "src/renderer/src/features/chat/lib/transcript/viewport/anchor.ts",
+        "line": 171,
+        "original": "viewportOffsetPx: measureCharTop(targetEl, charOffset) - vpTop",
+        "replacement": "viewportOffsetPx: targetEl.getBoundingClientRect().top - vpTop",
+        "oracle": "src/renderer/src/features/chat/lib/transcript/viewport/anchor.test.ts",
+        "filter": "captures the glyph top",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "viewport/textOffset & anchor (EP-12 · a1~a12) captures the glyph top when the caret is outside the part or inside text (text)",
+            "observation": "AssertionError: expected { partKey: 'reading', …(9) } to match object { partKey: 'reading', …(2) }"
+          },
+          {
+            "test": "viewport/textOffset & anchor (EP-12 · a1~a12) captures the glyph top when the caret is outside the part or inside text (header)",
+            "observation": "AssertionError: expected { partKey: 'reading', …(9) } to match object { partKey: 'reading', …(2) }"
+          },
+          {
+            "test": "viewport/textOffset & anchor (EP-12 · a1~a12) captures the glyph top when the caret is outside the part or inside text (non-text)",
+            "observation": "AssertionError: expected { partKey: 'reading', …(9) } to match object { partKey: 'reading', …(2) }"
+          }
+        ]
+      },
+      {
+        "id": "REG-06",
+        "source": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 1737,
+        "original": "if (!action.reachedStart) return next",
+        "replacement": "if (true) return next",
+        "oracle": "src/renderer/src/features/chat/reducer/chatReducer.prepend.test.ts",
+        "filter": "accepts the end",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "transcript history prepend g12/g13 accepts the end once and preserves the completed state on another empty or duplicate page",
+            "observation": "AssertionError: expected false to be true // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "EP10-old-uuid",
+        "source": "src/main/adapters/claude/adapter.ts",
+        "line": 379,
+        "original": "sessionId: replacement, freshStart",
+        "replacement": "sessionId: sessionId, freshStart",
+        "oracle": "src/main/adapters/claude/adapter.fork.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "ClaudeAdapter — forkFrom (0064) recreates an expired conversation with a new native UUID and hides archived context in its receipt",
+            "observation": "AssertionError: expected 'display-session' to match /^[\\da-f]{8}-[\\da-f]{4}-4[\\da-f]{3}-[8…/"
+          }
+        ]
+      },
+      {
+        "id": "EP10-resume-orca",
+        "source": "src/main/adapters/claude/adapter.ts",
+        "line": 556,
+        "original": "const nativeId = req.nativeSessionId ?? sessionId",
+        "replacement": "const nativeId = sessionId",
+        "oracle": "src/main/adapters/claude/adapter.fork.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "ClaudeAdapter — forkFrom (0064) recreates an expired conversation with a new native UUID and hides archived context in its receipt",
+            "observation": "AssertionError: expected { sessionId: 'display-session', …(14) } to match object { Object (sessionId) }"
+          },
+          {
+            "test": "ClaudeAdapter — forkFrom (0064) routes resumed events, permissions and hooks to the display session (recovered=true)",
+            "observation": "AssertionError: expected 'display-session' to be '1858689d-6d68-4fc5-990c-54e81fe5e73d' // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "EP10-unrouted-events",
+        "source": "src/main/adapters/claude/adapter.ts",
+        "line": 528,
+        "original": "routeNativeSession(live, req.nativeSessionId, req.sessionId)",
+        "replacement": "live",
+        "oracle": "src/main/adapters/claude/adapter.fork.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "ClaudeAdapter — forkFrom (0064) routes resumed events, permissions and hooks to the display session (recovered=true)",
+            "observation": "AssertionError: expected [ { type: 'session.updated', …(2) } ] to deep equally contain ObjectContaining{…}"
+          }
+        ]
+      },
+      {
+        "id": "EP10-unrouted-permission",
+        "source": "src/main/adapters/claude/adapter.ts",
+        "line": 948,
+        "original": "(routeSessionId(msg.session_id), mode)",
+        "replacement": "(msg.session_id, mode)",
+        "oracle": "src/main/adapters/claude/adapter.fork.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "ClaudeAdapter — forkFrom (0064) routes resumed events, permissions and hooks to the display session (recovered=true)",
+            "observation": "AssertionError: expected \"vi.fn()\" to be called with arguments: [ 'display-session', 'accept_edits' ]"
+          }
+        ]
+      },
+      {
+        "id": "EP10-unrouted-hook",
+        "source": "src/main/adapters/claude/adapt.ts",
+        "line": 307,
+        "original": "sessionId: routeSessionId(input.session_id ?? '')",
+        "replacement": "sessionId: input.session_id ?? ''",
+        "oracle": "src/main/adapters/claude/adapter.fork.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "ClaudeAdapter — forkFrom (0064) routes resumed events, permissions and hooks to the display session (recovered=true)",
+            "observation": "AssertionError: expected last \"vi.fn()\" call to have been called with [ ObjectContaining{…} ]"
+          }
+        ]
+      },
+      {
+        "id": "EP10-fork-orca",
+        "source": "src/main/app/chat-turn/send.ts",
+        "line": 620,
+        "original": "{ forkFrom: forkNativeId }",
+        "replacement": "{ forkFrom: continuitySource }",
+        "oracle": "src/main/app/chat-turn/send.worktree.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=true)",
+            "observation": "AssertionError: expected 'source-session' to be '43580eab-f05f-4bae-8c92-fd5ed339178e' // Object.is equality"
+          },
+          {
+            "test": "handleChatSend worktree production wiring uses the native source for handoffFrom and the display parent for lineage (recovered=true)",
+            "observation": "AssertionError: expected 'source-session' to be '43580eab-f05f-4bae-8c92-fd5ed339178e' // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "EP10-lineage-native",
+        "source": "src/main/app/chat-turn/send.ts",
+        "line": 397,
+        "original": "{ forkFrom: payload.forkFrom }",
+        "replacement": "{ forkFrom: forkNativeId }",
+        "oracle": "src/main/app/chat-turn/send.worktree.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=true)",
+            "observation": "AssertionError: expected { …(2) } to deeply equal { …(2) }"
+          }
+        ]
+      },
+      {
+        "id": "EP10-handoff-lineage-native",
+        "source": "src/main/app/chat-turn/send.ts",
+        "line": 398,
+        "original": "{ handoffFrom: payload.handoffFrom }",
+        "replacement": "{ handoffFrom: forkNativeId }",
+        "oracle": "src/main/app/chat-turn/send.worktree.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "handleChatSend worktree production wiring uses the native source for handoffFrom and the display parent for lineage (recovered=true)",
+            "observation": "AssertionError: expected { …(2) } to deeply equal { …(2) }"
+          }
+        ]
+      },
+      {
+        "id": "EP10-bind-old",
+        "source": "src/main/app/chat-turn/native-session.ts",
+        "line": 71,
+        "original": "nativeId: created.sessionId,",
+        "replacement": "nativeId: request.sessionId,",
+        "oracle": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+            "observation": "AssertionError: expected '11111111-1111-4111-8111-111111111111' to be 'ede0bcab-b557-4a7e-932a-a9bc8e25f05f' // Object.is equality"
+          }
+        ]
+      },
+      {
+        "id": "EP10-next-send-old",
+        "source": "src/main/app/chat-turn/native-session.ts",
+        "line": 41,
+        "original": "const nativeId = recovery?.native_id ?? request.sessionId",
+        "replacement": "const nativeId = request.sessionId",
+        "oracle": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+            "observation": "AssertionError: expected { ok: false, error: { …(3) } } to deeply equal { ok: true, value: { …(1) } }"
+          }
+        ]
+      },
+      {
+        "id": "EP10-reopen-old",
+        "source": "src/main/app/native-history.ts",
+        "line": 37,
+        "original": "const nativeId = recovery?.native_id ?? sessionId",
+        "replacement": "const nativeId = sessionId",
+        "oracle": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+        "filter": "",
+        "exit": 1,
+        "failures": [
+          {
+            "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+            "observation": "AssertionError: expected [ …(4) ] to deeply equal [ …(4) ]"
+          }
+        ]
+      }
+    ]
+  }
+}
