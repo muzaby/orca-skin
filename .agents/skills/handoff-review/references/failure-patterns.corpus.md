@@ -1428,6 +1428,8 @@ edge 는 모두 자리다. 자리가 적히지 않은 등록 변이는 이번 �
 pair registry·`[구현자 기입] 강제 지점 전수` · impl §2·§3 · verify §0·§4 · `verify.template.md §4`.
 P51(자기검증 다른 지점)은 유지한다 — 이 규칙은 그 축 중 "같은 결함의 다른 자리" 를 독립 검증에도 걸리게 한다.
 
+> round 49(2026-11-25, 0329 verify 3)이 위 규칙의 "자리 검색 명령으로 전수 열거"에 운반 줄 분류 도구를 더했다 — 검색 출력의 운반 줄은 `site_census.mjs`가 가르고 미분류 0이어야 한다. 정본: P71 · `docs/handoff/AGENTS.md §공통 V`.
+
 ## P53 — **pair 를 SUPERSEDED 로 분해하며 그 pair 가 들던 적대 증거를 옮기지 않았다**
 
 *출처: 0238 (ΔV1 · 라운드 3) — review round 28.*
@@ -1728,3 +1730,15 @@ P66은 1회째 전수를 요구했지만 전수가 미완으로 끝난 회차의
 → **규칙.** ⑦ 전수를 다 돌리지 못한 verify는 남긴 항목을 메타에 목록으로 적고, 그 잔여는 0이 될 때까지 다음 verify의 ⑦ 범위로 넘어간다. 잔여가 남은 verify는 PASS하지 않는다(다른 막는 발견으로 FAIL·RETURN_TO_PLAN을 낼 때만 넘길 수 있다). 구현자 sweep은 열거 항목 수 대비 `S/N`과 남긴 항목으로 적고, 남긴 항목이 있는 pair는 `SELF_PASS`로 적지 않는다.
 
 현재 방어: verify §4 ⑦ 행·bullet · verify §4 "다시 센다"(`S/N`) · impl §3 sweep 결과 · impl §9 검산 · `docs/handoff/AGENTS.md §고장 내 보기` ⑦ · §단계별 절차 2·3 · `verify.template.md` 메타 ⑦ 행·§4 · `plan.template.md` 잠금 절 분모 검산.
+
+## P71 — **§10 검색 출력에서 운반 줄을 눈으로 골라, 설계자와 검증자가 같은 줄을 같이 놓쳤다**
+
+*출처: 0329 (ΔV5 · verify 3) — review round 49.*
+
+ΔV5는 EP7 ⑥′의 자리를 `rg -n 'openCodeTodoTurnStartIndex'` 출력 9줄에서 골라 4자리를 고정하고 "나머지 줄은 import·타입·주석"이라고 적었다. 실제로는 `AboveInput.tsx:11·13·14`(경계를 꺼내 selector에 넘기고 memo 의존에 넣는 줄)와 `chatReducer.ts:560`(초기값)이 값을 운반했다.
+verify 3은 같은 검색을 다시 돌려 "계약 값을 운반하는 줄은 자리 3·4·4개와 같다"고 적었다. 그 뒤 독립 축으로 `AboveInput.tsx:13`을 망가뜨려 렌더러 3,485건 green(D19)을 찾았지만, 이를 목록 불일치(`PLAN_GAP`)가 아니라 path edge 이행 결함으로만 분류했다. 같은 검색의 EP6 ⑦′ 출력에도 목록 밖 운반 줄 4개가 있었다.
+규칙(검색 출력 ↔ 목록 차집합은 `PLAN_GAP`)은 있었고 두 턴 모두 수행했다. 쓰는 쪽과 다시 세는 쪽이 같은 모델이라 "이 줄은 운반하지 않는다"는 판단의 사각이 같았다 — P51(같은 에이전트의 재실행은 독립 재측정이 아니다)이 변이 재실행에서 본 것을 분모 분류에서 다시 봤다.
+
+→ **규칙.** 검색 출력 줄의 운반 여부는 `site_census.mjs`가 AST로 가르고, 운반 줄은 목록에 넣거나 사유와 함께 제외 줄로 적어 미분류를 0으로 만든다. 구현자·검증자는 같은 명령으로 미분류를 다시 센다.
+
+현재 방어: plan §10 자리 목록 bullet · impl §2 · verify §0 · `docs/handoff/AGENTS.md §공통 V`(강제 지점 `N`) · §단계별 절차 2·3 · `plan.template.md` §10 표 열·잠금 절 · `verify.template.md` §0 행 · `.agents/skills/handoff-verify/scripts/site_census.mjs`(+ `site_census.test.mjs`).

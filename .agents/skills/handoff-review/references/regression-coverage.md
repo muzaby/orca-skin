@@ -3677,3 +3677,86 @@ KEEP 외 DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 
 
 - 열거 항목 수 `N`은 구현자가 §10 자리 검색 · pair path · 규칙 칸에서 센다. 검증자가 같은 분모를 다시 세는 것이 방어다(P41).
 - 큰 V(자리 약 176)에서 한 verify 안에 전수를 마치는 비용은 지침으로 줄지 않는다. 잔여 이월은 비용을 회차로 나누되 PASS 전에는 0이어야 한다.
+
+# review round 49 — 0329 (verify 3회째 FAIL) + 사용자 요구: 운반 줄 분류의 도구화 · review 효과 측정 · 크기 예산
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0329 verify 3회째 `FAIL`(`c270a31f`) 뒤 r4 착수 전 의무 review. 사용자 지시 "제안관점으로 핸드오프 리뷰를 실행하라" + "더불어 핸드오프 리뷰 스킬 또한 개선하라" → **APPLY**(2026-11-25). 제안 관점 = 조항 덧붙이기 대신 통합·크기 예산·도구화, 결과 지표 측정.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | ΔV5 EP7 ⑥′이 검색 출력 9줄 중 운반 줄 `AboveInput.tsx:11·13·14`·`chatReducer.ts:560`을 "import·타입·주석"으로 뺐다 | 0329 ΔV5 · P52 · P60 | **B** — plan §10 bullet이 "운반 edge 전수"를 요구했다. 같은 지침의 B가 0262 r4~r8 이후 반복이라 문장 대신 도구로 옮겼다: `site_census.mjs`(AST 분류 · 미분류 0 · 제외 줄 사유). 새 P71 · P52 개정 메모 |
+| 2 | verify 3 §0이 같은 검색을 다시 돌리고 "운반 줄은 목록과 같다"고 적었다. EP6 ⑦′ 출력에도 목록 밖 운반 줄 4개가 있었다 | 0329 verify 3 · P51 | **B** — verify §0 규칙이 있었다. 쓰는 쪽·세는 쪽이 같은 모델이라 사각이 같다 → #1과 같은 도구로 impl §2·verify §0이 다시 센다 |
+| 3 | verify 3이 D19를 path edge 이행으로만 분류하고 목록 불일치(`PLAN_GAP`)를 놓쳤다 | 0329 verify 3 | 분류 왜곡 — 거짓 PASS 방향 아님(FAIL ↔ RETURN_TO_PLAN). §8 정정 |
+| 4 | 지침이 3개월 동안 140,003 → 186,116 bytes · 사례 인용 52 → 117로 늘고, 10/12 이후 지침 커밋 19개 중 17개가 +60~136/−3~31줄이었다. review가 자기 효과를 재는 절차가 없었다 | 사용자 질의(2026-11-25) · round 30~48 | **A** — review SKILL §1에 `review_metrics.py` 효과 지표 · §4 크기 예산 · §3 반복 B는 도구로 · §7 기록에 효과 지표 |
+| 5 | review SKILL "언제 하는가"가 AGENTS §handoff-review 트리거와 거의 같은 목록이었다 | review SKILL | 통합 — AGENTS를 정본으로, SKILL은 요약 한 문장. AGENTS 트리거에 script·root 규칙·skill 신설·정본 이동을 옮겼다 |
+| 6 | NX1(`aria-busy`) — 창 밖 확장 | 0329 verify 3 | 실패 아님 — 후보 표 |
+| 7 | AC10 Windows 실기 · 4코어 변이 비용(2시간 한도 1회 초과) | 환경 | **E** — 기록만 |
+
+**verify 분류 대조(§2)**: D19의 `못 잡음`은 §24-C path edge 인용이 되므로 이행이 맞다. 다만 같은 사실이 검색 출력 ↔ §10 목록 불일치(plan 내부 불일치)이기도 해 `PLAN_GAP`이 함께 있어야 했다 → RETURN_TO_PLAN. NX1은 인용에 해석이 필요해 확장이 맞다. 거짓 PASS 0 · FAIL inflation 0(판정 방향은 FAIL → RETURN_TO_PLAN, 둘 다 막음).
+
+## Tier
+
+**Tier 1.** §10 자리 목록의 고정·재계수 evidence(도구 미분류 0 · 제외 줄 사유) · review의 증거·기록 의무 · 크기 예산이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `c270a31f`. `instruction_delta.py --base c270a31f --prose --pool docs/handoff/AGENTS.md`(대상 5파일 — plan·impl·verify·review SKILL · `plan.template.md`) 후보 **11**(잃음 5 · 이동? 1 · 문장 4 · 문장 이동? 1).
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| plan:182 `main.tsx`·`window.oo` · impl:90 `0327 r3` 서사 · verify:129 `:258-263` · verify:138 `endsMounted` | MOVE | 사례 서사 괄호만 사례 ID로 줄였다. 괄호 밖 문장은 기계 대조로 차이 0(바뀐 15줄 전부). 서사의 백틱 식별자·수치는 corpus·이 문서에 모두 있다(스크립트로 확인, 없으면 줄이지 않음 — 0265 r2 · 0198 r6 두 괄호는 유지) |
+| verify:165 라벨 술어·인용 파일 범위 bullet(이동?) | REPLACE | verify §0 bullet로 합쳤다 — "라벨이면 표본이 참인지" · "지적이 인용한 파일로 좁지 않은지" · 미분류 = `PLAN_GAP`을 모두 담는다. 0209 r11·0262 r5는 plan·impl에 남는다 |
+| review:23~28 발동 조건 목록(문장·잃음·문장 이동?) | MOVE | `docs/handoff/AGENTS.md §handoff-review 트리거`가 정본 — 사용자 요청 · 메타 수정(script·root 규칙·skill 신설·정본 이동을 이번에 옮김) · 반복 · drift · 검증 한계 · verify 3·6회째와 9회째 CLOSED(§라운드의 1→2→3→review 순서 포함) · impl 턴 3 초과가 모두 있다. SKILL에는 요약 한 문장과 "정상 단일 PASS마다 하지 않는다"를 남겼다 |
+
+word-diff 지운 단어(사례 괄호 제외): "목록과의 차집합을"(impl·verify·AGENTS ×4·template) → "미분류(차집합)" REPLACE(같은 뜻 + 도구) · "차집합이"·"전체인지"(verify §0) → "미분류가"·"전체인지(지적이 인용한 파일로 좁지 않은지)" REPLACE · "고정한다(0262 r4~r8에서 … 됐다)"(verify §0 · AGENTS) → 이유를 문장으로 올리고 사례 ID만 괄호 REPLACE · "SKILL/template/AGENTS 변경."(AGENTS 트리거) → 확장 REPLACE · "교체·통합하고,"(review description) → 확장 REPLACE.
+
+DELETE 0 · 설명 없이 사라진 gate·command·reference 0. reference·script 이동 0(새 script 2개 · 새 test 1개 추가만) → inbound `N`/`M/M` 대상 없음. heading 변경 0.
+
+## 6-B Historical Failure Regression
+
+- **71 P 전수**(`rg -c '^## P[0-9]+'` 71 — P71 신규) · 변경 후 **COVERED 71** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0(6-A — 바뀐 줄은 괄호 밖 차이 0이거나 같은 뜻 확장)이라 round 48의 COVERED 70이 그대로다.
+- 바뀐 P: **P52**(분모 단위) · **P60**(열린 분모) 강화 — 목록을 고정할 때 운반 줄이 도구로 정해져 목록 밖 운반 줄이 READY 전에 나온다. **P71** 신규.
+- **P41**(도구가 정의한 전수): 유지 — `site_census.mjs`는 검색 출력 줄만 분류한다. 술어가 불변식의 주어인지 · 범위가 path 소스 전체인지는 여전히 사람이 보고(verify §0), value가 아닌 운반 줄 오분류 방향의 위험은 AST로 줄였고 비-TS 파일은 `unparsed`로 미분류에 넣는다. **P51**: 강화 — 같은 모델의 분류 사각을 도구가 대신한다. **P58 · 0209 r11**(범위 · 라벨 술어): 유지 — verify §0 bullet로 합쳤다. **P55 · P56 · P59**(좌표 범위 · 운반 값 · 호출 변이): 유지 — 해당 AGENTS bullet은 사례 괄호만 줄였다.
+- P1~P40 · P42~P50 · P53~P54 · P57 · P61~P70: 방어 지점 불변.
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0329 verify 3(D19) | FAIL — D19 이행만 | RETURN_TO_PLAN — EP7 ⑥′ 미분류 4 · EP6 ⑦′ 미분류 4(`PLAN_GAP`) + D19 이행 | 다음 주체: 구현자 → 설계자 |
+| 0329 ΔV5 설계 | 눈으로 "import·타입·주석" | 미분류 4·4로 READY 불가 → 그 턴에 목록 고정 | 발견 시점 verify 3 → 설계 턴 |
+| 0262 r4~r8(P60) | 창 안 `PLAN_GAP`으로 목록 고정 | 같음 + 고정 시 도구 미분류 0 | inflation 0 |
+| 0262 r5(P58) · 0209 r11 | 범위·라벨 수동 확인 | 같음(§0 bullet 하나로) | 같음 |
+
+- **시나리오 replay**: 설계자가 미분류 0으로 READY → 구현자·검증자 재계수 같음(다음 주체 있음) / verify가 미분류 > 0을 찾음 → `PLAN_GAP` → 설계자, 동결 뒤면 출처 "plan 내부 정합"으로 허용 / 도구가 운반하지 않는 줄을 value로 냄(초기값 등) → 사유 붙은 제외 줄 한 줄로 닫힘, 라운드 아님(inflation 0) / 크기 예산을 못 지키는 새 causal class → 이유 기록 뒤 진행(교착 0) / 반복 B에 도구가 불가능 → capability limitation 기록(기존 경로). 같은 축 무한 반복 0.
+
+## 6-C Cross-document Consistency
+
+- 운반 줄 분류·미분류 0·제외 줄 사유: plan §10 bullet · impl §2 · verify §0 · AGENTS §공통 V(강제 지점 `N`) · §단계별 절차 2(최소 계약)·3 · `plan.template.md` §10 표 열·불변식 문단·잠금 절 · `verify.template.md` §0 행 — 같다. 도구 경로는 AGENTS 디렉토리 구조에 적었다.
+- review 발동 조건: AGENTS §handoff-review 트리거(정본) = review SKILL 요약 = review frontmatter description — 같다. root `AGENTS.md`는 Tier 규칙과 3·6회째 review만 언급(충돌 없음).
+- review 효과 지표·크기 예산: review SKILL §1·§4·§7·완료 조건·종료 보고 — 완료 조건 항목은 본문 §1·§4·§7에 매핑된다.
+- 새 `AGENTS.md` 0 · `app/AGENTS.md`·`ci.yml` 명령 불변(도구는 `app/node_modules/typescript`를 읽기만 함). `node --test .agents/skills/handoff-verify/scripts/site_census.test.mjs` 3/3 · `check-doc-inventory --check` ok · `check-product-naming` OK.
+
+## 효과 지표 (`review_metrics.py`)
+
+| 구간(review round) | verify 커밋 | FAIL·RTP 비율 |
+|---|---|---|
+| 19~29 | 111 | 46% |
+| 30~37 | 31 | 61% |
+| 38 | 52 | 46% |
+| 39~43 | 26 | 69% |
+| 44 | 46 | 46% |
+| 45~48 | 30 | 83% |
+
+- 핵심 지침 bytes `c270a31f` 186,116 → 이번 라운드 185,054(−1,062, 새 규칙 포함) · 사례 인용 117 → 116. 2026-09-01 기준 140,003 · 52.
+- 이번 이슈 A 1 · B 2(둘 다 같은 지침의 반복 B → 도구화).
+- 해석: 구간마다 handoff 규모가 달라 지침 효과를 분리하지 못한다. round 50부터 같은 표를 이어 붙여, 이번 도구화 뒤 "기존 규칙의 적용 실패(B)"가 줄었는지와 구간 FAIL 비율을 본다.
+
+## 전환 (§8)
+
+0329 verify 3회째를 RETURN_TO_PLAN으로 정정한다 — `site_census.mjs`로 다시 가른 EP7 ⑥′ · EP6 ⑦′ 목록 불일치가 `PLAN_GAP`이다. 정정 절은 0329 `verify.md` 끝 `# verify 3 판정 정정 — review round 49`(별도 검증 커밋).
+
+## 남은 한계
+
+- 도구는 검색이 돌려준 줄만 가른다. 검색 술어·범위가 틀리면 미분류 0도 틀린다(P41) — 그 확인은 사람 몫이다.
+- 구간 지표는 handoff 규모·종류를 통제하지 않는다. "효과 있음"을 말하려면 여러 라운드의 추세가 필요하다.
