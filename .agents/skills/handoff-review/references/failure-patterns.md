@@ -23,6 +23,8 @@
 
 ## 지침 리팩터링 주의
 
+> round 50(2026-11-25): `docs/handoff/AGENTS.md §단계별 절차 3`(검증)을 verify SKILL 참조로 줄였다. P의 `현재 방어`에 적힌 "§단계별 절차 3"은 verify SKILL의 같은 규칙(§0·§4·§6·§8·§9·§11)으로 읽는다 — 규칙은 그대로이고 사본만 없앴다.
+
 과거 P corpus만으로는 기존 운영지침의 삭제나 reference의 의미 손실을 검출할 수 없다. `../SKILL.md`의 regression tier와 세 축 정의를 따른다.
 
 1. Operational Instruction Delta — 기존 책임/명령/게이트의 KEEP·MOVE·REPLACE·DELETE 승계와 inbound semantic expectation 확인. 후보 줄은 `../scripts/instruction_delta.py`로 뽑되 이 corpus를 대조 pool에 넣지 않는다 — corpus의 `→ 규칙.` 문장이 지침에서 지운 규칙을 가린다.

@@ -20,12 +20,16 @@
 //   declaration  함수·메서드·클래스 이름(정의 자체 — 그 본문의 운반 줄은 따로 잡힌다)
 //   comment      주석·문자열 밖의 텍스트 일치
 //   unparsed     TS/JS가 아닌 파일 — 사람이 판정한다(미분류로 센다)
-// 종료 코드: --sites를 주면 미분류가 있을 때 1, 아니면 0.
+// 종료 코드 — 세 경우를 섞지 않는다. 검색이 실패해 출력이 비면 "미분류 0"처럼 보이기 때문이다.
+//   0  정상 검사, 미분류 0 · 목록에만 있는 범위 0
+//   1  정상 검사, 미분류 > 0 또는 검색 줄이 하나도 없는 목록 범위(목록이 낡았거나 술어가 못 닿음)
+//   2  검색 실행 실패(rg 종료 코드 ≥ 2 — 없는 경로·잘못된 정규식·잘못된 인자) 또는 검색 줄 파일 읽기 실패
+//   3  검색은 성공했지만 0줄인데 --sites로 예상 자리가 주어짐
 // --emit-mutants: value 일치마다 mutate.py spec(JSONL) 한 줄을 stdout 끝에 낸다 — 속성 이름은
 // `__oo_mut`를 붙여 다른 키로, 단독 식별자는 `(void 0)`으로 바꾼다. 미분류 줄이 실제로 잠겼는지는
 // 이 spec을 mutate.py로 돌려 본다(green이면 운반하지만 아무 좌표도 보지 않는 줄이다). oracle의 종료 코드가
 // 판정이므로 `… | tail`처럼 파이프로 끝내지 않는다 — 파이프의 마지막 명령이 0이면 실패도 green이 된다.
-import { execSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
@@ -60,13 +64,14 @@ const rgPattern = (() => {
   return new RegExp(m ? (m[1] ?? m[2]).replace(/\\\|/g, '|').replace(/\\\(/g, '\\(') : '$^', 'g')
 })()
 
-let output = ''
-try {
-  output = execSync(search, { encoding: 'utf8', shell: '/bin/bash' })
-} catch (error) {
-  output = error.stdout ?? ''
+// rg는 일치 0을 1로, 실행 오류를 2로 낸다. 오류가 나도 일부 경로의 결과를 찍을 수 있으므로 출력이 있어도 실패로 본다.
+const run = spawnSync('/bin/bash', ['-c', search], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+if (run.error || run.status === null || run.status >= 2) {
+  console.error(`검색 실행 실패(종료 코드 ${run.status ?? run.error?.message}) — 미분류를 셀 수 없다`)
+  if (run.stderr) console.error(run.stderr.trim())
+  process.exit(2)
 }
-const hits = output
+const hits = run.stdout
   .split('\n')
   .map((row) => row.match(/^(.+?):(\d+):(.*)$/))
   .filter(Boolean)
@@ -76,7 +81,13 @@ const sources = new Map()
 function source(file) {
   if (!sources.has(file)) {
     const kind = /\.(tsx|jsx)$/.test(file) ? ts.ScriptKind.TSX : /\.(ts|mts|cts|js|mjs|cjs)$/.test(file) ? ts.ScriptKind.TS : null
-    const text = readFileSync(file, 'utf8')
+    let text
+    try {
+      text = readFileSync(file, 'utf8')
+    } catch (error) {
+      console.error(`검색 줄의 파일을 읽지 못했다: ${file} (${error.code}) — 검색을 저장소 루트에서 돌렸는지 확인한다`)
+      process.exit(2)
+    }
     sources.set(file, { text, sf: kind === null ? null : ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind) })
   }
   return sources.get(file)
@@ -156,8 +167,16 @@ for (const r of rows) console.log(`${r.file}:${r.line}\t${r.cls}\t${r.state}\t${
 const carrying = rows.filter((r) => r.cls === 'value' || r.cls === 'unparsed')
 const unlisted = carrying.filter((r) => r.state === '-')
 const listedNonValue = rows.filter((r) => r.state === 'site' && r.cls !== 'value')
-console.log(`\n검색 ${rows.length}줄 · 운반 후보 ${carrying.length} · 목록 ${rows.filter((r) => r.state === 'site').length} · 제외 ${rows.filter((r) => r.state === 'excluded').length} · 미분류 ${unlisted.length}`)
+const orphanRanges = [...sites, ...excluded].filter((r) => !rows.some((row) => row.file === r.file && row.line >= r.from && row.line <= r.to))
+console.log(`\n검색 ${rows.length}줄 · 운반 후보 ${carrying.length} · 목록 ${rows.filter((r) => r.state === 'site').length} · 제외 ${rows.filter((r) => r.state === 'excluded').length} · 미분류 ${unlisted.length} · 목록만 ${orphanRanges.length}`)
 for (const r of unlisted) console.log(`미분류\t${r.file}:${r.line}\t${r.cls}`)
+for (const r of orphanRanges) console.log(`목록만\t${r.file}:${r.from}${r.to !== r.from ? `-${r.to}` : ''}\t검색 줄이 없다`)
 for (const r of listedNonValue) console.log(`참고\t${r.file}:${r.line}\t목록에 있으나 ${r.cls}`)
 if (emit) for (const s of specs) console.log(JSON.stringify(s))
-process.exit(sites.length && unlisted.length ? 1 : 0)
+if (rows.length === 0 && sites.length) {
+  console.log(`상태: 검색 0줄인데 예상 자리 ${sites.length}개 — 경로·술어를 확인한다`)
+  process.exit(3)
+}
+const clean = unlisted.length === 0 && orphanRanges.length === 0
+console.log(`상태: ${rows.length === 0 ? '검색 0줄(예상 자리 없음)' : clean ? '정상 — 미분류 0' : '불일치'}`)
+process.exit(sites.length && !clean ? 1 : 0)

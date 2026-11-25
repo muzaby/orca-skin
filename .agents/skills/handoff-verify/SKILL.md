@@ -1,6 +1,6 @@
 ---
 name: handoff-verify
-description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 끝나 보드가 `impl/IMPL_DONE`이고 다음 주체가 검증자면** 로드한다 — 외부 PR 리뷰는 verify가 아니다. 현재 구현을 처음 보는 남의 PR처럼 독립 검증하며 plan의 유효 V와 REQUIRED·REGRESSION pair를 UT→IT→ST→AT 순으로 닫고, 열거 항목 sweep·보고 밖 독립 축(구현 주체 무관)·현재 변경 산출물의 운영 gate를 확인한다. 발견은 이행 결함·현재 결함·확장 후보로 가르고 확장 후보는 verify 1·2회째에만 판정을 막는다. 구현자 보고는 증거로 받지 않는다. 지침 개선은 handoff-review에 위임한다.
+description: docs/handoff/ 의 verify.md를 작성할 때 쓴다. **구현이 끝나 보드가 `impl/IMPL_DONE`이고 다음 주체가 검증자면** 로드한다 — 외부 PR 리뷰는 verify가 아니다. 현재 구현을 처음 보는 남의 PR처럼 독립 검증하며 plan의 유효 V와 REQUIRED·REGRESSION pair를 UT→IT→ST→AT 순으로 닫고, 열거 항목 sweep·보고 밖 독립 축(구현 주체 무관)·현재 변경 산출물의 운영 gate를 확인한다. 발견은 이행 결함·현재 결함·확장 후보로 가르고 확장 후보는 verify 1·2회째에만 판정을 막는다. 매 회차 발견 원장과 리뷰 필요 여부(필수·권고·불필요)를 판정과 따로 보고한다. 구현자 보고는 증거로 받지 않는다. 지침 개선은 handoff-review에 위임한다.
 ---
 
 # handoff-verify — 이번 구현이 나가도 되는지 판정한다
@@ -125,13 +125,13 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - ⑦은 구현자가 impl에서 먼저 돌린다. 검증자는 같은 명세를 다시 돌린다 — 기계 절차라 독립성은 ⑥이 맡는다.
 - **⑦ 전수를 다 돌리지 못하면 남긴 항목을 메타에 목록으로 적는다.** 그 잔여는 0이 될 때까지 다음 verify의 ⑦ 범위로 넘어가고, 잔여가 남은 verify는 PASS하지 않는다 — 다른 막는 발견으로 FAIL·RETURN_TO_PLAN을 내는 verify만 잔여를 넘길 수 있다. 이후 회차의 범위(diff·Delta V·직전 실패)는 한 번도 돌지 않은 항목을 담지 않기 때문이다. plan 좌표가 없다는 것은 미룰 이유가 아니다 — oracle은 그 경로를 덮는 스위트 전체로 둔다(0327 verify 1~3).
 - ⑦의 범위는 열거 원문이다. 그 밖의 일반 hunk를 자동 분모로 삼지 않는다 — 분모를 열면 매 라운드 새 인접 자리가 FAIL이 된다(0262).
-- ⑦의 규칙 칸 분기는 그 칸을 구현한 diff 자리(조건·조기 반환·후보를 합치는 항)마다 제거 변이를 심어 찾는다. `못 잡음`은 그 자리가 운반하는 분기를 칸 문장에서 인용할 수 있을 때만 이행이고, 인용할 수 없으면 `동치`를 보이거나 확장이다 — 칸 문장을 읽어 뽑은 분기 목록은 하위 분기를 빠뜨린다(0294 r6: 칸 단위 sweep이 놓친 4분기를 diff 자리 변이가 찾았다). §10 자리 문장이 한 자리에 여러 항을 적으면 그 항도 같은 방식으로 찾고 자리 문장에서 인용한다(0324 r3).
+- ⑦의 규칙 칸 분기는 그 칸을 구현한 diff 자리(조건·조기 반환·후보를 합치는 항)마다 제거 변이를 심어 찾는다. `못 잡음`은 그 자리가 운반하는 분기를 칸 문장에서 인용할 수 있을 때만 이행이고, 인용할 수 없으면 `동치`를 보이거나 확장이다 — 칸 문장을 읽어 뽑은 분기 목록은 하위 분기를 빠뜨린다(0294 r6). §10 자리 문장이 한 자리에 여러 항을 적으면 그 항도 같은 방식으로 찾고 자리 문장에서 인용한다(0324 r3).
 - ⑦의 기본 변이는 그 항목 하나만 지운다 — 더 넓게 지우는 등록 변이(①)의 red로 ⑦ 행을 갈음하지 않고, diff 자리에는 이번 Delta V가 새로 열거하거나 바꾼 칸·항의 앞 턴 코드도 든다(0326 r5).
 - 하네스: `python3 .agents/skills/handoff-verify/scripts/mutate.py <spec.jsonl> --cwd app` — 고치고 → oracle 실행 → 원복하고, 결과를 TSV로 낸다. 끝나면 `git status`로 원복을 확인한다.
 
 ### 고장을 읽을 때 주의할 것
 
-- 코드가 재구성돼 원문이 사라지거나 그 줄이 다른 역할로 남은 이전 변이는 재앵커한다(`docs/handoff/AGENTS.md §고장 내 보기`). 재앵커가 원 변이와 같은 실수를 그 동작이 지금 사는 자리에 심었는지 읽고, 원문 줄이 남아 실행되면 원문 변이도 돌려 `못 잡음`을 그 줄이 운반하는 것으로 분류한다 — 열거 항목을 운반하면 이행, 열거 밖 형태만이면 확장(0294 r6: K2·M53 원문은 계산 키·나머지 요소만 닿는 잔여 경로였다).
+- 코드가 재구성돼 원문이 사라지거나 그 줄이 다른 역할로 남은 이전 변이는 재앵커한다(`docs/handoff/AGENTS.md §고장 내 보기`). 재앵커가 원 변이와 같은 실수를 그 동작이 지금 사는 자리에 심었는지 읽고, 원문 줄이 남아 실행되면 원문 변이도 돌려 `못 잡음`을 그 줄이 운반하는 것으로 분류한다 — 열거 항목을 운반하면 이행, 열거 밖 형태만이면 확장(0294 r6).
 - 동작을 보존하는 추출·재배치 라운드에서는 hunk 되돌림이 아무것도 재지 못한다 — 되돌리면 같은 동작으로 돌아가므로 green이 정답이다.
 - 경쟁 결함을 닫는 라운드는 구현자가 단언한 순서 밖의 형제 순서를 최소 하나 재현하고 변경 전 코드와 대조한다(0290 r3).
 - 소거 변이는 잔여물(unused import·dead local·타입 진단)이 0이 될 때까지 밀고, 그 상태의 gate로 판정한다. 잔여물의 red는 잠금이 아니다(0198 r7→r8).
@@ -194,7 +194,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - INDEX의 상태·다음 주체(하나만)·대상 커밋·PASS archive 이동이 실제와 맞는지 본다. 이번 턴에 갱신된 비고가 5줄을 넘으면 그것도 불일치다(다른 행의 옛 비고는 대상이 아니다).
 - **대상 커밋 좌표는 검증자가 기입한다.** 구현자의 자리표시자를 공유 브랜치 커밋으로 채우고, 구현자가 적은 해시도 `git cat-file -t`로 확인한다. 이전 라운드 좌표도 `git merge-base --is-ancestor <hash> origin/main`으로 다시 확인한다 — rebase 병합 뒤에는 PR 브랜치 해시가 `main`에 없다. 좌표 정본은 INDEX 한 곳이고 plan 구현 보고 행은 자리표시자로 둔다.
 - 재구현 턴의 `[구현자 기입]`이 일곱 필드(설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금(sweep 포함)·Product/UX 파생 검토·놓친 잠재 문제·구현 보고·Review Signals)를 모두 갖는지 센다. 강제 지점 표는 그 pair의 §10 자리 전부와 `남긴 곳`을 담아야 한다 — 지목된 자리만 담은 표는 필드 접힘과 같다(0262 r3).
-- commit trailer가 root `AGENTS.md`·`docs/git-template.md` 허용값을 따르고, `git log -1 --format='%(trailers:only=true)' <커밋>`이 적힌 키를 그대로 돌려주는지 본다(0198 r7: 본문이 리터럴 `\n`으로 한 줄이라 0건). 인용된 커밋 해시가 실재하는지 본다.
+- commit trailer가 root `AGENTS.md`·`docs/git-template.md` 허용값을 따르고, `git log -1 --format='%(trailers:only=true)' <커밋>`이 적힌 키를 그대로 돌려주는지 본다(0198 r7). 인용된 커밋 해시가 실재하는지 본다.
 - 이동·삭제된 reference·script는 살아 있는 소비처나 archive 근거가 있는지 본다.
 
 ## 10. 사람 vs 에이전트
@@ -239,20 +239,45 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 제품 결정이 필요한 것은 해결안으로 위장하지 않고 사용자에게 올린다.
 
+### 발견 원장 — F(N)
+
+매 회차 `### 발견 원장 — verify N` 표에 그 회차 판정 시점의 발견을 `ID · disposition · 직전 상태 · 이번 결과 · 직전 기록 · 증거`로 적는다. F(N)은 N회째 판정 시점에 `이번 결과 = 열림`인 `BLOCKING`·`PLAN_GAP` 고유 ID 수다(창 안 확장의 `PLAN_GAP` 포함 · 창 밖 `NEXT_HANDOFF`·경계·비귀속 제외). 변이·실패 테스트·커밋 수와 섞지 않고, 합계는 `review_metrics.py`가 센다.
+
+| 열 | 값 |
+|---|---|
+| 직전 상태 | `—`(이번에 처음) · `열림` · `closed 보고`(구현자가 닫았다고 적음) |
+| 이번 결과 | `열림` · `닫힘` |
+| 직전 기록 | 이번에 처음 나온 결함이 그 범위를 다룬 가장 최근 기록(정정 원장이면 같은 회차 원 판정)에서 `검사 완료` · `명시 이월` · `확인 불가` 중 무엇인지. 1회째·새로 열거된 항목·확장은 `—` |
+| 증거 | `새 실행`(이번에 돌린 변이·테스트) · `기존 증거 재분류`(앞 기록·출력을 다시 가름) |
+
+- 판정 정정(review §8)은 같은 회차를 `### 발견 원장 — verify N 정정(round K)`로 다시 적고, 집계는 그 회차의 가장 큰 K를 쓴다.
+- 재발·회귀·잠복·설계 정정 유래·신규 열거는 서로 겹칠 수 있어 verify가 나누지 않는다 — 원인은 review가 근거를 붙여 판단한다.
+
 ## 문서 문장 규칙
 
 [`docs/handoff/AGENTS.md §산출물 문장 규칙`](../../../docs/handoff/AGENTS.md)을 따른다. 절마다 판정 먼저, 표 한 칸 3줄. 이전 라운드 판정은 그 자리에 두고 재서술하지 않는다. 줄이는 것은 서술이고, 재측정 수치·재현 명령·전수 개수·못 본 것의 명시는 줄이지 않는다.
 
-## Review Signals — 사실만
+## Review Signals — 사실과 리뷰 필요 여부
 
-이전 라운드와 같거나 비슷한 증상인지 · 관련 plan 지침/AC가 있었는지 · 사용자 결정 변경 근거가 있는지 · 반복된 검증 환경 한계가 무엇인지 · 독립 축(⑥)에서 나온 발견 수와 분류. A~F 분류와 skill 변경은 `handoff-review`가 한다.
+사실: 이전 라운드와 같거나 비슷한 증상인지 · 관련 plan 지침/AC가 있었는지 · 사용자 결정 변경 근거가 있는지 · 반복된 검증 환경 한계 · 독립 축(⑥)에서 나온 발견 수와 분류.
+
+**매 회차 `리뷰 필요 여부 | 근거 | 검토할 질문`을 판정과 따로 적고 종료 보고에 한 줄로 낸다** — 지침 실패를 가장 먼저 보는 것은 verify라, 여기서 질문을 남기지 않으면 review가 늦게 열리거나 근거 없이 열린다.
+
+| 값 | 조건 | 근거 칸 |
+|---|---|---|
+| 필수 | `docs/handoff/AGENTS.md §handoff-review 트리거`의 의무 항목 — 이 verify가 3·6회째 비PASS이거나 9회째 CLOSED | 해당 트리거 |
+| 권고 | 의무 밖이고 지침을 다시 볼 구체 신호가 있으며 검토할 질문을 한 문장으로 특정할 수 있다 — 예: 앞 회차가 `검사 완료`로 기록한 범위에서 누락이 나왔다(발견 원장 `직전 기록`) | 그 발견 ID와 앞 회차 기록 |
+| 불필요 | 위 둘이 아님. 단순 FAIL · F 증가 · `명시 이월` 범위에서 나온 발견만으로는 권고하지 않는다 | — |
+
+- verify는 필요 여부·근거·질문을 적는 데서 멈춘다 — `handoff-review`를 호출하거나 review 문서를 쓰지 않고, A~F 분류와 지침 변경 판단은 review가 한다. `리뷰 필요 여부`와 `PASS`·`FAIL`·`RETURN_TO_PLAN`·`CLOSED`는 서로 다른 항목이다.
+- 종료 보고 예(0329 verify 3): "리뷰 필수 — verify 3회째 비PASS. ΔV5 설계와 verify 3이 같은 검색 결과에서 운반 줄을 누락했다. 두 단계의 대조 절차가 왜 이 누락을 걸러내지 못했는지 검토."
 
 ## 마무리
 
 - PASS: INDEX `verify/PASS`, 완료 행 archive 이동.
 - FAIL: INDEX `verify/FAIL`, 라운드 +1, 다음 주체는 구현자.
 - RETURN_TO_PLAN: INDEX `verify/RETURN_TO_PLAN`, 라운드 +1, 다음 주체는 설계자. 설계자는 영향받은 규범 행을 새 Delta V revision으로 고치고 별도 커밋으로 `plan/READY`에 돌린다.
-- 라운드는 plan → impl → verify 한 주기다. verify가 3회째·6회째에 PASS가 아니면, 또는 같은 라운드에서 verify 없는 impl 턴이 3을 넘으면(사용자 요구 변경 턴 제외) 다음 재구현 전에 `handoff-review`를 한다.
-- CLOSED(9회째, PASS 아님): INDEX `verify/CLOSED`, 다음 주체 `—`, 행을 archive history로 옮기고 비고에 종료 이관 목록을 링크한다. 같은 시점에 그 handoff를 대상으로 `handoff-review`를 한다.
+- 라운드는 plan → impl → verify 한 주기다. `리뷰 필요 여부`가 `필수`면 다음 재구현 전에 `handoff-review`를 한다(CLOSED는 같은 시점에 그 handoff를 대상으로) — verify 없는 impl 턴이 3을 넘는 경우(사용자 요구 변경 턴 제외)는 verify가 없어도 같은 의무다(트리거 정본: AGENTS).
+- CLOSED(9회째, PASS 아님): INDEX `verify/CLOSED`, 다음 주체 `—`, 행을 archive history로 옮기고 비고에 종료 이관 목록을 링크한다.
 - `NEXT_HANDOFF`(확장·독립)와 종료 이관은 INDEX `## 새 handoff 후보` 표에 handoff별 1행으로 등록하고 상세는 verify.md에 둔다.
 - 커밋 형식은 root `AGENTS.md`와 `docs/git-template.md`를 따른다 — 검증 커밋은 `Status: verified` + `Verified-By` + `Next-Action`.

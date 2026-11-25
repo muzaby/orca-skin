@@ -74,3 +74,33 @@ test('emits one mutate.py spec per value occurrence that changes only that occur
   assert.equal(byLine['8'], 'deps([x, (void 0)])')
   assert.equal(byLine['10'], 'x.boundary__oo_mut = 1')
 })
+
+test('separates a failed search, an empty search with expected sites, and a clean result', () => {
+  const failed = (() => {
+    try {
+      execFileSync('node', [script, '--search', `rg -n 'boundary' ${dir}/missing`, '--sites', `${file}:5`], { encoding: 'utf8', stdio: 'pipe' })
+      return 0
+    } catch (error) {
+      return error.status
+    }
+  })()
+  assert.equal(failed, 2)
+  const empty = (() => {
+    try {
+      execFileSync('node', [script, '--search', `rg -n 'nothing_matches_here' ${dir}`, '--sites', `${file}:5`], { encoding: 'utf8', stdio: 'pipe' })
+      return 0
+    } catch (error) {
+      return error.status
+    }
+  })()
+  assert.equal(empty, 3)
+  const clean = run('--sites', `${file}:5-8,${file}:10`)
+  assert.equal(clean.code, 0)
+  assert.match(clean.out, /상태: 정상 — 미분류 0/)
+})
+
+test('flags a listed range the search no longer reaches', () => {
+  const stale = run('--sites', `${file}:5-8,${file}:10,${file}:40`)
+  assert.equal(stale.code, 1)
+  assert.match(stale.out, /목록만\t.*:40/)
+})
