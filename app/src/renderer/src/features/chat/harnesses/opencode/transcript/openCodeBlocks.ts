@@ -1,3 +1,8 @@
+import {
+  deferredBlock,
+  splitDeferred,
+  type DeferredBlock
+} from '../../../lib/transcript/deferredBody'
 import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
 /**
  * Incremental block model for OpenCode transcripts (EP-7 · EP-8 · EP-9).
@@ -100,6 +105,7 @@ export interface OpenCodeMetaBlock {
 }
 
 export type OpenCodeBlock =
+  | DeferredBlock
   | OpenCodeUserBlock
   | OpenCodeSegmentBlock
   | OpenCodeArtifactsBlock
@@ -309,6 +315,25 @@ export function createOpenCodeBlockModel(
     seenGlobalTools: Set<string>,
     previous?: ReadonlyMap<string, OpenCodeBlock>
   ): OpenCodeBlock[] {
+    if (turnMessages.some((message) => message.deferredBody)) {
+      return splitDeferred<OpenCodeBlock>(
+        turnMessages,
+        (part, last) =>
+          buildAssistantTurnBlocks(
+            part,
+            part[0].id,
+            hasPreviousBlock || part[0] !== turnMessages[0],
+            last && active,
+            last && liveText,
+            last && liveReasoning,
+            liveTextKey,
+            [],
+            seenGlobalTools,
+            previous
+          ).filter((block) => last || block.kind !== 'meta'),
+        (ref) => deferredBlock(ref, !hasPreviousBlock && ref.message === turnMessages[0].id)
+      )
+    }
     // Collect parts along with their owning messageId and stable part keys
     const artifactParts: AppMessagePart[] = []
     const rawSegments: MessageSegment[] = []

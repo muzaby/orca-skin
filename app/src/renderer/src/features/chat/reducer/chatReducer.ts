@@ -716,6 +716,12 @@ export type ChatAction =
     }
   | { type: 'SET_EFFORT'; effort: EffortLevel }
   | { type: 'SET_HARNESS_OPTIONS'; agent?: string; variant?: string }
+  | {
+      type: 'RESOLVE_HISTORY_BODY'
+      ref: NonNullable<LoadedMessage['deferredBody']>
+      parts: AppMessagePart[]
+      diagnostic?: TranscriptDiagnostic
+    }
   | { type: 'RECV_EVENT'; event: NormalizedEvent }
   // 턴이 message.completed 없이 끝났을 때(telemetry 도착 시점) live 버퍼의 잔여 텍스트를
   // text 파트로 굳힌다. 버퍼 소유자는 chatStore — reducer 는 텍스트만 받는다.
@@ -881,10 +887,10 @@ function appendAssistantPart(
     messageKey === undefined ? lastIndex : messageOrderFor(state).messagePosition(messageKey)
   const owner = messages[index]
   if (
-    !owner &&
+    (!owner || owner.deferredBody) &&
     messageKey !== undefined &&
     messageKeySource === 'owner' &&
-    !state.historyComplete
+    (!state.historyComplete || !!owner?.deferredBody)
   ) {
     return {
       messages: state.messages,
@@ -964,7 +970,7 @@ function appendOwnedArtifact(
   return replaceMessageParts(state, owner, [...parts, part], parts.length)
 }
 
-function fromLoadedMessage(message: LoadedMessage): Message {
+export function fromLoadedMessage(message: LoadedMessage): Message {
   return {
     ...(message.deferredBody ? { deferredBody: message.deferredBody } : {}),
     id: message.id,
@@ -1215,7 +1221,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 : order.responseOwner(ev.responseId)
           const owner = ownerId === undefined ? -1 : order.messagePosition(ownerId)
           const part = { type: 'artifact' as const, artifact: ev.artifact }
-          if (owner < 0 && !state.historyComplete) {
+          if (
+            owner < 0 &&
+            (!state.historyComplete || state.messages.some((message) => message.deferredBody))
+          ) {
             const ref = outputOwnerReference(ev.toolRunId, ev.responseId)
             if (ref !== undefined) {
               const held = holdPart(state, 'heldOutputs', ref, part)
@@ -1300,10 +1309,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               ...(ev.parentToolRunId ? { parentToolRunId: ev.parentToolRunId } : {})
             }
             next =
-              owner < 0 &&
+              (owner < 0 || !!state.messages[owner]?.deferredBody) &&
               ev.messageKey !== undefined &&
               ev.messageKeySource === 'owner' &&
-              !state.historyComplete
+              (!state.historyComplete || !!state.messages[owner]?.deferredBody)
                 ? { ...next, ...holdPart(next, 'heldPatches', ev.messageKey, part) }
                 : appendOwnedArtifact(next, owner, part)
           }
@@ -1667,6 +1676,27 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     // 사이드바에서 과거 대화를 선택했을 때 IPC 응답 (LoadedSession) 으로 state 를 통째로 교체.
     // cwd 는 세션 영속값이 있으면 우선하고, 레거시 세션은 현재 baseline 을 보존한다.
+    case 'RESOLVE_HISTORY_BODY': {
+      const index = messageOrderFor(state).messagePosition(action.ref.message)
+      const owner = state.messages[index]
+      if (!owner || owner.deferredBody !== action.ref) return state
+      const messages = state.messages.slice()
+      messages[index] = fromLoadedMessage({
+        ...owner,
+        deferredBody: undefined,
+        parts: action.parts
+      })
+      const merged = mergeHeldParts(state, messages)
+      const change = writeMessages(state, merged.messages, {
+        kind: 'reset',
+        complete: state.historyComplete
+      })
+      const held =
+        state.historyComplete && !merged.messages.some((message) => message.deferredBody)
+          ? finishHeldParts(merged, action.diagnostic)
+          : merged
+      return { ...state, ...change, ...held }
+    }
     case 'PREPEND_HISTORY': {
       const order = messageOrderFor(state)
       const page: LoadedMessage[] = []
@@ -1706,6 +1736,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (!action.reachedStart) return next
       if (next.historyComplete && next.heldPatches.size === 0 && next.heldOutputs.size === 0)
         return next
+      if (next.messages.some((message) => message.deferredBody))
+        return { ...next, historyComplete: true }
       return { ...next, ...finishHeldParts(next, action.diagnostic), historyComplete: true }
     }
 
@@ -1717,7 +1749,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         sameSession ? state : emptyHeldParts(),
         action.session.messages.map(fromLoadedMessage)
       )
-      const remaining = complete ? finishHeldParts(held, action.diagnostic) : held
+      const remaining =
+        complete && !messages.some((message) => message.deferredBody)
+          ? finishHeldParts(held, action.diagnostic)
+          : held
       const transcriptChanges = recordChange(
         state.sessionId === action.session.id ? state.transcriptChanges : newTranscriptChanges(),
         { kind: 'reset', complete }

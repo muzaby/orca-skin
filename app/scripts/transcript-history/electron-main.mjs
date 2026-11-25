@@ -5,6 +5,7 @@ import { scenarios } from './scenarios.mjs'
 const [origin, screens, repetitions] = process.argv.slice(-3)
 const records = []
 const discarded = []
+const searches = []
 
 async function measure(wc, screen, scenario) {
   await wc.loadURL(origin + '/?' + new URLSearchParams({ screen, scenario }))
@@ -60,7 +61,7 @@ app.whenReady().then(async () => {
       )
       app.exit(1)
     },
-    90000 * Number(repetitions)
+    90000 * Math.max(1, Number(repetitions))
   )
   try {
     const win = new BrowserWindow({
@@ -71,6 +72,29 @@ app.whenReady().then(async () => {
       webPreferences: { sandbox: true, backgroundThrottling: false }
     })
     win.focus()
+    for (const screen of screens.split(',')) {
+      for (const keyboard of [false, true]) {
+        try {
+          const wc = win.webContents
+          await wc.loadURL(origin + '/?' + new URLSearchParams({ screen, scenario: 'search' }))
+          const probe = (method) =>
+            wc.executeJavaScript('window.historyProbe.' + method + '()', true)
+          await probe('searchInput')
+          wc.sendInputEvent({ type: 'char', keyCode: 'x' })
+          const point = await probe('searchOption')
+          if (keyboard) {
+            wc.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' })
+            wc.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' })
+          } else {
+            wc.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...point })
+            wc.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...point })
+          }
+          searches.push({ screen, keyboard, ...(await probe('searchResult')) })
+        } catch (error) {
+          searches.push({ screen, keyboard, error: String(error) })
+        }
+      }
+    }
     for (let run = 0; run < Number(repetitions); run++) {
       for (const screen of screens.split(',')) {
         for (const scenario of scenarios) {
@@ -102,7 +126,8 @@ app.whenReady().then(async () => {
           electron: process.versions.electron,
           platform: process.platform,
           records,
-          discarded
+          discarded,
+          searches
         }) +
         '\n'
     )

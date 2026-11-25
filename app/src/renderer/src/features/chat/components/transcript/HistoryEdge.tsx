@@ -62,9 +62,15 @@ export function HistoryEdge({
         <button
           type="button"
           className="truncate rounded px-2 hover:text-ink focus-visible:outline"
+          disabled={history.latestState === 'loading'}
+          aria-busy={history.latestState === 'loading'}
           onClick={history.returnToLatest}
         >
-          {tr('chat.transcript.historyLatest')}
+          {tr(
+            history.latestState === 'error'
+              ? 'chat.transcript.historyRetryLatest'
+              : 'chat.transcript.historyLatest'
+          )}
         </button>
       )}
     </div>

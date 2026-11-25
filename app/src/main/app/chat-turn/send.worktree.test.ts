@@ -40,7 +40,7 @@ vi.mock('./resolve-turn', () => ({
       native: {},
       continuitySource: payload.forkFrom ?? payload.handoffFrom ?? null,
       continuityMeta: null,
-      continuityLang: null,
+      continuityLang: 'ko',
       resolved: {
         prepared: { providerSettings: { snapshot: true }, env: { SNAPSHOT: 'yes' } }
       },
@@ -350,6 +350,60 @@ describe('handleChatSend worktree production wiring', () => {
       expect.anything()
     )
   })
+
+  it.each([
+    ['forkFrom', false],
+    ['forkFrom', true],
+    ['handoffFrom', false],
+    ['handoffFrom', true]
+  ] as const)(
+    'uses the native source for %s and the display parent for lineage (recovered=%s)',
+    async (relation, recovered) => {
+      const harness = makeHarness()
+      const parentId = 'source-session'
+      const nativeId = '43580eab-f05f-4bae-8c92-fd5ed339178e'
+      const row = recovered
+        ? {
+            native_id: nativeId,
+            archive_json: '[]',
+            local_frontier: 0,
+            fresh_start: 1,
+            accepted: 1,
+            prompt_id: null,
+            prompt_text: null
+          }
+        : undefined
+      const { buildTurnContext } =
+        await vi.importActual<typeof import('./turn-context')>('./turn-context')
+      const { buildTurnRequest } =
+        await vi.importActual<typeof import('./turn-request')>('./turn-request')
+      mocks.buildTurnContext.mockImplementationOnce(buildTurnContext)
+      mocks.buildTurnRequest.mockImplementationOnce(buildTurnRequest as never)
+      const readRecovery = vi.fn(() => row)
+      Object.assign(harness.deps.ctx.db, { nativeHistory: { recovery: readRecovery } })
+      mocks.acquireTurnRuntime.mockResolvedValue({
+        ok: true,
+        runtime: { close: vi.fn(), markAborted: vi.fn() },
+        extensions: { skills: [], hooks: { normalized: {} } }
+      })
+      await handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+        text: 'continue',
+        [relation]: parentId,
+        cwd: '/source/repo',
+        attachmentViews: []
+      })
+      expect(
+        mocks.sendChatEvent.mock.calls.map(([, e]) => e.error?.stack ?? e.error).filter(Boolean)
+      ).toEqual([])
+      expect(readRecovery).toHaveBeenCalledWith(parentId)
+      const flow = vi.mocked(runTurnWithContinuations).mock.calls.at(-1)!
+      expect(flow[1].lineage).toEqual({
+        parentSessionId: parentId,
+        relation: relation === 'forkFrom' ? 'fork' : 'handoff'
+      })
+      expect(flow[2].forkFrom).toBe(recovered ? nativeId : parentId)
+    }
+  )
 
   it.each(['forkFrom', 'handoffFrom'])(
     'keeps the source project for %s from an isolated cwd',

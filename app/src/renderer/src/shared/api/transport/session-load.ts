@@ -34,12 +34,13 @@ export interface SessionLoadClient {
   load(sessionId: string): Promise<LoadedSession | null>
   refresh(sessionId: string): Promise<RefreshSessionResult>
   // 그 세션의 진행 중 본문 로드를 취소한다(갱신은 그대로 둔다).
-  cancelLoad(sessionId: string): void
+  cancelLoad(sessionId: string, targetSequence?: number): void
 }
 
 interface Pending {
   sessionId: string
   kind: 'load' | 'refresh'
+  targetSequence?: number
   chunks: SessionLoadChunk[]
   cancelled: boolean
 }
@@ -93,6 +94,7 @@ export function createSessionLoadClient(deps: SessionLoadClientDeps): SessionLoa
     const request: Pending = {
       sessionId: query.sessionId,
       kind: 'load',
+      ...(query.kind === 'target' ? { targetSequence: query.openGeneration } : {}),
       chunks: [],
       cancelled: false
     }
@@ -170,9 +172,14 @@ export function createSessionLoadClient(deps: SessionLoadClientDeps): SessionLoa
         },
         boundedSessions.has(sessionId)
       ),
-    cancelLoad: (sessionId) => {
+    cancelLoad: (sessionId, targetSequence) => {
       for (const [requestId, request] of pending) {
-        if (request.sessionId !== sessionId || request.kind !== 'load' || request.cancelled)
+        if (
+          request.sessionId !== sessionId ||
+          request.kind !== 'load' ||
+          request.cancelled ||
+          (targetSequence !== undefined && targetSequence !== request.targetSequence)
+        )
           continue
         request.cancelled = true
         request.chunks = []

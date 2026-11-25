@@ -137,6 +137,8 @@ export const ko = {
     capturesBreadcrumb: '캡처 히스토리'
   },
   search: {
+    locationMissing: '메시지 위치를 찾을 수 없습니다. 검색 결과를 다시 선택해 주세요.',
+    locationFound: '검색한 메시지로 이동했습니다.',
     placeholder: '대화 내용 검색…',
     inputAria: '대화 검색',
     typeToSearch: '검색어를 입력하세요',
@@ -901,9 +903,12 @@ export const ko = {
       historyEnd: '대화 끝',
       historyStart: '대화 시작',
       historyPull: '이전 부분 불러오기',
+      historyBody: '메시지 본문 열기',
+      historyBodyLoading: '본문을 불러오는 중…',
       historyRetry: '다시 시도',
       historyBefore: '이전 부분 보기',
       historyAfter: '다음 부분 보기',
+      historyRetryLatest: '최신 대화 열기 다시 시도',
       historyLatest: '최신 대화로',
       reasoning: '사고 과정',
       incompleteResponse: '응답이 완료되지 않았습니다',

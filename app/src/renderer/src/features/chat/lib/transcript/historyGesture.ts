@@ -5,6 +5,7 @@ export interface TranscriptHistoryControls {
   before: HistoryEdgeState
   after?: HistoryEdgeState
   request(direction: HistoryDirection): boolean
+  latestState?: 'loading' | 'error'
   returnToLatest?(): void
 }
 

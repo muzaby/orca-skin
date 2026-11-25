@@ -1,11 +1,17 @@
-import type { HistoryWindow, HistoryPageReply } from '../../../../../shared/history-page'
+import { readDeferredParts } from '../lib/transcript/deferredBody'
+import type {
+  HistoryWindow,
+  HistoryPageReply,
+  HistoryLocator,
+  HistoryBodyRef
+} from '../../../../../shared/history-page'
 import { clearDisclosures, setDisclosureActiveSession } from './disclosureStore'
 import { transcriptIndexFor } from '../lib/transcriptIndex'
 import type { BackgroundSessionState } from '../../../../../shared/background-task'
 import type { LoadedMessage } from '../../../../../shared/ipc'
 import type { TranscriptDiagnostic } from '../lib/transcript/heldParts'
 import { messageOrderFor } from '../lib/transcript/messageOrder'
-import { newTranscriptChanges } from '../lib/transcript/changeLog'
+import { newTranscriptChanges, recordChange } from '../lib/transcript/changeLog'
 import { rendererMessageId, userMessageId } from '../../../../../shared/message-id'
 import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
 import { useMemo } from 'react'
@@ -73,6 +79,7 @@ import { shouldQueueAsPending, steerBlockedByProviderBoundary } from '../lib/sen
 import {
   chatReducer,
   initialChatState,
+  fromLoadedMessage,
   type ChatAction,
   type ChatActivityState,
   type ChatState,
@@ -146,12 +153,30 @@ export interface SubagentMetaState {
 }
 
 interface SessionPaging extends HistoryWindow {
+  sourceSessionId?: string
   openGeneration: number
   beforeState?: 'loading' | 'error'
 }
 let historyOpenGeneration = 0
 
+interface SearchWindow extends HistoryWindow {
+  messages: Message[]
+  changes: TranscriptChanges
+  beforeState?: 'loading' | 'error'
+  afterState?: 'loading' | 'error'
+}
+interface HistorySelection {
+  returning?: boolean
+  returnFailed?: boolean
+  seq: number
+  locator: HistoryLocator
+  target: string
+  keyboard: boolean
+  restore: boolean
+  view?: SearchWindow
+}
 export interface SessionEntry {
+  search?: HistorySelection
   history?: SessionPaging
   clientKey?: string
   draftGeneration?: number
@@ -732,7 +757,19 @@ function promotePendingNewChat(
         after: chatReducer(entry.session, { type: 'RECV_EVENT', event })
       })
     return {
-      sessions: { ...rest, [sessionId]: entry },
+      sessions: {
+        ...rest,
+        [sessionId]: entry.history?.sourceSessionId
+          ? {
+              ...entry,
+              history: {
+                ...entry.history,
+                beforeState: undefined,
+                openGeneration: ++historyOpenGeneration
+              }
+            }
+          : entry
+      },
       pendingNewChatKey: next?.key ?? null,
       newChatQueue: restQueue,
       recentsEpoch: s.recentsEpoch + 1,
@@ -747,6 +784,8 @@ function promotePendingNewChat(
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
 function dropSession(sessionId: string, fallbackProjectId: string | null = null): void {
+  if (resolvingSearch?.session === sessionId || resolvingSearch?.origin === sessionId)
+    cancelSearchRequest()
   sessionLoads.delete(sessionId)
   forgetBackgroundState(sessionId)
   permissionUpdates.delete(sessionId)
@@ -1598,6 +1637,7 @@ function setAgentKind(kind: AgentKind): void {
 }
 
 function newChat(projectId: string | null = null, cwd?: string | null): void {
+  cancelSearchRequest()
   setState((s) => ({
     sessions: { ...s.sessions, [NEW_CHAT_KEY]: freshEntry(projectId, cwd) },
     activeKey: NEW_CHAT_KEY
@@ -1711,9 +1751,21 @@ function startForkDraft(): boolean {
     return false
   pruneUnsentContinuityDrafts(src.sessionId)
   const draftKey = `draft:${crypto.randomUUID()}`
+  const parentPage = s.sessions[s.activeKey].history
   const draft: SessionEntry = {
+    ...(parentPage
+      ? {
+          history: {
+            ...parentPage,
+            sourceSessionId: src.sessionId,
+            openGeneration: ++historyOpenGeneration,
+            beforeState: undefined
+          }
+        }
+      : {}),
     session: {
       ...continuityDraftSession(src, 'fork'),
+      historyComplete: src.historyComplete,
       // fork 는 원본 컨텍스트를 그대로 갖고 시작하므로 도넛(lastTelemetry)도 승계한다.
       // 사용량 기준 provider(0186)도 같은 이유로 함께 승계한다 — 안 하면 fork 직후 주/월 바가
       // 사라졌다가 첫 턴이 끝나야 돌아온다.
@@ -1897,7 +1949,12 @@ async function loadSession(
   title: string | null = null,
   options: { revalidate?: boolean } = {}
 ): Promise<void> {
+  cancelSearchRequest()
   let s = getState()
+  if (s.activeKey !== sessionId && s.sessions[s.activeKey]?.search) {
+    leaveSearch(s.activeKey)
+    s = getState()
+  }
   const existing = s.sessions[sessionId]
   if (
     !options.revalidate &&
@@ -1908,7 +1965,7 @@ async function loadSession(
     return
   coalescer.flush()
   if (s.activeKey !== sessionId && s.sessions[s.activeKey]?.history) {
-    sessionApi.cancelLoad(s.activeKey)
+    sessionApi.cancelLoad(s.sessions[s.activeKey]?.history?.sourceSessionId ?? s.activeKey)
     patchEntry(s.activeKey, (entry) =>
       entry.history ? { ...entry, history: { ...entry.history, beforeState: undefined } } : entry
     )
@@ -2315,6 +2372,329 @@ function prependHistory(
   })
 }
 
+let searchSequence = 0
+let resolvingSearch: { origin: string; session: string; seq: number } | undefined
+
+function cancelSearchRequest(): void {
+  if (resolvingSearch) sessionApi.cancelLoad(resolvingSearch.session, resolvingSearch.seq)
+  resolvingSearch = undefined
+}
+
+async function openSearchHit(
+  locator: HistoryLocator,
+  keyboard: boolean,
+  restore = false
+): Promise<boolean> {
+  cancelSearchRequest()
+  const origin = getState().activeKey
+  const id = locator.session
+  const seq = ++searchSequence
+  const flight = { origin, session: id, seq }
+  resolvingSearch = flight
+  const current = (): boolean => resolvingSearch === flight && getState().activeKey === origin
+  const cached = getState().sessions[id]
+  const projected = locator.projectedKey
+  const candidate =
+    projected && cached?.history && messageOrderFor(cached.session).messagePosition(projected) >= 0
+      ? { generation: cached.history.generation, messageKey: projected }
+      : undefined
+  try {
+    const reply = await sessionApi.page({
+      kind: 'target',
+      sessionId: id,
+      locator,
+      openGeneration: seq,
+      ...(candidate ? { cached: candidate } : {})
+    })
+    if (!current()) return false
+    if (reply.status !== 'ok' && reply.status !== 'useCached') return false
+    const target = reply.status === 'ok' ? reply.targetMessage : reply.messageKey
+    if (!target) return false
+    const entry = getState().sessions[id]
+    if (
+      reply.status === 'useCached' &&
+      (!entry ||
+        entry.history?.generation !== reply.generation ||
+        messageOrderFor(entry.session).messagePosition(target) < 0)
+    )
+      return false
+    if (reply.status === 'ok' && !reply.session.messages.some((m) => m.id === target)) return false
+    const history = reply.status === 'ok' ? reply.session.history : entry!.history!
+    const gap =
+      reply.status === 'ok'
+        ? {
+            messages: reply.session.messages.map(fromLoadedMessage),
+            ...history,
+            changes: newTranscriptChanges()
+          }
+        : undefined
+    let next = entry ?? freshEntry()
+    if ((!next.session.sessionId || next.session.loadingSession) && reply.status === 'ok') {
+      next = {
+        ...next,
+        session: chatReducer(next.session, {
+          type: 'LOAD_SESSION',
+          session: { ...reply.session, messages: [] },
+          complete: false,
+          diagnostic: transcriptDiagnostic
+        })
+      }
+    }
+    sessionLoads.delete(id)
+    if (id !== origin) {
+      const previous = getState().sessions[origin]
+      sessionApi.cancelLoad(previous?.history?.sourceSessionId ?? origin)
+      if (previous?.history?.beforeState || previous?.search)
+        patchEntry(origin, (e) => ({
+          ...e,
+          search: undefined,
+          history: e.history && { ...e.history, beforeState: undefined }
+        }))
+    }
+    const selection: HistorySelection = { seq, locator, target, keyboard, restore, view: gap }
+    next = joinSearchAtLatest({ ...next, search: selection })
+    resolvingSearch = undefined
+    setState((st) => ({
+      activeKey: id,
+      entryIntent: null,
+      sessions: { ...st.sessions, [id]: next }
+    }))
+    void settingsApi.set({ lastSessionId: id })
+    return true
+  } catch {
+    return false
+  } finally {
+    if (resolvingSearch === flight) resolvingSearch = undefined
+  }
+}
+
+function joinSearchAtLatest(entry: SessionEntry): SessionEntry {
+  const selection = entry.search
+  const view = selection?.view
+  if (
+    !selection ||
+    !view ||
+    view.after ||
+    (entry.history && entry.history.generation !== view.generation)
+  )
+    return entry
+  let rejected = false
+  const session = chatReducer(entry.session, {
+    type: 'PREPEND_HISTORY',
+    messages: view.messages,
+    reachedStart: !view.before,
+    diagnostic: (event, n) => {
+      if (event === 'prependRejected') rejected = true
+      transcriptDiagnostic(event, n)
+    }
+  })
+  if (rejected) return entry
+  return {
+    ...entry,
+    session,
+    history: {
+      generation: view.generation,
+      before: view.before,
+      openGeneration: ++historyOpenGeneration
+    },
+    search: { ...selection, view: undefined }
+  }
+}
+
+// A navigation from the search modal already resolved its locator. Back/forward
+// can refer to a different visit of the same session and must resolve it again.
+function restoreSearchVisit(locator: HistoryLocator, visitSequence: number): void {
+  const state = getState()
+  if (
+    state.activeKey === locator.session &&
+    state.sessions[locator.session]?.search?.seq === visitSequence
+  )
+    return
+  void openSearchHit(locator, false, true)
+}
+
+function currentSearchSequence(): number | undefined {
+  const state = getState()
+  return state.sessions[state.activeKey]?.search?.seq
+}
+
+const readingBodies = new WeakMap<HistoryBodyRef, Promise<boolean>>()
+
+function openHistoryBody(ref: HistoryBodyRef): Promise<boolean> {
+  const prior = readingBodies.get(ref)
+  if (prior) return prior
+  const key = getState().activeKey
+  const initial = getState().sessions[key]
+  const seq = initial?.search?.seq
+  const generation = initial?.search?.view ? seq : initial?.history?.openGeneration
+  const current = (): boolean => {
+    const state = getState()
+    const entry = state.sessions[key]
+    const view = entry?.search?.view
+    return (
+      state.activeKey === key &&
+      !!entry &&
+      entry.search?.seq === seq &&
+      (view?.generation ?? entry.history?.generation) === ref.generation &&
+      (view?.messages ?? entry.session.messages).some((message) => message.deferredBody === ref)
+    )
+  }
+  if (generation === undefined || !current()) return Promise.resolve(false)
+  const result = readDeferredParts(ref, generation, sessionApi.page, current)
+    .then((parts) => {
+      if (!current()) return false
+      patchEntry(key, (entry) => {
+        const selection = entry.search
+        const view = selection?.view
+        if (selection && view) {
+          const messages = view.messages.map((message) =>
+            message.deferredBody === ref
+              ? fromLoadedMessage({ ...message, deferredBody: undefined, parts })
+              : message
+          )
+          return {
+            ...entry,
+            search: {
+              ...selection,
+              view: {
+                ...view,
+                messages,
+                changes: recordChange(view.changes, { kind: 'reset', complete: false })
+              }
+            }
+          }
+        }
+        return {
+          ...entry,
+          session: chatReducer(entry.session, {
+            type: 'RESOLVE_HISTORY_BODY',
+            ref,
+            parts,
+            diagnostic: transcriptDiagnostic
+          })
+        }
+      })
+      return true
+    })
+    .catch(() => false)
+    .finally(() => readingBodies.delete(ref))
+  readingBodies.set(ref, result)
+  return result
+}
+
+function leaveSearch(key: string, latest = false): void {
+  const entry = getState().sessions[key]
+  if (!entry?.search) return
+  const sequence = entry.search.seq
+  const leave = (): void => {
+    patchEntry(key, (e) => ({ ...e, search: undefined }))
+    if (latest)
+      setState((s) => ({
+        entryIntent: { cause: 'open', sessionKey: key, seq: (s.entryIntent?.seq ?? 0) + 1 }
+      }))
+  }
+  if (!latest || entry.history || entry.session.historyComplete) {
+    sessionApi.cancelLoad(key)
+    leave()
+    return
+  }
+  if (entry.search.returning) return
+  patchEntry(key, (e) => ({ ...e, search: e.search && { ...e.search, returning: true } }))
+  const current = (): boolean =>
+    getState().activeKey === key && getState().sessions[key]?.search?.seq === sequence
+  void sessionApi
+    .page({ kind: 'latest', sessionId: key, openGeneration: sequence })
+    .then((reply) => {
+      if (!current()) return
+      if (reply.status !== 'ok') throw Error(reply.status)
+      patchEntry(key, (e) => {
+        let rejected = false
+        const session = chatReducer(e.session, {
+          type: 'PREPEND_HISTORY',
+          messages: reply.session.messages,
+          reachedStart: !reply.session.history.before,
+          diagnostic: (event, count) => {
+            if (event === 'prependRejected') rejected = true
+            transcriptDiagnostic(event, count)
+          }
+        })
+        return rejected
+          ? e
+          : {
+              ...e,
+              session,
+              history: { ...reply.session.history, openGeneration: ++historyOpenGeneration }
+            }
+      })
+      if (!getState().sessions[key]?.history) throw Error('History overlap rejected')
+      leave()
+    })
+    .catch(() => {
+      if (current())
+        patchEntry(key, (e) => ({
+          ...e,
+          search: e.search && { ...e.search, returning: false, returnFailed: true }
+        }))
+    })
+}
+
+function readSearchEdge(key: string, direction: 'before' | 'after', automatic = false): boolean {
+  const entry = getState().sessions[key]
+  const search = entry?.search
+  const view = search?.view
+  const edge = view?.[direction]
+  const stateKey = direction === 'before' ? 'beforeState' : 'afterState'
+  if (
+    !search ||
+    !view ||
+    !edge ||
+    getState().activeKey !== key ||
+    view[stateKey] === 'loading' ||
+    (automatic && (edge.kind !== 'withinTurn' || view[stateKey] === 'error'))
+  )
+    return false
+  const seq = search.seq
+  const patch = (
+    update: (s: HistorySelection, v: SearchWindow, e: SessionEntry) => SessionEntry
+  ): void =>
+    patchEntry(key, (e) => {
+      const s = e.search
+      return s?.seq === seq &&
+        s.view &&
+        s.view[direction]?.cursor === edge.cursor &&
+        getState().activeKey === key
+        ? update(s, s.view, e)
+        : e
+    })
+  patch((s, v, e) => ({ ...e, search: { ...s, view: { ...v, [stateKey]: 'loading' } } }))
+  const query = edge.kind === 'withinTurn' ? { kind: edge.kind, direction } : { kind: edge.kind }
+  const failed = (): void =>
+    patch((s, v, e) => ({ ...e, search: { ...s, view: { ...v, [stateKey]: 'error' } } }))
+  void sessionApi
+    .page({ ...query, sessionId: key, openGeneration: seq, cursor: edge.cursor })
+    .then((reply) => {
+      if (reply.status !== 'ok' || reply.session.history.generation !== view.generation) {
+        failed()
+        return
+      }
+      patch((s, v, e) => {
+        const part = reply.session.messages.map(fromLoadedMessage)
+        const messages =
+          direction === 'before' ? [...part, ...v.messages] : [...v.messages, ...part]
+        const next = {
+          ...v,
+          messages,
+          [direction]: reply.session.history[direction],
+          [stateKey]: undefined,
+          changes: recordChange(v.changes, { kind: 'reset', complete: false })
+        }
+        const updated = { ...e, search: { ...s, view: next } }
+        return direction === 'after' ? joinSearchAtLatest(updated) : updated
+      })
+    }, failed)
+  return true
+}
+
 function readPrevious(key: string, automatic = false): boolean {
   const state = getState()
   const history = state.sessions[key]?.history
@@ -2335,10 +2715,15 @@ function readPrevious(key: string, automatic = false): boolean {
       ? { kind: 'withinTurn' as const, direction: 'before' as const }
       : { kind: 'earlierTurn' as const }
   void sessionApi
-    .page({ ...query, sessionId: key, openGeneration: history.openGeneration, cursor: edge.cursor })
+    .page({
+      ...query,
+      sessionId: history.sourceSessionId ?? key,
+      openGeneration: history.openGeneration,
+      cursor: edge.cursor
+    })
     .then((reply: HistoryPageReply) => {
       patchEntry(key, (entry) => {
-        if (entry.history !== loading) return entry
+        if (entry.history !== loading || getState().activeKey !== key) return entry
         if (reply.status !== 'ok' || reply.session.history.generation !== history.generation)
           return { ...entry, history: { ...history, beforeState: 'error' } }
         let rejected = false
@@ -2371,6 +2756,13 @@ function readPrevious(key: string, automatic = false): boolean {
 }
 
 export const chatActions = {
+  openHistoryBody,
+  openSearchHit,
+  cancelSearchRequest,
+  leaveSearch,
+  readSearchEdge,
+  restoreSearchVisit,
+  currentSearchSequence,
   readPrevious,
   prependHistory,
   setOpenCodeTodoCollapsed: (collapsed: boolean): void =>

@@ -1,3 +1,4 @@
+import { DeferredBody } from '../../common/transcript/DeferredBody'
 import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
 import { turnCopyText } from '../../../lib/turns'
 import { memo, useMemo } from 'react'
@@ -34,6 +35,7 @@ const gaps = { 0: '', 8: 'pt-[8px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
 
 export const OpenCodeTimeline = memo(function OpenCodeTimeline({
   history,
+  search,
   messages,
   showAutomaticFeeds,
   inflight,
@@ -49,7 +51,8 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
 }: TranscriptTimelineProps): React.JSX.Element {
   const { tr } = useI18n()
   const sessionKey = useActiveSessionKey()
-  const transcriptChanges = useTranscriptChanges()
+  const liveChanges = useTranscriptChanges()
+  const transcriptChanges = search?.view?.changes ?? liveChanges
   // live 의 유무만 구독한다 — 본문 delta 는 행 리프(`OpenCodeTextSegment`)만 깨운다(0325 D-015).
   const hasLiveText = useHasLiveText()
   const hasLiveReasoning = useHasLiveReasoning()
@@ -111,6 +114,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
     <TimelineDisclosureContext.Provider value={state}>
       <div
         ref={scrollRef}
+        data-history-reading={search?.view ? '' : undefined}
         onScroll={onScroll}
         tabIndex={0}
         data-harness="opencode"
@@ -137,6 +141,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
             anchorKey={state.anchor?.key}
             footer={footer}
             history={history}
+            search={search}
             hasPartMarkers={(block) =>
               block.kind === 'user' ||
               (block.kind === 'segment' &&
@@ -170,6 +175,8 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
   const { tr } = useI18n()
   const streaming = useTimelineMarkdownMode(row.kind === 'segment' && row.streaming, selected)
   switch (row.kind) {
+    case 'deferred':
+      return <DeferredBody body={row.ref} />
     case 'user':
       return <UserTurn turn={row.turn} />
     case 'segment':

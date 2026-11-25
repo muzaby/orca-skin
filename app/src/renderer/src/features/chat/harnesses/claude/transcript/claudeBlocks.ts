@@ -1,3 +1,8 @@
+import {
+  deferredBlock,
+  splitDeferred,
+  type DeferredBlock
+} from '../../../lib/transcript/deferredBody'
 import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
 /**
  * Incremental block model for Claude transcripts (code & work modes) (EP-7 · EP-8 · EP-9).
@@ -124,6 +129,7 @@ export interface ClaudeLiveBlock {
 }
 
 export type ClaudeBlock =
+  | DeferredBlock
   | ClaudeUserBlock
   | ClaudeSegmentBlock
   | ClaudeActivityBlock
@@ -488,7 +494,8 @@ export function createClaudeBlockModel(
     isFirstInDocument: boolean,
     isFirstInTurn: boolean,
     seenToolCalls: Set<string>
-  ): ClaudeSegmentBlock[] {
+  ): (ClaudeSegmentBlock | DeferredBlock)[] {
+    if (message.deferredBody) return [deferredBlock(message.deferredBody, isFirstInDocument)]
     let segCache = segmentCaches.get(message.id)
     if (!segCache) {
       segCache = createSegmentCache()
@@ -611,6 +618,19 @@ export function createClaudeBlockModel(
     prevActivities: readonly MultiPartGroupRef[],
     previousBlock?: (index: number, key: string) => ClaudeBlock | undefined
   ): ClaudeBlock[] {
+    if (turnMessages.some((message) => message.deferredBody)) {
+      return splitDeferred<ClaudeBlock>(
+        turnMessages,
+        (part) =>
+          buildWorkTurnBlocks(
+            part,
+            part[0].id,
+            isFirstInDocument && part[0] === turnMessages[0],
+            []
+          ),
+        (ref) => deferredBlock(ref, isFirstInDocument && ref.message === turnMessages[0].id)
+      )
+    }
     // The Code projection does not receive edits while a Work boundary owns the
     // turn. A later Code projection must parse from its current message.
     for (const message of turnMessages) segmentCaches.delete(message.id)

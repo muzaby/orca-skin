@@ -31,6 +31,38 @@ const prepend = (state: ChatState, messages: LoadedMessage[], reachedStart = fal
   chatReducer(state, { type: 'PREPEND_HISTORY', messages, reachedStart })
 
 describe('transcript history prepend', () => {
+  it('retains a tool patch and its publication past the history start until the deferred body opens', () => {
+    const ref = {
+      kind: 'parts' as const,
+      generation: 'g',
+      session: 's',
+      message: 'a:old',
+      bytes: 1800
+    }
+    const parts: AppMessagePart[] = [
+      { type: 'tool_call', toolRunId: 'tool', toolName: 'Write', args: {} }
+    ]
+    const initial = prepend(
+      LOAD(tail),
+      [{ ...message(ref.message, 'assistant'), deferredBody: ref }],
+      true
+    )
+    const publication = captured('out', { toolRunId: 'tool' })
+    const events = [result(ref.message, 'completed'), publication]
+    const waiting = events.reduce(recv, initial)
+    expect(waiting.heldPatches.size).toBe(1)
+    expect(waiting.heldOutputs.size).toBe(1)
+    const diagnostic = vi.fn()
+    const completed = chatReducer(waiting, { type: 'RESOLVE_HISTORY_BODY', ref, parts, diagnostic })
+    const expected = events.reduce(
+      recv,
+      prepend(LOAD(tail), [message(ref.message, 'assistant', ...parts)], true)
+    )
+    expect(completed.messages).toEqual(expected.messages)
+    expect(completed.heldPatches.size + completed.heldOutputs.size).toBe(0)
+    expect(diagnostic).not.toHaveBeenCalled()
+  })
+
   it('g12/g13 accepts the end once and preserves the completed state on another empty or duplicate page', () => {
     const start = LOAD(tail)
     const diagnostic = vi.fn()

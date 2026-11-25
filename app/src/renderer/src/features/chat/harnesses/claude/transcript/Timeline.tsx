@@ -1,3 +1,4 @@
+import { DeferredBody } from '../../common/transcript/DeferredBody'
 import { surfaces } from '../surfaces'
 import { memo, useMemo } from 'react'
 import { ReadingColumn } from '../../../../../shared/ui/ReadingColumn'
@@ -33,6 +34,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   agentKind,
   backend = 'claude',
   history,
+  search,
   messages,
   pendingSteer,
   onRestoreSteerDraft,
@@ -49,7 +51,8 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
 }: TranscriptTimelineProps): React.JSX.Element {
   const { tr } = useI18n()
   const sessionKey = useActiveSessionKey()
-  const transcriptChanges = useTranscriptChanges()
+  const liveChanges = useTranscriptChanges()
+  const transcriptChanges = search?.view?.changes ?? liveChanges
   const hasLiveText = useHasLiveText()
   const hasLiveReasoning = useHasLiveReasoning()
   const transcriptPolicy = agentPresentation[agentKind].transcript
@@ -109,6 +112,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   return (
     <div
       ref={scrollRef}
+      data-history-reading={search?.view ? '' : undefined}
       onScroll={onScroll}
       // 대화 내용 텍스트 크기(0256 D-009) — 전역 설정값을 이 루트만 범위 변수로 받아들인다.
       // 컴포저·우측 패널·포털 팝오버는 선언 밖이라 배율 1이다.
@@ -138,6 +142,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
           enableReserveGap={anchored}
           footer={footer}
           history={history}
+          search={search}
           hasPartMarkers={(block) =>
             block.kind === 'user' ||
             block.kind === 'activity' ||
@@ -149,6 +154,8 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
           }
           renderBlock={(block: ClaudeBlock) => {
             switch (block.kind) {
+              case 'deferred':
+                return <DeferredBody body={block.ref} />
               case 'user':
                 return <UserTurn turn={block.turn} />
               case 'segment':
