@@ -1,0 +1,1333 @@
+{
+  "handoff": "0329-turn-history-paging",
+  "round": "r4",
+  "base": "9cde0d6c",
+  "design": "V1 rev 5 + ΔV1–ΔV6, §25",
+  "originalFailure": {
+    "file": "src/main/app/chat-turn/send.busy.test.ts",
+    "test": "checks the source harness and fork capability (backend='opencode', fork=true)",
+    "before": "schema_validation_error",
+    "expected": "provider_connection_error",
+    "beforeCases": {
+      "passed": 14,
+      "failed": 1
+    }
+  },
+  "gates": {
+    "vitest": {
+      "command": "node_modules/.bin/vitest run --maxWorkers=3",
+      "files": 1152,
+      "failedFiles": 9,
+      "tests": 10931,
+      "passed": 10898,
+      "skipped": 11,
+      "failed": 22,
+      "added": [],
+      "resolved": [],
+      "fileLoadFailures": [],
+      "baseline": "r3-history.json → gates.vitest.baselineFailures",
+      "unhandled": "src/main/adapters/claude/native-resources.test.ts isolated rerun: 1 unhandled rejection, native-resources.ts:152, 이 플러그인은 프로젝트별 제어를 지원하지 않습니다. Same fixture as r3."
+    },
+    "node": "1104/1104",
+    "lint": {
+      "errors": 0,
+      "warnings": 12
+    },
+    "typecheck": [
+      "node",
+      "web",
+      "test"
+    ],
+    "static": [
+      "migrations-appendonly",
+      "doc-inventory --check",
+      "product-naming",
+      "test-budgets",
+      "ui-thread"
+    ],
+    "buildAndSmoke": [
+      "electron-vite build",
+      "smoke-hosts out/main",
+      "smoke-preload out/preload"
+    ],
+    "sqlite": "Node ABI 127 tests; Electron ABI 140 SELECT 1 after restore"
+  },
+  "changedTests": {
+    "src/main/app/chat-turn/send.busy.test.ts": {
+      "tests": 15,
+      "passed": 15
+    },
+    "src/renderer/src/app/hooks/useChatRouteSync.test.ts": {
+      "tests": 12,
+      "passed": 12
+    },
+    "src/renderer/src/features/chat/store/history-search.test.ts": {
+      "tests": 31,
+      "passed": 31
+    },
+    "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts": {
+      "tests": 3,
+      "passed": 3
+    }
+  },
+  "coordinates": {
+    "Q6e″": [
+      {
+        "file": "src/renderer/src/app/hooks/useChatRouteSync.test.ts",
+        "test": "returns to latest only on a new visit to the open search session, coalescing pending visits and retrying after failure"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "clears a departing search while latest is pending and ignores its late reply"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "preserves the search view when revalidating the active session"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "restores an origin visit with a pending latest read only for the active search (pinned=true)"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "restores an origin visit with a pending latest read only for the active search (pinned=false)"
+      }
+    ],
+    "Q7″": [
+      {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+        "test": "renders only current-turn TODOs across accepted and rejected history pages (before send)"
+      },
+      {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+        "test": "renders only current-turn TODOs across accepted and rejected history pages (empty current turn)"
+      },
+      {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+        "test": "renders only current-turn TODOs across accepted and rejected history pages (current write)"
+      }
+    ],
+    "Q15′": [
+      {
+        "file": "src/main/app/chat-turn/send.busy.test.ts",
+        "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='opencode', fork=true)"
+      },
+      {
+        "file": "src/main/app/chat-turn/send.busy.test.ts",
+        "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='claude', fork=false)"
+      },
+      {
+        "file": "src/main/app/chat-turn/send.busy.test.ts",
+        "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='claude', fork=true)"
+      }
+    ],
+    "Q6e′": [
+      {
+        "file": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "test": "exposes return-to-latest loading and retry state on the same search view"
+      },
+      {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "search history in the chat store reads a bounded latest page for a cold search and preserves the view if returning fails"
+      },
+      {
+        "file": "src/renderer/src/features/chat/components/transcript/HistoryEdge.test.ts",
+        "test": "shows the pull indicator and disables only a pending return-to-latest button"
+      }
+    ],
+    "Q7′": [
+      {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/TodoDock.integration.test.ts",
+        "test": "preserves the current TODO boundary across overlapping and rejected history pages (before send)"
+      },
+      {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/TodoDock.integration.test.ts",
+        "test": "preserves the current TODO boundary across overlapping and rejected history pages (empty current turn)"
+      },
+      {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/TodoDock.integration.test.ts",
+        "test": "preserves the current TODO boundary across overlapping and rejected history pages (current write)"
+      }
+    ],
+    "Q13": [
+      {
+        "file": "src/main/adapters/claude/adapter.fork.test.ts",
+        "test": "ClaudeAdapter — forkFrom (0064) recreates an expired conversation with a new native UUID and hides archived context in its receipt"
+      },
+      {
+        "file": "src/main/adapters/claude/adapter.fork.test.ts",
+        "test": "ClaudeAdapter — forkFrom (0064) routes resumed events, permissions and hooks to the display session (recovered=true)"
+      }
+    ],
+    "Q14": [
+      {
+        "file": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+        "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns"
+      }
+    ],
+    "Q15": [
+      {
+        "file": "src/main/app/chat-turn/send.worktree.test.ts",
+        "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=true)"
+      },
+      {
+        "file": "src/main/app/chat-turn/send.worktree.test.ts",
+        "test": "handleChatSend worktree production wiring uses the native source for handoffFrom and the display parent for lineage (recovered=true)"
+      }
+    ]
+  },
+  "census": {
+    "EP3": {
+      "command": "node $SC --search \"rg -n 'idleSearchDirection' app/src -g '!*.test.*' -g '!*.testfixture.*'\" \\\n  --sites \"$F/lib/idleSearchDirection.ts:10-15,$F/hooks/useHistoryControls.ts:44-45,$F/store/chatStore.ts:2776\"",
+      "summary": "검색 5줄 · 운반 후보 2 · 목록 3 · 제외 0 · 미분류 0 · 목록만 0",
+      "classifications": [
+        "app/src/renderer/src/features/chat/store/chatStore.ts:13\timport\t-\timport { idleSearchDirection } from '../lib/idleSearchDirection'",
+        "app/src/renderer/src/features/chat/store/chatStore.ts:2776\tvalue\tsite\t(automatic && idleSearchDirection(view) !== direction)",
+        "app/src/renderer/src/features/chat/lib/idleSearchDirection.ts:10\tdeclaration\tsite\texport function idleSearchDirection(view: SearchEdges): 'before' | 'after' | undefined {",
+        "app/src/renderer/src/features/chat/hooks/useHistoryControls.ts:2\timport\t-\timport { idleSearchDirection } from '../lib/idleSearchDirection'",
+        "app/src/renderer/src/features/chat/hooks/useHistoryControls.ts:44\tvalue\tsite\tconst dir = view && idleSearchDirection(view)"
+      ],
+      "oracle": "node_modules/.bin/vitest run useHistoryControls.test.ts history-search.test.ts --maxWorkers=2",
+      "controlCases": 37,
+      "controlFiles": [
+        "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "src/renderer/src/features/chat/store/history-search.test.ts"
+      ]
+    },
+    "EP6": {
+      "command": "node $SC --search \"rg -n 'returning|returnFailed|returnToLatest|leaveSearch\\(' app/src/renderer/src -g '!*.test.*' -g '!*.testfixture.*'\" \\\n  --sites \"$F/store/chatStore.ts:2724-2725,$F/store/chatStore.ts:2759,$F/hooks/useHistoryControls.ts:69-70,$F/hooks/useHistoryControls.ts:78,$F/components/transcript/HistoryEdge.tsx:61-67,$R/app/hooks/useChatRouteSync.ts:80-81,$F/store/chatStore.ts:2005-2008,$F/store/chatStore.ts:2607-2609\"",
+      "summary": "검색 16줄 · 운반 후보 11 · 목록 11 · 제외 0 · 미분류 0 · 목록만 0",
+      "classifications": [
+        "app/src/renderer/src/features/chat/store/chatStore.ts:184\ttype\t-\treturning?: boolean",
+        "app/src/renderer/src/features/chat/store/chatStore.ts:185\ttype\t-\treturnFailed?: boolean",
+        "app/src/renderer/src/features/chat/store/chatStore.ts:2006\tvalue\tsite\tleaveSearch(s.activeKey)",
+        "app/src/renderer/src/features/chat/store/chatStore.ts:2608\tvalue\tsite\tleaveSearch(origin.session, true)",
+        "app/src/renderer/src/features/chat/store/chatStore.ts:2708\tdeclaration\t-\tfunction leaveSearch(key: string, latest = false): void {",
+        "app/src/renderer/src/features/chat/store/chatStore.ts:2724\tvalue\tsite\tif (entry.search.returning) return",
+        "app/src/renderer/src/features/chat/store/chatStore.ts:2725\tvalue\tsite\tpatchEntry(key, (e) => ({ ...e, search: e.search && { ...e.search, returning: true } }))",
+        "app/src/renderer/src/features/chat/store/chatStore.ts:2759\tvalue\tsite\tsearch: e.search && { ...e.search, returning: false, returnFailed: true }",
+        "app/src/renderer/src/features/chat/components/transcript/HistoryEdge.tsx:61\tvalue\tsite\t{direction === 'after' && history.returnToLatest && (",
+        "app/src/renderer/src/features/chat/components/transcript/HistoryEdge.tsx:67\tvalue\tsite\tonClick={history.returnToLatest}",
+        "app/src/renderer/src/features/chat/lib/transcriptIndex.ts:7\tcomment\t-\t* value actually changes, returning immutable cached snapshots.",
+        "app/src/renderer/src/features/chat/lib/transcript/historyGesture.ts:9\ttype\t-\treturnToLatest?(): void",
+        "app/src/renderer/src/app/hooks/useChatRouteSync.ts:81\tvalue\tsite\tchatActions.leaveSearch(urlSessionId, true)",
+        "app/src/renderer/src/features/chat/hooks/useHistoryControls.ts:69\tvalue\tsite\tlatestState: search?.returning ? 'loading' : search?.returnFailed ? 'error' : undefined,",
+        "app/src/renderer/src/features/chat/hooks/useHistoryControls.ts:70\tvalue\tsite\treturnToLatest: () => chatActions.leaveSearch(key, true)",
+        "app/src/renderer/src/features/chat/hooks/useHistoryControls.ts:78\tvalue\tsite\t[key, page, view, search?.returning, search?.returnFailed]"
+      ],
+      "oracle": "node_modules/.bin/vitest run useChatRouteSync.test.ts history-search.test.ts useHistoryControls.test.ts HistoryEdge.test.ts --maxWorkers=2",
+      "controlCases": 50,
+      "controlFiles": [
+        "src/renderer/src/app/hooks/useChatRouteSync.test.ts",
+        "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+        "src/renderer/src/features/chat/store/history-search.test.ts",
+        "src/renderer/src/features/chat/components/transcript/HistoryEdge.test.ts"
+      ]
+    },
+    "EP7": {
+      "command": "node $SC --search \"rg -n 'openCodeTodoTurnStartIndex' app/src -g '!*.test.*' -g '!*.testfixture.*'\" \\\n  --sites \"$F/reducer/chatReducer.ts:1043,$F/reducer/chatReducer.ts:1812,$F/reducer/chatReducer.ts:1701-1743,$F/harnesses/opencode/composer/todoState.ts:18,$F/reducer/chatReducer.ts:560,$F/harnesses/opencode/composer/AboveInput.tsx:11-14\"",
+      "summary": "검색 10줄 · 운반 후보 8 · 목록 8 · 제외 0 · 미분류 0 · 목록만 0",
+      "classifications": [
+        "app/src/renderer/src/features/chat/reducer/chatReducer.ts:381\ttype\t-\topenCodeTodoTurnStartIndex: number",
+        "app/src/renderer/src/features/chat/reducer/chatReducer.ts:560\tvalue\tsite\topenCodeTodoTurnStartIndex: 0,",
+        "app/src/renderer/src/features/chat/reducer/chatReducer.ts:1043\tvalue\tsite\topenCodeTodoTurnStartIndex: state.messages.length,",
+        "app/src/renderer/src/features/chat/reducer/chatReducer.ts:1739\tvalue\tsite\topenCodeTodoTurnStartIndex: state.openCodeTodoTurnStartIndex + page.length",
+        "app/src/renderer/src/features/chat/reducer/chatReducer.ts:1812\tvalue\tsite\topenCodeTodoTurnStartIndex: messages.length,",
+        "app/src/renderer/src/features/chat/harnesses/opencode/composer/todoState.ts:14\ttype\t-\topenCodeTodoTurnStartIndex: number",
+        "app/src/renderer/src/features/chat/harnesses/opencode/composer/todoState.ts:18\tvalue\tsite\t.slice(state.openCodeTodoTurnStartIndex)",
+        "app/src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.tsx:11\tvalue\tsite\tconst { backend, messages, sendCount, openCodeTodoTurnStartIndex } = state",
+        "app/src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.tsx:13\tvalue\tsite\t() => selectOpenCodeTodos({ backend, messages, sendCount, openCodeTodoTurnStartIndex }),",
+        "app/src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.tsx:14\tvalue\tsite\t[backend, messages, sendCount, openCodeTodoTurnStartIndex]"
+      ],
+      "oracle": "node_modules/.bin/vitest run AboveInput.integration.test.ts TodoDock.integration.test.ts chatReducer.opencode-todo.test.ts --maxWorkers=2",
+      "controlCases": 12,
+      "controlFiles": [
+        "src/renderer/src/features/chat/reducer/chatReducer.opencode-todo.test.ts",
+        "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+        "src/renderer/src/features/chat/harnesses/opencode/composer/TodoDock.integration.test.ts"
+      ]
+    },
+    "EP10": {
+      "command": "node $SC --search \"rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|nativeSessionId|native_id|routeNativeSession|onPermissionModeChanged\\?\\.|forkFrom|session_id \\?\\? ' app/src/main/adapters/claude app/src/main/adapters/common app/src/main/app/chat-turn app/src/main/app/native-history.ts\" \\\n  --sites \"$M/adapters/claude/adapter.ts:374-379,$M/app/chat-turn/native-session.ts:61-90,$M/adapters/claude/adapter.ts:556,$M/adapters/claude/adapter.ts:679-682,$M/adapters/claude/adapter.ts:527-529,$M/adapters/claude/adapter.ts:948,$M/adapters/claude/adapt.ts:307,$M/app/chat-turn/send.ts:296-298,$M/app/chat-turn/send.ts:623,$M/app/chat-turn/continuation.ts:40,$M/app/chat-turn/resolve-turn.ts:122-125,$M/app/chat-turn/send.ts:602,$M/app/chat-turn/native-session.ts:41,$M/app/chat-turn/native-session.ts:113,$M/app/chat-turn/native-session.ts:120,$M/app/native-history.ts:37,$M/app/chat-turn/continuation.ts:88,$M/app/chat-turn/send.ts:400,$M/app/chat-turn/turn-context.ts:166,$M/app/chat-turn/resolve-turn.ts:70,$M/app/chat-turn/send.ts:83,$M/app/chat-turn/send.ts:122,$M/app/chat-turn/send.ts:155\" \\\n  --excluded \"$M/app/chat-turn/resolve-turn.ts:180\"",
+      "summary": "검색 41줄 · 운반 후보 28 · 목록 28 · 제외 1 · 미분류 0 · 목록만 0",
+      "classifications": [
+        "app/src/main/app/native-history.ts:37\tvalue\tsite\tconst nativeId = recovery?.native_id ?? sessionId",
+        "app/src/main/app/chat-turn/turn-context.ts:140\ttype\t-\tforkFrom?: string | undefined",
+        "app/src/main/app/chat-turn/turn-context.ts:166\tvalue\tsite\tconst continuitySource = payload.forkFrom ?? payload.handoffFrom",
+        "app/src/main/app/chat-turn/send.ts:83\tvalue\tsite\tconst forkSource = payload.sessionId == null ? payload.forkFrom : undefined",
+        "app/src/main/app/chat-turn/send.ts:122\tvalue\tsite\t(payload.forkFrom || payload.handoffFrom) &&",
+        "app/src/main/app/chat-turn/send.ts:155\tvalue\tsite\tconst sourceId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom",
+        "app/src/main/app/chat-turn/send.ts:297\tvalue\tsite\t? ((await ctx.data.query.nativeRecovery(continuitySource))?.native_id ?? continuitySource)",
+        "app/src/main/app/chat-turn/send.ts:400\tvalue\tsite\t...(payload.forkFrom !== undefined ? { forkFrom: payload.forkFrom } : {}),",
+        "app/src/main/app/chat-turn/send.ts:602\tvalue\tsite\t...(native.nativeSessionId ? { nativeSessionId: native.nativeSessionId } : {}),",
+        "app/src/main/app/chat-turn/send.ts:623\tvalue\tsite\t...(forkNativeId ? { forkFrom: forkNativeId } : {}),",
+        "app/src/main/app/chat-turn/resolve-turn.ts:40\ttype\t-\t'id' | 'agentSpawnEnv' | 'catalog' | 'readHistory' | 'recoverSession'",
+        "app/src/main/app/chat-turn/resolve-turn.ts:70\tvalue\tsite\tconst continuitySource = payload.forkFrom ?? payload.handoffFrom",
+        "app/src/main/app/chat-turn/resolve-turn.ts:123\tvalue\tsite\tnativeSessionId: payload.sessionId",
+        "app/src/main/app/chat-turn/resolve-turn.ts:124\tvalue\tsite\t? (await query.nativeRecovery(payload.sessionId))?.native_id",
+        "app/src/main/app/chat-turn/resolve-turn.ts:180\tvalue\texcluded\tawait ctx.data.write.recoverSessionHistory(payload.sessionId)",
+        "app/src/main/app/chat-turn/native-session.ts:13\ttype\t-\tnativeSessionId?: string",
+        "app/src/main/app/chat-turn/native-session.ts:20\ttype\t-\tadapter: Pick<SessionAdapter, 'readHistory' | 'recoverSession'>,",
+        "app/src/main/app/chat-turn/native-session.ts:41\tvalue\tsite\tconst nativeId = recovery?.native_id ?? request.sessionId",
+        "app/src/main/app/chat-turn/native-session.ts:61\tvalue\tsite\tif (result.status === 'missing' && adapter.recoverSession) {",
+        "app/src/main/app/chat-turn/native-session.ts:68\tvalue\tsite\tconst created = await adapter.recoverSession({ ...request, sessionId: nativeId })",
+        "app/src/main/app/chat-turn/native-session.ts:89\tvalue\tsite\tnativeSessionId: created.sessionId,",
+        "app/src/main/app/chat-turn/native-session.ts:113\tvalue\tsite\tnativeSessionId: nativeId,",
+        "app/src/main/app/chat-turn/native-session.ts:120\tvalue\tsite\treturn { ok: true, value: { nativeSessionId: nativeId } }",
+        "app/src/main/app/chat-turn/continuation.ts:40\tvalue\tsite\t...(input.base.nativeSessionId ? { nativeSessionId: input.base.nativeSessionId } : {}),",
+        "app/src/main/app/chat-turn/continuation.ts:58\tcomment\t-\t// 원 request 를 승계하되 **continuity 표식은 떨어뜨린다**: `forkFrom` 을 이으면 재분기하고,",
+        "app/src/main/app/chat-turn/continuation.ts:88\tvalue\tsite\tdelete request.forkFrom",
+        "app/src/main/adapters/common/types.ts:92\ttype\t-\trecoverSession?(",
+        "app/src/main/adapters/common/turn.ts:140\ttype\t-\tnativeSessionId?: string",
+        "app/src/main/adapters/common/turn.ts:151\ttype\t-\tforkFrom?: string",
+        "app/src/main/adapters/common/turn.ts:154\tcomment\t-\t// 오염하지 않게 한다. 자동 연속 턴은 forkFrom 과 함께 이 플래그도 제거된다(chat-turn).",
+        "app/src/main/adapters/common/recovery.ts:4\tdeclaration\t-\texport function routeNativeSession(live: LiveTurn, nativeId: string, sessionId: string): LiveTurn {",
+        "app/src/main/adapters/claude/adapter.ts:50\timport\t-\timport { recoveredPrompt, routeNativeSession } from '../common/recovery'",
+        "app/src/main/adapters/claude/adapter.ts:374\tdeclaration\tsite\tasync recoverSession({",
+        "app/src/main/adapters/claude/adapter.ts:527\tvalue\tsite\treturn req.nativeSessionId && req.sessionId",
+        "app/src/main/adapters/claude/adapter.ts:528\tvalue\tsite\t? routeNativeSession(live, req.nativeSessionId, req.sessionId)",
+        "app/src/main/adapters/claude/adapter.ts:556\tvalue\tsite\tconst nativeId = req.nativeSessionId ?? sessionId",
+        "app/src/main/adapters/claude/adapter.ts:677\tcomment\t-\t// fork/handoff(0064) — forkFrom 세션의 이력 복사본으로 시작하되 SDK 가 새 session_id",
+        "app/src/main/adapters/claude/adapter.ts:681\tvalue\tsite\t: { resume: req.forkFrom ?? nativeId ?? undefined }),",
+        "app/src/main/adapters/claude/adapter.ts:682\tvalue\tsite\t...(req.forkFrom !== undefined ? { forkSession: true } : {}),",
+        "app/src/main/adapters/claude/adapter.ts:948\tvalue\tsite\treq.onPermissionModeChanged?.(routeSessionId(msg.session_id), mode)",
+        "app/src/main/adapters/claude/adapt.ts:307\tvalue\tsite\tsessionId: routeSessionId(input.session_id ?? ''),"
+      ],
+      "oracle": "node_modules/.bin/vitest run src/main/adapters/claude/adapter.fork.test.ts src/main/adapters/claude/adapt.test.ts src/main/adapters/claude/adapter.plan-mode.test.ts native-session.restored-history.db.test.ts native-session.test.ts send.busy.test.ts send.worktree.test.ts src/main/app/chat-turn/continuation.test.ts resolve-turn.agent.test.ts send.agent-profile.test.ts src/main/app/native-history.test.ts --maxWorkers=2",
+      "controlCases": 177,
+      "controlFiles": [
+        "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+        "src/main/app/chat-turn/native-session.test.ts",
+        "src/main/app/native-history.test.ts",
+        "src/main/adapters/claude/adapt.test.ts",
+        "src/main/adapters/claude/adapter.fork.test.ts",
+        "src/main/adapters/claude/adapter.plan-mode.test.ts",
+        "src/main/app/chat-turn/continuation.test.ts",
+        "src/main/app/chat-turn/resolve-turn.agent.test.ts",
+        "src/main/app/chat-turn/send.agent-profile.test.ts",
+        "src/main/app/chat-turn/send.busy.test.ts",
+        "src/main/app/chat-turn/send.worktree.test.ts"
+      ]
+    }
+  },
+  "selected": [
+    {
+      "id": "E7i-zero",
+      "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.tsx",
+      "old": "    () => selectOpenCodeTodos({ backend, messages, sendCount, openCodeTodoTurnStartIndex }),",
+      "new": "    () => selectOpenCodeTodos({ backend, messages, sendCount, openCodeTodoTurnStartIndex: 0 }),",
+      "occ": 0,
+      "result": "red",
+      "failedTests": 1,
+      "exit": 1,
+      "witness": {
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+        "test": "renders only current-turn TODOs across accepted and rejected history pages (empty current turn)",
+        "observation": "AssertionError: expected [ 'old' ] to deeply equal []"
+      }
+    },
+    {
+      "id": "Q6-route-skip",
+      "file": "src/renderer/src/app/hooks/useChatRouteSync.ts",
+      "old": "          chatActions.leaveSearch(urlSessionId, true)",
+      "new": "          void urlSessionId",
+      "occ": 0,
+      "result": "red",
+      "failedTests": 1,
+      "exit": 1,
+      "witness": {
+        "file": "src/renderer/src/app/hooks/useChatRouteSync.test.ts",
+        "test": "returns to latest only on a new visit to the open search session, coalescing pending visits and retrying after failure",
+        "observation": "AssertionError: expected [ 'target' ] to deeply equal [ 'target', 'latest' ]"
+      }
+    },
+    {
+      "id": "Q6-depart-skip",
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "old": "    leaveSearch(s.activeKey)",
+      "new": "    void s.activeKey",
+      "occ": 0,
+      "result": "red",
+      "failedTests": 1,
+      "exit": 1,
+      "witness": {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "clears a departing search while latest is pending and ignores its late reply",
+        "observation": "AssertionError: expected { seq: 42, …(9) } to be undefined"
+      }
+    },
+    {
+      "id": "Q6-origin-skip",
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "old": "      leaveSearch(origin.session, true)",
+      "new": "      void origin.session",
+      "occ": 0,
+      "result": "red",
+      "failedTests": 2,
+      "exit": 1,
+      "witness": {
+        "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+        "test": "restores an origin visit with a pending latest read only for the active search (pinned=true)",
+        "observation": "AssertionError: expected [ 'target' ] to deeply equal [ 'target', 'latest' ]"
+      }
+    },
+    {
+      "id": "Q15-source-skip",
+      "file": "src/main/app/chat-turn/send.ts",
+      "old": "  const forkSource = payload.sessionId == null ? payload.forkFrom : undefined",
+      "new": "  const forkSource = payload.sessionId == null ? undefined : undefined",
+      "occ": 0,
+      "result": "red",
+      "failedTests": 2,
+      "exit": 1,
+      "witness": {
+        "file": "src/main/app/chat-turn/send.busy.test.ts",
+        "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='opencode', fork=true)",
+        "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ {}, ObjectContaining{…} ]\n\nReceived:\n\n  1st vi.fn() call:\n\n  [\n    {},\n-   ObjectContaining {\n-     \"error\": ObjectContaining {\n-       \"category\": \"provider_connection_error\",\n+   {\n+     \"error\": {\n+       \"category\": \"schema_validation_error\",\n+       \"message\": \"대화의 작업 종류가 올바르지 않거나 시작 후 변경되었습니다. 새 대화에서 선택해 주세요.\",\n+       \"retryable\": false,\n      },\n      \"type\": \"error\",\n    },\n  ]\n\n\nNumber of calls: 1\n"
+      }
+    },
+    {
+      "id": "Q15-capability-skip",
+      "file": "src/main/app/chat-turn/send.ts",
+      "old": "    (payload.forkFrom || payload.handoffFrom) &&",
+      "new": "    (payload.handoffFrom) &&",
+      "occ": 0,
+      "result": "red",
+      "failedTests": 1,
+      "exit": 1,
+      "witness": {
+        "file": "src/main/app/chat-turn/send.busy.test.ts",
+        "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='claude', fork=false)",
+        "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ {}, ObjectContaining{…} ]\n\nReceived:\n\n  1st vi.fn() call:\n\n  [\n    {},\n-   ObjectContaining {\n-     \"error\": ObjectContaining {\n-       \"category\": \"capability_unsupported\",\n-     },\n-     \"type\": \"error\",\n+   {\n+     \"id\": \"draft-fork\",\n+     \"text\": \"follow-up\",\n+     \"type\": \"message.queued\",\n    },\n  ]\n\n\nNumber of calls: 1\n"
+      }
+    }
+  ],
+  "sweep": {
+    "EP3": [
+      {
+        "id": "SC-chatStore.ts:2776:18",
+        "file": "src/renderer/src/features/chat/store/chatStore.ts",
+        "old": "    (automatic && idleSearchDirection(view) !== direction)",
+        "new": "    (automatic && (void 0)(view) !== direction)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 4,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+          "test": "search history in the chat store does not issue an automatic page while the before search edge is pending",
+          "observation": "TypeError: (void 0) is not a function"
+        }
+      },
+      {
+        "id": "SC-useHistoryControls.ts:44:24",
+        "file": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "old": "    const dir = view && idleSearchDirection(view)",
+        "new": "    const dir = view && (void 0)(view)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+          "test": "fills both sides of a search turn one committed page at a time",
+          "observation": "TypeError: (void 0) is not a function"
+        }
+      }
+    ],
+    "EP6": [
+      {
+        "id": "SC-chatStore.ts:2006:4",
+        "file": "src/renderer/src/features/chat/store/chatStore.ts",
+        "old": "    leaveSearch(s.activeKey)",
+        "new": "    (void 0)(s.activeKey)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+          "test": "clears a departing search while latest is pending and ignores its late reply",
+          "observation": "TypeError: (void 0) is not a function"
+        }
+      },
+      {
+        "id": "SC-chatStore.ts:2608:6",
+        "file": "src/renderer/src/features/chat/store/chatStore.ts",
+        "old": "      leaveSearch(origin.session, true)",
+        "new": "      (void 0)(origin.session, true)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/store/history-search.test.ts",
+          "test": "restores an origin visit with a pending latest read only for the active search (pinned=true)",
+          "observation": "TypeError: (void 0) is not a function"
+        }
+      },
+      {
+        "id": "SC-chatStore.ts:2724:19",
+        "file": "src/renderer/src/features/chat/store/chatStore.ts",
+        "old": "  if (entry.search.returning) return",
+        "new": "  if (entry.search.returning__oo_mut) return",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 4,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/app/hooks/useChatRouteSync.test.ts",
+          "test": "returns to latest only on a new visit to the open search session, coalescing pending visits and retrying after failure",
+          "observation": "TypeError: Cannot read properties of undefined (reading 'page')"
+        }
+      },
+      {
+        "id": "SC-chatStore.ts:2725:69",
+        "file": "src/renderer/src/features/chat/store/chatStore.ts",
+        "old": "  patchEntry(key, (e) => ({ ...e, search: e.search && { ...e.search, returning: true } }))",
+        "new": "  patchEntry(key, (e) => ({ ...e, search: e.search && { ...e.search, returning__oo_mut: true } }))",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 5,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/app/hooks/useChatRouteSync.test.ts",
+          "test": "returns to latest only on a new visit to the open search session, coalescing pending visits and retrying after failure",
+          "observation": "TypeError: Cannot read properties of undefined (reading 'page')"
+        }
+      },
+      {
+        "id": "SC-chatStore.ts:2759:45",
+        "file": "src/renderer/src/features/chat/store/chatStore.ts",
+        "old": "          search: e.search && { ...e.search, returning: false, returnFailed: true }",
+        "new": "          search: e.search && { ...e.search, returning__oo_mut: false, returnFailed: true }",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/app/hooks/useChatRouteSync.test.ts",
+          "test": "returns to latest only on a new visit to the open search session, coalescing pending visits and retrying after failure",
+          "observation": "AssertionError: expected [ 'target', 'latest' ] to deeply equal [ 'target', 'latest', 'latest' ]"
+        }
+      },
+      {
+        "id": "SC-chatStore.ts:2759:63",
+        "file": "src/renderer/src/features/chat/store/chatStore.ts",
+        "old": "          search: e.search && { ...e.search, returning: false, returnFailed: true }",
+        "new": "          search: e.search && { ...e.search, returning: false, returnFailed__oo_mut: true }",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/app/hooks/useChatRouteSync.test.ts",
+          "test": "returns to latest only on a new visit to the open search session, coalescing pending visits and retrying after failure",
+          "observation": "AssertionError: expected undefined to be true // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-HistoryEdge.tsx:61:40",
+        "file": "src/renderer/src/features/chat/components/transcript/HistoryEdge.tsx",
+        "old": "      {direction === 'after' && history.returnToLatest && (",
+        "new": "      {direction === 'after' && history.returnToLatest__oo_mut && (",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/components/transcript/HistoryEdge.test.ts",
+          "test": "shows the pull indicator and disables only a pending return-to-latest button",
+          "observation": "AssertionError: expected true to be false // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-HistoryEdge.tsx:67:27",
+        "file": "src/renderer/src/features/chat/components/transcript/HistoryEdge.tsx",
+        "old": "          onClick={history.returnToLatest}",
+        "new": "          onClick={history.returnToLatest__oo_mut}",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/components/transcript/HistoryEdge.test.ts",
+          "test": "shows the pull indicator and disables only a pending return-to-latest button",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called 2 times, but got 0 times"
+        }
+      },
+      {
+        "id": "SC-useChatRouteSync.ts:81:22",
+        "file": "src/renderer/src/app/hooks/useChatRouteSync.ts",
+        "old": "          chatActions.leaveSearch(urlSessionId, true)",
+        "new": "          chatActions.leaveSearch__oo_mut(urlSessionId, true)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/app/hooks/useChatRouteSync.test.ts",
+          "test": "returns to latest only on a new visit to the open search session, coalescing pending visits and retrying after failure",
+          "observation": "TypeError: __vite_ssr_import_3__.chatActions.leaveSearch__oo_mut is not a function"
+        }
+      },
+      {
+        "id": "SC-useHistoryControls.ts:69:33",
+        "file": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "old": "            latestState: search?.returning ? 'loading' : search?.returnFailed ? 'error' : undefined,",
+        "new": "            latestState: search?.returning__oo_mut ? 'loading' : search?.returnFailed ? 'error' : undefined,",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+          "test": "exposes return-to-latest loading and retry state on the same search view",
+          "observation": "AssertionError: expected undefined to be 'loading' // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-useHistoryControls.ts:69:65",
+        "file": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "old": "            latestState: search?.returning ? 'loading' : search?.returnFailed ? 'error' : undefined,",
+        "new": "            latestState: search?.returning ? 'loading' : search?.returnFailed__oo_mut ? 'error' : undefined,",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+          "test": "exposes return-to-latest loading and retry state on the same search view",
+          "observation": "AssertionError: expected undefined to be 'error' // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-useHistoryControls.ts:70:12",
+        "file": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "old": "            returnToLatest: () => chatActions.leaveSearch(key, true)",
+        "new": "            returnToLatest__oo_mut: () => chatActions.leaveSearch(key, true)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+          "test": "exposes return-to-latest loading and retry state on the same search view",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ 's', true ]\n\nNumber of calls: 0\n"
+        }
+      },
+      {
+        "id": "SC-useHistoryControls.ts:70:46",
+        "file": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "old": "            returnToLatest: () => chatActions.leaveSearch(key, true)",
+        "new": "            returnToLatest: () => chatActions.leaveSearch__oo_mut(key, true)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+          "test": "exposes return-to-latest loading and retry state on the same search view",
+          "observation": "TypeError: __vite_ssr_import_2__.chatActions.leaveSearch__oo_mut is not a function"
+        }
+      },
+      {
+        "id": "SC-useHistoryControls.ts:78:30",
+        "file": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "old": "    [key, page, view, search?.returning, search?.returnFailed]",
+        "new": "    [key, page, view, search?.returning__oo_mut, search?.returnFailed]",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/hooks/useHistoryControls.test.ts",
+          "test": "exposes return-to-latest loading and retry state on the same search view",
+          "observation": "AssertionError: expected undefined to be 'loading' // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-useHistoryControls.ts:78:49",
+        "file": "src/renderer/src/features/chat/hooks/useHistoryControls.ts",
+        "old": "    [key, page, view, search?.returning, search?.returnFailed]",
+        "new": "    [key, page, view, search?.returning, search?.returnFailed__oo_mut]",
+        "occ": 0,
+        "result": "green",
+        "failedTests": 0,
+        "exit": 0
+      }
+    ],
+    "EP7": [
+      {
+        "id": "SC-chatReducer.ts:560:2",
+        "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "old": "  openCodeTodoTurnStartIndex: 0,",
+        "new": "  openCodeTodoTurnStartIndex__oo_mut: 0,",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/reducer/chatReducer.opencode-todo.test.ts",
+          "test": "starts each todo projection at the current turn and excludes hydrated history",
+          "observation": "AssertionError: expected undefined to be +0 // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-chatReducer.ts:1043:8",
+        "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "old": "        openCodeTodoTurnStartIndex: state.messages.length,",
+        "new": "        openCodeTodoTurnStartIndex__oo_mut: state.messages.length,",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/reducer/chatReducer.opencode-todo.test.ts",
+          "test": "starts each todo projection at the current turn and excludes hydrated history",
+          "observation": "AssertionError: expected +0 to be 1 // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-chatReducer.ts:1739:10",
+        "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "old": "          openCodeTodoTurnStartIndex: state.openCodeTodoTurnStartIndex + page.length",
+        "new": "          openCodeTodoTurnStartIndex__oo_mut: state.openCodeTodoTurnStartIndex + page.length",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 4,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+          "test": "renders only current-turn TODOs across accepted and rejected history pages (empty current turn)",
+          "observation": "AssertionError: expected [ 'old' ] to deeply equal []"
+        }
+      },
+      {
+        "id": "SC-chatReducer.ts:1739:44",
+        "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "old": "          openCodeTodoTurnStartIndex: state.openCodeTodoTurnStartIndex + page.length",
+        "new": "          openCodeTodoTurnStartIndex: state.openCodeTodoTurnStartIndex__oo_mut + page.length",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 4,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+          "test": "renders only current-turn TODOs across accepted and rejected history pages (empty current turn)",
+          "observation": "AssertionError: expected [ 'old' ] to deeply equal []"
+        }
+      },
+      {
+        "id": "SC-chatReducer.ts:1812:8",
+        "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "old": "        openCodeTodoTurnStartIndex: messages.length,",
+        "new": "        openCodeTodoTurnStartIndex__oo_mut: messages.length,",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/reducer/chatReducer.opencode-todo.test.ts",
+          "test": "starts each todo projection at the current turn and excludes hydrated history",
+          "observation": "AssertionError: expected +0 to be 1 // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-todoState.ts:18:17",
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/todoState.ts",
+        "old": "    .slice(state.openCodeTodoTurnStartIndex)",
+        "new": "    .slice(state.openCodeTodoTurnStartIndex__oo_mut)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 3,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+          "test": "renders only current-turn TODOs across accepted and rejected history pages (empty current turn)",
+          "observation": "AssertionError: expected [ 'old' ] to deeply equal []"
+        }
+      },
+      {
+        "id": "SC-AboveInput.tsx:11:40",
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.tsx",
+        "old": "  const { backend, messages, sendCount, openCodeTodoTurnStartIndex } = state",
+        "new": "  const { backend, messages, sendCount, openCodeTodoTurnStartIndex__oo_mut: openCodeTodoTurnStartIndex } = state",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+          "test": "renders only current-turn TODOs across accepted and rejected history pages (empty current turn)",
+          "observation": "AssertionError: expected [ 'old' ] to deeply equal []"
+        }
+      },
+      {
+        "id": "SC-AboveInput.tsx:13:62",
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.tsx",
+        "old": "    () => selectOpenCodeTodos({ backend, messages, sendCount, openCodeTodoTurnStartIndex }),",
+        "new": "    () => selectOpenCodeTodos({ backend, messages, sendCount, openCodeTodoTurnStartIndex__oo_mut: openCodeTodoTurnStartIndex }),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts",
+          "test": "renders only current-turn TODOs across accepted and rejected history pages (empty current turn)",
+          "observation": "AssertionError: expected [ 'old' ] to deeply equal []"
+        }
+      },
+      {
+        "id": "SC-AboveInput.tsx:14:35",
+        "file": "src/renderer/src/features/chat/harnesses/opencode/composer/AboveInput.tsx",
+        "old": "    [backend, messages, sendCount, openCodeTodoTurnStartIndex]",
+        "new": "    [backend, messages, sendCount, (void 0)]",
+        "occ": 0,
+        "result": "green",
+        "failedTests": 0,
+        "exit": 0
+      }
+    ],
+    "EP10": [
+      {
+        "id": "SC-native-history.ts:37:31",
+        "file": "src/main/app/native-history.ts",
+        "old": "    const nativeId = recovery?.native_id ?? sessionId",
+        "new": "    const nativeId = recovery?.native_id__oo_mut ?? sessionId",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+          "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+          "observation": "AssertionError: expected [ …(4) ] to deeply equal [ …(4) ]"
+        }
+      },
+      {
+        "id": "SC-turn-context.ts:166:35",
+        "file": "src/main/app/chat-turn/turn-context.ts",
+        "old": "  const continuitySource = payload.forkFrom ?? payload.handoffFrom",
+        "new": "  const continuitySource = payload.forkFrom__oo_mut ?? payload.handoffFrom",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.worktree.test.ts",
+          "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=false)",
+          "observation": "AssertionError: expected undefined to deeply equal { …(2) }"
+        }
+      },
+      {
+        "id": "SC-send.ts:83:57",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "  const forkSource = payload.sessionId == null ? payload.forkFrom : undefined",
+        "new": "  const forkSource = payload.sessionId == null ? payload.forkFrom__oo_mut : undefined",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.busy.test.ts",
+          "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='opencode', fork=true)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ {}, ObjectContaining{…} ]\n\nReceived:\n\n  1st vi.fn() call:\n\n  [\n    {},\n-   ObjectContaining {\n-     \"error\": ObjectContaining {\n-       \"category\": \"provider_connection_error\",\n+   {\n+     \"error\": {\n+       \"category\": \"schema_validation_error\",\n+       \"message\": \"대화의 작업 종류가 올바르지 않거나 시작 후 변경되었습니다. 새 대화에서 선택해 주세요.\",\n+       \"retryable\": false,\n      },\n      \"type\": \"error\",\n    },\n  ]\n\n\nNumber of calls: 1\n"
+        }
+      },
+      {
+        "id": "SC-send.ts:122:13",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "    (payload.forkFrom || payload.handoffFrom) &&",
+        "new": "    (payload.forkFrom__oo_mut || payload.handoffFrom) &&",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.busy.test.ts",
+          "test": "fork admission before runtime and queue allocation checks the source harness and fork capability (backend='claude', fork=false)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ {}, ObjectContaining{…} ]\n\nReceived:\n\n  1st vi.fn() call:\n\n  [\n    {},\n-   ObjectContaining {\n-     \"error\": ObjectContaining {\n-       \"category\": \"capability_unsupported\",\n-     },\n-     \"type\": \"error\",\n+   {\n+     \"id\": \"draft-fork\",\n+     \"text\": \"follow-up\",\n+     \"type\": \"message.queued\",\n    },\n  ]\n\n\nNumber of calls: 1\n"
+        }
+      },
+      {
+        "id": "SC-send.ts:155:48",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "  const sourceId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom",
+        "new": "  const sourceId = payload.sessionId ?? payload.forkFrom__oo_mut ?? payload.handoffFrom",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 3,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.agent-profile.test.ts",
+          "test": "Work profile production send wiring keeps Work and Code isolated at forkFrom and both automatic continuation preparations",
+          "observation": "AssertionError: expected { …(5) } to match object { agentKind: 'work' }\n(6 matching properties omitted from actual)"
+        }
+      },
+      {
+        "id": "SC-send.ts:297:66",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "      ? ((await ctx.data.query.nativeRecovery(continuitySource))?.native_id ?? continuitySource)",
+        "new": "      ? ((await ctx.data.query.nativeRecovery(continuitySource))?.native_id__oo_mut ?? continuitySource)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.worktree.test.ts",
+          "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=true)",
+          "observation": "AssertionError: expected 'source-session' to be '43580eab-f05f-4bae-8c92-fd5ed339178e' // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-send.ts:400:24",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "            ...(payload.forkFrom !== undefined ? { forkFrom: payload.forkFrom } : {}),",
+        "new": "            ...(payload.forkFrom__oo_mut !== undefined ? { forkFrom: payload.forkFrom } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.worktree.test.ts",
+          "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=false)",
+          "observation": "AssertionError: expected undefined to deeply equal { …(2) }"
+        }
+      },
+      {
+        "id": "SC-send.ts:400:51",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "            ...(payload.forkFrom !== undefined ? { forkFrom: payload.forkFrom } : {}),",
+        "new": "            ...(payload.forkFrom !== undefined ? { forkFrom__oo_mut: payload.forkFrom } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.worktree.test.ts",
+          "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=false)",
+          "observation": "AssertionError: expected undefined to deeply equal { …(2) }"
+        }
+      },
+      {
+        "id": "SC-send.ts:400:69",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "            ...(payload.forkFrom !== undefined ? { forkFrom: payload.forkFrom } : {}),",
+        "new": "            ...(payload.forkFrom !== undefined ? { forkFrom: payload.forkFrom__oo_mut } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.worktree.test.ts",
+          "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=false)",
+          "observation": "AssertionError: expected undefined to deeply equal { …(2) }"
+        }
+      },
+      {
+        "id": "SC-send.ts:602:19",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "        ...(native.nativeSessionId ? { nativeSessionId: native.nativeSessionId } : {}),",
+        "new": "        ...(native.nativeSessionId__oo_mut ? { nativeSessionId: native.nativeSessionId } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.agent-profile.test.ts",
+          "test": "Work profile production send wiring routes a saved OpenCode session through its runtime and keeps harness instructions isolated (recovery: true)",
+          "observation": "AssertionError: expected { sessionId: 'existing', …(20) } to match object { Object (nativeSessionId, text, ...) }\n(39 matching properties omitted from actual)"
+        }
+      },
+      {
+        "id": "SC-send.ts:602:39",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "        ...(native.nativeSessionId ? { nativeSessionId: native.nativeSessionId } : {}),",
+        "new": "        ...(native.nativeSessionId ? { nativeSessionId__oo_mut: native.nativeSessionId } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.agent-profile.test.ts",
+          "test": "Work profile production send wiring routes a saved OpenCode session through its runtime and keeps harness instructions isolated (recovery: true)",
+          "observation": "AssertionError: expected { sessionId: 'existing', …(21) } to match object { Object (nativeSessionId, text, ...) }\n(40 matching properties omitted from actual)"
+        }
+      },
+      {
+        "id": "SC-send.ts:602:63",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "        ...(native.nativeSessionId ? { nativeSessionId: native.nativeSessionId } : {}),",
+        "new": "        ...(native.nativeSessionId ? { nativeSessionId: native.nativeSessionId__oo_mut } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.agent-profile.test.ts",
+          "test": "Work profile production send wiring routes a saved OpenCode session through its runtime and keeps harness instructions isolated (recovery: true)",
+          "observation": "AssertionError: expected { sessionId: 'existing', …(21) } to match object { Object (nativeSessionId, text, ...) }\n(39 matching properties omitted from actual)"
+        }
+      },
+      {
+        "id": "SC-send.ts:623:29",
+        "file": "src/main/app/chat-turn/send.ts",
+        "old": "        ...(forkNativeId ? { forkFrom: forkNativeId } : {}),",
+        "new": "        ...(forkNativeId ? { forkFrom__oo_mut: forkNativeId } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 4,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/send.worktree.test.ts",
+          "test": "handleChatSend worktree production wiring uses the native source for forkFrom and the display parent for lineage (recovered=false)",
+          "observation": "AssertionError: expected undefined to be 'source-session' // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-resolve-turn.ts:70:35",
+        "file": "src/main/app/chat-turn/resolve-turn.ts",
+        "old": "  const continuitySource = payload.forkFrom ?? payload.handoffFrom",
+        "new": "  const continuitySource = payload.forkFrom__oo_mut ?? payload.handoffFrom",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 3,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/resolve-turn.agent.test.ts",
+          "test": "rejects a changed source harness after provider preparation (forkFrom)",
+          "observation": "AssertionError: expected { ok: true, value: { …(8) } } to match object { ok: false, …(1) }\n(9 matching properties omitted from actual)"
+        }
+      },
+      {
+        "id": "SC-resolve-turn.ts:123:4",
+        "file": "src/main/app/chat-turn/resolve-turn.ts",
+        "old": "    nativeSessionId: payload.sessionId",
+        "new": "    nativeSessionId__oo_mut: payload.sessionId",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/resolve-turn.agent.test.ts",
+          "test": "resumes a warm runtime using the recovered native ID of the displayed session",
+          "observation": "AssertionError: expected { ok: true, value: { …(8) } } to match object { ok: true, …(1) }\n(15 matching properties omitted from actual)"
+        }
+      },
+      {
+        "id": "SC-resolve-turn.ts:124:57",
+        "file": "src/main/app/chat-turn/resolve-turn.ts",
+        "old": "      ? (await query.nativeRecovery(payload.sessionId))?.native_id",
+        "new": "      ? (await query.nativeRecovery(payload.sessionId))?.native_id__oo_mut",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/resolve-turn.agent.test.ts",
+          "test": "resumes a warm runtime using the recovered native ID of the displayed session",
+          "observation": "AssertionError: expected { ok: true, value: { …(8) } } to match object { ok: true, …(1) }\n(14 matching properties omitted from actual)"
+        }
+      },
+      {
+        "id": "SC-resolve-turn.ts:180:25",
+        "file": "src/main/app/chat-turn/resolve-turn.ts",
+        "old": "    await ctx.data.write.recoverSessionHistory(payload.sessionId)",
+        "new": "    await ctx.data.write.recoverSessionHistory__oo_mut(payload.sessionId)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 8,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/native-session.test.ts",
+          "test": "native retention recovery through the migrated archive uses the selected engine model context limit before creating a replacement",
+          "observation": "Error: 표에 없는 피어 연산: recoverSessionHistory__oo_mut"
+        }
+      },
+      {
+        "id": "SC-native-session.ts:41:31",
+        "file": "src/main/app/chat-turn/native-session.ts",
+        "old": "    const nativeId = recovery?.native_id ?? request.sessionId",
+        "new": "    const nativeId = recovery?.native_id__oo_mut ?? request.sessionId",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 5,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+          "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+          "observation": "AssertionError: expected { ok: false, error: { …(3) } } to deeply equal { ok: true, value: { …(1) } }"
+        }
+      },
+      {
+        "id": "SC-native-session.ts:61:47",
+        "file": "src/main/app/chat-turn/native-session.ts",
+        "old": "    if (result.status === 'missing' && adapter.recoverSession) {",
+        "new": "    if (result.status === 'missing' && adapter.recoverSession__oo_mut) {",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 9,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+          "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+          "observation": "Error: Expected a replacement"
+        }
+      },
+      {
+        "id": "SC-native-session.ts:68:36",
+        "file": "src/main/app/chat-turn/native-session.ts",
+        "old": "      const created = await adapter.recoverSession({ ...request, sessionId: nativeId })",
+        "new": "      const created = await adapter.recoverSession__oo_mut({ ...request, sessionId: nativeId })",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 9,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+          "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+          "observation": "Error: Expected a replacement"
+        }
+      },
+      {
+        "id": "SC-native-session.ts:89:10",
+        "file": "src/main/app/chat-turn/native-session.ts",
+        "old": "          nativeSessionId: created.sessionId,",
+        "new": "          nativeSessionId__oo_mut: created.sessionId,",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 5,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+          "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+          "observation": "Error: Expected a replacement"
+        }
+      },
+      {
+        "id": "SC-native-session.ts:113:14",
+        "file": "src/main/app/chat-turn/native-session.ts",
+        "old": "              nativeSessionId: nativeId,",
+        "new": "              nativeSessionId__oo_mut: nativeId,",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/native-session.test.ts",
+          "test": "native retention recovery through the migrated archive replaces only a confirmed missing native identity and retains the transcript and search once",
+          "observation": "AssertionError: expected { ok: true, value: { …(3) } } to match object { ok: true, value: { …(2) } }\n(2 matching properties omitted from actual)"
+        }
+      },
+      {
+        "id": "SC-native-session.ts:120:34",
+        "file": "src/main/app/chat-turn/native-session.ts",
+        "old": "      return { ok: true, value: { nativeSessionId: nativeId } }",
+        "new": "      return { ok: true, value: { nativeSessionId__oo_mut: nativeId } }",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 3,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/native-session.restored-history.db.test.ts",
+          "test": "keeps the archive searchable and follows only the replacement Claude file after the old UUID returns",
+          "observation": "AssertionError: expected { ok: true, value: { …(1) } } to deeply equal { ok: true, value: { …(1) } }"
+        }
+      },
+      {
+        "id": "SC-continuation.ts:40:19",
+        "file": "src/main/app/chat-turn/continuation.ts",
+        "old": "    ...(input.base.nativeSessionId ? { nativeSessionId: input.base.nativeSessionId } : {}),",
+        "new": "    ...(input.base.nativeSessionId__oo_mut ? { nativeSessionId: input.base.nativeSessionId } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/continuation.test.ts",
+          "test": "buildListenRequest 첨부를 싣지 않고 프레임 위임을 전부 넘긴다",
+          "observation": "AssertionError: expected undefined to be 'replacement-native' // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-continuation.ts:40:39",
+        "file": "src/main/app/chat-turn/continuation.ts",
+        "old": "    ...(input.base.nativeSessionId ? { nativeSessionId: input.base.nativeSessionId } : {}),",
+        "new": "    ...(input.base.nativeSessionId ? { nativeSessionId__oo_mut: input.base.nativeSessionId } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/continuation.test.ts",
+          "test": "buildListenRequest 첨부를 싣지 않고 프레임 위임을 전부 넘긴다",
+          "observation": "AssertionError: expected undefined to be 'replacement-native' // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-continuation.ts:40:67",
+        "file": "src/main/app/chat-turn/continuation.ts",
+        "old": "    ...(input.base.nativeSessionId ? { nativeSessionId: input.base.nativeSessionId } : {}),",
+        "new": "    ...(input.base.nativeSessionId ? { nativeSessionId: input.base.nativeSessionId__oo_mut } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/continuation.test.ts",
+          "test": "buildListenRequest 첨부를 싣지 않고 프레임 위임을 전부 넘긴다",
+          "observation": "AssertionError: expected undefined to be 'replacement-native' // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-continuation.ts:88:17",
+        "file": "src/main/app/chat-turn/continuation.ts",
+        "old": "  delete request.forkFrom",
+        "new": "  delete request.forkFrom__oo_mut",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/app/chat-turn/continuation.test.ts",
+          "test": "buildFlushRequest batch 를 프롬프트로 싣고 continuity 표식을 떨어뜨린다",
+          "observation": "AssertionError: expected true to be false // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-adapter.ts:527:17",
+        "file": "src/main/adapters/claude/adapter.ts",
+        "old": "      return req.nativeSessionId && req.sessionId",
+        "new": "      return req.nativeSessionId__oo_mut && req.sessionId",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/adapters/claude/adapter.fork.test.ts",
+          "test": "ClaudeAdapter — forkFrom (0064) routes resumed events, permissions and hooks to the display session (recovered=true)",
+          "observation": "AssertionError: expected [ { type: 'session.updated', …(2) } ] to deep equally contain ObjectContaining{…}"
+        }
+      },
+      {
+        "id": "SC-adapter.ts:528:10",
+        "file": "src/main/adapters/claude/adapter.ts",
+        "old": "        ? routeNativeSession(live, req.nativeSessionId, req.sessionId)",
+        "new": "        ? (void 0)(live, req.nativeSessionId, req.sessionId)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/adapters/claude/adapter.fork.test.ts",
+          "test": "ClaudeAdapter — forkFrom (0064) recreates an expired conversation with a new native UUID and hides archived context in its receipt",
+          "observation": "TypeError: (void 0) is not a function"
+        }
+      },
+      {
+        "id": "SC-adapter.ts:528:39",
+        "file": "src/main/adapters/claude/adapter.ts",
+        "old": "        ? routeNativeSession(live, req.nativeSessionId, req.sessionId)",
+        "new": "        ? routeNativeSession(live, req.nativeSessionId__oo_mut, req.sessionId)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 1,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/adapters/claude/adapter.fork.test.ts",
+          "test": "ClaudeAdapter — forkFrom (0064) routes resumed events, permissions and hooks to the display session (recovered=true)",
+          "observation": "AssertionError: expected [ { type: 'session.updated', …(2) } ] to deep equally contain ObjectContaining{…}"
+        }
+      },
+      {
+        "id": "SC-adapter.ts:556:25",
+        "file": "src/main/adapters/claude/adapter.ts",
+        "old": "    const nativeId = req.nativeSessionId ?? sessionId",
+        "new": "    const nativeId = req.nativeSessionId__oo_mut ?? sessionId",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/adapters/claude/adapter.fork.test.ts",
+          "test": "ClaudeAdapter — forkFrom (0064) recreates an expired conversation with a new native UUID and hides archived context in its receipt",
+          "observation": "AssertionError: expected { sessionId: 'display-session', …(14) } to match object { Object (sessionId) }\n(103 matching properties omitted from actual)"
+        }
+      },
+      {
+        "id": "SC-adapter.ts:681:28",
+        "file": "src/main/adapters/claude/adapter.ts",
+        "old": "            : { resume: req.forkFrom ?? nativeId ?? undefined }),",
+        "new": "            : { resume: req.forkFrom__oo_mut ?? nativeId ?? undefined }),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/adapters/claude/adapter.fork.test.ts",
+          "test": "ClaudeAdapter — forkFrom (0064) forkFrom 을 resume + forkSession:true 로 어댑트한다 (sessionId=null 새 세션 의미론)",
+          "observation": "AssertionError: expected undefined to be 'src-session' // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-adapter.ts:682:18",
+        "file": "src/main/adapters/claude/adapter.ts",
+        "old": "          ...(req.forkFrom !== undefined ? { forkSession: true } : {}),",
+        "new": "          ...(req.forkFrom__oo_mut !== undefined ? { forkSession: true } : {}),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 2,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/adapters/claude/adapter.fork.test.ts",
+          "test": "ClaudeAdapter — forkFrom (0064) forkFrom 을 resume + forkSession:true 로 어댑트한다 (sessionId=null 새 세션 의미론)",
+          "observation": "AssertionError: expected undefined to be true // Object.is equality"
+        }
+      },
+      {
+        "id": "SC-adapter.ts:948:18",
+        "file": "src/main/adapters/claude/adapter.ts",
+        "old": "              req.onPermissionModeChanged?.(routeSessionId(msg.session_id), mode)",
+        "new": "              req.onPermissionModeChanged__oo_mut?.(routeSessionId(msg.session_id), mode)",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 3,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/adapters/claude/adapter.fork.test.ts",
+          "test": "ClaudeAdapter — forkFrom (0064) routes resumed events, permissions and hooks to the display session (recovered=false)",
+          "observation": "AssertionError: expected \"vi.fn()\" to be called with arguments: [ 'display-session', 'accept_edits' ]\n\nNumber of calls: 0\n"
+        }
+      },
+      {
+        "id": "SC-adapt.ts:307:36",
+        "file": "src/main/adapters/claude/adapt.ts",
+        "old": "    sessionId: routeSessionId(input.session_id ?? ''),",
+        "new": "    sessionId: routeSessionId(input.session_id__oo_mut ?? ''),",
+        "occ": 0,
+        "result": "red",
+        "failedTests": 3,
+        "exit": 1,
+        "witness": {
+          "file": "src/main/adapters/claude/adapt.test.ts",
+          "test": "toContext snake_case → camelCase 매핑 + raw 패스스루",
+          "observation": "AssertionError: expected '' to be 's1' // Object.is equality"
+        }
+      }
+    ]
+  },
+  "sweepComparison": {
+    "emitted": 61,
+    "executed": 61,
+    "missing": [],
+    "outside": [],
+    "excluded": [
+      "SC-resolve-turn.ts:180:25"
+    ]
+  },
+  "equivalence": {
+    "SC-useHistoryControls.ts:78:49": "The sole write to returnFailed also sets returning from true to false, invalidating the same memo. Dropping returning instead fails the loading/retry test.",
+    "SC-AboveInput.tsx:14:35": "Boundary writes on BEGIN_TURN also change sendCount. PREPEND_HISTORY, LOAD_SESSION and state resets change the messages array. Passing a zero or missing boundary to the selector fails the rendered empty-turn case."
+  }
+}

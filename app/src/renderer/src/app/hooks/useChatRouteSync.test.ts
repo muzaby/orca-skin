@@ -19,6 +19,7 @@ import { useChatSessionsSync } from './useChatSessionsSync'
 // 스케줄링은 이 시험 범위가 아니며, 잘못된 reset과 navigate라는 앱의 결정을 검증한다.
 const h = vi.hoisted(() => ({
   pathname: '/projects/a',
+  visitKey: 'initial',
   navigate: vi.fn(),
   refs: [] as { current: unknown }[],
   dependencies: [] as (readonly unknown[])[],
@@ -44,7 +45,7 @@ vi.mock('react', async (original) => ({
 }))
 vi.mock('react-router-dom', async (original) => ({
   ...(await original<typeof import('react-router-dom')>()),
-  useLocation: () => ({ pathname: h.pathname }),
+  useLocation: () => ({ pathname: h.pathname, key: h.visitKey }),
   useNavigate: () => h.navigate
 }))
 vi.mock('../../features/chat', async () => {
@@ -130,6 +131,7 @@ function sendAndConfirm(): void {
 beforeEach(() => {
   installChatStoreHarness({ inflight: false })
   h.pathname = '/projects/a'
+  h.visitKey = 'initial'
   h.refs = []
   h.dependencies = []
   h.effects = []
@@ -291,4 +293,67 @@ describe('useChatRouteSync — 프로젝트 진입과 대화 승격', () => {
     expect(getActiveChatSession().sessionId).toBe('new')
     expect(getActiveChatSession().messages).toBe(messages)
   })
+})
+
+it('returns to latest only on a new visit to the open search session, coalescing pending visits and retrying after failure', async () => {
+  const locator = { v: 1, session: 'search', source: 'local', identity: 'hit', epoch: 'e' } as const
+  const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce({
+    status: 'ok',
+    requestId: 1,
+    sessionId: 'search',
+    openGeneration: 1,
+    targetMessage: 'hit',
+    session: {
+      id: 'search',
+      backend: 'claude',
+      agentKind: 'code',
+      title: null,
+      complete: false,
+      messages: [{ id: 'hit', role: 'user', createdAt: 1, parts: [] }],
+      history: { generation: 'g', after: { kind: 'laterTurn', cursor: 'next' } }
+    }
+  })
+  expect(await chatActions.openSearchHit(locator, false)).toBe(true)
+  const leave = vi.spyOn(chatActions, 'leaveSearch')
+  let finish!: (reason: Error) => void
+  page.mockReturnValueOnce(
+    new Promise((_resolve, reject) => {
+      finish = reject
+    })
+  )
+  h.pathname = '/chat/search'
+  h.visitKey = 'first'
+  render()
+  h.visitKey = 'second'
+  render()
+  expect(page.mock.calls.map(([q]) => q.kind)).toEqual(['target', 'latest'])
+  expect(leave.mock.calls).toEqual([
+    ['search', true],
+    ['search', true]
+  ])
+  finish(Error('temporarily unavailable'))
+  await Promise.resolve()
+  await Promise.resolve()
+  expect(useChatStore.getState().sessions.search.search?.returnFailed).toBe(true)
+  // A metadata update reruns the route effect without creating a new browser visit.
+  useSessionsStore.setState({ byId: { search: session('search') } })
+  render()
+  expect(leave).toHaveBeenCalledTimes(2)
+  page.mockResolvedValueOnce({
+    status: 'missing',
+    sessionId: 'search',
+    openGeneration: 1,
+    requestId: 2
+  })
+  h.visitKey = 'retry'
+  render()
+  expect(page.mock.calls.map(([q]) => q.kind)).toEqual(['target', 'latest', 'latest'])
+  await Promise.resolve()
+  await Promise.resolve()
+  chatActions.leaveSearch('search')
+  leave.mockClear()
+  h.visitKey = 'ordinary'
+  render()
+  expect(leave).not.toHaveBeenCalled()
+  expect(page).toHaveBeenCalledTimes(3)
 })

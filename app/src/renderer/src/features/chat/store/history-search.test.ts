@@ -511,3 +511,66 @@ it('publishes the ordinary window and start marker and cancels its source on ses
   expect(cancel).toHaveBeenCalledWith('source-parent')
   expect(entry('c').session.historyComplete).toBe(false)
 })
+
+it('clears a departing search while latest is pending and ignores its late reply', async () => {
+  const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['hit'], true, true))
+  await chatActions.openSearchHit(locator('b', 'hit'), false)
+  let finish!: (result: HistoryPageReply) => void
+  page.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = resolve
+    })
+  )
+  chatActions.leaveSearch('b', true)
+  expect(entry().search?.returning).toBe(true)
+  vi.spyOn(sessionApi, 'load').mockResolvedValue(reply('s', ['ordinary']).session)
+  await chatActions.loadSession('s')
+  expect(useChatStore.getState().activeKey).toBe('s')
+  expect(entry().search).toBeUndefined()
+  const { session, history } = entry()
+  finish(reply('b', ['late-latest']))
+  await Promise.resolve()
+  await Promise.resolve()
+  expect(entry().session.messages).toBe(session.messages)
+  expect(entry().history).toBe(history)
+  expect(entry().search).toBeUndefined()
+  expect(page.mock.calls.map(([q]) => q.kind)).toEqual(['target', 'latest'])
+})
+
+it('preserves the search view when revalidating the active session', async () => {
+  vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['hit'], true, true))
+  await chatActions.openSearchHit(locator('b', 'hit'), false)
+  const search = entry().search
+  const load = vi.spyOn(sessionApi, 'load').mockResolvedValue(reply('b', ['ordinary']).session)
+  await chatActions.loadSession('b', null, { revalidate: true })
+  expect(load).toHaveBeenCalledWith('b')
+  expect(entry().search).toBe(search)
+})
+
+it.each([true, false])(
+  'restores an origin visit with a pending latest read only for the active search (pinned=%s)',
+  async (pinned) => {
+    const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['hit'], true, true))
+    await chatActions.openSearchHit(locator('b', 'hit'), false)
+    let finish!: (result: HistoryPageReply) => void
+    page.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      })
+    )
+    const origin = { session: 'b', pinned }
+    chatActions.restoreOriginVisit(origin, 'one')
+    chatActions.restoreOriginVisit(origin, 'two')
+    expect(page.mock.calls.map(([q]) => q.kind)).toEqual(['target', 'latest'])
+    expect(entry().search?.returning).toBe(true)
+    finish(reply('b', ['latest']))
+    await Promise.resolve()
+    expect(entry().session.messages.map((m) => m.id)).toEqual(['latest'])
+    const load = vi.spyOn(sessionApi, 'load').mockResolvedValue(reply('s', ['origin']).session)
+    chatActions.restoreOriginVisit({ session: 's', pinned }, 'other')
+    expect(load).toHaveBeenCalledExactlyOnceWith('s')
+    await Promise.resolve()
+    expect(useChatStore.getState().activeKey).toBe('s')
+    expect(page).toHaveBeenCalledTimes(2)
+  }
+)

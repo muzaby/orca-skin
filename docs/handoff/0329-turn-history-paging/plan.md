@@ -1,6 +1,6 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**plan/READY (ΔV6 · V1 rev 5 + ΔV1~ΔV6).** 검증 3은 D19(TODO 경계를 화면에 넘기는 마지막 연결 미잠금)로 FAIL이었고, review round 49가 자리 목록 미분류(G2·G3)로 RETURN_TO_PLAN으로 정정했다. ΔV6(§25)는 줄 단위 자리 목록 넷을 `site_census`로 다시 고정했다 — 미분류 0, 새 자리마다 좌표. 다음은 Codex r4다. [ΔV6](#25-δv6--verify-3-정정-plan_gap-정정-2026-11-25)
+**impl/IMPL_DONE (r4 · V1 rev 5 + ΔV1~ΔV6).** D19를 실제 TodoDock 렌더로 확인했다. 검색 복귀 세 경로와 분기 요청의 하네스·기능 검사를 검증했고, 잘못된 분기 오류 분류를 고쳤다. 다음은 Claude 독립 검증 4다. [r4 구현 보고](#구현자-기입-구현-보고-r4) · [실행 기록](evidence/r4-history.json)
 
 r3 기록: 검색 유휴 읽기의 방향별 오류 처리와 OpenCode 현재 턴 TODO 경계를 고쳤다. 최신 이동의 반복 입력은 한 요청으로 합쳐진다. 검증 2의 D10~D18을 닫았다. AC10은 Windows 실기 대기다. [r3 구현 보고](#구현자-기입-구현-보고-r3) · [실행 기록](evidence/r3-history.json)
 
@@ -14,9 +14,9 @@ r2 기록: 검색 유휴 읽기의 동시 요청을 고쳤고 검증 1의 D1~D9�
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) 2026-11-20 rev 1~4 · Claude Code rev 5 2026-11-24 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) · PR #640 코멘트 “0329 이력 페이징 · 구현 전 plan 보완 요청”(2026-11-24, 기준 `7db1c7ce`) |
-| 상태 / V | plan/READY (ΔV6, 다음 Codex r4) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) + ΔV5(§24 — verify 2 PLAN_GAP) + ΔV6(§25 — verify 3 정정 PLAN_GAP) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV6 |
+| 상태 / V | impl/IMPL_DONE (r4, 다음 Claude 독립 검증 4) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) + ΔV5(§24 — verify 2 PLAN_GAP) + ΔV6(§25 — verify 3 정정 PLAN_GAP) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV6 |
 | 조사 기준 | rev 5: `codex-handoff-0326-plan-gap`의 `7db1c7ce`(PR #640 head) — 0326 verify 7 PASS · 0327 verify 5 PASS · 0328 verify 2 PASS(모두 기계 범위). rev 1~4의 `62125eaa` 관측은 §8 rev 5 표로 재대조했다. |
-| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 검증 1의 D1~D9를 r2에서 수정·재현했다. 검증 2가 G1·X1로 반송했고 ΔV5가 닫았다. r3에서 D10~D18을 닫았다. 검증 3이 D19로 FAIL, review round 49가 G2·G3로 RETURN_TO_PLAN 정정했고 ΔV6가 닫았다. 다음 단계는 r4다. |
+| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 검증 1의 D1~D9를 r2에서 수정·재현했다. 검증 2가 G1·X1로 반송했고 ΔV5가 닫았다. r3에서 D10~D18을 닫았다. 검증 3이 D19로 FAIL, review round 49가 G2·G3로 RETURN_TO_PLAN 정정했고 ΔV6가 닫았다. r4에서 D19·ΔV6의 새 자리를 확인했다. 다음 단계는 Claude 독립 검증 4다. |
 
 # Part I — 제품과 사용자 동작
 
@@ -1699,6 +1699,104 @@ V1 rev 5 + ΔV1~ΔV5를 기준으로 구현했다. ΔV5의 세 동작을 수정 
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r4)
+
+ΔV6 §25의 Q7″·Q6e″·Q15′를 실제 입력 경로에 연결했다. 수정 전 Q15′의 세 사례 중 하나가 실패했다. Claude 출발 세션을 OpenCode로 분기하면 설계가 지정한 `provider_connection_error` 대신 `schema_validation_error`가 전달됐다. 분기 출발 세션의 하네스와 명시한 요청 하네스가 다를 때의 오류 분류를 고쳤다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r4)
+
+| V-pair | §10 강제 지점 · 실행 좌표 | 직접 관측 | 자기 판정 |
+|---|---|---|---|
+| VP-05 | EP7 ⑥″ ①~⑥ · Q7′·Q7″ | 실제 store 구독에서 `AboveInput`과 `TodoDock`을 렌더했다. 이전 메시지 2개와 겹치는 꼬리를 붙인 뒤 전송 전·현재 TODO 없음·현재 TODO 있음의 표시 항목은 각각 0·0·1개였다. 잘못된 순서의 페이지를 거절한 뒤에도 같았다 | SELF_PASS |
+| VP-13 | EP6 ⑦″ ①~⑦ · Q6e′·Q6e″ | 같은 세션 새 방문 두 번에 latest 1건, 실패 뒤 새 방문에 누적 2건. 세션 전환 뒤 늦은 응답은 메시지와 이력에 적용되지 않았다. 현재 세션 재검증은 검색 보기를 보존했다 | SELF_PASS |
+| VP-18 | EP10′ ①~⑨와 형제 · Q13·Q14·Q15·Q15′ | 복구 UUID로 다음 턴·분기·인계를 보냈다. 다른 하네스이거나 분기를 지원하지 않으면 오류 1건·큐 0건, 지원하는 같은 하네스에서는 대기열에 1건이 들어갔다 | SELF_PASS |
+| VP-19 | EP10′ ①②③⑦⑧ · Q14 | 실제 DB에서 옛 Claude 파일을 되돌린 뒤 보관본을 검색하고 새 UUID의 원본에서만 다음 이력을 읽었다 | SELF_PASS |
+| VP-03 (REGRESSION) | R-03 · Q6e″·Q7″·Q14 | 출발 방문 복원 시 최신 읽기 1회, 앞삽입 뒤 현재 TODO만 표시, 원본 재등장 후 보관 이력 조회를 확인했다 | SELF_PASS |
+
+§25-C·F에 따라 VP-16은 EP3 검색 및 자동 변이를 대조했다. 나머지 pair의 자기 판정과 검증 3에서 이미 검출한 자리의 내역은 r3 기록을 잇는다. 각 분류 줄·치환 원문·실패 단언·테스트명은 [r4 실행 기록](evidence/r4-history.json)에 있다.
+
+| §25-E 검색 | 검색 줄 | 운반 후보 | 명시 제외 | 미분류 / 목록만 | 자동 변이 · 결과 |
+|---|---:|---:|---:|---:|---|
+| EP3 | 5 | 2 | 0 | 0 / 0 | 2개 중 2개 검출 |
+| EP6 | 16 | 11 | 0 | 0 / 0 | 15개 중 14개 검출, 1개 동치 |
+| EP7 | 10 | 8 | 0 | 0 / 0 | 9개 중 8개 검출, 1개 동치 |
+| EP10 | 41 | 28 | 1 | 0 / 0 | 35개 중 35개 검출 |
+
+세션 분기 검사 수정으로 `send.ts:83`은 같은 줄에 있고 그 뒤의 자리는 3줄씩 이동했다. EP3·6·7은 §25-E의 명령을 그대로 사용했다. 아래 EP10 명령은 저장소 루트에서 실행했다.
+
+```sh
+SC=.agents/skills/handoff-verify/scripts/site_census.mjs
+M=app/src/main
+node $SC --search "rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|nativeSessionId|native_id|routeNativeSession|onPermissionModeChanged\?\.|forkFrom|session_id \?\? ' app/src/main/adapters/claude app/src/main/adapters/common app/src/main/app/chat-turn app/src/main/app/native-history.ts" \
+  --sites "$M/adapters/claude/adapter.ts:374-379,$M/app/chat-turn/native-session.ts:61-90,$M/adapters/claude/adapter.ts:556,$M/adapters/claude/adapter.ts:679-682,$M/adapters/claude/adapter.ts:527-529,$M/adapters/claude/adapter.ts:948,$M/adapters/claude/adapt.ts:307,$M/app/chat-turn/send.ts:296-298,$M/app/chat-turn/send.ts:623,$M/app/chat-turn/continuation.ts:40,$M/app/chat-turn/resolve-turn.ts:122-125,$M/app/chat-turn/send.ts:602,$M/app/chat-turn/native-session.ts:41,$M/app/chat-turn/native-session.ts:113,$M/app/chat-turn/native-session.ts:120,$M/app/native-history.ts:37,$M/app/chat-turn/continuation.ts:88,$M/app/chat-turn/send.ts:400,$M/app/chat-turn/turn-context.ts:166,$M/app/chat-turn/resolve-turn.ts:70,$M/app/chat-turn/send.ts:83,$M/app/chat-turn/send.ts:122,$M/app/chat-turn/send.ts:155" \
+  --excluded "$M/app/chat-turn/resolve-turn.ts:180"
+```
+
+네 명령에 각각 `--emit-mutants "<테스트 명령>" --cwd app`을 붙였다. 실행 기록의 `census`에 목록과 명령, 변이 전 통과한 테스트 파일을 남겼다. `sweep`에는 각 치환의 종료 코드와 실패 단언이 있다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4)
+
+| 구분 | 자리·입력 | 관측 |
+|---|---|---|
+| D19 인용 변이 E7i | `AboveInput.tsx:13`에서 selector 경계를 0으로 고정 | 현재 턴이 비어 있는데 화면에 `old` 1개가 나타나 Q7″ 실패 |
+| 선택 · Q6e″ ⑤ | `useChatRouteSync.ts:81` 최신 이동 호출 생략 | 같은 세션의 새 방문 두 번에서 latest 호출이 0건이 되어 실패 |
+| 선택 · Q6e″ ⑥ | `chatStore.ts:2006` 이탈 세션 검색 해제 생략 | 전환을 마쳤는데 이전 세션에 검색 보기가 남아 실패 |
+| 선택 · Q6e″ ⑦ | `chatStore.ts:2608` 출발 방문 최신 이동 생략 | 하단 고정·앵커 없음 두 입력에서 latest가 호출되지 않아 실패 |
+| 선택 · Q15′ (i) | `send.ts:83` 분기 출발 키 생략 | 하네스 불일치가 뒤쪽 검사까지 진행해 `schema_validation_error`를 돌려줌 |
+| 선택 · Q15′ (ii) | `send.ts:122` 분기 가능 여부 검사에서 분기 항만 제거 | 미지원 분기가 오류 대신 `message.queued`를 전송 |
+| 새 관측 좌표 3개 | Q7″ 화면 · Q6e″ 라우트와 store · Q15′ 전송 진입 | 3 + 5 + 3개 새 테스트 입력 통과 |
+| 자동 변이 | EP3·6·7·10 전체 산출 | 61개 중 59개 검출, 동치 2개 (제외 줄의 변이도 검출) |
+
+선택 증거 5 · 인용 변이 1 · 새 관측 좌표 3 · 자동 변이 61/61 = 실행 기록 70항목. [선택 변이 6개·신규 좌표 3개·전수 변이 61개](evidence/r4-history.json)
+
+동치로 판단한 두 변이는 무변이 대조와 같은 결과였다.
+
+- `useHistoryControls.ts:78`의 `returnFailed` 의존 항만 무력화하면 50건이 통과했다. 실패값을 쓰는 유일한 곳인 `chatStore.ts:2759`는 같은 갱신에서 `returning`을 true에서 false로 바꾸므로 memo가 다시 계산된다. `returning` 의존 항만 무력화하면 로딩·재시도 표시 시험이 실패했다.
+- `AboveInput.tsx:14`의 TODO 경계 의존 항만 무력화하면 12건이 통과했다. `BEGIN_TURN`은 같은 상태에서 `sendCount`를, 앞삽입·세션 로드·초기 상태 복원은 `messages`를 함께 교체한다. `:13`에서 selector에 전달하는 경계를 무력화하면 과거 항목이 표시됐다.
+
+## [구현자 기입] Product/UX 파생 검토 (r4)
+
+OpenCode에서 이전 기록을 읽어도 전송 후 작성한 TODO만 보인다. 같은 대화에서 뒤로·앞으로 다시 방문하는 동안 최신 읽기는 하나로 합쳐지고, 다른 세션을 열면 늦은 응답이 떠난 세션의 메시지를 덮지 않는다. Claude 대화를 OpenCode로 분기한 요청은 대기열에 들어가기 전에 오류로 반환된다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4)
+
+| 관측 | 대응 |
+|---|---|
+| 동시 호출 횟수만 세면 세션 전환 뒤 늦은 응답의 적용 여부를 알 수 없다 | 다른 세션이 실제로 활성화됐는지 확인하고 응답을 전달해 이전 세션의 메시지·이력 객체를 대조했다 |
+| 자동 변이가 메서드 이름을 바꾸면 호출 예외만으로도 테스트가 실패할 수 있다 | 세 검색 경로의 호출 자체를 생략하고 화면 이동과 세션 상태에서 각각 고장이 나타나는지 다시 확인했다 |
+| EP10 검색이 `resolve-turn.ts:180`의 보관 이력 정리 메서드 이름에도 일치한다 | §25-E의 제외 분류와 도구가 발행한 해당 변이의 실제 결과를 실행 기록에 함께 남겼다 |
+
+## [구현자 기입] 구현 보고 (r4)
+
+**impl/IMPL_DONE.** D19를 화면 테스트로 닫았고 ΔV6의 새 검색·분기 경로를 확인했다. 다음 단계는 Claude 독립 검증 4다. [실행 기록](evidence/r4-history.json)
+
+| AC | 자기 판정 | 근거 |
+|---|---|---|
+| AC1 | ✅ | r3 Q1·Q2 선행 10,000턴과 제한된 최신 읽기 |
+| AC2 | ✅ | r3 Q3·Q3′ 본문·part·바이트 상한 |
+| AC3′ | ✅ | r3 Q4b″ 세 화면 실제 Chromium 앵커, 최대 0.4375 CSS px |
+| AC4 | ✅ | r3 Q5·Q5b 전환 후 늦은 응답. r4 Q6e″에서 떠난 세션의 메시지·이력 보존 |
+| AC5 | ✅ | r3 Q4·Q5 앞삽입 거절·지연 본문. r4 Q7″에서 역순 페이지 거절 후 화면 항목 대조 |
+| AC6 | ✅ | r4 Q6e′·Q6e″ 같은 세션 재방문, 중복 억제, 실패 후 재시도, 출발 방문 복원 |
+| AC7 | ✅ | r3 Q7 세션 패널. r4 Q7′·Q7″ 현재 턴 경계와 실제 TodoDock 항목 |
+| AC8 | ✅ | r3 Q8 분기 사본. r4 Q15·Q15′ 출발 세션 계보·분기 허용 및 거부 |
+| AC9 | ✅ | r3 Q9·Q9b 세대 변경과 응답 검증 |
+| AC10 | ⚠️ | 0330의 목표 Windows 설치본·실제 입력 장치 측정 대기 |
+| AC11 | ✅ | r3 구 DB Linux 실측 중앙값 1,952.6ms, 재열기 원본 읽기 0 bytes |
+| AC12 | ✅ | r4 Q13~15′ 새 UUID와 화면 계보, 옛 원본 재등장 뒤 복구 경로 |
+
+✅ 11 · ⚠️ 1 · ❌ 0 = 총 12. Criteria-Met 11/12. §25-C의 영향 밖인 실측은 [r3 실행 기록](evidence/r3-history.json)을 인계했다.
+
+전체 Vitest 1,152파일·10,931건에서 기존 Linux 실패 9파일·22건을 확인했다. Claude native-resources 단독 재실행에서도 기존 플러그인 거부 1건이 처리되지 않았다. r3 실패 목록과 양방향 차집합은 각각 0건이었다. 수정한 테스트 4파일 61건 통과. Node 1,104/1,104, lint 오류 0·경고 12, 타입 검사, 정적 검사 5개, Electron 번들 및 호스트·프리로드 스모크 통과. 마지막에 Electron ABI 140으로 SQLite 조회를 확인했다.
+
+## [구현자 기입] Review Signals — 사실만 (r4)
+
+- 검증 3 E7i는 selector 단독 시험을 통과했다. 같은 변이가 이번에는 `AboveInput`이 그리는 TODO 항목 검사를 실패시켰다.
+- 설계에서 새로 열거한 분기 두 곳은 실제 전송 결과와 큐 길이를 관측하는 Q15′에서 각각 검출됐다. 수정 전에는 하네스 불일치 오류 분류도 설계와 달랐다.
+- ΔV6가 정정한 G2·G3의 줄 분류를 다시 실행했다. r4에서 새로 검출한 선행 결함은 위 분기 오류 분류 한 건이다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
@@ -1727,7 +1825,7 @@ V1 rev 5 + ΔV1~ΔV5를 기준으로 구현했다. ΔV5의 세 동작을 수정 
 | D16 | 패널 14자리 미잠금(K1~K6·K8·K9·K11·K12·PQ3·PQ5·H1·H2) | verify r2 · VP-05 · EP7 ②~⑤⑦ · Q7 | 기준점 경계·live 권위·상세 검사·stale·인계 입력 | 이행 | BLOCKING | closed (r3 · 14자리 재실행 · r3 실행 기록) |
 | D17 | 색인·출판 7자리 미잠금(Y2·Y2b·X2·X5·X7·X8·X9) | verify r2 · VP-07·15 · EP1 ①④ · EP9 ②④⑤ · Q9b | 꼬리 경계·새 전경 작업·삭제 취소·이전 세대 삭제·라운드 로빈·`prepared` 입력 | 이행 | BLOCKING | closed (r3 · 7자리 재실행 · r3 실행 기록) |
 | D18 | 분기·복구 ID 4자리 미잠금(FK1·FK2·FK5·N7b) | verify r2 · VP-10·18 · EP8 ③④ · EP10 ⑦ | 분기 사본 바인딩·산출물·native 접미·다음 턴 `native_id` 입력 | 이행 | BLOCKING | closed (r3 · 4자리 재실행 · r3 실행 기록) |
-| D19 | VP-05 path 끝 edge 미잠금 — `AboveInput.tsx:13`이 `selectOpenCodeTodos`에 넘기는 `openCodeTodoTurnStartIndex`를 `0`으로 바꿔도 렌더러 3,485건 green(E7i) | verify r3 · VP-05 · §24-C production path “… → `selectOpenCodeTodos` → `AboveInput`” | `AboveInput`(또는 `Composer`)을 production store로 렌더해 Q7′ (a)~(d) 앞삽입 뒤 TodoDock 항목을 관측 | 이행(pair path edge) | BLOCKING | open |
+| D19 | VP-05 path 끝 edge 미잠금 — `AboveInput.tsx:13`이 `selectOpenCodeTodos`에 넘기는 `openCodeTodoTurnStartIndex`를 `0`으로 바꿔도 렌더러 3,485건 green(E7i) | verify r3 · VP-05 · §24-C production path “… → `selectOpenCodeTodos` → `AboveInput`” | `AboveInput`(또는 `Composer`)을 production store로 렌더해 Q7′ (a)~(d) 앞삽입 뒤 TodoDock 항목을 관측 | 이행(pair path edge) | BLOCKING | closed 보고 (r4 · Q7″에서 경계 0이면 과거 항목 1개 표시 · 검증 4 대기) |
 | NX1 | ‘최신 대화로’ 버튼 `aria-busy`(`HistoryEdge.tsx:66`) 제거가 렌더러 3,676건 green(E6k) | verify r3 · VP-13 · EP6 ⑦′ ④ 입력 밖 | — | 확장(창 밖) | NEXT_HANDOFF(확장) | INDEX 후보 표 |
 | G2 | EP7 ⑥′ 자리 목록이 자기 검색 출력의 운반 줄 4개를 뺐다 — `AboveInput.tsx:11·13·14` · `chatReducer.ts:560`(`site_census.mjs` 미분류 4) | verify r3 정정(review round 49) · VP-05 · §24-E EP7 ⑥′ 검색 ↔ 자리 목록 | ΔV6에서 미분류 줄을 자리 또는 사유 붙은 제외 줄로 고정 · 자리에는 직접 oracle 좌표 | 이행(plan 내부 불일치) | PLAN_GAP | open |
 | G3 | EP6 ⑦′ 자리 목록이 자기 검색 출력의 운반 줄 4개를 뺐다 — `useChatRouteSync.ts:81` · `useHistoryControls.ts:78` · `chatStore.ts:2006` · `chatStore.ts:2608`(미분류 4) | verify r3 정정(review round 49) · VP-13 · §24-E EP6 ⑦′ 검색 ↔ 자리 목록 | 같음 | 이행(plan 내부 불일치) | PLAN_GAP | open |

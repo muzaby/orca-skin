@@ -80,11 +80,14 @@ export async function handleChatSend(
     return
   }
   const payload = admission.data
-  const boundId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom
+  const forkSource = payload.sessionId == null ? payload.forkFrom : undefined
+  const boundId = payload.sessionId ?? forkSource ?? payload.handoffFrom
   const boundSession = boundId ? await ctx.data.query.getSessionById(boundId) : undefined
   const selectedBackend = boundSession?.backend ?? payload.backend ?? adapter?.id
+  const backendMismatch =
+    boundSession && payload.backend && payload.backend !== boundSession.backend
   if (
-    (boundSession && payload.backend && payload.backend !== boundSession.backend) ||
+    backendMismatch ||
     (selectedBackend &&
       payload.providerKey &&
       parseProviderKey(payload.providerKey, [selectedBackend])?.adapter !== selectedBackend)
@@ -93,7 +96,7 @@ export async function handleChatSend(
       type: 'error',
       ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
       error: makeClassifiedError(
-        'schema_validation_error',
+        forkSource && backendMismatch ? 'provider_connection_error' : 'schema_validation_error',
         '이 대화의 하네스 또는 작업 종류를 변경할 수 없습니다. 새 대화에서 선택해 주세요.'
       )
     })
