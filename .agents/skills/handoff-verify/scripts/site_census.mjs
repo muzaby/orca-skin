@@ -23,7 +23,8 @@
 // 종료 코드: --sites를 주면 미분류가 있을 때 1, 아니면 0.
 // --emit-mutants: value 일치마다 mutate.py spec(JSONL) 한 줄을 stdout 끝에 낸다 — 속성 이름은
 // `__oo_mut`를 붙여 다른 키로, 단독 식별자는 `(void 0)`으로 바꾼다. 미분류 줄이 실제로 잠겼는지는
-// 이 spec을 mutate.py로 돌려 본다(green이면 운반하지만 아무 좌표도 보지 않는 줄이다).
+// 이 spec을 mutate.py로 돌려 본다(green이면 운반하지만 아무 좌표도 보지 않는 줄이다). oracle의 종료 코드가
+// 판정이므로 `… | tail`처럼 파이프로 끝내지 않는다 — 파이프의 마지막 명령이 0이면 실패도 green이 된다.
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
