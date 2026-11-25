@@ -6,6 +6,7 @@ import { generateTranscriptFixture } from '../../dev/transcriptFixtures'
 import { type ChatState, type Message } from '../../reducer/chatReducer'
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
 import { createOpenCodeBlockModel } from '../../harnesses/opencode/transcript/openCodeBlocks'
+import * as viewportAnchor from '../../lib/transcript/viewport/anchor'
 import { messageOrderFor } from '../../lib/transcript/messageOrder'
 import { createBlockList } from '../../lib/transcript/blockList'
 import { chatActions } from '../../store/chatStore'
@@ -568,6 +569,8 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
     'header',
     'header-toggle',
     'mixed-prepend-live',
+    'active-anchor-across-prepends',
+    'footer-resize',
     'character',
     'pinned',
     'key',
@@ -673,6 +676,33 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
         const row = dom!.query('[data-block-key="above"]') as unknown as HTMLElement
         virtualizer.options.measureElement(row, entry, virtualizer)
       }
+    }
+
+    if (cause === 'active-anchor-across-prepends' || cause === 'footer-resize') {
+      const reading = dom!.query('[data-block-key="visible"]')!
+      const before = reading.getBoundingClientRect().top
+      blocks.splice(0, 0, [{ key: 'older' }])
+      render()
+      if (cause === 'active-anchor-across-prepends') {
+        scrollTop += 22
+        const recapture = vi.spyOn(viewportAnchor, 'captureAnchor')
+        blocks.splice(0, 0, [{ key: 'oldest' }])
+        render()
+        expect(recapture).not.toHaveBeenCalled()
+        recapture.mockRestore()
+      } else {
+        const viewport = dom!.query('[data-transcript-viewport]')!
+        const slot = viewport.children.at(-1)! as unknown as Element
+        const notify = observers.get(slot)
+        expect(notify).toBeDefined()
+        notify!(
+          [{ target: slot, contentRect: { height: 39 } } as ResizeObserverEntry],
+          {} as ResizeObserver
+        )
+      }
+      vi.runOnlyPendingTimers()
+      expect(reading.getBoundingClientRect().top).toBe(before)
+      return
     }
 
     if (cause === 'header-toggle' || cause === 'mixed-prepend-live') {

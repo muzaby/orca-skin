@@ -9,7 +9,7 @@ import { sessionApi } from '../../../../shared/api/ipc'
 import { initialChatState, fromLoadedMessage } from '../../reducer/chatReducer'
 import { useChatStore, useTranscriptView } from '../../store/chatStore'
 import { HistoryPanelBoundary } from '../../harnesses/common/rightpanel/HistoryPanelBoundary'
-import { SessionPanels } from '../../store/historyPanels'
+import { mergePanelView, SessionPanels } from '../../store/historyPanels'
 
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -252,4 +252,127 @@ it('retrieves the next keyset on demand and rejects stale detail after a session
   await pending
   expect(store.snapshot().tasks.rows).toEqual([])
   expect(api).toHaveBeenCalledTimes(3)
+})
+
+it('folds only parts beyond the published frontier into live agents, processes and context sources', async () => {
+  const scope = { sessionId: 's', generation: 'g', openGeneration: 1 }
+  const calls = (label: string): LoadedMessage['parts'] => [
+    {
+      type: 'tool_call',
+      toolRunId: 'agent-' + label,
+      toolName: 'Agent',
+      args: { description: label }
+    },
+    { type: 'tool_call', toolRunId: 'bash-' + label, toolName: 'Bash', args: { command: label } },
+    {
+      type: 'tool_call',
+      toolRunId: 'read-' + label,
+      toolName: 'Read',
+      args: { file_path: '/file/' + label }
+    },
+    { type: 'tool_result', toolRunId: 'read-' + label, result: 'ok', isError: false }
+  ]
+  const messages: LoadedMessage[] = [
+    { id: 'old', role: 'assistant', createdAt: 0, parts: calls('old') },
+    {
+      id: 'boundary',
+      role: 'assistant',
+      createdAt: 1,
+      parts: [...calls('prefix'), ...calls('suffix')]
+    },
+    { id: 'new', role: 'assistant', createdAt: 2, parts: calls('live') }
+  ]
+  const panels = new SessionPanels(scope, async (q) => {
+    if (q.kind !== 'panelSummary') throw Error(q.kind)
+    return {
+      ...scope,
+      requestId: 1,
+      status: 'panelSummary',
+      panel: q.panel,
+      frontier: { key: 'boundary', parts: 4 },
+      checkpoint: 3,
+      total: 0,
+      rows: []
+    }
+  })
+  for (const panel of ['agents', 'sources', 'processes'] as const) await panels.read(panel)
+  const live = new TranscriptPanelProjection()
+  live.reset(messages)
+  const view = (domain: string): unknown =>
+    mergePanelView(domain, undefined, panels.snapshot(), live, messages)
+  expect(view('subagentTasks')).toEqual(
+    ['suffix', 'live'].map((description) => expect.objectContaining({ description }))
+  )
+  expect(view('sessionPanelModel')).toMatchObject({
+    processes: ['suffix', 'live'].map((command) => expect.objectContaining({ command }))
+  })
+  expect(view('taskContextSources')).toEqual(
+    ['suffix', 'live'].map((label) => expect.objectContaining({ path: '/file/' + label }))
+  )
+})
+
+it('rejects off-list and malformed details, restarts a stale continuation and discards superseded summary results', async () => {
+  const scope = { sessionId: 's', generation: 'g', openGeneration: 1 }
+  const echo = { ...scope, requestId: 1, panel: 'tasks' as const, checkpoint: 1 }
+  const value: PanelItem = {
+    kind: 'tasks',
+    item: {
+      id: '1',
+      key: '1',
+      title: 'title',
+      subject: 'subject',
+      description: null,
+      blockedBy: [],
+      status: 'pending'
+    }
+  }
+  const ok = { ...echo, status: 'panelSummary', rows: [{ key: 'task', value }], total: 1 }
+  const api = vi.fn().mockResolvedValueOnce({ ...ok, next: 'cursor' })
+  const store = new SessionPanels(scope, api)
+  await store.read('tasks')
+  expect(store.detail('tasks', 'absent')).toBeUndefined()
+  expect(api).toHaveBeenCalledTimes(1)
+  const bytes = Buffer.from(JSON.stringify(value))
+  const detail = {
+    ...echo,
+    status: 'panelDetail',
+    itemKey: 'task',
+    offset: 0,
+    nextOffset: bytes.length,
+    base64: bytes.toString('base64'),
+    done: true
+  }
+  const callsBeforeDetail = api.mock.calls.length
+  api.mockResolvedValueOnce({ ...detail, nextOffset: bytes.length + 1, done: false })
+  await store.detail('tasks', 'task')
+  expect(store.snapshot().tasks.state).toBe('failed')
+  expect(api.mock.calls.length - callsBeforeDetail).toBe(1)
+  const other = Buffer.from(
+    JSON.stringify({ kind: 'sources', item: { kind: 'file', path: '/other' } })
+  )
+  api.mockResolvedValueOnce({
+    ...detail,
+    base64: other.toString('base64'),
+    nextOffset: other.length
+  })
+  await store.detail('tasks', 'task')
+  expect(store.snapshot().tasks.rows[0].value).toEqual(value)
+  api
+    .mockResolvedValueOnce({ ...echo, status: 'stale' })
+    .mockResolvedValueOnce({ ...ok, checkpoint: 2 })
+  await store.read('tasks', true)
+  expect(api.mock.calls.slice(-2).map(([q]) => q.cursor)).toEqual(['cursor', undefined])
+  expect(store.snapshot().tasks.checkpoint).toBe(2)
+  store.invalidate()
+  let finish!: (r: HistoryPageReply) => void
+  api.mockReturnValueOnce(
+    new Promise((r) => {
+      finish = r
+    })
+  )
+  const pending = store.read('tasks')
+  store.invalidate()
+  finish({ ...echo, status: 'panelSummary', total: 1, rows: [{ key: 'late', value }] })
+  await pending
+  expect(store.snapshot().tasks.state).toBe('initial')
 })

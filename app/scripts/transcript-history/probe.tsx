@@ -117,6 +117,24 @@ await chatActions.loadSession(id)
 const root = createRoot(document.querySelector('#root')!)
 const scenario = new URLSearchParams(location.search).get('scenario')
 const writes: ScrollTrace[] = []
+let nested: HTMLElement | undefined
+let nestedRead: { scrollTop: number; requests: number } | undefined
+let betweenPrepends: number | undefined
+const footerSizes: number[] = []
+const footer = (): HTMLElement | null =>
+  document.querySelector<HTMLElement>('[data-transcript-viewport] > :last-child')
+if (scenario === 'footerResize') {
+  const Observer = window.ResizeObserver
+  window.ResizeObserver = class extends Observer {
+    constructor(callback: ResizeObserverCallback) {
+      super((entries, observer) => {
+        for (const entry of entries)
+          if (entry.target === footer()) footerSizes.push(entry.contentRect.height)
+        callback(entries, observer)
+      })
+    }
+  }
+}
 let growth: { initial: number; final: number; at: number } | undefined
 let requests = 0
 let edge: HistoryEdgeState = 'ready'
@@ -326,11 +344,34 @@ Object.assign(window, {
       reading = visibleLine()
       observeScrollWrites(scroller(), (event) => writes.push(event))
       const bounds = scroller().getBoundingClientRect()
+      if (scenario === 'nested') {
+        nested = document.createElement('pre')
+        Object.assign(nested.style, {
+          position: 'fixed',
+          zIndex: '100',
+          overflowY: 'auto',
+          width: '100px',
+          height: '70px',
+          left: bounds.left + bounds.width / 2 - 50 + 'px',
+          top: bounds.top + bounds.height / 2 - 35 + 'px'
+        })
+        const code = document.createElement('code')
+        Object.assign(code.style, { display: 'block', height: '240px' })
+        nested.append(code)
+        scroller().append(nested)
+        nested.scrollTop = 40
+      }
       return {
         x: Math.round(bounds.left + bounds.width / 2),
         y: Math.round(bounds.top + bounds.height / 2),
         start: snapshot()
       }
+    },
+    async nestedBoundary() {
+      if (!nested) throw Error('Missing nested scroller')
+      for (let i = 0; i < 60 && (!wheels.length || nested.scrollTop === 40); i++) await frame()
+      nestedRead = { scrollTop: nested.scrollTop, requests }
+      nested.scrollTop = 0
     },
     async middle() {
       await waitForRequest()
@@ -341,6 +382,7 @@ Object.assign(window, {
     async commit() {
       await waitForRequest()
       await frame()
+      nested?.remove()
       const before = snapshot()
       const deferred = document.createElement('style')
       if (scenario === 'firstMeasurement') {
@@ -349,17 +391,34 @@ Object.assign(window, {
         document.head.appendChild(deferred)
       }
       flushSync(() => {
-        chatActions.prependHistory(id, turn(1, 5), { reachedStart: true })
+        chatActions.prependHistory(id, turn(1, 5), { reachedStart: scenario !== 'doublePrepend' })
         edge = 'end'
         render()
       })
       if (useChatStore.getState().sessions[id].session.messages[0].id !== 'u:1')
         throw Error('Page rejected')
       const commitAt = performance.now()
+      if (scenario === 'doublePrepend') {
+        betweenPrepends = snapshot().top
+        flushSync(() => {
+          chatActions.prependHistory(id, turn(0, 3), { reachedStart: true })
+          render()
+        })
+        if (useChatStore.getState().sessions[id].session.messages[0].id !== 'u:0')
+          throw Error('Second page rejected')
+      }
       if (scenario === 'ownership') {
         writeScrollTop(scroller(), scroller().scrollTop + 17, undefined, backend)
       }
       layouts = (async () => {
+        if (scenario === 'footerResize') {
+          await frame()
+          const slot = footer()
+          if (!slot) throw Error('Missing transcript footer')
+          const initial = slot.getBoundingClientRect().height
+          slot.style.height = initial + 39 + 'px'
+          growth = { initial, final: slot.getBoundingClientRect().height, at: performance.now() }
+        }
         if (scenario === 'lateHeight' || scenario === 'firstMeasurement') {
           await frame()
           const row = Array.from(scroller().querySelectorAll<HTMLElement>('[data-index]')).find(
@@ -390,7 +449,17 @@ Object.assign(window, {
     },
     async result() {
       await settle(8)
-      return { after: snapshot(), wheels, requests, layouts: await layouts, writes, growth }
+      return {
+        after: snapshot(),
+        wheels,
+        requests,
+        layouts: await layouts,
+        writes,
+        growth,
+        nestedRead,
+        footerSizes,
+        betweenPrepends
+      }
     }
   }
 })

@@ -8,8 +8,8 @@ type SearchEdges = Pick<HistoryWindow, 'before' | 'after'> & {
 
 // A search target can have unread messages on both sides of the same turn.
 export function idleSearchDirection(view: SearchEdges): 'before' | 'after' | undefined {
-  if (view.beforeState || view.afterState) return undefined
-  if (view.before?.kind === 'withinTurn') return 'before'
-  if (view.after?.kind === 'withinTurn') return 'after'
+  if (view.beforeState === 'loading' || view.afterState === 'loading') return undefined
+  if (view.before?.kind === 'withinTurn' && view.beforeState !== 'error') return 'before'
+  if (view.after?.kind === 'withinTurn' && view.afterState !== 'error') return 'after'
   return undefined
 }

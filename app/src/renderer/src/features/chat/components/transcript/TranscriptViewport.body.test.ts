@@ -95,3 +95,78 @@ it('retries a deferred body from its button and resolves the original message in
     dom.unmount()
   }
 })
+
+it.each(['active session', 'selection', 'publication', 'ref', 'before commit'] as const)(
+  'drops a deferred body after a change of %s and shares the pending request',
+  async (change) => {
+    const parts = Buffer.from('[{"type":"text","text":"late"}]')
+    const ref: HistoryBodyRef = {
+      kind: 'parts',
+      session: 's',
+      generation: 'g',
+      message: 'same',
+      bytes: parts.length
+    }
+    const messages = [
+      { id: 'same', role: 'assistant' as const, parts: [], createdAt: 1, deferredBody: ref }
+    ]
+    installChatStoreHarness({ messages })
+    const installed = useChatStore.getState().sessions.s
+    const entry = { ...installed, history: { generation: 'g', openGeneration: 7 } }
+    useChatStore.setState({ sessions: { s: entry } })
+    const response = {
+      status: 'body' as const,
+      sessionId: 's',
+      openGeneration: 7,
+      requestId: 1,
+      offset: 0,
+      nextOffset: parts.length,
+      done: true,
+      base64: parts.toString('base64')
+    }
+    let finish!: (r: typeof response) => void
+    const page = vi.spyOn(sessionApi, 'page').mockReturnValue(
+      new Promise((r) => {
+        finish = r
+      })
+    )
+    const first = chatActions.openHistoryBody(ref)
+    expect(chatActions.openHistoryBody(ref)).toBe(first)
+    expect(page).toHaveBeenCalledTimes(1)
+    finish(response)
+    if (change === 'before commit') await Promise.resolve()
+    switch (change) {
+      case 'active session':
+      case 'before commit':
+        useChatStore.setState({ activeKey: 'other' })
+        break
+      case 'selection':
+        useChatStore.setState({
+          sessions: {
+            s: { ...entry, search: { seq: 9, target: 'same', restore: false, keyboard: false } }
+          }
+        })
+        break
+      case 'publication':
+        useChatStore.setState({
+          sessions: { s: { ...entry, history: { ...entry.history, generation: 'new' } } }
+        })
+        break
+      case 'ref':
+        useChatStore.setState({
+          sessions: {
+            s: {
+              ...entry,
+              session: {
+                ...entry.session,
+                messages: [{ ...messages[0], deferredBody: { ...ref } }]
+              }
+            }
+          }
+        })
+        break
+    }
+    expect(await first).toBe(false)
+    expect(useChatStore.getState().sessions.s.session.messages[0].parts).toEqual([])
+  }
+)

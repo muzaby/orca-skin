@@ -64,7 +64,28 @@ it('full archive and fork retain the first, middle and last identities when only
       relation: 'fork' as const,
       createdAt: 20
     }
+    db.artifacts.createPublication({
+      publicationId: 'parent-publication',
+      artifactFileId: 'report-file',
+      sessionId: 'parent',
+      relativePath: 'report-file/report.md',
+      filename: 'report.md',
+      title: 'Report',
+      kind: 'markdown',
+      sizeBytes: 5,
+      hash: 'hash',
+      inputSource: 'report.md',
+      publishedAt: 10
+    })
     for (let i = 0; i < 2; i++) materializeContinuityArrival(db, arrival, copyForkDisplay)
+    const publications = db.artifacts.listLatest('child')
+    expect(publications).toHaveLength(1)
+    expect(publications[0]).toMatchObject({ artifactFileId: 'report-file' })
+    expect(publications[0].publicationId).not.toBe('parent-publication')
+    const bindings = db.nativeHistory.bindings('child')
+    expect(bindings.map((b) => b.native_message_id)).toEqual(
+      expect.arrayContaining(['key-4', 'key-9'])
+    )
     const own = db.appendMessage({
       sessionId: 'child',
       role: 'user',
@@ -98,6 +119,13 @@ it('full archive and fork retain the first, middle and last identities when only
         (m) => m.id
       )
     ).toEqual(['child-input', 'child-output'])
+    expect(
+      forkNativeSuffix(
+        [turns[9], { ...turns[1], id: 'unbound-child' }, provider[10]],
+        db.nativeHistory.bindings('child'),
+        db.forkPrefix('child')!
+      ).map((m) => m.id)
+    ).toEqual(['unbound-child', 'child-input'])
     replace('child', provider)
     const after = loadSession(db, 'child', () => '.')!.messages
     expect(after.slice(0, 11)).toEqual(before.slice(0, 11))

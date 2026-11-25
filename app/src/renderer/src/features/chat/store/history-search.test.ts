@@ -123,6 +123,29 @@ describe('search history in the chat store', () => {
     }
   )
 
+  it.each(['before', 'after'] as const)(
+    'automatically reads only the healthy side after a %s error',
+    async (failed) => {
+      const initial = reply('b', ['m:2'])
+      initial.session.history.before = { kind: 'withinTurn', cursor: 'left' }
+      initial.session.history.after = { kind: 'withinTurn', cursor: 'right' }
+      const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(initial)
+      await chatActions.openSearchHit(locator('b'), false)
+      page.mockRejectedValueOnce(Error('offline'))
+      expect(chatActions.readSearchEdge('b', failed)).toBe(true)
+      await Promise.resolve()
+      expect(chatActions.readSearchEdge('b', failed, true)).toBe(false)
+      expect(page).toHaveBeenCalledTimes(2)
+      const healthy = failed === 'before' ? 'after' : 'before'
+      page.mockResolvedValueOnce(reply('b', ['more'], true, true))
+      expect(chatActions.readSearchEdge('b', healthy, true)).toBe(true)
+      await Promise.resolve()
+      expect(page.mock.calls.map(([q]) => q.kind)).toEqual(['target', 'withinTurn', 'withinTurn'])
+      expect(entry().search?.view?.[failed === 'before' ? 'beforeState' : 'afterState']).toBe(
+        'error'
+      )
+    }
+  )
   it('allows a manual read on the other search edge while the first read is pending', async () => {
     const initial = reply('b', ['m:2'], true, true)
     const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(initial)
@@ -290,8 +313,17 @@ describe('search history in the chat store', () => {
   it('reads a bounded latest page for a cold search and preserves the view if returning fails', async () => {
     const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['m:2'], true, true))
     await chatActions.openSearchHit(locator('b'), false)
-    page.mockRejectedValueOnce(Error('unavailable'))
+    let fail!: (error: Error) => void
+    page.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        fail = reject
+      })
+    )
     chatActions.leaveSearch('b', true)
+    chatActions.leaveSearch('b', true)
+    expect(entry().search?.returning).toBe(true)
+    expect(page.mock.calls.map(([q]) => q.kind)).toEqual(['target', 'latest'])
+    fail(Error('unavailable'))
     await Promise.resolve()
     await Promise.resolve()
     expect(entry().search?.returnFailed).toBe(true)
@@ -341,4 +373,141 @@ describe('search history in the chat store', () => {
     expect(await removed).toBe(false)
     expect(useChatStore.getState().activeKey).toBe('c')
   })
+})
+
+it.each(['generation', 'absent key', 'absent target'] as const)(
+  'declines an inconsistent target response (%s)',
+  async (problem) => {
+    const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['cached'], true))
+    await chatActions.openSearchHit(locator('b', 'cached'), false)
+    const before = entry()
+    const response = reply('b', ['different'], true, true)
+    response.targetMessage = 'absent'
+    page.mockResolvedValueOnce(
+      problem === 'absent target'
+        ? response
+        : {
+            status: 'useCached',
+            sessionId: 'b',
+            requestId: 3,
+            openGeneration: 3,
+            generation: problem === 'generation' ? 'old' : 'g',
+            messageKey: problem === 'absent key' ? 'absent' : 'cached'
+          }
+    )
+    expect(await chatActions.openSearchHit(locator('b', 'absent'), false)).toBe(false)
+    expect(page.mock.lastCall![0]).not.toHaveProperty('cached')
+    expect(entry()).toBe(before)
+  }
+)
+
+it.each(['search', 'ordinary', 'inactive'] as const)(
+  'drops a late %s page when its original reader is superseded',
+  async (mode) => {
+    const search = mode === 'search'
+    const seed = reply('b', ['tail'], true, search)
+    const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(seed)
+    await chatActions.openSearchHit(locator('b', 'tail'), false)
+    let resolve!: (r: HistoryPageReply) => void
+    page.mockReturnValueOnce(
+      new Promise((r) => {
+        resolve = r
+      })
+    )
+    expect(search ? chatActions.readSearchEdge('b', 'before') : chatActions.readPrevious('b')).toBe(
+      true
+    )
+    if (mode === 'inactive') {
+      useChatStore.setState({ activeKey: 'other' })
+    } else {
+      page.mockResolvedValueOnce(seed)
+      await chatActions.openSearchHit(locator('b', 'tail'), false)
+    }
+    const before = entry('b')
+    resolve(reply('b', ['obsolete']))
+    await Promise.resolve()
+    expect(entry('b')).toBe(before)
+  }
+)
+
+it('keeps the original cursor and messages when an earlier page overlaps out of order', async () => {
+  const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(reply('b', ['one', 'two'], true))
+  await chatActions.openSearchHit(locator('b', 'one'), false)
+  page.mockResolvedValueOnce(reply('b', ['two', 'one']))
+  expect(chatActions.readPrevious('b')).toBe(true)
+  await Promise.resolve()
+  expect(entry().history).toMatchObject({ before: edge('earlierTurn'), beforeState: 'error' })
+  expect(entry().session.messages.map((m) => m.id)).toEqual(['one', 'two'])
+})
+
+it.each(['other generation', 'rejected overlap'] as const)(
+  'keeps a separate search view when latest cannot join (%s)',
+  async (problem) => {
+    const page = vi
+      .spyOn(sessionApi, 'page')
+      .mockResolvedValueOnce(reply('b', ['one', 'two'], true))
+    await chatActions.openSearchHit(locator('b', 'one'), false)
+    const ordinary = entry().history
+    const candidate = reply('b', problem === 'other generation' ? ['new'] : ['two', 'one'], true)
+    if (problem === 'other generation') candidate.session.history.generation = 'different'
+    page.mockResolvedValueOnce(candidate)
+    await chatActions.openSearchHit(locator('b', candidate.targetMessage), false)
+    expect(entry().history).toBe(ordinary)
+    expect(entry().search?.view?.messages.map((m) => m.id)).toEqual(
+      candidate.session.messages.map((m) => m.id)
+    )
+    chatActions.leaveSearch('b', true)
+    expect(entry().search).toBeUndefined()
+    expect(page).toHaveBeenCalledTimes(2)
+  }
+)
+
+it('cancels the old lookup and ordinary source and discards a late return-to-latest response', async () => {
+  const cancel = vi.spyOn(sessionApi, 'cancelLoad')
+  let first!: (r: HistoryPageReply) => void
+  const page = vi.spyOn(sessionApi, 'page').mockReturnValueOnce(
+    new Promise((r) => {
+      first = r
+    })
+  )
+  const stale = chatActions.openSearchHit(locator('b'), false)
+  const sequence = page.mock.lastCall![0].openGeneration
+  page.mockResolvedValueOnce(reply('b', ['target'], true, true))
+  await chatActions.openSearchHit(locator('b'), false)
+  expect(cancel).toHaveBeenCalledWith('b', sequence)
+  expect(cancel).toHaveBeenCalledWith('s')
+  first(reply('b', ['old']))
+  expect(await stale).toBe(false)
+  let latest!: (r: HistoryPageReply) => void
+  page.mockReturnValueOnce(
+    new Promise((r) => {
+      latest = r
+    })
+  )
+  chatActions.leaveSearch('b', true)
+  page.mockResolvedValueOnce(reply('b', ['again'], true, true))
+  await chatActions.openSearchHit(locator('b'), false)
+  const current = entry()
+  latest(reply('b', ['obsolete']))
+  await Promise.resolve()
+  expect(entry()).toBe(current)
+})
+
+it('publishes the ordinary window and start marker and cancels its source on session switch', async () => {
+  const loaded = reply('b', ['only']).session
+  const load = vi.spyOn(sessionApi, 'load').mockResolvedValue(loaded)
+  const cancel = vi.spyOn(sessionApi, 'cancelLoad')
+  await chatActions.loadSession('b')
+  expect(entry().history).toMatchObject({ generation: 'g' })
+  expect(entry().session.historyComplete).toBe(true)
+  useChatStore.setState((s) => ({
+    sessions: {
+      ...s.sessions,
+      b: { ...entry(), history: { ...entry().history!, sourceSessionId: 'source-parent' } }
+    }
+  }))
+  load.mockResolvedValueOnce(reply('c', ['latest'], true).session)
+  await chatActions.loadSession('c')
+  expect(cancel).toHaveBeenCalledWith('source-parent')
+  expect(entry('c').session.historyComplete).toBe(false)
 })

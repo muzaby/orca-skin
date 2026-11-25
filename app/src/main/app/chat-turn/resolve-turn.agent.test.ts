@@ -144,3 +144,29 @@ it.each([
     expect(result).toMatchObject({ ok: true, value: { continuityLang: expected } })
   }
 )
+
+it('resumes a warm runtime using the recovered native ID of the displayed session', async () => {
+  const source = {
+    agent_kind: 'code',
+    backend: 'claude',
+    project_id: null,
+    cwd: '/workspace',
+    title: 'source'
+  }
+  const recovery = vi.fn(() => ({ native_id: 'replacement' }))
+  const ctx = withDataPort({
+    ...passthroughRuntimeConfig(),
+    db: { getSessionById: () => source, nativeHistory: { recovery } },
+    settings: { get: () => ({}) },
+    harnessSettings: { list: () => [] },
+    mcp: { resolver: () => () => undefined }
+  })
+  const result = await resolveTurn(
+    ctx as never,
+    { hasSession: () => true, peekRuntime: () => ({}) } as never,
+    { id: 'claude', agentSpawnEnv: () => ({}) } as never,
+    { sessionId: 'display', projectId: null, text: 'continue', agentKind: 'code' } as never
+  )
+  expect(recovery).toHaveBeenCalledExactlyOnceWith('display')
+  expect(result).toMatchObject({ ok: true, value: { native: { nativeSessionId: 'replacement' } } })
+})

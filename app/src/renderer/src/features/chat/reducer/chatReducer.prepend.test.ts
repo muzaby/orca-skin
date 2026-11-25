@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AppMessagePart, LoadedMessage, NormalizedEvent } from '../../../../../shared/ipc'
 import { chatActions, ingestChatEvent, useChatStore } from '../store/chatStore'
-import { chatReducer, initialChatState, type ChatState } from './chatReducer'
+import { chatReducer, initialChatState, hasHandoffHistory, type ChatState } from './chatReducer'
 
 const message = (
   id: string,
@@ -817,4 +817,48 @@ describe('transcript history prepend', () => {
       expect(restored.messages).toEqual(pageFirst.messages)
     }
   })
+})
+
+it('keeps held events until all matching deferred bodies resolve, across load and reachedStart', () => {
+  const ref = {
+    kind: 'parts' as const,
+    generation: 'g',
+    session: 's',
+    message: 'pending',
+    bytes: 80
+  }
+  const other = { ...ref, message: 'other' }
+  const both = [ref, other].map((r) => ({ ...message(r.message, 'assistant'), deferredBody: r }))
+  const wait = recv(LOAD(tail), result('pending', 'done'))
+  const next = prepend(wait, both, true)
+  expect(next.heldPatches.size).toBe(1)
+  const loaded = chatReducer(wait, {
+    type: 'LOAD_SESSION',
+    complete: true,
+    session: { id: 's', backend: 'claude', agentKind: 'code', title: null, messages: both }
+  })
+  expect(loaded.heldPatches.size).toBe(1)
+  expect(chatReducer(loaded, { type: 'RESOLVE_HISTORY_BODY', ref: { ...other }, parts: [] })).toBe(
+    loaded
+  )
+  const partial = chatReducer(loaded, { type: 'RESOLVE_HISTORY_BODY', ref: other, parts: [] })
+  expect(partial.heldPatches.size).toBe(1)
+  const end = chatReducer(partial, {
+    type: 'RESOLVE_HISTORY_BODY',
+    ref,
+    parts: [{ type: 'tool_call', toolRunId: 'tool', toolName: 'Read', args: {} }]
+  })
+  expect(end.heldPatches.size).toBe(0)
+  expect(end.messages[0].parts).toContainEqual(
+    expect.objectContaining({ type: 'tool_result', result: 'done' })
+  )
+})
+
+it('counts a published user once across loaded history and live handoff input', () => {
+  const prior = LOAD([message('a', 'user')]).messages[0]
+  const live = message('b', 'user')
+  expect(hasHandoffHistory({ publishedUserCount: 1, messages: [prior] })).toBe(false)
+  expect(hasHandoffHistory({ publishedUserCount: 1, messages: [live] })).toBe(true)
+  expect(hasHandoffHistory({ publishedUserCount: 2, messages: [] })).toBe(true)
+  expect(hasHandoffHistory({ messages: [prior, live] })).toBe(true)
 })

@@ -69,6 +69,39 @@ describe('search hit visibility clock', () => {
       stop()
     }
   )
+  it('keeps the original focus event and positions a partially visible hit before announcing it', () => {
+    const root = new ElementStub(),
+      row = new ElementStub()
+    const original = new ElementStub()
+    Object.defineProperty(document, 'activeElement', { value: original })
+    root.scrollTop = 100
+    row.top = -15
+    const announce = vi.fn(),
+      finished = vi.fn()
+    const scroll = vi.fn((position: number) => {
+      row.top += root.scrollTop - position
+      root.scrollTop = position
+    })
+    const stop = revealSearchRow(
+      root as unknown as HTMLElement,
+      { seq: 7, target: 'm', keyboard: true, restore: false },
+      () => row as unknown as HTMLElement,
+      scroll,
+      announce,
+      finished
+    )
+    const focus = new Event('focusin')
+    Object.defineProperty(focus, 'target', { value: original })
+    document.dispatchEvent(focus)
+    vi.advanceTimersByTime(16)
+    expect(finished).not.toHaveBeenCalled()
+    expect(scroll).toHaveBeenCalledWith(85)
+    expect(announce).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(16)
+    expect(announce).toHaveBeenCalledOnce()
+    expect(row.focus).toHaveBeenCalledOnce()
+    stop()
+  })
   it('user input or restoring a visit leaves no focus, outline, or stale callback', () => {
     const root = new ElementStub(),
       row = new ElementStub()

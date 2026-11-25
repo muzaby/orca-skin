@@ -180,3 +180,61 @@ describe('published panel summary replay', () => {
     }
   })
 })
+
+it('limits summary rows and rejects a cursor for another session, checkpoint or publication', async () => {
+  const sql = new Database(':memory:')
+  sql.pragma('foreign_keys=ON')
+  applyMigrations(sql)
+  const db = new DbQueries(sql),
+    index = new HistoryIndex(db)
+  try {
+    const id = 's'
+    db.insertSession({ id, title: id, backend: 'claude', projectId: null, createdAt: 0 })
+    const m = db.appendMessage({ sessionId: id, role: 'assistant', createdAt: 1, content: '' })
+    for (let i = 0; i < 130; i++) {
+      db.appendPart({
+        messageId: m,
+        type: 'tool_call',
+        toolRunId: 'p' + i,
+        payloadJson: JSON.stringify({
+          toolName: 'Bash',
+          toolRunId: 'p' + i,
+          args: { command: 'command ' + i }
+        })
+      })
+    }
+    const generation = (await index.prepare(id))!.generation
+    const head = db.historyIndex.latest(id, generation)!
+    const query = {
+      kind: 'panelSummary' as const,
+      sessionId: id,
+      requestId: 1,
+      openGeneration: 7,
+      generation,
+      panel: 'processes' as const
+    }
+    const panels = db.historyIndex.panels
+    expect(panels.read({ ...query, generation: 'other' }, generation, head).status).toBe('stale')
+    const first = panels.read(query, generation, head)
+    if (first.status !== 'panelSummary') throw Error(first.status)
+    expect(first.rows).toHaveLength(128)
+    const cursor = first.next!
+    const bad = JSON.parse(Buffer.from(cursor, 'base64url').toString())
+    bad[0] = 'other'
+    expect(
+      panels.read(
+        { ...query, cursor: Buffer.from(JSON.stringify(bad)).toString('base64url') },
+        generation,
+        head
+      ).status
+    ).toBe('invalid')
+    expect(
+      panels.read({ ...query, cursor }, generation, { ...head, ordinal: head.ordinal + 1 }).status
+    ).toBe('stale')
+    const next = panels.read({ ...query, cursor }, generation, head)
+    expect(next.status === 'panelSummary' && next.rows.length).toBe(2)
+  } finally {
+    index.stop()
+    sql.close()
+  }
+})
