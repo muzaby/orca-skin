@@ -10,8 +10,12 @@
    그 사이에 설계·구현이 없으면(판정 정정 · 원장 재구성 · 같은 턴의 추가 커밋) 같은 회차를 갱신한다.
    회차의 판정은 마지막 커밋에서 읽는다 — `claude:pass`는 PASS, `claude:fail`은 제목의 RETURN_TO_PLAN·CLOSED·FAIL,
    제목에 없으면 `Next-Action`이 구현자면 FAIL, 아니면 `FAIL·RTP`. `Verified-By`가 비었거나 `pending`이면 판정 불명이다.
-   verify.md의 명시적 회차(`# rN 검증`·`# 라운드 N`·`# verify N회째` 등의 최댓값)와 복원한 회차 수가 다르면
-   그 handoff를 `복원 불가`로 근거와 함께 내고, 구간 FAIL 비율에서 판정 불명과 함께 뺀다.
+   대조는 두 가지를 따로 한다. (a) 회차 수 — verify.md의 명시 회차(`# rN 검증`·`# 라운드 N`·`# verify N회째` 등의
+   최댓값)와 복원한 회차 수. (b) 회차별 판정 — verify.md의 회차 절(제목·`## 메타 (rN)`)에서 원판정을, 같은 회차
+   정정·종료 절(`# rN 판정 정정`·`# rN 종료`·`## 정정 — …(같은 verify N회째)`)에서 최종 유효 판정을 읽어 커밋과 맞춘다.
+   커밋의 pass/fail과 문서 판정이 어긋나거나 커밋 제목의 판정어가 문서의 원판정·정정 어디에도 없으면 `충돌`,
+   문서에 그 회차 판정이 없으면 `특정 불가`다 — 둘 다 `일치`로 쓰지 않는다. 회차 수가 다르거나 판정이 충돌한
+   handoff는 `복원 불가`로 구간 FAIL 비율에서 판정 불명과 함께 뺀다.
 2. review 구간 — `regression-coverage.md`의 `# Round N —` · `# review round N —` 절이 처음 들어온 커밋을
    커밋 순서(`git rev-list --topo-order`)로 놓고 그 사이를 구간으로 한다. 같은 날의 여러 review와 같은 번호의
    두 절(예: round 24)도 서로 다른 구간이다. 각 verify 회차는 첫 커밋이 속한 구간에 한 번만 배정된다.
@@ -22,7 +26,9 @@
    회차 사이 ID 전이: 신규 · 계속 열림 · 재개(verify가 종결을 확인한 뒤 다시 열림) · 실제 종결 · 비차단으로 분류 이동.
    구현자의 `closed 보고`는 verify의 종결 확인과 따로 센다.
    원장이 없는 verify.md·형식 오류·충돌 중복·회차 누락은 0건으로 세지 않고 그 사실을 낸다. 직전 회차에 열린 ID가
-   종결·분류 이동 기록 없이 사라졌거나 최신 정정 원장이 잘못됐으면 그 회차 F는 `판정 불가`다. 직전 상태 값은
+   종결·분류 이동 기록 없이 사라졌거나 최신 정정 원장이 잘못됐으면 그 회차 F는 `판정 불가`다. 마지막으로 확인된
+   미종결 ID는 회차 누락·원장 오류를 넘어 들고 가며, 그 ID가 다시 원장에 나타나 상태가 확인될 때까지 이후 회차의
+   F(빈 원장 포함)와 이력은 `판정 불가`다. 직전 상태는 각 ID의 최신 상태(재개되면 다시 열림)와 대조한다. 직전 상태 값은
    직전 원장과 대조한다 — `—`는 직전에 열리지 않음, `열림`·`closed 보고`(구현자가 닫았다고 보고)는 직전에 열림,
    `닫힘`은 앞 원장에서 verify가 종결을 확인함(이번에 다시 열리면 재개).
 4. 지침 크기 — 핵심 지침 5개의 바이트 합과 사례 인용 수. `--size-at <rev>`에서 잘못된 ref는 실패,
@@ -53,13 +59,31 @@ LEDGER = re.compile(r"^### 발견 원장 — verify (\d+)(?: 정정\(round (\d+)
 HEADER = ["ID", "disposition", "직전 상태", "이번 결과", "직전 기록", "증거"]
 BLOCKING = ("BLOCKING", "PLAN_GAP")  # F에 드는 disposition(정확히 일치)
 DISPOSITION = re.compile(r"^(?:BLOCKING|PLAN_GAP|NON_BLOCKING|경계|NEXT_HANDOFF(?:\([^()|]+\))?)$")
-EXPLICIT = [
-    re.compile(r"^# (?:Verify |verify )?r(\d+)(?![.\d])", re.M),
-    re.compile(r"^# 라운드 (\d+)", re.M),
-    re.compile(r"^# verify (\d+)회째", re.M),
-    re.compile(r"^## 판정 — verify (\d+)회째", re.M),
-]
 INVALID = "판정 불가"
+VERDICT = r"(PASS|FAIL|RETURN_TO_PLAN|CLOSED)"
+ROUND_ANCHORS = [
+    re.compile(r"^# (?:Verify |verify )?r(\d+)(?![.\d])", re.M),
+    re.compile(r"^## 메타 \((?:r|verify )(\d+)\)", re.M),
+    re.compile(r"^## r(\d+) 메타", re.M),
+    re.compile(r"^#{1,2} (?:Verify (?:— )?)?라운드 (\d+)", re.M),
+    re.compile(r"^#{1,2} verify (\d+)회째", re.M),
+    re.compile(r"^## 판정 (?:— |\()verify (\d+)회째", re.M),
+]
+FIX_ANCHORS = [
+    re.compile(r"^# r(\d+) (?:판정 정정|종료)", re.M),
+    re.compile(r"^# verify (\d+) 판정 정정", re.M),
+    re.compile(r"^## 정정 — .*같은 verify (\d+)회째", re.M),
+]
+VERDICT_LINES = [
+    re.compile(r"^#{1,3} [^\n]*: \*\*" + VERDICT, re.M),
+    re.compile(r"^\| 상태 \| \*\*" + VERDICT, re.M),
+    re.compile(r"^- 상태: \*\*" + VERDICT, re.M),
+    re.compile(r"^판정: \*\*" + VERDICT, re.M),
+    re.compile(r"\*\*정정 판정: " + VERDICT, re.M),
+    re.compile(r"판정은 \*\*" + VERDICT, re.M),
+    re.compile(r"^\*\*" + VERDICT + r"\b", re.M),
+]
+MIXED = "혼재"
 PREV = ("—", "열림", "closed 보고", "닫힘")
 NOW = ("열림", "닫힘")
 PRIOR = ("—", "검사 완료", "명시 이월", "확인 불가")
@@ -129,9 +153,61 @@ def explicit_rounds(hid: str):
     numbers = []
     for path in glob.glob(f"docs/handoff/{hid}-*/verify.md"):
         text = open(path, encoding="utf8").read()
-        for pattern in EXPLICIT:
+        for pattern in ROUND_ANCHORS + FIX_ANCHORS:  # 회차 절·정정 절과 같은 패턴으로 센다
             numbers += [int(n) for n in pattern.findall(text)]
     return max(numbers) if numbers else None
+
+
+def first_verdict(text):
+    """절 안의 판정. 서로 다른 판정이 함께 적혀 있으면(예: 나중에 고친 메타 상태 행) 하나를 고르지 않고 혼재로 둔다."""
+    found = {m.group(1) for pattern in VERDICT_LINES for m in pattern.finditer(text)}
+    return None if not found else found.pop() if len(found) == 1 else f"{MIXED}({'·'.join(sorted(found))})"
+
+
+def doc_verdicts(hid: str):
+    """verify.md → {n: {"original": 판정|None, "fixes": [판정|None, …]}}. 회차 절이 여럿이면 판정이 나온 첫 절을 쓴다."""
+    out = defaultdict(lambda: {"original": None, "fixes": []})
+    for path in glob.glob(f"docs/handoff/{hid}-*/verify.md"):
+        text = open(path, encoding="utf8").read()
+        anchors = []
+        for pattern in FIX_ANCHORS:
+            anchors += [(m.start(), int(m.group(1)), "fix") for m in pattern.finditer(text)]
+        fix_starts = {a[0] for a in anchors}
+        for pattern in ROUND_ANCHORS:
+            anchors += [(m.start(), int(m.group(1)), "round") for m in pattern.finditer(text) if m.start() not in fix_starts]
+        anchors.sort()
+        if not any(n == 1 and kind == "round" for _, n, kind in anchors):
+            anchors.insert(0, (0, 1, "round"))  # 회차 제목 없는 첫 절 = 1회째
+        rounds = defaultdict(str)
+        for i, (start, n, kind) in enumerate(anchors):
+            body = text[start:anchors[i + 1][0] if i + 1 < len(anchors) else len(text)]
+            if kind == "fix":
+                out[n]["fixes"].append(first_verdict(body))
+            else:
+                rounds[n] += body
+        for n, body in rounds.items():
+            out[n]["original"] = first_verdict(body)
+    return out
+
+
+def compare_round(r, doc):
+    """회차 r(커밋)과 문서 판정 → (원판정, 유효 판정, 대조 상태)."""
+    words = [w for c in r["commits"] for w in ("RETURN_TO_PLAN", "CLOSED", "FAIL") if w in c["subject"]]
+    family = {"claude:pass": "pass", "claude:fail": "fail"}.get(r["commits"][-1]["verdict"])
+    if doc is None or doc["original"] is None:
+        return r["label"], r["label"], "특정 불가(verify.md에 판정 없음)"
+    if doc["original"].startswith(MIXED) or any(v and v.startswith(MIXED) for v in doc["fixes"]):
+        return r["label"], r["label"], f"특정 불가(문서 안 판정 {doc['original']})"
+    effective = next((v for v in reversed(doc["fixes"]) if v), doc["original"])
+    if family is None:
+        return doc["original"], effective, "특정 불가(커밋 판정 불명)"
+    if (effective == "PASS") != (family == "pass"):
+        return doc["original"], effective, f"충돌(커밋 {r['commits'][-1]['verdict']} ↔ 문서 {effective})"
+    known = {doc["original"], *[v for v in doc["fixes"] if v]}
+    stray = [w for w in words if w not in known and not (w == "FAIL" and "CLOSED" in known)]
+    if stray:
+        return doc["original"], effective, f"충돌(커밋 제목 {stray[0]} ↔ 문서 {' → '.join(sorted(known))})"
+    return doc["original"], effective, "일치"
 
 
 def verify_rounds(commits):
@@ -154,9 +230,16 @@ def verify_rounds(commits):
             r["label"] = verdict_label(r["commits"])
             r["verdict"] = r["commits"][-1]["verdict"] if r["label"] != "불명" else "불명"
         explicit = explicit_rounds(hid)
-        status = "명시 없음" if explicit is None else "일치" if explicit == len(items) else f"복원 불가 — 커밋 {len(items)}회 ↔ verify.md 명시 {explicit}회"
+        count_status = "명시 없음" if explicit is None else "일치" if explicit == len(items) else f"복원 불가 — 커밋 {len(items)}회 ↔ verify.md 명시 {explicit}회"
+        comparable = count_status == "일치" or (count_status == "명시 없음" and len(items) == 1)
+        docs = doc_verdicts(hid) if comparable else {}
         for r in items:
-            r["check"] = status
+            r["check"] = count_status
+            if comparable:
+                r["original"], r["effective"], r["round_check"] = compare_round(r, docs.get(r["n"]))
+            else:
+                r["original"], r["effective"], r["round_check"] = r["label"], r["label"], (
+                    "명시 회차가 없어 대조하지 않음" if count_status == "명시 없음" else "회차 수 불일치로 대조하지 않음")
     return rounds
 
 
@@ -200,8 +283,13 @@ def parse_ledgers(path: str):
         lines = text[m.end():].split("\n")[1:]
         while lines and not lines[0].strip():
             lines.pop(0)
-        if len(lines) < 2 or not lines[0].startswith("|") or cells(lines[0]) != HEADER or not set(lines[1].replace("|", "").strip()) <= set("-: "):
+        if len(lines) < 1 or not lines[0].startswith("|") or cells(lines[0]) != HEADER:
             errors.append(f"{where}: 원장 표 머리가 없거나 열이 다르다(기대 {' | '.join(HEADER)})")
+            found[(n, k)] = INVALID
+            continue
+        separator = cells(lines[1]) if len(lines) > 1 and lines[1].startswith("|") else []
+        if len(separator) != 6 or not all(re.fullmatch(r":?-{3,}:?", c) for c in separator):
+            errors.append(f"{where}: 구분선이 6칸 `---`가 아니라 발견 행을 읽을 수 없다 — {lines[1][:60] if len(lines) > 1 else '(없음)'}")
             found[(n, k)] = INVALID
             continue
         rows, bad = [], False
@@ -262,71 +350,84 @@ def ledger_summary(handoff_filter=None):
 
 
 def transitions(found: dict):
-    """회차별 유효 F와 전이. 확인할 수 없는 값은 None(판정 불가)으로 두고 0으로 채우지 않는다."""
+    """회차별 유효 F와 전이. 확인할 수 없는 값은 None(판정 불가)으로 두고 0으로 채우지 않는다.
+
+    outstanding = 마지막으로 확인된 미종결 BLOCKING·PLAN_GAP ID. 회차 누락·원장 오류를 넘어 들고 가며,
+    원장에 다시 나타나 상태가 확인돼야 빠진다. outstanding이 원장에서 빠져 있으면 그 원장의 F는 판정 불가다.
+    state = ID별 최신 상태(열림 · 닫힘 · 분류 이동) — 직전 상태 열을 이 값과 대조한다.
+    """
     by_n = defaultdict(dict)
     for (n, k), rows in found.items():
         by_n[n][k] = rows
     out, errors = [], []
-    confirmed_closed = set()
-    prev_rows, prev_n = None, None  # prev_rows: 직전 회차 유효 원장(알 수 없으면 None)
+    outstanding, state = set(), {}
+    prev_n = None
     for n in sorted(by_n):
         versions = by_n[n]
         k = max(versions)
+
+        def f_of(rows):
+            if rows == INVALID:
+                return None, []
+            listed = {r["id"] for r in rows}
+            missing = sorted(outstanding - listed)
+            if missing:
+                return None, missing
+            return {r["id"] for r in rows if r["disp"] in BLOCKING and r["now"] == "열림"}, []
+
+        history = []
+        for kk in sorted(versions):
+            f, _ = f_of(versions[kk])
+            history.append(f"{'원' if kk == 0 else f'정정 {kk}'} F {INVALID if f is None else len(f)}")
         rows = versions[k]
-        f_of = lambda rs: None if rs == INVALID else {r["id"] for r in rs if DISPOSITION.match(r["disp"]) and r["disp"] in BLOCKING and r["now"] == "열림"}
-        history = [f"{'원' if kk == 0 else f'정정 {kk}'} F {INVALID if f_of(versions[kk]) is None else len(f_of(versions[kk]))}" for kk in sorted(versions)]
         entry = {"n": n, "k": k, "history": history, "moves": None, "late": None, "evidence": None, "F": None}
-        known_prev = prev_rows is not None and prev_n == n - 1
+        consecutive = prev_n == n - 1 or n == 1
+        prev_n = n
         if rows == INVALID:
             errors.append(f"verify {n}: 최신 원장({'원' if k == 0 else f'정정 {k}'})이 잘못돼 F를 정할 수 없다")
             out.append(entry)
-            prev_rows, prev_n = None, n
+            prev_n = None  # 다음 회차의 직전 원장을 알 수 없다
             continue
-        ids = {r["id"]: r for r in rows}
-        open_now = f_of(rows)
-        entry["late"] = {v: sum(1 for r in rows if r["id"] in open_now and r["prior"] == v) for v in PRIOR[1:]}
+        open_now, missing = f_of(rows)
+        problems = [f"마지막으로 확인된 미종결 {', '.join(missing)}가 종결·분류 이동 기록 없이 빠졌다"] if missing else []
+        for r in rows:
+            latest = state.get(r["id"])
+            if r["prev"] == "—" and latest == "열림":
+                problems.append(f"{r['id']}: 직전 상태 —인데 최신 상태가 열림")
+            if r["prev"] in ("열림", "closed 보고") and consecutive and latest != "열림":
+                problems.append(f"{r['id']}: 직전 상태 {r['prev']}인데 최신 상태가 {latest or '없음'}")
+            if r["prev"] == "닫힘" and latest != "닫힘":
+                problems.append(f"{r['id']}: 직전 상태 닫힘인데 최신 상태가 {latest or '없음'}(verify 종결 확인 없음)")
+        entry["late"] = {v: sum(1 for r in rows if open_now and r["id"] in open_now and r["prior"] == v) for v in PRIOR[1:]}
         entry["evidence"] = {v: sum(1 for r in rows if v in r["evidence"]) for v in ("새 실행", "재분류")}
-        entry["late_ids"] = [r["id"] for r in rows if r["id"] in open_now and r["prior"] == "검사 완료"]
-        if n == 1 or known_prev:
-            prev_open = set() if n == 1 else {r["id"] for r in prev_rows if r["now"] == "열림"}
-            prev_blocking = set() if n == 1 else {r["id"] for r in prev_rows if r["disp"] in BLOCKING and r["now"] == "열림"}
-            problems = []
-            for rid, r in ids.items():
-                if r["prev"] == "—" and rid in prev_open:
-                    problems.append(f"{rid}: 직전 상태 —인데 직전 원장에서 열림")
-                if r["prev"] in ("열림", "closed 보고") and rid not in prev_open:
-                    problems.append(f"{rid}: 직전 상태 {r['prev']}인데 직전 원장에서 열리지 않음")
-                if r["prev"] == "닫힘" and rid not in confirmed_closed:
-                    problems.append(f"{rid}: 직전 상태 닫힘인데 앞 원장에 verify 종결 확인이 없다")
-            missing = sorted(prev_blocking - set(ids))
-            if missing:
-                problems.append(f"직전에 열린 {', '.join(missing)}가 종결·분류 이동 기록 없이 빠졌다")
-            if problems:
-                errors += [f"verify {n}: {p}" for p in problems]
-                out.append(entry)
-                prev_rows, prev_n = None, n
-                continue
+        entry["late_ids"] = [r["id"] for r in rows if open_now and r["id"] in open_now and r["prior"] == "검사 완료"]
+        if problems:
+            errors += [f"verify {n}: {p}" for p in problems]
+            entry["note"] = "미종결 ID가 확인될 때까지 F를 정하지 않는다" if missing else None
+        elif not consecutive:
+            entry["note"] = "직전 회차를 판정할 수 없어 전이를 확인할 수 없다"
+        if not problems:
+            entry["F"] = len(open_now)
+        if not problems and consecutive:
             moves = defaultdict(list)
-            for rid, r in ids.items():
+            for r in rows:
+                rid, latest = r["id"], state.get(r["id"])
                 blocking = r["disp"] in BLOCKING
                 if blocking and r["now"] == "열림":
-                    moves["계속 열림" if rid in prev_blocking else "재개" if rid in confirmed_closed else "신규"].append(rid)
-                elif blocking and r["now"] == "닫힘" and rid in prev_blocking:
+                    moves["계속 열림" if rid in outstanding else "재개" if latest == "닫힘" else "신규"].append(rid)
+                elif blocking and r["now"] == "닫힘" and rid in outstanding:
                     moves["실제 종결"].append(rid)
-                elif not blocking and rid in prev_blocking:
+                elif not blocking and rid in outstanding:
                     moves["분류 이동"].append(rid)
             reported = [r for r in rows if r["prev"] == "closed 보고"]
             moves["closed 보고 → 종결 확인"] = [r["id"] for r in reported if r["now"] == "닫힘"]
             moves["closed 보고 → 열림"] = [r["id"] for r in reported if r["now"] == "열림"]
             entry["moves"] = moves
-        else:
-            entry["note"] = "직전 회차를 판정할 수 없어 전이·누락을 확인할 수 없다"
-        entry["F"] = len(open_now)
+        # 형식이 맞는 원장의 행은 그 ID의 최신 상태로 반영한다(누락이 있어도 적힌 행은 사실이다)
         for r in rows:
-            if r["disp"] in BLOCKING and r["now"] == "닫힘":
-                confirmed_closed.add(r["id"])
+            state[r["id"]] = r["now"]
+            (outstanding.add if r["disp"] in BLOCKING and r["now"] == "열림" else outstanding.discard)(r["id"])
         out.append(entry)
-        prev_rows, prev_n = rows, n
     return out, errors
 
 
@@ -377,9 +478,17 @@ def main(argv=None) -> int:
 
     all_rounds = [r for items in rounds.values() for r in items]
     unknown = sum(1 for r in all_rounds if r["verdict"] == "불명")
-    broken = {hid: items[0]["check"] for hid, items in rounds.items() if items[0]["check"].startswith("복원 불가")}
+    broken = {hid: items[0]["check"] for hid, items in rounds.items()
+              if items[0]["check"].startswith("복원 불가") or any(r["round_check"].startswith("충돌") for r in items)}
+    checks = defaultdict(int)
+    for r in all_rounds:
+        checks[r["round_check"].split("(")[0]] += 1
     excluded = lambda r: r["verdict"] == "불명" or r["first"]["hid"] in broken
+    counts = defaultdict(int)
+    for items in rounds.values():
+        counts[items[0]["check"].split(" —")[0]] += 1
     print(f"verify 회차 {len(all_rounds)}(handoff {len(rounds)}) · 판정 불명 {unknown} · 복원 불가 handoff {len(broken)}(회차 {sum(len(rounds[h]) for h in broken)})")
+    print(f"회차 수 대조(handoff): {' · '.join(f'{k} {v}' for k, v in sorted(counts.items()))} / 회차별 판정 대조(회차): {' · '.join(f'{k} {v}' for k, v in sorted(checks.items()))}")
     print("\nreview\tcommit\tdate\tverify\tPASS\tFAIL\t불명\t복원 불가\tFAIL%(불명·복원 불가 제외)\t제목")
     edges = [b["idx"] for b in bounds] + [float("inf")]
     assigned = defaultdict(list)
@@ -408,11 +517,13 @@ def main(argv=None) -> int:
 
     shown = [args.handoff] if args.handoff else sorted(broken)
     if shown:
-        print("\nhandoff\t회차\t판정 순서\t명시 기록 대조\t같은 변경 커밋")
+        print("\nhandoff\t회차\t판정 순서(원판정⇒유효)\t회차 수 대조\t회차별 판정 대조\t같은 변경 커밋")
     for hid in shown:
         items = rounds.get(hid, [])
         dups = [d for r in items for c in r["commits"] for d in c["dups"]]
-        print(f"{hid}\t{len(items)}\t{' → '.join(r['label'] for r in items) or '-'}\t{items[0]['check'] if items else '커밋 없음'}\t{', '.join(d[:8] for d in dups) or '-'}")
+        seq = " → ".join(r["original"] if r["original"] == r["effective"] else f"{r['original']}⇒{r['effective']}" for r in items) or "-"
+        per = [f"{r['n']}회째 {r['round_check']}" for r in items if r["round_check"] != "일치"]
+        print(f"{hid}\t{len(items)}\t{seq}\t{items[0]['check'] if items else '커밋 없음'}\t{'; '.join(per) or ('일치' if items else '-')}\t{', '.join(d[:8] for d in dups) or '-'}")
 
     files, with_ledger, per, errors = ledger_summary(args.handoff)
     scope = f"handoff {args.handoff}" if args.handoff else "전체"
