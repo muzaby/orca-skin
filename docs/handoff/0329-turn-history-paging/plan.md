@@ -1434,3 +1434,14 @@ r2 검산은 선택·회귀·EP10 근거 14 + 검증 1 인용 변이 14 + 새 �
 | D8 | 본문 ref 바이트 길이 결합 미잠금(P3) | verify r1 · VP-08 · §10 본문 | 길이가 다른 ref 입력 | 이행 | BLOCKING | closed (r2 · P3) |
 | D9 | locator epoch(P5)·target 캐시 키(P7) 미잠금, Q2·Q3·Q5·Q5b·Q6a~e·Q8 renderer·Q9 좌표 대응 누락 | verify r1 · VP-14 · Q6a·Q6b · §10 “Q는 … 좌표” | 해당 입력 추가와 Q별 `파일:테스트명` 대응표 | 이행 | BLOCKING | closed (r2 · P5·P7 · Q 대응표) |
 | N1 | Vitest 22 red(Windows 경로, diff 밖 9파일) | verify r1 · gate | — | 비귀속 | NON_BLOCKING | 기록 |
+| G1 | 검색 보기에서 한쪽 방향이 오류면 반대쪽 유휴 채움도 멈춘다(`idleSearchDirection.ts:11`). 계속해야 하는지 규칙 칸만으로 정할 수 없다 | verify r2 · VP-16 · §10 ‘한 턴과 조각’ “오류 없음” ↔ ‘양방향 커서·끝’ “한 방향 실패가 다른 방향을 막지 않는다” | 설계자가 한 규칙으로 고정하고 Q4″ 입력 칸에 그 분기를 적는다 | 이행(plan 내부 불일치) | PLAN_GAP | open |
+| X1 | ‘최신 대화로’ 반복 입력의 중복 요청 억제(`chatStore.ts:2724` `returning`)가 잠기지 않았다(L3) | verify r2 · VP-13 · 열거 원문 없음 | 채택(EP6 ⑦ 입력 추가) 또는 경계 선언 | 확장(창 안) | PLAN_GAP | open |
+| D10 | 앞삽입 뒤 OpenCode 현재 턴 TODO에 이전 턴 TODO가 보인다 — `openCodeTodoTurnStartIndex`(`chatReducer.ts:1043`)가 PREPEND_HISTORY(`:1701`)에서 옮겨지지 않는다(verify r2 독립 축 재현: `[]` → `[{old, in_progress}]`) | verify r2 · VP-05 · EP7 ⑥ · AC7 “OpenCode 현재 TODO … live 소유자” | 앞삽입 수만큼 경계를 옮기거나 메시지 ID 기준으로 바꾸고 재현 입력을 Q7에 더한다 | 이행(현재 결함 재현) | BLOCKING | open |
+| D11 | 창 응답·본문 검사 22자리 미잠금(T4·T6~T13·T15·DB4~DB7·DB10·O2~O4·R7·W6·PQ1·PQ4) | verify r2 · VP-08·14 · §10 요청/응답 “창도 일치 여부를 검사” · 본문 ref 결합 · EP2 ④ · EP3 ④ | 자리마다 그 항목만 다른 응답 입력 | 이행 | BLOCKING | open |
+| D12 | 취소·늦은 응답 16자리 미잠금(S12·S13·T14·DB1·DB9·B1~B6·L2·W5·O6·O8·EC1) | verify r2 · VP-08·13 · §10 “다른 navigationId의 응답은 적용 0” · 본문 취소 · 사용자 제어 · EP5 ②③ · Q6e | 같은 hit 재선택·전환·취소 입력 | 이행 | BLOCKING | open |
+| D13 | 거부·끝 표식·보류 9자리 미잠금(S14·J2·J3·R6·R8·R9·W3·W4·L4) | verify r2 · VP-12·13 · §10 ‘빈 결과·겹침·오류’ · ‘B의 끝 표식’ · EP5 ⑤ · EP6 ⑧ rejected · ‘하단 슬롯’ | 거부·세대 교체·지연 본문 잔존 입력 | 이행 | BLOCKING | open |
+| D14 | 입력·앵커 10자리 미잠금(V2·gV2·V7·V8·V16·E2·V12·gV12·V13·gV13) | verify r2 · VP-16·17 · EP4′ ②③⑤ · EP4″ ④ (ii) · ⑤ | 중첩 스크롤·PageUp·키 반복·store 거절·당김 표시·하단 크기·활성 앵커 입력 | 이행 | BLOCKING | open |
+| D15 | 검색 표시·복귀 5자리 미잠금(V17·SR7·SR10·P11·O7) | verify r2 · VP-13·14 · §10 ‘표시되는 지점’·‘행 강조 수명’·‘이동 기록’·‘캐시와 문맥’ · EP6 ③~⑥ | Work 묶음 행·포커스 복귀·부분 가시·resume·미보유 캐시 입력 | 이행 | BLOCKING | open |
+| D16 | 패널 14자리 미잠금(K1~K6·K8·K9·K11·K12·PQ3·PQ5·H1·H2) | verify r2 · VP-05 · EP7 ②~⑤⑦ · Q7 | 기준점 경계·live 권위·상세 검사·stale·인계 입력 | 이행 | BLOCKING | open |
+| D17 | 색인·출판 7자리 미잠금(Y2·Y2b·X2·X5·X7·X8·X9) | verify r2 · VP-07·15 · EP1 ①④ · EP9 ②④⑤ · Q9b | 꼬리 경계·새 전경 작업·삭제 취소·이전 세대 삭제·라운드 로빈·`prepared` 입력 | 이행 | BLOCKING | open |
+| D18 | 분기·복구 ID 4자리 미잠금(FK1·FK2·FK5·N7b) | verify r2 · VP-10·18 · EP8 ③④ · EP10 ⑦ | 분기 사본 바인딩·산출물·native 접미·다음 턴 `native_id` 입력 | 이행 | BLOCKING | open |
