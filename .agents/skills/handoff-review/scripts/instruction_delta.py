@@ -4,7 +4,8 @@
 변경 전 문서의 줄마다 변경 후의 **같은 파일**에 남았는지 먼저 보고, 없으면 다른 대조 파일에 있는지 본다.
 판정(KEEP·MOVE·REPLACE·DELETE)은 사람이 후보 줄을 읽고 내린다.
 종료 코드: 0 비교 성공(후보 0도 정상) · 2 입력 오류 — 잘못된 --base/--head ref, 두 판본 어디에도 없는 대상,
-없는 --pool 파일, 형식이 틀리거나 가리키는 파일이 없는 --map, 읽기 실패. 입력 오류를 빈 문서로 읽으면
+파일이 아닌 대상(디렉터리), 없는 --pool 파일, 형식이 틀리거나 가리키는 파일이 없는 --map, 대상 없이 --pset과 함께 준
+--pool·--map(--pset은 corpus 한 파일의 P 집합만 본다), 읽기 실패. 입력 오류를 빈 문서로 읽으면
 "신규 파일·후보 0"이나 "잃음 다수"처럼 정상 결과로 보이기 때문이다.
 
 후보 종류:
@@ -32,12 +33,13 @@
   --map old=new 는 파일 이름이 바뀐 경우다(쌍마다 하나씩).
 """
 import argparse
+import os
 import re
 import subprocess
 import sys
 from collections import Counter
 
-TOKEN = re.compile(r"`([^`]{3,80})`")
+TOKEN = re.compile(r"`([^`]{2,80})`")  # 2글자부터 — `-q`·`-v` 같은 짧은 옵션도 대조한다
 CASE_ID = re.compile(r"\b0\d{3}(?: r\d+(?:\.\d+)?(?:~r\d+|→r\d+)?)?")
 DECORATION = re.compile(r"[\s*`|>#\-]")
 GRAM = 4
@@ -60,6 +62,8 @@ def check_ref(name, rev):
 def read(rev, path):
     """판본의 내용. 그 판본에 파일이 없으면 None, 읽기 실패는 InputError."""
     if rev is None:
+        if os.path.isdir(path):
+            raise InputError(f"`{path}`는 파일이 아니라 디렉터리다")
         try:
             with open(path, encoding="utf8") as handle:
                 return handle.read()
@@ -67,8 +71,11 @@ def read(rev, path):
             return None
         except OSError as error:
             raise InputError(f"{path} 읽기 실패: {error}")
-    if subprocess.run(["git", "cat-file", "-e", f"{rev}:{path}"], capture_output=True).returncode != 0:
+    kind = subprocess.run(["git", "cat-file", "-t", f"{rev}:{path}"], capture_output=True, text=True)
+    if kind.returncode != 0:
         return None
+    if kind.stdout.strip() != "blob":
+        raise InputError(f"{rev}:{path}는 파일이 아니라 {'디렉터리' if kind.stdout.strip() == 'tree' else kind.stdout.strip()}다")
     result = subprocess.run(["git", "show", f"{rev}:{path}"], capture_output=True, text=True)
     if result.returncode != 0:
         raise InputError(f"{rev}:{path} 읽기 실패: {result.stderr.strip()}")
@@ -181,6 +188,8 @@ def run(args) -> int:
     check_ref("--base", args.base)
     check_ref("--head", args.head)
     if args.pset:
+        if not args.files and (args.pool or args.map):
+            raise InputError("--pset 단독 실행은 --pool·--map을 쓰지 않는다 — 대조할 지침 파일과 함께 주거나 빼라")
         pset(args.base, args.head, args.pset)
         if not args.files:
             return 0

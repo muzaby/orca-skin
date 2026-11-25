@@ -266,7 +266,7 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 
 | ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
 |---|---|---|---|---|---|
-| D… | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | — / 열림 / closed 보고 | 열림 / 닫힘 | — / 검사 완료 / 명시 이월 / 확인 불가 | 새 실행 / 기존 증거 재분류 |
+| D… | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF(…) / 경계 | — / 열림 / closed 보고(구현자 보고) / 닫힘(verify 종결 확인) | 열림 / 닫힘 | — / 검사 완료 / 명시 이월 / 확인 불가 | 새 실행 / 기존 증거 재분류 |
 
 > 이번 판정 시점에 남은 것과 이번에 닫힌 것을 모두 적는다. 합계(F)는 적지 않는다 — `review_metrics.py`가 `이번 결과 = 열림`인 `BLOCKING`·`PLAN_GAP` 고유 ID를 센다(SKILL §11 발견 원장). 판정 정정은 `### 발견 원장 — verify N 정정(round K)`로 다시 적는다.
 > 이행·현재 결함은 창과 무관하게 막는다(`BLOCKING`, 계약 정정이 필요하면 `PLAN_GAP`). 확장 후보는 verify 1·2회째에만 `PLAN_GAP`(설계자 채택·경계)이고, 3회째부터는 `NEXT_HANDOFF(확장)`로 후보 표에 간다 — 고칠 의무·재실행 의무 없음.

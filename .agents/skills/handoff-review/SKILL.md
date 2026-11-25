@@ -1,6 +1,6 @@
 ---
 name: handoff-review
-description: handoff 지침(plan·impl·verify·review SKILL·template·script·AGENTS) **자체**를 진단하거나 고칠 때 쓴다 — 특정 구현을 다시 검사하는 스킬이 아니다. verify가 리뷰 필수(3·6회째 비PASS · 9회째 CLOSED)나 권고를 보고했을 때, verify 없는 impl 턴이 3을 넘을 때, 같은 실수가 라운드·handoff를 넘어 반복되거나 확정 결정이 drift할 때, 사용자가 handoff 프로세스 리뷰·스킬 개선을 요청할 때, 지침·도구·V 추적 규약·발견 분류를 바꾸는 메타 수정을 할 때(이미 고치는 중이어도) 로드한다. verify 이력으로 실패 추세를 설명하고 A~F로 원인을 갈라 지침·도구를 교체·통합하며, 바꿨으면 Tier 회귀 검증과 필요한 판정 정정을 한다.
+description: handoff 지침(plan·impl·verify·review SKILL·template·script·AGENTS) **자체**를 진단하거나 고칠 때 쓴다 — 특정 구현을 다시 검사하는 스킬이 아니다. verify가 리뷰 필수(3·6회째 비PASS · 9회째 CLOSED)를 보고했거나 사용자가 권고를 수락했을 때(verify는 이 스킬을 부르지 않는다), verify 없는 impl 턴이 3을 넘을 때, 같은 실수가 라운드·handoff를 넘어 반복되거나 확정 결정이 drift할 때, 사용자가 handoff 프로세스 리뷰·스킬 개선을 요청할 때, 지침·도구·V 추적 규약·발견 분류를 바꾸는 메타 수정을 할 때(이미 고치는 중이어도) 로드한다. 실패 추세를 verify 이력으로 설명하고 원인을 갈라 지침·도구를 고친다.
 ---
 
 # handoff-review — handoff 지침을 고치고, 고친 지침이 아무것도 잃지 않았음을 보인다
@@ -174,7 +174,7 @@ python3 .agents/skills/handoff-review/scripts/instruction_delta.py --base <변�
 | `문장` | 표식 밖 문장 내용 대부분이 변경 후의 어느 한 줄에도 없다 | 다시 쓴 문장도 걸린다 — 전면 재작성이면 후보 전부를 규칙 단위로 판정한다 |
 
 - corpus는 `--pool`에 넣지 않는다. corpus의 `→ 규칙.` 문장이 지침에서 지운 규칙을 가린다. 사례 서사를 corpus로 옮긴 줄은 그 사례 ID로 corpus를 찾아 MOVE를 확인한다.
-- 후보 0은 회귀 0이 아니다. 문장이 거의 그대로인 줄에서 조건·범위·주체 단어 하나가 빠진 약화("만들거나 고친" → "만든")는 포함률이 높아 걸리지 않는다. 작은 수정은 `git diff --word-diff=plain <변경 전> <변경 후> -- <파일> | grep -oP '\[-.*?-\]'`로 지운 단어를 따로 본다.
+- 후보 0은 회귀 0이 아니다 — 조건·범위·주체 단어 하나가 빠진 약화("만들거나 고친" → "만든")는 걸리지 않으니, 작은 수정은 스크립트 머리말의 `git diff --word-diff` 명령으로 지운 단어를 본다.
 
 각 항목을 판정한다.
 
