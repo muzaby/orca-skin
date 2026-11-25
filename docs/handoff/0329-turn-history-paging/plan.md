@@ -1,6 +1,6 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**PLAN_GAP (r1.4, plan/DRAFT).** ΔV3의 Claude 복구 원본 ID와 화면 ID 분리를 구현했다. 실제 SQLite에서 600메시지·900part 턴이 part 분포에 따라 5회 또는 6회가 되어 §14의 등식을 만족하지 못한다. 응답 상한·메시지 순서와 묶음 수의 판정 기준은 설계자 정정을 기다린다. [r1.4 구현 보고](#구현자-기입-설계-리뷰-r14).
+**READY (V1 rev 5 + ΔV1~ΔV4).** ΔV4(§23)는 r1.4가 반송한 묶음 수 등식을 정정했다 — 응답은 가장자리부터 메시지를 통째로 상한 직전까지 채우고(탐욕 채움), 묶음 수는 그 결과인 최소 연속 분할이며 max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉)는 하한이다. 구 DB 첫 클릭 게이트의 측정 조건(단독 실행)도 적었다.
 
 ΔV3(§22)는 r1.3이 반송한 복구 키 충돌의 원인을 없앴다 — 사용자 제안대로 Claude 원본 복구는 Orca가 만든 새 UUID로 새 원본 세션을 시작하고, 화면·Orca 세션 ID는 그대로 둔다(D-023). 같은 ID로 이미 복구된 기존 세션은 배포가 없어 다루지 않는다(D-024). ΔV2(§21)는 앞삽입 앵커 좌표를, ΔV1(§20)은 고정 높이 머리 슬롯과 보정 취소 분류를 정정했다. rev 5는 PR #640 0329 보완 요청과 D-009(유휴 자동 채움)·D-012(세션 전체 패널)를 반영했다.
 
@@ -10,9 +10,9 @@
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) 2026-11-20 rev 1~4 · Claude Code rev 5 2026-11-24 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) · PR #640 코멘트 “0329 이력 페이징 · 구현 전 plan 보완 요청”(2026-11-24, 기준 `7db1c7ce`) |
-| 상태 / V | plan/DRAFT · r1.4 PLAN_GAP (§14 유휴 묶음 수) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1 + ΔV2 + ΔV3 |
+| 상태 / V | plan/READY · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV4 |
 | 조사 기준 | rev 5: `codex-handoff-0326-plan-gap`의 `7db1c7ce`(PR #640 head) — 0326 verify 7 PASS · 0327 verify 5 PASS · 0328 verify 2 PASS(모두 기계 범위). rev 1~4의 `62125eaa` 관측은 §8 rev 5 표로 재대조했다. |
-| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)이 차례로 PLAN_GAP을 반송했고 ΔV1·ΔV2·ΔV3이 닫았다. r1.4가 ΔV3을 구현하고 §14의 순서 보존 묶음 수를 반송했다. 다음 주체는 설계자다. |
+| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. 다음 구현 턴(r1.5)은 r1.4 코드에서 이어 간다. |
 
 # Part I — 제품과 사용자 동작
 
@@ -82,6 +82,8 @@ rev 5 — PR #640 항목 → 규범 행. 양방향 조회 → D-015·AC6·§10 �
 ΔV2 — r1.2 Q4b′ PLAN_GAP 정정(§21). D-021·D-022 신설, EP4′ ④⑤ → EP4″ ④⑤, Q4·Q4b′ → Q4″·Q4b″, Q12 신설, MD-05·VP-17 신설. **ACTIVE 결정 ↔ AC 대조 (ΔV2)**: 충돌 0. D-016·AC3′ “≤1px”는 그대로이고 D-021이 측정 기준 좌표와 보정 창 끝을 정한다. D-022 “남은 관성 차단” ↔ AC3′ “같은 제스처 후속 wheel에도 ≤1px” 일치. D-020 “새 제스처는 취소” ↔ D-022 “다른 wheel은 기본 스크롤” 일치.
 
 ΔV3 — r1.3 복구 키 PLAN_GAP 정정(§22). D-023·D-024 신설, AC12 신설, R-03 CHANGED·SD-06·AR-05 NEW(VP-03·19·18), EP10·Q13~Q15 신설. **ACTIVE 결정 ↔ AC 대조 (ΔV3)**: 충돌 0. D-002 “B의 메시지 키 보존” ↔ AC12 “보관 행 키 불변·새 원본은 새 UUID” 일치. D-013 “검색 결과는 그 행으로” ↔ AC12 “보관 hit는 보관 행으로” 일치. D-004 “복구에는 온전한 보관 이력” ↔ D-023(첫 prompt 구성 불변) 일치.
+
+ΔV4 — r1.4 묶음 수 PLAN_GAP 정정(§23). 사용자 결정 없음 — plan 내부 결함(§14 등식). MD-01 CHANGED(VP-11), §10 응답 채움 행 신설, §14 유휴 채움 행 대체, Q3 → Q3′, §17 게이트 측정 조건 명시. **ACTIVE 결정 ↔ AC 대조 (ΔV4)**: 충돌 0. D-009 “유휴 1묶음씩·같은 턴 한정” ↔ AC2 문장 불변. D-007 “응답 상한” ↔ §10 응답 채움(세 상한 그대로) 일치. D-018 ↔ §17 측정 조건 일치.
 
 ## 4. 현재 요구 검토
 
@@ -380,7 +382,7 @@ rev 5 기준 트리(`7db1c7ce`)에서 각 술어의 출현은 EP1 120줄/29파�
 |---|---|
 | Q1 · `main/features/history/turn-page.db.test.ts` ‘local/native/archive/empty latest’ | 실제 SQLite migration·writer·native replace·복구 저장 후 reader 호출. 1/100/10,000턴·중복 시각·선두 assistant·연속 user·빈 parts·같은 호출 결과·bound/orphan 각 예상 키/role/parts와 비교. 전체 열거 기준은 기존 full reader와 독립 고정 리터럴(빈 parts 포함). SQLite 반환·payload 페이지 접근·전송 바이트 수 계수. |
 | Q2 · `main/app/data-host/history-port.integration.test.ts` ‘open/refresh/reconnect commit’ 및 `renderer/src/features/chat/store/history-open.integration.test.ts` 동명 | data handler와 창 전송 클라이언트를 실제 request/reply 모양으로 연결. 다른 세션/세대, 누락·중복·뒤집힌 분할, busy/unchanged/updated/missing/unavailable, cache+live 첫 응답 후 두 프레임 refresh 주입. 첫 유효 본문 공개 횟수·순서·cache·요청 수와 실제 frame/envelope 크기 기록. |
-| Q3 · `main/app/data-host/history-body.integration.test.ts` ‘bounded range’ 및 `renderer/src/features/chat/components/transcript/TranscriptViewport.body.test.ts` ‘same id open’ | 한도 정확히/1초과·emoji가 경계에 걸린 4MiB 본문·2천 part 한 메시지·빈 parts 20만 메시지 단일 턴. 실제 bodyRef를 열어 첫·중간·끝·stale·타세션·취소 후 재시도. 합친 bytes/hash·원본 ID·내용, bounded 표지 수·읽은 DB bytes, 같은 턴 나머지 후 첫 turn 경계까지 비교. |
+| Q3 · **ΔV4에서 Q3′(§23 E)로 보강** · `main/app/data-host/history-body.integration.test.ts` ‘bounded range’ 및 `renderer/src/features/chat/components/transcript/TranscriptViewport.body.test.ts` ‘same id open’ | 한도 정확히/1초과·emoji가 경계에 걸린 4MiB 본문·2천 part 한 메시지·빈 parts 20만 메시지 단일 턴. 실제 bodyRef를 열어 첫·중간·끝·stale·타세션·취소 후 재시도. 합친 bytes/hash·원본 ID·내용, bounded 표지 수·읽은 DB bytes, 같은 턴 나머지 후 첫 turn 경계까지 비교. |
 | Q4 · **ΔV1에서 Q4′(§20 E)로 대체** · `renderer/src/features/chat/components/transcript/TranscriptViewport.history-pull.test.ts` ‘three harnesses’ 및 `renderer/src/features/chat/lib/transcript/historyGesture.test.ts` ‘gesture and idle fill’ | Code/Work/OpenCode 진입, 1/100턴에 같은 이전 턴 추가. 실제 viewport header·scroll writer를 통해 짧음/길음·위·아래·키보드 버튼·실패/재시도/끝·중복 제스처를 재생. 순수 UT는 가짜 시계로 관성 열(16ms×30)·간격 초과 두 번·방향 전환 → 요청 수, EP3 ⑤ 분기 입력 7개 → 유휴 요청 수·대상 커서. request tuple, 표지·pin·머리 상태, 예약 해제 관측. |
 | Q4b · **ΔV1에서 Q4b′(§20 E)로 대체** · `gate:xvfb-run -a node scripts/check-transcript-history.mjs`(신규 Electron 판정, `check-transcript-selection.mjs` 방식) | production `TranscriptView` 세 화면을 Electron에 띄우고 `webContents.sendInputEvent`로 휠 한 칸·관성 열·키·드래그를 보낸다. 당김 표시·스피너·앞삽입·스피너 제거·아래 붙임 각 commit 뒤 기준 글줄 `getBoundingClientRect().top` 차 ≤1px, 관성 열 요청 1회, 드래그 중 앞삽입 → 선택 0·pointerup 전 재선택 0, 컴포저 선택 유지, 드래그 자동 스크롤 요청 0. 통과 0·실패 1·Electron 없음 3. |
 | Q5 · `renderer/src/features/chat/store/history-races.test.ts` ‘generation/overlap/held’ | S1 옛/새 세대, S2, 다른 cursor, live A·B·toolRunId·서로 다른 publication 두 건. 실제 store/reducer에서 응답·이벤트 두 순서와 invalid/empty/reachedStart·reconnect/삭제를 재생. 화면과 백그라운드 항목별 순서·끝·진단/미적용·spinner를 함께 관측. |
@@ -445,7 +447,7 @@ rev 5 기준 트리(`7db1c7ce`)에서 각 술어의 출현은 EP1 120줄/29파�
 | 거대 본문 | 요청당 원문 최대 **64 KiB**. 본문 길이와 조각 경계를 쓰기 시 기록하고 건너뛸 payload에 JSON.parse/전체 stringify를 수행하지 않는다. wire escaping 포함 총 응답 한도도 별도 적용하며 같은 논리 offset에서 진척하는 양수 바이트를 반환한다. 원문은 명시 요청으로 전체 내용을 복원·내보낼 수 있다. |
 | 첫 paint 전 | 일반 열기에서 page 응답 1개·실제 본문 commit 1회. 세션 제어 메타(제목 등)도 envelope의 UTF-8 예산에 포함한다. 과대 가변 메타는 참조·유효한 축약 표시 후 별도 조회. DB 본문 인출/직렬화/검증·reducer 방문·wire bytes를 독립 계수하고 동일 최신 턴에 과거 payload 읽기 0을 확인한다. |
 | 검색 클릭부터 첫 표시 | data에서 캐시 검증+세대 변경 시 안정 출처 재해소 1회 이내. cold/부재면 목표를 담는 §14 예산의 응답 ≤1묶음, 확인된 캐시면 본문 재전송 0. 최신/중간의 무관 턴 본문 읽기 0. 측정 구간은 클릭→locator 전달→DB seek→응답 bytes→창 반영→올바른 행의 첫 가시 paint이다. 이후 위/아래 끝 입력은 조작당 응답 ≤1묶음이고 합류는 추가 요청 0(이미 받은 메시지를 넘긴다). |
-| 유휴 채움 (D-009) | 묶음당 위 1회 응답 한도. 한 턴의 자동 읽기 총량은 그 턴 전체이며 원천 상한이 없다 — 묶음 수 = max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉). AC2의 20만 빈 메시지 단일 턴은 1,563묶음, 600메시지·900part 턴은 5묶음이다. 유휴 콜백 1회에 1묶음, 직전 commit 전 다음 요청 0, 사용자 입력 중 0. |
+| 유휴 채움 (D-009) | **ΔV4에서 ‘유휴 채움′’(§23 D)으로 대체.** 묶음당 위 1회 응답 한도. 한 턴의 자동 읽기 총량은 그 턴 전체이며 원천 상한이 없다 — 묶음 수 = max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉). AC2의 20만 빈 메시지 단일 턴은 1,563묶음, 600메시지·900part 턴은 5묶음이다. 유휴 콜백 1회에 1묶음, 직전 commit 전 다음 요청 0, 사용자 입력 중 0. |
 | 제스처 경계 | ΔV1: 보정 취소 분류에도 같은 값을 쓴다(D-020). OpenCode `ScrollController.tsx:141`의 250 ms `gestureUntil`(pin 판정)은 별개 창이며 바꾸지 않는다. `HISTORY_GESTURE_GAP_MS` 기본 200 ms(100~400). Linux Chromium의 Q4b 관성 열로 요청 1회를 확인하고, Windows 정밀 터치패드·휠 값은 S-E2가 기록해 0330에 넘긴다. |
 | 패널 요약 | 종류별 페이지는 위 1회 응답 한도와 같은 256 KiB·항목 128 이내, 상세는 항목 1개 요청. 첫 화면 패널은 첫 페이지 1개만 요청하고 나머지는 패널 스크롤에서 keyset으로 읽는다. 요약 갱신은 쓰기 트랜잭션당 바뀐 항목만 upsert한다. |
 | 입력 증가 | §8 분모에 동일한 최신 턴을 붙여 1/100/10,000턴 변화를 본다. 1턴에 20만 빈 메시지면 첫 요청은 ≤128개. 4MiB 한 part면 본문 열기 전 payload 읽기 0, 이후 실제 조각 수·원문과 일치 여부를 비교. B 앞삽입 비용은 1턴·100턴에 각각 1턴을 추가해 기존 방문·할당과 프레임을 기록한다. |
@@ -704,11 +706,56 @@ D-023(복구 원본에 새 UUID)·D-024(같은 ID로 이미 복구된 세션은 
 
 r1.4는 r1.3 코드에서 이어 가며 ΔV3을 먼저 한다(사용자 요구 변경 턴이라 verify 없는 impl 턴 수에 세지 않는다 — `docs/handoff/AGENTS.md §라운드`). Q14가 통과하면 r1.3이 막았던 투영 출판·검색 이동 경로를 그대로 잇는다.
 
+## 23. ΔV4 — r1.4 묶음 수 PLAN_GAP 정정 (2026-11-25)
+
+**판정: PLAN_GAP 타당 → plan 내부 결함 정정 뒤 READY.** r1.4(`05f65255`, `Status: blocked`)가 §14 ‘유휴 채움’ 행의 “묶음 수 = max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉) … 600메시지·900part 턴은 5묶음”이 성립하지 않는다고 반송했다. 메시지를 쪼개지 않고 순서를 지키는 연속 분할에서는 part 분포에 따라 최소 묶음 수가 달라지므로 그 식은 하한일 뿐이다. 사용자 결정이 필요한 갈림길은 아니다 — D-009의 순서·유휴 1묶음과 D-007의 세 상한은 그대로 두고 판정 기준만 고친다.
+
+### 23-A. 반송 근거 대조 (이 턴 독립 계산)
+
+| 대상 | 판정 | 관측 |
+|---|---|---|
+| 균등 분포(매 4번째 메시지 3 part, 나머지 1 part) | 재현 | 최신 쪽 탐욕 채움 128/192 ×4 · 88/132 = 5묶음, 동적 계획법 최소 5, 하한 5 |
+| 편중 분포(앞 450개 1 part, 뒤 150개 3 part) | 재현 | 탐욕 채움 85/255 · 126/256 · 128/128 ×3 · 5/5 = 6묶음, 동적 계획법 최소 6, 하한 5 |
+| 탐욕 채움이 최소인가 | 성립 | 위 두 입력에서 탐욕 = 최소. 세 상한이 모두 ‘구간 합 ≤ 상한’ 꼴이라 부분 구간도 항상 들어가므로, 한쪽 끝부터 최대로 채우는 분할이 최소다(교환 논증). 계산 스크립트는 이 턴 임시 파일, r1.4 수치(`evidence/r1.4-history.json`)와 일치 |
+| Q10 긴 DB 5,805 ms | 측정 조건 차이 | 같은 r1.4 보고의 단독 실행 2,058 ms는 3,729 ms 안. 5,805 ms는 전체 테스트·빌드와 동시 실행 값이다. §17 게이트 문장에 측정 조건이 없었다. |
+
+### 23-B. Decision
+
+새 Decision 없음. D-007·D-009 그대로.
+
+### 23-C. Delta V
+
+| 노드 | provenance | 변경 |
+|---|---|---|
+| MD-01 | CHANGED | 응답 범위 선택 = 가장자리부터 메시지 단위 탐욕 채움(§23 D). |
+
+| Pair | 노드 ↔ 검증 | 등급 | production path · §10 자리 | 직접 관측 |
+|---|---|---|---|---|
+| VP-11 | MD-01 ↔ UT-01 | REQUIRED | 정렬된 경계·body 길이 → 탐욕 채움 → 선택 범위/커서 · EP1 ⑤ · EP3 ② | Q1 · Q3′ |
+
+### 23-D. 대체·추가 계약 행
+
+| 대상 → 새 행 | 규칙 |
+|---|---|
+| §10 추가 → **응답 채움** | `latest`·`earlierTurn`·`laterTurn`·`withinTurn`·`target`·유휴 채움 응답은 그 방향의 가장자리(검색 대상은 대상 메시지)부터 메시지를 통째로 넣고, 다음 메시지를 넣으면 메시지 128·part 256·UTF-8 JSON 256 KiB 중 하나라도 넘기 직전에 멈춘다. 메시지 하나만으로 상한을 넘으면 그 메시지는 헤더+`BodyRef`(§10 본문)로 한 자리를 차지한다. 그래서 마지막이 아닌 응답은 모두 최대(다음 메시지가 들어가지 않음)이고, 한 턴의 묶음 수는 그 턴의 최소 연속 분할 수다. |
+| §14 ‘유휴 채움’ → **유휴 채움′** | 묶음당 위 응답 한도. 한 턴의 자동 읽기 총량은 그 턴 전체이며 원천 상한이 없다. 묶음 수는 위 탐욕 채움의 결과이고 max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉) 이상이다 — 균등 분포는 하한과 같고(20만 빈 메시지 1,563 · 600메시지 균등 5) 편중 분포는 클 수 있다(600메시지 편중 6). 유휴 콜백 1회에 1묶음, 직전 commit 전 다음 요청 0, 사용자 입력 중 0. |
+| §17 ‘색인이 준비되지 않은 오래된 대화’의 2배 게이트 → **측정 조건** | 3,729 ms 게이트는 같은 장비에서 다른 빌드·테스트를 동시에 돌리지 않은 단독 실행 3회의 중앙값으로 판정한다. 동시 실행 값은 기록만 하고 게이트에 쓰지 않는다. |
+
+### 23-E. 좌표
+
+| 좌표 | 재현 입력 → 직접 관측 |
+|---|---|
+| Q3′ · `main/features/history/turn-page.db.test.ts` ‘greedy maximal pages for uniform and skewed turns’ | 실제 SQLite 투영에 위 두 600메시지·900part 턴을 쓴다. 최신부터 커서를 따라 응답별 메시지/part 수가 각각 `128/192 ×4 · 88/132`, `85/255 · 126/256 · 128/128 ×3 · 5/5`이고, 마지막이 아닌 응답마다 다음 메시지를 더하면 상한을 넘는다(최대성). 테스트 안에서 독립 동적 계획법으로 구한 최소 묶음 수(5·6)와 응답 수가 같다. 복원한 ID 600개가 원래 순서다. |
+
+**선택 변이(ΔV4).** 응답을 한 메시지 일찍 끊음(메시지 상한 127) → 균등 사례 최대성 red. part 상한 판정 제거 → 편중 사례 첫 응답 part 수 red. 탐욕 대신 하한 식으로 묶음 수를 미리 정해 나눔 → 편중 사례 상한 초과 또는 응답 수 red.
+
+**선언 경계.** 묶음 수 자체에 상한을 두지 않는다 — 큰 턴의 총량은 §17 ‘단일 거대 턴’과 D-009가 정한 대로 그 턴 전체다.
+
 ## READY self-review
 
 | 점검 | 결과 |
 |---|---|
-| 결정 | **READY (V1 rev 5 + ΔV1 + ΔV2 + ΔV3)**. Ledger ACTIVE 21 · SUPERSEDED 3 · OPEN 0(`grep -c '\| OPEN \|'` = 0). D-009 자동안·D-012 전체는 사용자 원문 인용, D-015~D-018은 PR #640 원문 인용. 조건절 “같은 턴 안에서만”(D-009)·“전체를 기준”(D-012)을 §5·§10·AC에 그대로 옮겼다. |
+| 결정 | **READY (V1 rev 5 + ΔV1~ΔV4)**. Ledger ACTIVE 21 · SUPERSEDED 3 · OPEN 0(`grep -c '\| OPEN \|'` = 0). D-009 자동안·D-012 전체는 사용자 원문 인용, D-015~D-018은 PR #640 원문 인용. 조건절 “같은 턴 안에서만”(D-009)·“전체를 기준”(D-012)을 §5·§10·AC에 그대로 옮겼다. |
 | ACTIVE ↔ AC | 갱신 메모 rev 5에 충돌 0으로 적었다. D-009 ↔ AC2·AC3, D-012 ↔ AC7, D-015 ↔ AC6, D-016 ↔ AC3·AC4, D-017 ↔ AC4, D-018 ↔ AC1·AC11. |
 | 근거 | §8 rev 5 표 — 줄 번호를 `7db1c7ce`로 재대조, 기존 스위트 7파일·128건 재실행 통과. PR #640 지적 4건을 §4 표에서 재현(`laterTurn` 0건 등). 0328 D-013·0326 D-103 앵커 실재 확인. |
 | V | VP-01~16. NEW SD-05→VP-15, MD-04→VP-16, CHANGED R-01~03·SD-01·02·04·AR-03·MD-03은 기존 pair 경로·oracle을 고쳤다. INHERITED SD-03은 VP-06 REGRESSION. AC 11개, 25 이하. |
@@ -722,6 +769,7 @@ r1.4는 r1.3 코드에서 이어 가며 ΔV3을 먼저 한다(사용자 요구 �
 | ΔV1 | r1 반송 근거 6건을 §20 A에서 코드·원시 기록으로 대조했다. CHANGED R-02·MD-02·MD-04는 VP-02·12·16 REQUIRED, INHERITED SD-03은 VP-06 REGRESSION(0326 ‘respects %s’ 13/13 재실행 통과). EP4′ 분기 입력 ② 5 · ③ 2열 · ⑥ 6, 선택 변이 3. 대체한 rev 5 행마다 ‘ΔV1에서 … 대체’ 표시를 달았다. |
 | ΔV2 | r1.2 반송 근거 5건을 §21 A에서 이 턴 Electron 실측(기준 실패 12/18 → 좌표 한 줄 수정 시 15회 실패 0)으로 대조했다. NEW MD-05 → VP-17(Q12), CHANGED MD-04 → VP-16, 경로가 바뀐 R-02 → VP-02 REQUIRED 재닫힘. EP4″ ④ 분기 입력 (i) 3 · (ii) 3 · (iii) 1, ⑤ 5, 선택 변이 4, 선언 경계 1(폴백). |
 | ΔV3 | r1.3 반송을 원인(같은 ID 복구 계약)에서 닫았다. SDK·CLI 지원은 설치 패키지 타입과 번들 CLI 검사 문자열로 확인했다(§22 A). NEW SD-06·AR-05 → VP-19·VP-18, CHANGED R-03 → VP-03. EP10 자리 8개와 Orca 계보 형제 1묶음을 검색 명령(36줄)으로 고정, 분기 입력 ③ 4 · ④ 3 · ⑥ 2, 선택 변이 6(형제 맞바꿈 포함), 선언 경계 3. 현재 상태 문서 1곳과 기대가 바뀌는 기존 테스트 1건을 적었다. |
+| ΔV4 | r1.4 반송을 이 턴 독립 계산(탐욕 = 동적 계획법 최소: 균등 5 · 편중 6)으로 확인하고 §14 등식을 하한 + 탐욕 채움 계약으로 바꿨다. CHANGED MD-01 → VP-11(Q3′), 선택 변이 3, 선언 경계 1, §17 게이트 측정 조건 명시. 사용자 결정 불필요(plan 내부 결함). |
 
 ---
 
