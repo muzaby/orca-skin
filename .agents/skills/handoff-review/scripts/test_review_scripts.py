@@ -311,7 +311,7 @@ class MetricsRecovery(unittest.TestCase):
     def test_same_parent_and_tree_is_one_commit(self):
         line = self.handoff_line("0020")
         self.assertEqual(line[1:4], ["2", "RETURN_TO_PLAN → PASS", "일치"])
-        self.assertIn(self.dup[:8], line[4])
+        self.assertIn(self.dup[:8], line[5])
 
     def test_same_tree_with_different_parent_stays_separate(self):
         self.assertEqual(self.handoff_line("0030")[1:3], ["2", "FAIL → PASS"])
@@ -358,7 +358,7 @@ class MetricsLedgerStrict(unittest.TestCase):
     def test_dropped_open_id_makes_the_round_undeterminable(self):
         rows = rows_of(self.out, "0051")
         self.assertEqual((rows[1][3], rows[2][3]), ("1", "판정 불가"))
-        self.assertIn("0051 verify 2: 직전에 열린 D1가 종결·분류 이동 기록 없이 빠졌다", self.out)
+        self.assertIn("0051 verify 2: 마지막으로 확인된 미종결 D1가 종결·분류 이동 기록 없이 빠졌다", self.out)
         self.assertEqual(rows[3][5:10], ["-"] * 5)
 
     def test_invalid_latest_correction_keeps_history(self):
@@ -367,7 +367,7 @@ class MetricsLedgerStrict(unittest.TestCase):
         self.assertEqual(rows_of(self.out, "0052")[2][5:10], ["-"] * 5)
 
     def test_closed_without_verify_confirmation_is_an_error(self):
-        self.assertIn("0053 verify 2: D1: 직전 상태 닫힘인데 앞 원장에 verify 종결 확인이 없다", self.out)
+        self.assertIn("0053 verify 2: D1: 직전 상태 닫힘인데 최신 상태가 열림(verify 종결 확인 없음)", self.out)
         self.assertEqual(rows_of(self.out, "0053")[2][3], "판정 불가")
 
     def test_valid_empty_ledger_is_zero(self):
@@ -417,6 +417,120 @@ class InstructionDeltaStrict(unittest.TestCase):
         code, out, _ = self.repo.run(DELTA, "--base", self.base, "--head", self.head, "gone.md")
         self.assertEqual(code, 0)
         self.assertIn("변경 후 판본 없음(삭제)", out)
+
+
+
+class MetricsRoundVerdicts(unittest.TestCase):
+    """회차 수 대조와 회차별 판정 대조를 따로 — 원판정·같은 회차 정정·최종 유효 판정."""
+
+    @classmethod
+    def setUpClass(cls):
+        r = cls.repo = Repo()
+        for path in CORE:
+            r.write(path, "x\n")
+        r.write(COVERAGE, "# review round 1 — r\n")
+        docs = {
+            # 종료 정정: 9회 상한처럼 같은 회차가 FAIL에서 CLOSED로
+            "0060": "# Verify\n| 상태 | **RETURN_TO_PLAN** |\n\n# r2 검증\n| 상태 | **FAIL** |\n\n# r2 종료 — 상한\n판정: **CLOSED** — 끝\n",
+            # 최신 회차가 위인 문서, 커밋 제목에는 판정어가 없다
+            "0061": "# Verify\n## 판정 (verify 2회째)\n\n**PASS(기계 범위)** — 끝\n\n## 판정 (verify 1회째)\n\n**RETURN_TO_PLAN** — 반환\n",
+            # 커밋은 fail인데 문서는 PASS
+            "0062": "# Verify\n| 상태 | **PASS** |\n",
+            # 한 회차 절 안에 판정이 둘
+            "0063": "# Verify\n| 상태 | **PASS** |\n- 상태: **RETURN_TO_PLAN**\n\n# 라운드 2\n- 상태: **PASS**\n",
+            # 회차 제목만 있고 판정이 없다
+            "0064": "# Verify\n\n# r2 검증\n본문\n",
+        }
+        for hid, text in docs.items():
+            r.write(f"docs/handoff/{hid}-x/verify.md", text)
+        r.commit("base")
+        for hid in docs:
+            r.commit("p", handoff(hid, "designed"))
+        r.commit("0060 r1 검증 — 설계 반환", handoff("0060", "verified", "claude:fail"))
+        r.commit("i", handoff("0060", "implemented"))
+        r.commit("0060 r2 검증 FAIL", handoff("0060", "verified", "claude:fail"))
+        r.commit("0060 상한으로 종료", handoff("0060", "verified", "claude:fail"))
+        r.commit("0061 verify 1 — 설계 반환", handoff("0061", "verified", "claude:fail"))
+        r.commit("p2", handoff("0061", "designed"))
+        r.commit("0061 verify 2", handoff("0061", "verified", "claude:pass"))
+        r.commit("0062 r1 검증", handoff("0062", "verified", "claude:fail"))
+        r.commit("0063 r1 검증", handoff("0063", "verified", "claude:fail"))
+        r.commit("i", handoff("0063", "implemented"))
+        r.commit("0063 r2 검증 PASS", handoff("0063", "verified", "claude:pass"))
+        r.commit("0064 r1 검증 FAIL", handoff("0064", "verified", "claude:fail"))
+        r.commit("i", handoff("0064", "implemented"))
+        r.commit("0064 r2 검증 PASS", handoff("0064", "verified", "claude:pass"))
+        _, cls.out, _ = r.run(METRICS)
+
+    def line(self, hid):
+        _, out, _ = self.repo.run(METRICS, "--handoff", hid)
+        return next(l.split("\t") for l in out.splitlines() if l.startswith(hid + "\t") and l.split("\t")[1].isdigit() and len(l.split("\t")) == 6)
+
+    def test_closing_correction_keeps_original_and_effective(self):
+        self.assertEqual(self.line("0060")[1:5], ["2", "RETURN_TO_PLAN → FAIL⇒CLOSED", "일치", "일치"])
+
+    def test_document_verdict_names_a_fail_kind_missing_from_the_commit(self):
+        self.assertEqual(self.line("0061")[1:5], ["2", "RETURN_TO_PLAN → PASS", "일치", "일치"])
+
+    def test_commit_and_document_conflict_is_not_a_match(self):
+        line = self.line("0062")
+        self.assertEqual(line[3], "명시 없음")
+        self.assertIn("1회째 충돌(커밋 claude:fail ↔ 문서 PASS)", line[4])
+        self.assertIn("0062\t1\t", self.out)  # 충돌한 handoff는 복원 불가 목록에 나온다
+
+    def test_mixed_verdicts_in_one_round_are_undeterminable(self):
+        self.assertIn("1회째 특정 불가(문서 안 판정 혼재(PASS·RETURN_TO_PLAN))", self.line("0063")[4])
+
+    def test_missing_verdict_is_undeterminable(self):
+        line = self.line("0064")
+        self.assertEqual(line[3], "일치")
+        self.assertIn("1회째 특정 불가(verify.md에 판정 없음)", line[4])
+        self.assertNotEqual(line[4], "일치")
+
+
+class MetricsLedgerOutstanding(unittest.TestCase):
+    """마지막으로 확인된 미종결 ID 추적 · 재개 뒤 최신 상태 · 구분선 6칸."""
+
+    @classmethod
+    def setUpClass(cls):
+        r = cls.repo = Repo()
+        for path in CORE:
+            r.write(path, "x\n")
+        r.write(COVERAGE, "# review round 1 — r\n")
+        B = lambda i, p="—", n="열림": (i, "BLOCKING", p, n, "—", "새 실행")
+        docs = {
+            # D1이 빠진 뒤 빈 원장도 F 0이 아니다 — D1의 종결이 확인되는 4회째부터 다시 센다
+            "0070": ledger(1, [B("D1")]) + ledger(2, []) + ledger(3, []) + ledger(4, [B("D1", p="closed 보고", n="닫힘")]) + ledger(5, []),
+            # 종결 → 재개 → 최신 상태(열림)와 다른 직전 상태 닫힘은 오류
+            "0071": ledger(1, [B("D1")]) + ledger(2, [B("D1", p="closed 보고", n="닫힘")]) + ledger(3, [B("D1", p="닫힘")]) + ledger(4, [B("D1", p="닫힘")]),
+            # 손상된 구분선 · 구분선 없음
+            "0072": ledger(1, []) + "\n### 발견 원장 — verify 2\n\n" + HEADER.split("\n")[0] + "\n|---|---|\n| D1 | BLOCKING | — | 열림 | — | 새 실행 |\n"
+            + "\n### 발견 원장 — verify 3\n\n" + HEADER.split("\n")[0] + "\n| D1 | BLOCKING | — | 열림 | — | 새 실행 |\n",
+        }
+        for hid, text in docs.items():
+            r.write(f"docs/handoff/{hid}-x/verify.md", "# Verify\n" + text)
+        r.commit("ledgers")
+        cls.code, cls.out, _ = r.run(METRICS)
+
+    def test_dropped_id_blocks_later_empty_ledgers_until_resolved(self):
+        rows = rows_of(self.out, "0070")
+        self.assertEqual([rows[n][3] for n in (1, 2, 3, 4, 5)], ["1", "판정 불가", "판정 불가", "0", "0"])
+        self.assertEqual((rows[2][4], rows[3][4]), ("원 F 판정 불가", "원 F 판정 불가"))
+        self.assertEqual(rows[4][8], "1")  # 미종결 D1의 실제 종결로 집계 재개
+        self.assertIn("0070 verify 3: 마지막으로 확인된 미종결 D1가", self.out)
+        self.assertEqual(self.code, 1)
+
+    def test_reopened_id_is_checked_against_its_latest_state(self):
+        rows = rows_of(self.out, "0071")
+        self.assertEqual((rows[3][3], rows[3][7]), ("1", "1"))  # 재개
+        self.assertEqual(rows[4][3], "판정 불가")
+        self.assertIn("0071 verify 4: D1: 직전 상태 닫힘인데 최신 상태가 열림", self.out)
+
+    def test_separator_must_have_six_cells(self):
+        rows = rows_of(self.out, "0072")
+        self.assertEqual([rows[n][3] for n in (1, 2, 3)], ["0", "판정 불가", "판정 불가"])
+        self.assertIn("verify 2: 구분선이 6칸 `---`가 아니라 발견 행을 읽을 수 없다 — |---|---|", self.out)
+        self.assertIn("verify 3: 구분선이 6칸 `---`가 아니라", self.out)
 
 
 if __name__ == "__main__":
