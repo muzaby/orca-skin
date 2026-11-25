@@ -42,7 +42,7 @@
 | Baseline V / Delta V mode·상속 기준 | 유효 / PLAN_GAP | … |
 | NEW/CHANGED node ↔ 같은 레벨 REQUIRED pair | 유효 / PLAN_GAP | … |
 | 영향받은 INHERITED ↔ REGRESSION pair | 유효 / PLAN_GAP | … |
-| pair별 path·§10 자리 목록(기록된 검색 재실행 차집합 · 술어 = 주어 · 범위 = path 파일 전부)·직접 oracle | 유효 / 목록 미고정 / PLAN_GAP | … |
+| pair별 path·§10 자리 목록(기록된 검색의 `site_census.mjs` 미분류 0 · 술어 = 주어 · 범위 = path 파일 전부)·직접 oracle | 유효 / 목록 미고정 / PLAN_GAP | … |
 | 필요한 pair의 선택적 적대 증거·선택 이유 | 유효 / PLAN_GAP | … |
 | `SUPERSEDED` pair의 AC·적대 증거 이관 | 유효 / 해당 없음 / PLAN_GAP | … |
 | 현재 변경 산출물의 운영 gate·범위 | 유효 / PLAN_GAP | … |
