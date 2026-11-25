@@ -123,7 +123,7 @@ class MetricsHistory(unittest.TestCase):
     def test_list_shows_the_correction_as_an_update(self):
         _, out, _ = self.repo.run(METRICS, "--list", "1")
         # 제목에 판정어가 없고 Next-Action도 없으면 fail 종류를 특정하지 않는다
-        self.assertIn(f"0001 verify 1\t{self.v1[:8]}\tFAIL·RTP · 같은 회차 갱신 {self.fix[:8]}", out)
+        self.assertIn(f"0001 verify 1\t{self.v1[:8]}\tFAIL·RTP · 명시 회차가 없어 대조하지 않음 · 같은 회차 갱신 {self.fix[:8]}", out)
 
 
 class MetricsLedger(unittest.TestCase):
@@ -146,7 +146,7 @@ class MetricsLedger(unittest.TestCase):
             "0004": ledger(1, [B("D1")]) + ledger(2, [B("D1", d="NEXT_HANDOFF(확장)", p="열림")]),
             # 판정 정정과 원장 재구성 — 회차는 1, 유효 F는 정정 값
             "0005": ledger(1, [B("D1")]) + ledger(1, [B("D1"), ("G1", "PLAN_GAP", "—", "열림", "검사 완료", "기존 증거 재분류")], k=7)
-            + "\n| 원장 밖 | 표 | a | b | c | d |\n",
+            + "\n| 다른 표 | 칸 |\n|---|---|\n| a | b |\n",
             # 오타 · 충돌 중복 · 같은 정정 번호의 상충 · 표 없는 원장
             "0006": ledger(1, [B("D1", d="BLOCKNG")]) + ledger(2, [B("D1"), B("D1", n="닫힘")])
             + ledger(3, [B("D1")], k=4) + ledger(3, [B("D2")], k=4) + "\n### 발견 원장 — verify 4\n\n본문만 있다.\n",
@@ -294,6 +294,22 @@ class MetricsRecovery(unittest.TestCase):
         r.commit("0030 r1 검증 FAIL", handoff("0030", "verified", "claude:fail"))
         r.commit("p2 (빈 설계 턴)", handoff("0030", "designed"))
         r.commit("0030 r2 검증 PASS", handoff("0030", "verified", "claude:pass"))
+        # 0080: 설계 → 구현 → 검증 사슬 전체의 리베이스 사본이 병합으로 함께 들어온다(0295 형태)
+        base = r.git("rev-parse", "HEAD").strip()
+        r.write("docs/handoff/0080-x/verify.md", "# Verify\n| 상태 | **PASS** |\n")
+        r.write("src/a.txt", "1\n")
+        a = r.commit("0080 설계", handoff("0080", "designed"))
+        r.write("src/a.txt", "2\n")
+        b = r.commit("0080 구현", handoff("0080", "implemented"))
+        r.write("docs/handoff/0080-x/verify.md", "# Verify\n| 상태 | **PASS** |\n검증 기록\n")
+        c = r.commit("0080 r1 검증 PASS", handoff("0080", "verified", "claude:pass"))
+        twin = r.git("commit-tree", r.git("show", "-s", "--format=%T", base).strip(), "-p", base, "-m", "다른 바탕(같은 트리)").strip()
+        for sha in (a, b, c):
+            tree, message = r.git("show", "-s", "--format=%T%n%B", sha).split("\n", 1)
+            twin = subprocess.run(["git", "commit-tree", tree, "-p", twin], cwd=r.dir, input=message, text=True, capture_output=True, check=True).stdout.strip()
+        cls.twin = twin
+        r.git("branch", "-f", "rebased", twin)
+        r.git("merge", "-q", "--no-ff", "-m", "merge rebased", "rebased")
         # 0040: 커밋은 2회인데 verify.md는 r3까지 적었다 — 해소할 수 없는 충돌
         r.commit("p", handoff("0040", "designed"))
         r.commit("0040 r1 검증 FAIL", handoff("0040", "verified", "claude:fail"))
@@ -302,7 +318,9 @@ class MetricsRecovery(unittest.TestCase):
 
     def handoff_line(self, hid):
         _, out, _ = self.repo.run(METRICS, "--handoff", hid)
-        return next(l for l in out.splitlines() if l.startswith(hid + "\t") and "→" in l or l.startswith(hid + "\t") and "\t복원" in l).split("\t")
+        lines = out.splitlines()
+        start = next(i for i, l in enumerate(lines) if l.startswith("handoff\t회차\t"))
+        return next(l for l in lines[start:] if l.startswith(hid + "\t")).split("\t")
 
     def test_multiple_handoff_trailers_reach_each_handoff(self):
         self.assertEqual(self.handoff_line("0010")[1:4], ["2", "RETURN_TO_PLAN → PASS", "일치"])
@@ -316,11 +334,16 @@ class MetricsRecovery(unittest.TestCase):
     def test_same_tree_with_different_parent_stays_separate(self):
         self.assertEqual(self.handoff_line("0030")[1:3], ["2", "FAIL → PASS"])
 
+    def test_rebased_copy_of_a_whole_chain_is_one_round(self):
+        line = self.handoff_line("0080")
+        self.assertEqual(line[1:3], ["1", "PASS"])
+        self.assertIn(self.twin[:8], line[5])
+
     def test_unresolvable_conflict_is_reported_and_excluded(self):
         code, out, _ = self.repo.run(METRICS)
         self.assertIn("0040\t2\tFAIL → PASS\t복원 불가 — 커밋 2회 ↔ verify.md 명시 3회", out)
         self.assertIn("복원 불가 handoff 1(회차 2)", out)
-        self.assertIn("verify 회차 10(handoff 5)", out)
+        self.assertIn("verify 회차 11(handoff 6)", out)
 
 
 class MetricsLedgerStrict(unittest.TestCase):
@@ -358,7 +381,7 @@ class MetricsLedgerStrict(unittest.TestCase):
     def test_dropped_open_id_makes_the_round_undeterminable(self):
         rows = rows_of(self.out, "0051")
         self.assertEqual((rows[1][3], rows[2][3]), ("1", "판정 불가"))
-        self.assertIn("0051 verify 2: 마지막으로 확인된 미종결 D1가 종결·분류 이동 기록 없이 빠졌다", self.out)
+        self.assertIn("0051 verify 2: 마지막으로 확인된 미종결 D1가 유효한 종결·분류 이동 기록 없이 빠졌다", self.out)
         self.assertEqual(rows[3][5:10], ["-"] * 5)
 
     def test_invalid_latest_correction_keeps_history(self):
@@ -440,6 +463,16 @@ class MetricsRoundVerdicts(unittest.TestCase):
             "0063": "# Verify\n| 상태 | **PASS** |\n- 상태: **RETURN_TO_PLAN**\n\n# 라운드 2\n- 상태: **PASS**\n",
             # 회차 제목만 있고 판정이 없다
             "0064": "# Verify\n\n# r2 검증\n본문\n",
+            # 저장소 verify 템플릿 그대로(굵게 표시 없음)
+            "0065": "# Verify — x\n\n## 메타\n\n| 항목 | 값 |\n|---|---|\n| 라운드 | 1 |\n| 상태 | FAIL |\n\n## 15. 결론\n\n- 상태: FAIL\n",
+            # 템플릿 메타와 결론이 다르다
+            "0066": "# Verify — x\n\n| 라운드 | 1 |\n| 상태 | FAIL |\n\n- 상태: PASS\n",
+            # 대문자 Verify N회째 제목과 라운드 행(0326 형식)
+            "0067": "# Verify — x\n\n| 라운드 | 1 |\n| 상태 | **FAIL** |\n\n# Verify 2회째 (r2)\n\n| 라운드 | 2 |\n| 상태 | **PASS** |\n",
+            # 제목에 판정·메타 라운드 전이(0328 형식, 최신이 위)
+            "0068": "# Verify — x\n\n## Verify 2회째 — PASS (기계 범위)\n\n## Verify 1회째 — RETURN_TO_PLAN\n\n| 라운드 | 1 → 2 |\n| 상태 | RETURN_TO_PLAN |\n",
+            # 덮어쓴 문서의 갱신되지 않은 메타 라운드(0060 형태) — 회차 수 근거가 아니다
+            "0069": "# Verify — x\n\n| 라운드 | 1 |\n| 상태 | **PASS** |\n",
         }
         for hid, text in docs.items():
             r.write(f"docs/handoff/{hid}-x/verify.md", text)
@@ -460,6 +493,12 @@ class MetricsRoundVerdicts(unittest.TestCase):
         r.commit("0064 r1 검증 FAIL", handoff("0064", "verified", "claude:fail"))
         r.commit("i", handoff("0064", "implemented"))
         r.commit("0064 r2 검증 PASS", handoff("0064", "verified", "claude:pass"))
+        r.commit("0065 verify 1", handoff("0065", "verified", "claude:fail"))
+        r.commit("0066 verify 1", handoff("0066", "verified", "claude:fail"))
+        for hid, first, second in (("0067", "FAIL", "claude:pass"), ("0068", "설계 반환", "claude:pass"), ("0069", "FAIL", "claude:pass")):
+            r.commit(f"{hid} verify 1 {first}", handoff(hid, "verified", "claude:fail"))
+            r.commit("i", handoff(hid, "implemented"))
+            r.commit(f"{hid} verify 2", handoff(hid, "verified", second))
         _, cls.out, _ = r.run(METRICS)
 
     def line(self, hid):
@@ -480,6 +519,30 @@ class MetricsRoundVerdicts(unittest.TestCase):
 
     def test_mixed_verdicts_in_one_round_are_undeterminable(self):
         self.assertIn("1회째 특정 불가(문서 안 판정 혼재(PASS·RETURN_TO_PLAN))", self.line("0063")[4])
+
+    def test_repository_template_verdicts_are_read(self):
+        self.assertEqual(self.line("0065")[1:5], ["1", "FAIL", "명시 없음", "일치"])
+        self.assertIn("1회째 특정 불가(문서 안 판정 혼재(FAIL·PASS))", self.line("0066")[4])
+
+    def test_capitalized_and_heading_verdicts_are_read(self):
+        self.assertEqual(self.line("0067")[1:5], ["2", "FAIL → PASS", "일치", "일치"])
+        self.assertEqual(self.line("0068")[1:5], ["2", "RETURN_TO_PLAN → PASS", "일치", "일치"])
+
+    def test_rounds_dump_lists_every_round_once(self):
+        _, out, _ = self.repo.run(METRICS, "--rounds")
+        rows = [l.split("\t") for l in out.splitlines()]
+        self.assertEqual([r[:2] for r in rows if r[0] == "0067"], [["0067", "1"], ["0067", "2"]])
+        self.assertTrue(all(len(r) == 4 for r in rows))
+
+    def test_meta_round_row_is_not_a_round_count(self):
+        line = self.line("0069")
+        self.assertEqual(line[1:4], ["2", "FAIL → PASS", "명시 없음"])
+        self.assertIn("2회째 명시 회차가 없어 대조하지 않음", line[4])
+
+    def test_list_and_summary_show_the_same_round_verdict(self):
+        _, out, _ = self.repo.run(METRICS, "--list", "1", "--handoff", "0060")
+        self.assertRegex(out, r"0060 verify 2\t\w+\tFAIL⇒CLOSED · 일치")
+        self.assertEqual(self.line("0060")[2], "RETURN_TO_PLAN → FAIL⇒CLOSED")
 
     def test_missing_verdict_is_undeterminable(self):
         line = self.line("0064")
@@ -503,6 +566,10 @@ class MetricsLedgerOutstanding(unittest.TestCase):
             "0070": ledger(1, [B("D1")]) + ledger(2, []) + ledger(3, []) + ledger(4, [B("D1", p="closed 보고", n="닫힘")]) + ledger(5, []),
             # 종결 → 재개 → 최신 상태(열림)와 다른 직전 상태 닫힘은 오류
             "0071": ledger(1, [B("D1")]) + ledger(2, [B("D1", p="closed 보고", n="닫힘")]) + ledger(3, [B("D1", p="닫힘")]) + ledger(4, [B("D1", p="닫힘")]),
+            # 직전 상태를 닫힘으로 잘못 적은 행은 D1의 마지막 확인 상태(열림)를 덮어쓰지 못한다
+            "0073": ledger(1, [B("D1")]) + ledger(2, [B("D1", p="닫힘", n="닫힘")]) + ledger(3, []) + ledger(4, [B("D1", p="closed 보고", n="닫힘")]),
+            # 정상 구분선 뒤 빈 줄로 D1 행이 표에서 떨어졌다 — 실제 빈 원장(0054)과 구별한다
+            "0074": "\n### 발견 원장 — verify 1\n\n" + HEADER + "\n| D1 | BLOCKING | — | 열림 | — | 새 실행 |\n",
             # 손상된 구분선 · 구분선 없음
             "0072": ledger(1, []) + "\n### 발견 원장 — verify 2\n\n" + HEADER.split("\n")[0] + "\n|---|---|\n| D1 | BLOCKING | — | 열림 | — | 새 실행 |\n"
             + "\n### 발견 원장 — verify 3\n\n" + HEADER.split("\n")[0] + "\n| D1 | BLOCKING | — | 열림 | — | 새 실행 |\n",
@@ -517,7 +584,7 @@ class MetricsLedgerOutstanding(unittest.TestCase):
         self.assertEqual([rows[n][3] for n in (1, 2, 3, 4, 5)], ["1", "판정 불가", "판정 불가", "0", "0"])
         self.assertEqual((rows[2][4], rows[3][4]), ("원 F 판정 불가", "원 F 판정 불가"))
         self.assertEqual(rows[4][8], "1")  # 미종결 D1의 실제 종결로 집계 재개
-        self.assertIn("0070 verify 3: 마지막으로 확인된 미종결 D1가", self.out)
+        self.assertIn("0070 verify 3: 마지막으로 확인된 미종결 D1가 유효한", self.out)
         self.assertEqual(self.code, 1)
 
     def test_reopened_id_is_checked_against_its_latest_state(self):
@@ -525,6 +592,17 @@ class MetricsLedgerOutstanding(unittest.TestCase):
         self.assertEqual((rows[3][3], rows[3][7]), ("1", "1"))  # 재개
         self.assertEqual(rows[4][3], "판정 불가")
         self.assertIn("0071 verify 4: D1: 직전 상태 닫힘인데 최신 상태가 열림", self.out)
+
+    def test_contradictory_row_does_not_close_an_open_id(self):
+        rows = rows_of(self.out, "0073")
+        self.assertEqual([rows[n][3] for n in (1, 2, 3, 4)], ["1", "판정 불가", "판정 불가", "0"])
+        self.assertEqual([rows[n][4] for n in (2, 3)], ["원 F 판정 불가", "원 F 판정 불가"])
+        self.assertEqual(rows[4][8], "1")  # 유효한 종결 근거가 나온 회차부터 다시 센다
+        self.assertIn("0073 verify 2: D1: 직전 상태 닫힘인데 최신 상태가 열림", self.out)
+
+    def test_detached_row_after_blank_line_is_not_an_empty_ledger(self):
+        self.assertEqual(rows_of(self.out, "0074")[1][3], "판정 불가")
+        self.assertIn("빈 줄 뒤에 원장 행이 떨어져 있다 — | D1 | BLOCKING", self.out)
 
     def test_separator_must_have_six_cells(self):
         rows = rows_of(self.out, "0072")
