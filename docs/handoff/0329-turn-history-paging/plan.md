@@ -1,6 +1,8 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**impl/IMPL_DONE (r3 · V1 rev 5 + ΔV1~ΔV5).** 검색 유휴 읽기의 방향별 오류 처리와 OpenCode 현재 턴 TODO 경계를 고쳤다. 최신 이동의 반복 입력은 한 요청으로 합쳐진다. 검증 2의 D10~D18을 닫았고 다음은 Claude 독립 검증 3이다. AC10은 Windows 실기 대기다. [r3 구현 보고](#구현자-기입-구현-보고-r3) · [실행 기록](evidence/r3-history.json)
+**plan/READY (ΔV6 · V1 rev 5 + ΔV1~ΔV6).** 검증 3은 D19(TODO 경계를 화면에 넘기는 마지막 연결 미잠금)로 FAIL이었고, review round 49가 자리 목록 미분류(G2·G3)로 RETURN_TO_PLAN으로 정정했다. ΔV6(§25)는 줄 단위 자리 목록 넷을 `site_census`로 다시 고정했다 — 미분류 0, 새 자리마다 좌표. 다음은 Codex r4다. [ΔV6](#25-δv6--verify-3-정정-plan_gap-정정-2026-11-25)
+
+r3 기록: 검색 유휴 읽기의 방향별 오류 처리와 OpenCode 현재 턴 TODO 경계를 고쳤다. 최신 이동의 반복 입력은 한 요청으로 합쳐진다. 검증 2의 D10~D18을 닫았다. AC10은 Windows 실기 대기다. [r3 구현 보고](#구현자-기입-구현-보고-r3) · [실행 기록](evidence/r3-history.json)
 
 r2 기록: 검색 유휴 읽기의 동시 요청을 고쳤고 검증 1의 D1~D9를 닫았다. ΔV4(§23)는 묶음 수 등식을 정정했다 — 응답은 가장자리부터 메시지를 통째로 상한 직전까지 채우고(탐욕 채움), 묶음 수는 그 결과인 최소 연속 분할이며 max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉)는 하한이다.
 
@@ -12,9 +14,9 @@ r2 기록: 검색 유휴 읽기의 동시 요청을 고쳤고 검증 1의 D1~D9�
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) 2026-11-20 rev 1~4 · Claude Code rev 5 2026-11-24 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) · PR #640 코멘트 “0329 이력 페이징 · 구현 전 plan 보완 요청”(2026-11-24, 기준 `7db1c7ce`) |
-| 상태 / V | impl/IMPL_DONE (r3, 다음 Claude 독립 검증 3) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) + ΔV5(§24 — verify 2 PLAN_GAP) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV5 |
+| 상태 / V | plan/READY (ΔV6, 다음 Codex r4) · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0) + ΔV2(§21 — r1.2 Q4b′) + ΔV3(§22 — r1.3 복구 키, 사용자 제안) + ΔV4(§23 — r1.4 묶음 수) + ΔV5(§24 — verify 2 PLAN_GAP) + ΔV6(§25 — verify 3 정정 PLAN_GAP) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1~ΔV6 |
 | 조사 기준 | rev 5: `codex-handoff-0326-plan-gap`의 `7db1c7ce`(PR #640 head) — 0326 verify 7 PASS · 0327 verify 5 PASS · 0328 verify 2 PASS(모두 기계 범위). rev 1~4의 `62125eaa` 관측은 §8 rev 5 표로 재대조했다. |
-| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 검증 1의 D1~D9를 r2에서 수정·재현했다. 검증 2가 G1·X1로 반송했고 ΔV5가 닫았다. r3에서 D10~D18을 닫았다. 다음 단계는 독립 검증 3이다. |
+| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1(WU-0)·r1.2(Q4b′)·r1.3(복구 키)·r1.4(묶음 수)가 차례로 PLAN_GAP을 반송했고 ΔV1~ΔV4가 닫았다. r1.5는 제한 조회와 세션 패널을 구현했다. 검증 1의 D1~D9를 r2에서 수정·재현했다. 검증 2가 G1·X1로 반송했고 ΔV5가 닫았다. r3에서 D10~D18을 닫았다. 검증 3이 D19로 FAIL, review round 49가 G2·G3로 RETURN_TO_PLAN 정정했고 ΔV6가 닫았다. 다음 단계는 r4다. |
 
 # Part I — 제품과 사용자 동작
 
@@ -66,6 +68,7 @@ r2 기록: 검색 유휴 읽기의 동시 요청을 고쳤고 검증 1의 D1~D9�
 | D-022 | ACTIVE | (ΔV2, 설계자 — r1.2 구현 채택) 이전 턴 요청을 시작한 wheel과 같은 제스처의 후속 wheel은 기본 스크롤을 막는다 — 같은 플릭의 남은 관성이 새로 붙은 행으로 넘어가지 않는다. 다른 wheel은 기본 스크롤이며 non-passive 리스너는 부분 이력 보기에만 붙는다. | AC3′ · EP4″ ⑤ · Q4″·Q4b″ |
 | D-023 | ACTIVE | (ΔV3, 사용자 제안) Claude 원본 복구는 Orca가 만든 새 UUID를 SDK `Options.sessionId`로 넘겨 새 원본 세션을 시작한다. Orca 세션 ID·화면·검색·DB 행은 그대로이고 복구 행의 `native_id`만 바뀐다. 이후 턴·자동 연속·분기·인계는 그 `native_id`로 이어 쓰고, 원본이 낸 세션 ID(이벤트·권한 모드 통지·훅)는 Orca 세션 ID로 바꿔 전달한다. 옛 원본 파일이 다시 나타나도 읽지 않는다. | AC12 · EP10 · Q13~Q15 |
 | D-024 | ACTIVE | (ΔV3, 사용자 결정) 이 변경 전 같은 ID로 복구된 Claude 세션의 키 충돌 방어 규칙은 두지 않는다 — “배포가 없어 그런 사례가 없다고 여길 것”. 선언 경계다. | §22 D 선언 경계 |
+| D-026 | ACTIVE | (ΔV6, 설계자 — verify 3 정정 G2·G3 정합) rev 5 EP1~EP9와 ΔV1 EP4′의 강제 지점은 단계 목록(①~⑨)이고 줄 단위 자리 목록이 아니다. `site_census` 줄 분류와 “목록 밖 운반 줄” 판정은 줄 단위 목록 넷(EP3 ⑤′ · EP6 ⑦″ · EP7 ⑥″ · EP10′)에 적용한다. 단계 목록 pair에서 어느 단계 역할에도 속하지 않는 운반 줄이 나오면 그 pair만 줄 목록으로 고정한다(PLAN_GAP). 근거: §10 본문이 그 술어 출현을 차분 기준선으로 정했고 verify 1이 단계마다 전수 sweep했다. | §25 B · §25 E 선언 경계 |
 | D-025 | ACTIVE | (ΔV5, 설계자 — verify 2 G1 정합) 검색 보기 유휴 채움의 “오류 없음”은 방향별이다. 한 방향이 오류여도 다른 방향의 같은 턴 잔여는 계속 유휴 채움하고, 어느 방향이든 요청이 진행 중이면 예약하지 않는다. 오류 난 방향은 사용자 입력으로만 다시 읽는다. 근거: §10 ‘양방향 커서·끝’ “한 방향 실패가 다른 방향을 막지 않는다”, D-009 원문은 오류를 다루지 않는다. | AC2·6 · EP3 ⑤′ · Q4‴ |
 
 갱신 메모 — V1 초안. D-001~004·006~008은 각 행의 AC와 대조했다. 부모 0325 D-023의 상단 제스처·스피너·재시도는 0326에서 구체화됐고, 소비자 범위 결정은 남아 있다.
@@ -89,6 +92,8 @@ rev 5 — PR #640 항목 → 규범 행. 양방향 조회 → D-015·AC6·§10 �
 ΔV4 — r1.4 묶음 수 PLAN_GAP 정정(§23). 사용자 결정 없음 — plan 내부 결함(§14 등식). MD-01 CHANGED(VP-11), §10 응답 채움 행 신설, §14 유휴 채움 행 대체, Q3 → Q3′, §17 게이트 측정 조건 명시. **ACTIVE 결정 ↔ AC 대조 (ΔV4)**: 충돌 0. D-009 “유휴 1묶음씩·같은 턴 한정” ↔ AC2 문장 불변. D-007 “응답 상한” ↔ §10 응답 채움(세 상한 그대로) 일치. D-018 ↔ §17 측정 조건 일치.
 
 ΔV5 — verify 2 PLAN_GAP 정정(§24). D-025 신설, §10 ‘한 턴과 조각’ → ‘한 턴과 조각′’, ‘최신 대화로’ 반복 입력·현재 턴 TODO 경계 행 추가, MD-04·SD-04·SD-02 CHANGED(VP-16·13·05), EP3 ⑤′·EP6 ⑦′·EP7 ⑥′, Q4‴·Q6e′·Q7′. **ACTIVE 결정 ↔ AC 대조 (ΔV5)**: 충돌 0. D-009 “같은 턴 한정·유휴 1묶음·입력 중 보류” ↔ 한 턴과 조각′(오류 범위만 방향별로) 일치. D-015 “방향마다 단일 flight·오류·재시도” ↔ D-025 일치. D-012 “현재 턴 TODO의 권위는 live 소유자” ↔ 현재 턴 TODO 경계 행 일치. AC2·AC6·AC7 문장은 바뀌지 않는다.
+
+ΔV6 — verify 3 정정 PLAN_GAP 정정(§25). D-026 신설, EP6 ⑦′ → EP6 ⑦″ · EP7 ⑥′ → EP7 ⑥″ · EP10 → EP10′, SD-02·SD-04·AR-05·SD-06 CHANGED(VP-05·13·18·19), VP-03 REGRESSION, Q6e″·Q7″ 신설. 계약 규칙·AC 변경 0. **ACTIVE 결정 ↔ AC 대조 (ΔV6)**: 충돌 0. D-012·AC7 “현재 턴 TODO만 보인다” ↔ EP7 ⑥″ ⑥(화면 렌더까지 관측) 일치. D-015 “방향마다 단일 flight” · X1 반복 입력 ↔ EP6 ⑦″ ⑤⑦(같은 가드를 지나는 입력 경로) 일치. D-023 ↔ EP10′(자리 재앵커 · 같은 규칙) 일치. D-026은 검증 범위 결정이라 AC와 겹치지 않는다.
 
 ## 4. 현재 요구 검토
 
@@ -683,7 +688,7 @@ D-023(복구 원본에 새 UUID)·D-024(같은 ID로 이미 복구된 세션은 
 
 ### 22-E. 강제 지점·좌표
 
-자리 검색: 저장소 루트에서 `rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|nativeSessionId|native_id|routeNativeSession|onPermissionModeChanged\?\.|forkFrom|session_id \?\? ' app/src/main/adapters/claude app/src/main/adapters/common app/src/main/app/chat-turn app/src/main/app/native-history.ts`. 이 턴 출력 36줄 중 Claude 원본 ID를 운반하는 자리를 아래 8개로 고정하고, 같은 출력의 Orca 계보 자리는 형제(유지)로 따로 둔다. 나머지 줄은 타입 선언·주석·Orca ID 조회다.
+**ΔV6에서 EP10′(§25 E)으로 대체** — 줄 번호가 옮겨졌고 목록 밖 운반 줄이 있었다. 자리 검색: 저장소 루트에서 `rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|nativeSessionId|native_id|routeNativeSession|onPermissionModeChanged\?\.|forkFrom|session_id \?\? ' app/src/main/adapters/claude app/src/main/adapters/common app/src/main/app/chat-turn app/src/main/app/native-history.ts`. 이 턴 출력 36줄 중 Claude 원본 ID를 운반하는 자리를 아래 8개로 고정하고, 같은 출력의 Orca 계보 자리는 형제(유지)로 따로 둔다. 나머지 줄은 타입 선언·주석·Orca ID 조회다.
 
 | EP10 자리 | 규칙 | oracle · 분기 입력 |
 |---|---|---|
@@ -806,8 +811,8 @@ D-025(검색 보기 유휴 채움의 오류는 방향별)를 §3에 더했다. �
 | EP / 검색 명령 | 자리 | 규칙 | oracle · 분기 입력 |
 |---|---|---|---|
 | EP3 ⑤′ · `rg -n 'idleSearchDirection' app/src` (5줄) | ① `idleSearchDirection.ts:10-15` 판정 ② `useHistoryControls.ts:44-45` 예약 ③ `chatStore.ts:2776` 자동 발사 재확인 | 한 턴과 조각′ 방향 규칙 | Q4‴ — 입력: (i) 양쪽 `withinTurn`·무오류 → before (ii) before 오류 + after `withinTurn` → after 1회 (iii) after 오류 + before `withinTurn` → before 1회 (iv) 양쪽 오류 → 0 (v) before 진행 중 + after `withinTurn` → 0 (vi) after 수동 진행 중 + before `withinTurn` → 0 (vii) before `earlierTurn` + after `withinTurn` → after. ③은 (ii)를 store에서 `readSearchEdge(key,'after',true)` = true로, (v)를 false로 본다 |
-| EP6 ⑦′ · `rg -n 'returning\|returnFailed\|returnToLatest\|leaveSearch\(' app/src/renderer/src` (16줄) | ① `chatStore.ts:2724-2725` 진행 중 가드·설정 ② `chatStore.ts:2759` 실패 표시 ③ `useHistoryControls.ts:69-70` 상태·동작 노출 ④ `HistoryEdge.tsx:61-67` 버튼 | ‘최신 대화로’ 반복 입력 | Q6e′ — 입력: latest 응답 전 `leaveSearch(key,true)` 2회 → `page({kind:'latest'})` 1회 · 실패 뒤 1회 더 → 2회째 요청 · ③ 진행 중 `latestState='loading'`, 실패 `'error'` · ④ 진행 중 버튼 `disabled` |
-| EP7 ⑥′ · `rg -n 'openCodeTodoTurnStartIndex' app/src` (9줄) + PREPEND_HISTORY 분기 | ① `chatReducer.ts:1043` 전송 시 경계 ② `chatReducer.ts:1807` LOAD 경계 ③ `chatReducer.ts:1701-1743` PREPEND_HISTORY의 경계 보존(이번에 생기는 자리) ④ `todoState.ts:18` 소비 | 현재 턴 TODO 경계 | Q7′ — 입력: (a) 부분 LOAD → 전송 → 이전 턴(성공 TodoWrite ‘old’ in_progress) 앞삽입 → `[]` 유지 (b) 전송 → 현재 턴 TodoWrite ‘new’ → 앞삽입 → `['new']` 유지 (c) 앞삽입 거부(겹침 순서 불일치) → 경계·결과 불변 (d) 전송 전 LOAD 직후 앞삽입 → `sendCount=0`이라 `[]`. ③은 (a)(b), ①②④는 (a)~(d)가 지난다 |
+| EP6 ⑦′ · `rg -n 'returning\|returnFailed\|returnToLatest\|leaveSearch\(' app/src/renderer/src` (16줄) | **ΔV6에서 EP6 ⑦″(§25 E)로 대체.** ① `chatStore.ts:2724-2725` 진행 중 가드·설정 ② `chatStore.ts:2759` 실패 표시 ③ `useHistoryControls.ts:69-70` 상태·동작 노출 ④ `HistoryEdge.tsx:61-67` 버튼 | ‘최신 대화로’ 반복 입력 | Q6e′ — 입력: latest 응답 전 `leaveSearch(key,true)` 2회 → `page({kind:'latest'})` 1회 · 실패 뒤 1회 더 → 2회째 요청 · ③ 진행 중 `latestState='loading'`, 실패 `'error'` · ④ 진행 중 버튼 `disabled` |
+| EP7 ⑥′ · `rg -n 'openCodeTodoTurnStartIndex' app/src` (9줄) + PREPEND_HISTORY 분기 | **ΔV6에서 EP7 ⑥″(§25 E)로 대체.** ① `chatReducer.ts:1043` 전송 시 경계 ② `chatReducer.ts:1807` LOAD 경계 ③ `chatReducer.ts:1701-1743` PREPEND_HISTORY의 경계 보존(이번에 생기는 자리) ④ `todoState.ts:18` 소비 | 현재 턴 TODO 경계 | Q7′ — 입력: (a) 부분 LOAD → 전송 → 이전 턴(성공 TodoWrite ‘old’ in_progress) 앞삽입 → `[]` 유지 (b) 전송 → 현재 턴 TodoWrite ‘new’ → 앞삽입 → `['new']` 유지 (c) 앞삽입 거부(겹침 순서 불일치) → 경계·결과 불변 (d) 전송 전 LOAD 직후 앞삽입 → `sendCount=0`이라 `[]`. ③은 (a)(b), ①②④는 (a)~(d)가 지난다 |
 
 | 좌표 | 재현 입력 → 직접 관측 |
 |---|---|
@@ -822,6 +827,120 @@ D-025(검색 보기 유휴 채움의 오류는 방향별)를 §3에 더했다. �
 ### 24-F. 구현 재개 조건
 
 r3(라운드 3 첫 구현 턴)는 r2 코드에서 이어 간다. ΔV5 세 자리 묶음을 먼저 하고, 이어서 verify 2 파생 이슈 D10~D18과 verify 2 §4의 ⑦ 잔여 7항목을 닫는다. Q4‴가 r2 단언과 충돌하는 곳은 r2 단언을 고친다(기대가 바뀐 것이지 회귀가 아니다).
+
+## 25. ΔV6 — verify 3 정정 PLAN_GAP 정정 (2026-11-25)
+
+**판정: PLAN_GAP 2건(G2·G3) 타당 → 줄 단위 자리 목록 넷을 다시 고정한 뒤 READY.** review round 49가 verify 3을 RETURN_TO_PLAN으로 정정했다(검색 출력 ↔ §10 목록 불일치). verify 2회째 뒤라 plan은 동결 상태이고, 이 턴에 새로 넣는 자리의 출처는 모두 **plan 내부 정합**(자리 검색 출력 ↔ 목록)이다. 계약 규칙(§10 규칙 칸)·Decision·AC는 바꾸지 않는다 — D-026 하나만 더한다.
+
+### 25-A. 반송 근거 대조 (이 턴 실측, 트리 `69c068fa`)
+
+| 지적 | 판정 | 관측 |
+|---|---|---|
+| G2 EP7 ⑥′ | 타당 | `site_census` 검색 10줄 · 운반 8 · ΔV5 목록 밖 4줄(`AboveInput.tsx:11·13·14` · `chatReducer.ts:560`). 자리 ②는 r3 diff로 `:1807` → `:1812` |
+| G3 EP6 ⑦′ | 타당 | 검색 16줄 · 운반 11 · 목록 밖 4줄(`useChatRouteSync.ts:81` · `useHistoryControls.ts:78` · `chatStore.ts:2006` · `:2608`) |
+| D19 | 이행 결함 그대로 | EP7 ⑥″ ⑥ `AboveInput.tsx:11-14`가 D19의 자리이고 Q7″이 좌표다 |
+| EP3 ⑤′ | 유효 — 변경 없음 | 검색 5줄 · 운반 2(`chatStore.ts:2776` · `useHistoryControls.ts:44`) = 자리 ②③ · 미분류 0 |
+| EP10(§22-E) | 목록 미고정 — 같은 정정 | 검색 41줄 · 운반 28. §22-E 8자리 + 형제의 줄 번호가 r1.4~r3에서 옮겨졌고(`adapter.ts:670-672` → `:679-682` 등), 목록 밖 운반 줄 11개(`native-session.ts:41·61·113·120` · `send.ts:294·599` · `adapter.ts:527·528·556` · `resolve-turn.ts:124` · `continuation.ts:88`)와 비운반 1줄(`resolve-turn.ts:180`)이 있다 |
+| EP10′ 자동 변이 | 35개 중 잡음 33 · 못 잡음 2 | `--emit-mutants` 35개를 명시 테스트 파일 123개 oracle로 돌렸다. 못 잡음은 형제 `send.ts:83`·`:119`(분기 항) → Q15′. 같은 디렉터리 전체를 oracle로 쓰면 플러그인 3파일(`adapter.native-plugins`·`native-resources`·`project-reconciliation`) 10건이 변이 없이도 red라 그 3파일을 뺐다 |
+| 도구 | 정정 후 재측정 | 정정 전 `site_census`는 `-g`를 정규식 앞에 둔 EP10 명령에서 glob을 정규식으로 골라 “운반 0 · 미분류 0”을 냈다(review round 55에서 정정) |
+| rev 5 EP1~EP9 · ΔV1 EP4′ | 줄 단위 목록이 아니다(D-026) | 술어 출현의 운반 후보: EP1 120 · EP2 181 · EP3 575 · EP4′ 466 · EP5 261 · EP6 309 · EP7 108 · EP8 9 · EP9 205. 차분 기준선으로만 둔다 |
+
+### 25-B. Decision
+
+D-026을 §3에 더했다(설계자). rev 5 EP1~EP9와 ΔV1 EP4′의 강제 지점은 **단계 목록**(①~⑨)이고 줄 단위 자리 목록이 아니다. §10 본문이 그 술어 출현을 “문자열 출현이지 자리 수가 아니다 — 차분 기준선”으로 정했고, verify 1이 단계마다 전수 sweep했다. 운반 후보 2,234줄을 줄 목록으로 바꾸면 동결 뒤 열거 원문이 수천 항목 늘어난다. 그래서 `site_census`의 줄 분류와 “목록 밖 운반 줄” 판정은 줄 단위 목록 넷(EP3 ⑤′ · EP6 ⑦″ · EP7 ⑥″ · EP10′)에만 적용한다. 단계 목록 pair에서 어느 단계 역할에도 속하지 않는 운반 줄이 나오면, 그때 그 pair만 줄 목록으로 고정한다(PLAN_GAP).
+
+### 25-C. Delta V
+
+| 노드 | provenance | 변경 |
+|---|---|---|
+| SD-02 | CHANGED | EP7 ⑥′ → **EP7 ⑥″**: ⑤ 초기값 · ⑥ `AboveInput` 소비 추가, ② 재앵커(출처: plan 내부 정합 G2) |
+| SD-04 | CHANGED | EP6 ⑦′ → **EP6 ⑦″**: ⑤ 라우트 동기화 · ⑥ 세션 전환 해제 · ⑦ 출발 방문 복원 추가, ③에 `:78` 포함(G3) |
+| AR-05 · SD-06 | CHANGED | EP10 → **EP10′**: 8자리 재앵커 · ②⑦ 범위 확장 · ⑨ 신설 · 제외 1(출처: plan 내부 정합 — 이 턴 재측정) |
+| R-03 | INHERITED | AC 문장 불변. 경로가 EP6·EP7·EP10을 지나므로 VP-03을 다시 닫는다 |
+
+| Pair | 노드 ↔ 검증 | 등급 | production path · §10 자리 | 직접 관측 |
+|---|---|---|---|---|
+| VP-05 | SD-02 ↔ ST-02 | REQUIRED | ΔV5 경로 그대로(… → `selectOpenCodeTodos` → `AboveInput` → TodoDock) · EP7 ⑥″ 6자리 | Q7′ · Q7″ |
+| VP-13 | SD-04 ↔ ST-04 | REQUIRED | ΔV5 경로 + 라우트 동기화·세션 전환·출발 방문 복원 → `leaveSearch` · EP6 ⑦″ 7자리 | Q6e′ · Q6e″ |
+| VP-18 | AR-05 ↔ IT-05 | REQUIRED | §22-C 경로 · EP10′ ①~⑨ + 형제 | Q13 · Q15 · Q15′ · EP10′ 칸의 좌표 |
+| VP-19 | SD-06 ↔ ST-06 | REQUIRED | §22-C 경로 · EP10′ ①②③⑦⑧ | Q14 |
+| VP-03 | R-03 ↔ AT-03 | REGRESSION | ΔV5 경로 | Q6e″ · Q7″ · Q14 |
+
+나머지 pair는 ΔV5까지의 행 그대로다. VP-16(EP3 ⑤′)은 목록·경로가 바뀌지 않아 다시 닫지 않는다.
+
+### 25-D. 계약 행
+
+변경 없음. 새 자리의 규칙은 기존 행에서 온다 — EP6 ⑦″ ⑤⑦은 ‘최신 대화로’ 반복 입력(§24-D, 라우트 동기화를 이미 적었다), ⑥은 §10 ‘사용자 제어·실패’ “화면 전환 … pending request … 취소”와 ‘검색 보기 (D-015)’, EP7 ⑥″ ⑤⑥은 현재 턴 TODO 경계(§24-D), EP10′은 D-023(§22-D)이다.
+
+### 25-E. 강제 지점·좌표
+
+각 목록은 아래 명령(저장소 루트)으로 `미분류 0 · 목록만 0`이다. 구현자와 검증자는 같은 명령에 `--emit-mutants "<oracle>" --cwd app`을 붙여 자리마다 자동 변이를 돌린다(종료 코드 판정 — 파이프로 끝내지 않는다).
+
+```sh
+SC=.agents/skills/handoff-verify/scripts/site_census.mjs; R=app/src/renderer/src; F=$R/features/chat; M=app/src/main
+# EP6 ⑦″
+node $SC --search "rg -n 'returning|returnFailed|returnToLatest|leaveSearch\(' app/src/renderer/src -g '!*.test.*' -g '!*.testfixture.*'" \
+  --sites "$F/store/chatStore.ts:2724-2725,$F/store/chatStore.ts:2759,$F/hooks/useHistoryControls.ts:69-70,$F/hooks/useHistoryControls.ts:78,$F/components/transcript/HistoryEdge.tsx:61-67,$R/app/hooks/useChatRouteSync.ts:80-81,$F/store/chatStore.ts:2005-2008,$F/store/chatStore.ts:2607-2609"
+# EP7 ⑥″
+node $SC --search "rg -n 'openCodeTodoTurnStartIndex' app/src -g '!*.test.*' -g '!*.testfixture.*'" \
+  --sites "$F/reducer/chatReducer.ts:1043,$F/reducer/chatReducer.ts:1812,$F/reducer/chatReducer.ts:1701-1743,$F/harnesses/opencode/composer/todoState.ts:18,$F/reducer/chatReducer.ts:560,$F/harnesses/opencode/composer/AboveInput.tsx:11-14"
+# EP3 ⑤′ (변경 없음 — 대조용)
+node $SC --search "rg -n 'idleSearchDirection' app/src -g '!*.test.*' -g '!*.testfixture.*'" \
+  --sites "$F/lib/idleSearchDirection.ts:10-15,$F/hooks/useHistoryControls.ts:44-45,$F/store/chatStore.ts:2776"
+# EP10′
+node $SC --search "rg -n -g '!*.test.*' -g '!*.testfixture.*' 'recoverSession|nativeSessionId|native_id|routeNativeSession|onPermissionModeChanged\?\.|forkFrom|session_id \?\? ' app/src/main/adapters/claude app/src/main/adapters/common app/src/main/app/chat-turn app/src/main/app/native-history.ts" \
+  --sites "$M/adapters/claude/adapter.ts:374-379,$M/app/chat-turn/native-session.ts:61-90,$M/adapters/claude/adapter.ts:556,$M/adapters/claude/adapter.ts:679-682,$M/adapters/claude/adapter.ts:527-529,$M/adapters/claude/adapter.ts:948,$M/adapters/claude/adapt.ts:307,$M/app/chat-turn/send.ts:293-295,$M/app/chat-turn/send.ts:620,$M/app/chat-turn/continuation.ts:40,$M/app/chat-turn/resolve-turn.ts:122-125,$M/app/chat-turn/send.ts:599,$M/app/chat-turn/native-session.ts:41,$M/app/chat-turn/native-session.ts:113,$M/app/chat-turn/native-session.ts:120,$M/app/native-history.ts:37,$M/app/chat-turn/continuation.ts:88,$M/app/chat-turn/send.ts:397,$M/app/chat-turn/turn-context.ts:166,$M/app/chat-turn/resolve-turn.ts:70,$M/app/chat-turn/send.ts:83,$M/app/chat-turn/send.ts:119,$M/app/chat-turn/send.ts:152" \
+  --excluded "$M/app/chat-turn/resolve-turn.ts:180"
+```
+
+자동 변이의 oracle은 변이 없이 green인 테스트 집합으로 한다 — 기준선 red가 섞이면 모든 변이가 red로 나온다(이 턴 플러그인 3파일 10건). 구현으로 줄이 옮겨지면 구현자는 같은 자리를 새 줄로 옮긴 명령을 `[구현자 기입]`에 적고 미분류 0을 다시 보인다.
+
+**EP6 ⑦″** — ‘최신 대화로’ 반복 입력과 그 입력 경로.
+
+| 자리 | 규칙 | oracle · 분기 입력 |
+|---|---|---|
+| ①~④ | §24-E EP6 ⑦′ ①~④ 그대로(③에 `useHistoryControls.ts:78` memo 의존을 더함) | Q6e′. `:78`의 `search?.returning` 항: `useHistoryControls.test.ts` ‘exposes return-to-latest loading and retry state on the same search view’(round 49 자동 변이 잡음). `search?.returnFailed` 항: **동치 예상** — `returnFailed`를 쓰는 곳은 `chatStore.ts:2759` 하나이고 같은 patch에서 `returning`을 true → false로 바꾼다. 구현자는 그 항만 지운 변이의 green과 이 근거로 동치를 적는다 |
+| ⑤ `app/hooks/useChatRouteSync.ts:80-81` 라우트 동기화 | 같은 세션의 새 방문이고 검색 보기가 있으면 `leaveSearch(key, true)` — ①을 지나 진행 중 반복은 요청 0, 실패 뒤 다음 방문은 1회 | Q6e″ ⑤ — (i) 검색 보기(이력 없음) + 같은 세션 새 방문 → latest 1 (ii) 응답 전 새 방문 1회 더 → 여전히 1 (iii) 같은 방문 재실행(`newVisit` 거짓) → 0 (iv) 검색 보기 없음 → 0 |
+| ⑥ `features/chat/store/chatStore.ts:2005-2008` 세션 전환 | 다른 세션을 열면 떠나는 세션의 검색 보기를 지운다(latest 요청 없음). ‘최신 대화로’가 진행 중이었어도 `returning`이 남지 않고, 늦은 latest 응답은 적용 0 | Q6e″ ⑥ — (i) A 검색 보기 + ‘최신 대화로’ 응답 대기 → `loadSession(B)` → A `search` 없음 → A의 latest 응답 도착 → A 메시지·`history` 불변 (ii) 같은 세션 재검증 `loadSession(A, …, {revalidate:true})` → 검색 보기 유지 |
+| ⑦ `features/chat/store/chatStore.ts:2607-2609` 출발 방문 복원 | 뒤로/앞으로로 하단 고정(또는 앵커 없는) 출발 방문에 돌아올 때, 그 세션이 활성이고 검색 보기가 있으면 ‘최신 대화로’ 경로(①을 지난다), 아니면 출발 세션을 연다 | Q6e″ ⑦ — (i) 출발 세션 활성 + 검색 보기(이력 없음) + `pinned` → latest 1, 응답 전 반복 → 1 (ii) 다른 세션 활성 → 출발 세션 열기 1 · 검색 보기 latest `page` 0 |
+
+**EP7 ⑥″** — 현재 턴 TODO 경계와 그 소비.
+
+| 자리 | 규칙 | oracle · 분기 입력 |
+|---|---|---|
+| ① `chatReducer.ts:1043` · ② `:1812` · ③ `:1701-1743` · ④ `todoState.ts:18` | §24-E EP7 ⑥′ ①~④ 그대로(② 재앵커) | Q7′ |
+| ⑤ `features/chat/reducer/chatReducer.ts:560` 초기값 | 새 상태의 경계는 0 | `reducer/chatReducer.opencode-todo.test.ts` ‘starts each todo projection at the current turn and excludes hydrated history’(round 49 자동 변이 잡음) |
+| ⑥ `features/chat/harnesses/opencode/composer/AboveInput.tsx:11-14` 소비 — **D19** | 화면의 TodoDock은 store 경계를 그대로 `selectOpenCodeTodos`에 넘긴 결과를 그린다(VP-05 path 끝 edge) | Q7″ — Q7′ (a)~(d) 상태에서 렌더 결과를 본다. 구별 값: (a)는 앞삽입 2개 뒤 경계 ≠ 0이고 경계 앞에 ‘old’ in_progress가 있다(경계를 0·undefined로 바꾸면 ‘old’가 보인다). `:14`의 경계 항 단독 제거는 **동치 예상** — 경계를 바꾸는 액션(`BEGIN_TURN` `:1042-1043` `sendCount` · `PREPEND_HISTORY` `:1736-1739` `messages` · `LOAD_SESSION` `:1809-1812` `messages` · `NEW_CHAT`·`START_LOAD_SESSION`의 초기 상태 전개 `:1549`·`:1670`)이 모두 같은 상태에서 의존 배열의 다른 항(`sendCount`·`messages`)도 바꾼다 |
+
+**EP10′** — Claude 원본 ID 바인딩(§22-E 대체).
+
+| 자리 (현재 줄) | 규칙 | oracle · 분기 입력 |
+|---|---|---|
+| ① `adapters/claude/adapter.ts:374-379` 복구 ID 발급 | §22-E ① 그대로 — 새 UUID ≠ 요청 ID | Q13 (a) · `main/adapters/claude/adapter.fork.test.ts` ‘recreates an expired conversation with a new native UUID and hides archived context in its receipt’ |
+| ② `app/chat-turn/native-session.ts:61-90` 복구 진입·생성·행 기록·반환 | 원본 `missing`이고 어댑터가 복구를 지원하면 `recoverSession({…, sessionId: nativeId})`의 UUID를 복구 행 `nativeId`와 반환 `nativeSessionId`로 쓴다(§22-E ② + 진입 조건 `:61`) | Q14 · `main/app/chat-turn/native-session.restored-history.db.test.ts` ‘keeps the archive searchable and follows only the replacement Claude file after the old UUID returns’(`:68`·`:89`) · `native-session.test.ts` ‘displays and recovers a separated snapshot after the native source is deleted without reading raw’(`:61`) |
+| ③ `adapters/claude/adapter.ts:556` · `:679-682` SDK 옵션 | §22-E ③ 그대로. `:556`은 `nativeSessionId ?? sessionId` 원천이다 | Q13 (b)(c)(d) · `main/adapters/claude/adapter.fork.test.ts` ‘recreates an expired conversation with a new native UUID…’(`:556`) · ‘forkFrom 을 resume + forkSession:true 로 어댑트한다 (sessionId=null 새 세션 의미론)’(`:681`·`:682`) |
+| ④ `adapters/claude/adapter.ts:527-529` LiveTurn 감싸기 | `nativeSessionId`와 `sessionId`가 모두 있을 때만 `routeNativeSession`으로 감싼다(§22-E ④를 구현한 줄) | Q13 (e) · `main/adapters/claude/adapter.fork.test.ts` ‘routes resumed events, permissions and hooks to the display session (%s)’ — 입력 recovered=true(둘 다 있음 → 감쌈) · recovered=false(`nativeSessionId` 없음 → 그대로) |
+| ⑤ `adapters/claude/adapter.ts:948` · `adapters/claude/adapt.ts:307` | §22-E ⑤ 그대로 | Q13 (f)(g) · 같은 테스트 두 사례 · `adapter.plan-mode.test.ts` ‘only actual main live init/status mode reports reach the observer’(`:948`) · `adapt.test.ts` ‘snake_case → camelCase 매핑 + raw 패스스루’(`:307`) |
+| ⑥ `app/chat-turn/send.ts:293-295` · `:620` 분기·인계 출발점 | §22-E ⑥ 그대로. `:294`가 출발 세션 복구 행의 `native_id`(없으면 세션 ID)를 고른다 | Q15 · `main/app/chat-turn/send.worktree.test.ts` ‘uses the native source for forkFrom and the display parent for lineage (recovered=%s)’ · 같은 이름의 handoffFrom 사례 — 입력 복구된 출발 세션 · 복구 안 된 출발 세션 |
+| ⑦ 다음 턴 전달 — `native-session.ts:41` · `:113` · `:120` → `resolve-turn.ts:122-125` → `send.ts:599` → `continuation.ts:40` | 복구 행 `native_id`(없으면 Orca 세션 ID)를 `nativeSessionId`로 이어 준다. 미수락 복구 + 빈 원본(`:113`)도 `native_id`다 | Q14 · `native-session.restored-history.db.test.ts` 같은 사례(`:41`·`:120`) · `native-session.test.ts` ‘replaces only a confirmed missing native identity and retains the transcript and search once’(`:113`) · `resolve-turn.agent.test.ts` ‘resumes a warm runtime using the recovered native ID of the displayed session’(`resolve-turn.ts:123-124`) · `send.agent-profile.test.ts` ‘routes a saved OpenCode session through its runtime and keeps harness instructions isolated (recovery: true)’(`send.ts:599`) · `continuation.test.ts` ‘첨부를 싣지 않고 프레임 위임을 전부 넘긴다’(`continuation.ts:40`) |
+| ⑧ `app/native-history.ts:37` | §22-E ⑧ 그대로 | Q14 · 같은 사례 · `main/app/native-history.test.ts` ‘reads the replacement identity and masks its recovery input before refreshing the Orcinus orca snapshot’ |
+| ⑨ `app/chat-turn/continuation.ts:88` | 자동 연속 턴 요청에서 분기 출발점을 뗀다 — 어댑터는 `resume = nativeSessionId ?? sessionId`로 이어 쓰고 다시 분기하지 않는다(D-023 “이후 턴·자동 연속”) | `main/app/chat-turn/continuation.test.ts` ‘batch 를 프롬프트로 싣고 continuity 표식을 떨어뜨린다’(`'forkFrom' in request` 거짓) |
+| 형제(유지) `send.ts:397` → `turn-context.ts:166` · `resolve-turn.ts:70` · `send.ts:83` · `:119` · `:152` | §22-E 형제 그대로 — Orca 세션 ID 계보 | Q15 — `send.ts:397`·`turn-context.ts:166`: `send.worktree.test.ts` 위 사례 · `resolve-turn.ts:70`: `resolve-turn.agent.test.ts` ‘rejects a changed source harness after provider preparation (forkFrom)’ · `send.ts:152`: `send.agent-profile.test.ts` ‘keeps Work and Code isolated at forkFrom and both automatic continuation preparations’. **`send.ts:83`·`:119`은 Q15′(신규)** — 이 턴 자동 변이에서 green이었다 |
+| 제외 `app/chat-turn/resolve-turn.ts:180` | 쉬는 세션의 보관 이력을 Orca 세션 ID로 정리한다. 술어 `recoverSession`이 메서드 이름 `recoverSessionHistory`에 걸린 줄이고 Claude 원본 ID를 운반하지 않는다 | — |
+
+| 좌표 | 재현 입력 → 직접 관측 |
+|---|---|
+| Q6e″ · `renderer/src/features/chat/store/history-search.test.ts`(⑥⑦) + `renderer/src/app/hooks/useChatRouteSync.test.ts`(⑤) | Q6e′ 입력 전부 + EP6 ⑦″ ⑤~⑦ 입력. latest 응답을 지연시켜 반복 사이의 `page({kind:'latest'})` 수를 센다. ⑤는 그 파일의 훅 하네스(effect 모형 + `installChatStoreHarness`)에서 라우트 모형에 방문 키(`useLocation().key` — 훅의 `visitKey`)를 더해 같은 세션 새 방문으로 두 번 바꾼다 |
+| Q15′ · 신규 사례 `main/app/chat-turn/send.busy.test.ts`(실제 `handleChatSend` + 가짜 data·어댑터, 그 파일 방식) | 형제 `send.ts:83`·`:119` — 분기 요청의 하네스 검사·지원 검사는 Orca 출발 세션으로 한다. (i) `forkFrom` = `claude` 출발 세션(세션 ID 없음) + 요청 `backend: 'opencode'` → `provider_connection_error` 1 · 런타임·큐 0, 같은 하네스면 진행 (ii) `describe().session.fork === false` 어댑터 + `forkFrom` 요청 → `capability_unsupported` 1 · 턴 0. 인계(`handoffFrom`) 입력과 따로 둔다 — `\|\|`의 분기 항만 지워도 관측이 달라야 한다 |
+| Q7″ · 신규 `renderer/src/features/chat/harnesses/opencode/composer/AboveInput.integration.test.ts` | 실제 chatStore(`installChatStoreHarness`)에 Q7′ (a)~(d)를 store 동작·reducer 액션으로 만들고 `shared/ui/renderHarness.testfixture`로 production `AboveInput`을 렌더한다. TodoDock이 그린 항목 텍스트·개수를 본다(selector 반환이 아니라 렌더 결과) |
+
+**선택 변이(ΔV6).** EP7 ⑥″ ⑥ `:13` 경계 → `0`(verify 3 E7i) → Q7″ (a) red. EP6 ⑦″ ⑤ `:81` 호출 무력화 → Q6e″ ⑤ (i) red. ⑥ `:2006` 호출 제거 → Q6e″ ⑥ (i) red. ⑦ `:2608` 호출 제거 → Q6e″ ⑦ (i) red. EP10′ 형제 `send.ts:83`·`:119`의 `forkFrom` 항 제거(이 턴 자동 변이 green) → Q15′ (i)(ii) red.
+
+**선언 경계.** (1) D-026 — 단계 목록(EP1~EP9 · EP4′)에는 줄 분류를 적용하지 않는다. (2) `NEW_CHAT`·`START_LOAD_SESSION`·`LOAD_SESSION`의 `...initialChatState` 전개(`:1549`·`:1670`·`:1809`)는 경계 이름을 쓰지 않아 EP7 ⑥″ 검색에 잡히지 않는다 — 자리가 아니다. (3) ΔV5 선언 경계 둘은 그대로다.
+
+### 25-F. 구현 재개 조건
+
+r4(라운드 4 첫 구현 턴)는 r3 코드에서 이어 간다. D19(EP7 ⑥″ ⑥)를 먼저 닫고, EP6 ⑦″ ⑤~⑦과 EP10′ 형제 `send.ts:83`·`:119`(Q15′)를 닫는다. EP7 ⑥″ ⑤와 EP10′의 나머지 새 자리는 이 턴 자동 변이에서 기존 좌표가 잡았다 — 구현자는 같은 명령으로 다시 확인만 한다. 끝나면 25-E 명령 넷의 `미분류 0 · 목록만 0`과 `--emit-mutants` 결과(자리마다 잡음 또는 근거 붙은 동치)를 `[구현자 기입]`에 적는다. verify 3이 잡음으로 판정한 기존 자리는 다시 닫지 않는다.
 
 ## READY self-review
 
@@ -843,6 +962,7 @@ r3(라운드 3 첫 구현 턴)는 r2 코드에서 이어 간다. ΔV5 세 자리
 | ΔV3 | r1.3 반송을 원인(같은 ID 복구 계약)에서 닫았다. SDK·CLI 지원은 설치 패키지 타입과 번들 CLI 검사 문자열로 확인했다(§22 A). NEW SD-06·AR-05 → VP-19·VP-18, CHANGED R-03 → VP-03. EP10 자리 8개와 Orca 계보 형제 1묶음을 검색 명령(36줄)으로 고정, 분기 입력 ③ 4 · ④ 3 · ⑥ 2, 선택 변이 6(형제 맞바꿈 포함), 선언 경계 3. 현재 상태 문서 1곳과 기대가 바뀌는 기존 테스트 1건을 적었다. |
 | ΔV4 | r1.4 반송을 이 턴 독립 계산(탐욕 = 동적 계획법 최소: 균등 5 · 편중 6)으로 확인하고 §14 등식을 하한 + 탐욕 채움 계약으로 바꿨다. CHANGED MD-01 → VP-11(Q3′), 선택 변이 3, 선언 경계 1, §17 게이트 측정 조건 명시. 사용자 결정 불필요(plan 내부 결함). |
 | ΔV5 | verify 2 반송 2건을 규칙 칸 원문(§10 ‘한 턴과 조각’ ↔ ‘양방향 커서·끝’)과 r2·r2 이전 코드(`idleSearchDirection.ts:11` · `6b063bb0` `useHistoryControls.ts:43-48`)로 대조했다. D-025 신설, CHANGED MD-04·SD-04·SD-02 → VP-16·13·05 REQUIRED, VP-02·03 REGRESSION. 자리 검색 3개(5·16·9줄)로 EP3 ⑤′ 3자리·EP6 ⑦′ 4자리·EP7 ⑥′ 4자리를 고정하고 분기 입력 7·4·4, 선택 변이 4, 선언 경계 2를 적었다. 새 열거 항목의 출처: G1 plan 내부 정합 · X1 확장 채택(verify 2회째 직후 — 마지막 창) · D10 현재 결함. 이 턴 뒤 plan 동결. 사용자 결정 불필요(D-025는 기존 §10 문장이 정한 방향 독립의 적용). |
+| ΔV6 | verify 3 정정의 G2·G3를 이 턴 `site_census` 재측정(트리 `69c068fa`, 도구 정정 뒤)으로 대조했다. 줄 단위 목록 넷 — EP6 ⑦″ 검색 16줄·운반 11 → 자리 7 · EP7 ⑥″ 10줄·운반 8 → 자리 6 · EP3 ⑤′ 5줄·운반 2(변경 없음) · EP10′ 41줄·운반 28 → 자리 9 + 형제 6줄 + 제외 1 — 모두 미분류 0·목록만 0(§25-E 명령). 새로 자리에 넣은 운반 줄 19개(EP6 4·EP7 4·EP10 11). 자동 변이: EP6·EP7 9개는 round 49 결과(잡음 2·못 잡음 7 → Q6e″·Q7″ 입력, 동치 예상 2는 근거 인용), EP10′ 35개는 이 턴(잡음 33·못 잡음 2 → Q15′). 분기 입력: EP6 ⑦″ ⑤ 4 · ⑥ 2 · ⑦ 2, EP7 ⑥″ ⑥ Q7′ (a)~(d), Q15′ 2. 선택 변이 5, 선언 경계 3. D-026(단계 목록은 줄 분류 밖) 신설. 새 열거 항목의 출처: 모두 plan 내부 정합. 사용자 결정 불필요(규칙·AC 불변). |
 
 ---
 
