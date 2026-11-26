@@ -1,5 +1,187 @@
 # Verify — 0329-turn-history-paging
 
+## 판정 — verify 5회째: **PASS** (기계 범위)
+
+막는 발견 0, 모든 REQUIRED·REGRESSION pair PASS, 독립 축 4개, ⑦ 잔여 0이라 PASS다. 이전 실패를 먼저 확인했다 — G4는 `send.ts:99`가 `schema_validation_error` 한 줄로 돌아왔고 r4 분류식 재주입(V7-a)이 Q15″에서 red다. D20의 B5·B6·B7은 셋 다 red다. 새로 나온 green은 동치 2(앵커·세대 항 — 출발 방문 생산자가 그 상태를 만들지 않는다)와 창 밖 확장 1(boundId 인계 항 → NX3에 합침)뿐이다. AC10(목표 Windows 실기)은 0330의 사람 몫이다.
+
+## 메타 (verify 5)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `1a109284..b5101150`. production 1파일(`send.ts` +1/−1 — r4 분류식 제거), 테스트 2파일(`send.busy.test.ts` · `history-search.test.ts` 신규 3사례), plan·INDEX·`evidence/r5-history.json`. r5 구현 커밋 `b5101150` — 브랜치 `ccr-ca3d795a-2t0cmj`, `origin/main` 조상 아님 |
+| 구현 전 plan 기준 | `1a109284`(V1 rev 5 + ΔV1~ΔV7). `b5101150`의 plan diff는 머리말·메타 2행·`[구현자 기입] r5` 7절·G4·D20 상태 칸뿐 — Decision·AC·V·§10 변경 0 |
+| V mode / 유효 V | Baseline V V1 rev 5 + ΔV1~ΔV7 |
+| 라운드 | 5 |
+| 확장 창 | verify 5회째 — **창 밖**. ΔV7은 verify 4 PLAN_GAP 정정이라 창을 다시 열지 않는다. ΔV7 새 열거 항목(Q15″ · 선택 변이 V7-a)의 출처는 plan 내부 정합(G4) — 출처 없는 항목 0 |
+| 점검 순서 | 이전 실패(G4 V7-a · D20 B5~B7) → ③ verify 4 못 잡음·동치 → ④ r5가 고친 oracle 파일 두 개를 지나는 이전 잡음 → ⑦ ΔV7 새 항목 → ⑥ 독립 축 |
+| 독립 축(⑥) | 4축. (a) `send.ts:84` boundId 인계 항 제거(Xa) → 못 잡음 · 확장(창 밖) NX3. (b) `send.ts:103` 거절 뒤 `return` 제거(Xb) → 잡음. (c) `send.ts:99-101` 거절에 `{ retryable: true }`(Xd) → 잡음. (d) `chatStore.ts:2606` 앵커 항(Xc1)·세대 항(Xc2) 제거 → 동치(생산자 `searchVisit.ts:40`) |
+| 열거 sweep(⑦) | ΔV7 새 항목: V7-a · 등록 변이 R5·R6 · 맞바꿈 W1 · EP10″ census 자동 변이 15. ③ B4·B10·S1·S2·S5·S6·S11·L1 동치 재실행 · B5~B7. ④ `send.ts` 자리 S155·S297·S400·S401·S602·S623·N6 · EP6 ⑦″ census 자동 변이 15 · W3 · B3. 시도 63 = 잡음 47 · 동치 13 · 못 잡음 3(X1·Xa 확장 · L1 첫 실행 red는 하네스 외 실패라 동치 유지) |
+| ⑦ 잔여 | **0** — verify 4 잔여 0, ΔV7 새 항목은 위에서 다 돌렸다 |
+| 발견 분류 | 이행 0 · 현재 0 · 확장(창 밖) 1(Xa → NX3 합침) · 비귀속 1(N1 기존 Vitest 22건) |
+| 구현 주체·문맥 | Codex 구현, Claude Code 검증. ΔV7은 Claude Code 설계 — Q15″ 기대값은 r4 전 코드와 대조해 정했다(§0) |
+| 실행 환경 | 4코어. 변이는 저장소 트리에서 순차로 돌렸고 gate는 별도 git worktree(검증 뒤 삭제)에서 돌렸다. 실행 중 컨테이너가 한 번 재시작돼 변이 S1이 고친 채로 남았다 — `git diff`로 그 한 줄만 확인하고 `git checkout`으로 되돌린 뒤 남은 17개를 다시 돌렸다. 끝난 뒤 `원복 확인: 모든 파일 원문 그대로` · `git status` 빈 출력 |
+
+## 0. 기준선 / plan validity (verify 5)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| 구현 커밋의 plan 변경 | 규범 행 변경 0 | `git diff 1a109284 b5101150 -- …/plan.md` hunk는 머리말·메타·`[구현자 기입] r5`·G4·D20 상태 칸 |
+| Q15″ ↔ 규칙 칸 | 일치 | 규칙 “§22-E 형제 그대로” ↔ Q15″ (i) `schema_validation_error` + 문구. `send.ts:192`(뒤 검사)는 같은 분류에 다른 문구 “대화의 작업 종류가 올바르지 않거나…” |
+| EP10″ census(§26-E 명령) | 유효 — 검색 41줄 · 운반 28 · 목록 28 · 제외 1 · 미분류 0 · 목록만 0 | r5는 `send.ts:99`를 제자리에서 바꿔 줄 이동 0. §25-E의 옛 EP10′ 명령은 미분류 6(줄 +3 전 좌표)이라 ΔV7이 대체한 그대로다 |
+| EP6 ⑦″ · EP7 ⑥″ · EP3 ⑤′ census(§25-E) | 유효 — 16줄·운반 11 · 10줄·운반 8 · 5줄·운반 2, 모두 미분류 0 | 렌더러 production 변경 0 |
+| EP6 ⑦″ ⑦ 규칙 칸 ↔ 입력 칸 | 닫힘 | r5가 (iii)~(v) 입력을 더했다(§4) |
+| 운영 gate | 유효 | §19-3 열거 |
+
+## 1. Product & UX / ACTIVE Decision (verify 5 변경분)
+
+| Decision | 기대 | r5 production path | 판정 |
+|---|---|---|---|
+| D-023 · AC8·AC12 분기·인계 | Orca 출발 세션으로 하네스·지원 검사, 거절은 결정적 오류 | `send.ts:83-104` → `makeClassifiedError('schema_validation_error', …)` → `retryable: false`(`infra/errors.ts:57` 기본값) | ✅ V7-a·R5·W1·Xd red. 화면은 재시도 표시 없는 스키마 오류 문구(r4의 “백엔드 연결 오류 · 재시도 가능” 회귀가 사라졌다) |
+| D-015 · 출발 방문 복원 | 하단 고정(또는 앵커 없는) 출발 방문은 활성+검색 보기면 ‘최신 대화로’, 아니면 출발 세션 열기 | `chatStore.ts:2606-2610` | ✅ B5·B6·B7·W3 red |
+
+## 2. 구현 결과 비판적 검토 — AC 전에 (verify 5)
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| r4 분류 변경이 완전히 되돌려졌나 | ✅ | `send.ts:99` = `'schema_validation_error',`. `forkSource`는 boundId(`:84`)에만 남았고 `backendMismatch`는 조건(`:87-90`)에만 남았다. V4-B8·B9 표면(`:99` 삼항)은 사라져 그 행은 plan §26-F로 닫힌다 |
+| 거절 뒤 부작용 | ✅ | Xb(`return` 제거) → main 3 red — Q15″가 `acquireChain` 0·큐 0을 본다 |
+| 새 테스트가 production을 지나나 | ✅ | `history-search.test.ts` 신규 3사례는 실제 `chatActions.newChat`·`loadSession`·`openSearchHit`·`restoreOriginVisit`와 `sessionApi` 스파이. Q15″는 실제 `handleChatSend` |
+| 기존 단언 완화 | 없음 | `send.busy.test.ts`는 분류 문자열 비교를 `objectContaining(error)`로 넓혀 `message`·`retryable`까지 본다. `history-search.test.ts`의 `anchor` 상수 추출은 같은 값 |
+
+## 3. 역방향 탐색 (verify 5)
+
+production 변경이 1줄이라 직접 봤다. `forkSource` 소비처 1곳(`:84`) · `backendMismatch` 1곳(`:90`). `provider_connection_error`는 이 관문에서 더 나오지 않는다(`:115` 어댑터 없음 거절만 남음 — r4 전과 같음). 신규 export·테스트 전용 심볼 0.
+
+## 4. 증거 재측정 (verify 5)
+
+oracle: main = `adapters/claude`·`app/chat-turn`·`app/native-history.test.ts` 120파일(기준선 red 플러그인 3파일 제외, 무변이 1,352건 green) · 렌더러 = `vitest run src/renderer/src/features/chat src/renderer/src/app`(무변이 426파일·3,496건 green). 줄 번호는 `b5101150` 트리 기준이다.
+
+- **이전 실패 먼저**: G4 — V7-a red(1 failed, Q15″ (i)). D20 — B5·B6·B7 각각 1 red(r5 신규 사례 (iii)·(iv)·(v)).
+- **①** ΔV7 등록 변이 V7-a · R5 · R6 · W1 red.
+- **②** D20 인용 변이 B5·B6·B7 red. G4는 PLAN_GAP이라 인용 변이 대신 §26-E 선택 변이(V7-a)로 닫는다.
+- **③** verify 4 동치 B4·B10 green 그대로. verify 3 동치 중 `chatStore.ts` 6행(L1·S1·S2·S5·S6·S11)은 r5가 같은 store의 테스트 파일을 바꿔 다시 돌렸다 — 모두 green. L1은 첫 실행만 1 red였고 같은 변이를 단독 재실행 2회(store 453건 · 렌더러 3,496건) green이라 하네스 외 실패로 분류했다. 나머지 동치(C4~C6·P6·P9·P10·X6·PQ6·V3·E3)와 단위 3(V5·V14·E1)은 파일·oracle 변경 0이라 verify 4 근거 그대로다. B8·B9는 표면이 사라져 닫힘(§2). X1은 후보 표 행이라 하한 밖이지만 다시 돌렸다 — green 그대로.
+- **④** r5가 고친 oracle 두 파일을 지나는 이전 잡음: `send.ts` 자리(S155·S297·S400·S401·S602·S623·N6)와 EP10″ 자동 변이 15 — 전부 red. EP6 ⑦″ 자동 변이 15 중 14 red · `useHistoryControls.ts:78:49`(`returnFailed`) green은 verify 4·§25-E의 동치 예상 그대로. W3·B3 red. red → green 0.
+- **⑤** W1(`forkFrom`↔`handoffFrom`) · W3(latest 인자 누락) red.
+- **⑥** 메타 표 (a)~(d).
+- **⑦** ΔV7 새 항목 전부(메타 표).
+
+### 동치 근거 — 앵커·세대 항 (⑥ d)
+
+`rememberSearchOrigin`(`searchVisit.ts:36-46`)이 출발 방문을 라우트 상태에 쓰는 유일한 생산자다(`rg -n historyOrigin app/src/renderer/src -g '!*.test.*'` 3줄 — 쓰기 `searchVisit.ts:43` · 읽기 `useChatRouteSync.ts:75-76`). `!origin.pinned && (!generation || !origin.anchor?.messageId)`이면 쓰지 않으므로 `restoreOriginVisit`이 받는 상태는 `pinned`이거나 앵커·세대를 다 가진다. 두 경우 모두 `:2606`의 앵커 항·세대 항은 결과를 가르지 않는다.
+
+### 고장 이력 (verify 5)
+
+| ID | 자리 | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 / 근거 | 분류 |
+|---|---|---|---|---|---|---|
+| V5-V7a | `send.ts:99` | 다른 값 | r4 분류식 복원 | 잡음 | 1 red — Q15″ (backend=opencode) | — |
+| V5-R5 | `send.ts:83` | 제거 | `forkSource = undefined` | 잡음 | 2 red — Q15″ (i)(ii) | — |
+| V5-R6 | `send.ts:122` | 제거 | `payload.forkFrom ||` 삭제 | 잡음 | 1 red — Q15″ (ii) | — |
+| V5-W1 | `send.ts:83` | 맞바꿈 | `forkFrom` → `handoffFrom` | 잡음 | 2 red — Q15″ | — |
+| V5-B10 | `send.ts:83` | 제거 | `sessionId == null ?` 조건 삭제 | 동치 | green — 스키마가 `sessionId`+`forkFrom`을 거절(`protocol.ts:216`) | — |
+| V5-X1 | `send.ts:122` | 제거 | `|| payload.handoffFrom` 삭제 | 못 잡음 | green — 후보 표 NX3 그대로 | 확장(창 밖) |
+| V5-Xa | `send.ts:84` | 제거 | boundId `?? payload.handoffFrom` 삭제 | 못 잡음 | green 1,352 — 인계 하네스 불일치가 뒤 검사(`:179-196`)로 넘어가 같은 분류·다른 문구. Q15″는 분기 항만 요구 | 확장(창 밖) → NX3 |
+| V5-Xb | `send.ts:103` | 제거 | 거절 뒤 `return` 삭제 | 잡음 | 3 red | — |
+| V5-Xd | `send.ts:99-101` | 다른 값 | `{ retryable: true }` 추가 | 잡음 | 1 red — Q15″ `retryable: false` | — |
+| V5-S155 | `send.ts:155` | 제거 | `?? payload.forkFrom` 삭제 | 잡음 | 3 red | — |
+| V5-S297 | `send.ts:297` | 고정값 | `nativeRecovery(…)?.native_id ?? …` → `continuitySource` | 잡음 | 4 red | — |
+| V5-S400 · S401 | `send.ts:400·401` | 제거 | `forkFrom`·`handoffFrom` 전개 삭제 | 잡음 | 각 2 red | — |
+| V5-S602 | `send.ts:602` | 제거 | `nativeSessionId` 전개 삭제 | 잡음 | 1 red | — |
+| V5-S623 · N6 | `send.ts:623` | 제거 · 다른 값 | 전개 삭제 · `forkNativeId` → `continuitySource` | 잡음 | 4 · 2 red | — |
+| SC-… EP10″ 15 | `native-history.ts:37` · `adapt.ts:307` · `adapter.ts:527·528×2·556·681·682·948` · `resolve-turn.ts:70·123·124·180` · `send.ts:83·122` | 다른 키 | 자동(`__oo_mut`·`void 0`) | 잡음 15 | 1~18 red(`resolve-turn.ts:180`은 제외 줄 — 참고 실행) | — |
+| V5-B5 | `chatStore.ts:2607` | 제거 | `activeKey === origin.session &&` 삭제 | 잡음 | 1 red — ‘reopens an inactive origin that still holds a search view after starting a new chat’ | D20 닫힘 |
+| V5-B6 | `chatStore.ts:2607` | 제거 | `&& …?.search` 삭제 | 잡음 | 1 red — ‘cancels a pending target lookup when restoring the active origin without a search view’ | D20 닫힘 |
+| V5-B7 | `chatStore.ts:2606` | 제거 | `origin.pinned ||` 삭제 | 잡음 | 1 red — ‘returns a pinned origin to latest even when its reading anchor and generation are available’ | D20 닫힘 |
+| V5-Xc1 · Xc2 | `chatStore.ts:2606` | 제거 | 앵커 항 · 세대 항 삭제 | 동치 | green — 생산자 근거(위) | — |
+| V5-W3 | `chatStore.ts:2608` | 맞바꿈 | latest 인자 누락 | 잡음 | 3 red | — |
+| V5-B3 | `chatStore.ts:2005` | 제거 | `activeKey !== sessionId &&` 삭제 | 잡음 | 1 red | — |
+| V5-B4 | `chatStore.ts:2005` | 제거 | `&& …?.search` 삭제 | 동치 | green — `leaveSearch`가 검색 보기 없으면 즉시 반환 | — |
+| V5-L1 | `chatStore.ts:2732` | 제거 | 비-ok `throw` 삭제 | 동치 | 첫 실행 1 red → 단독 재실행 2회 green(실패 재현 0 — 잡음 아님). verify 3 근거 그대로 | — |
+| V5-S1 · S2 · S5 · S6 · S11 | `chatStore.ts:2830·2830·2774·2828·2787` | verify 3과 같음 | verify 3과 같음 | 동치 | green 3,496 | — |
+| SC-… EP6 ⑦″ 15 | `useChatRouteSync.ts:81` · `chatStore.ts:2006·2608·2724·2725·2759×2` · `useHistoryControls.ts:69×2·70×2·78×2` · `HistoryEdge.tsx:61·67` | 다른 키 | 자동 | 잡음 14 · 동치 1 | `useHistoryControls.ts:78:49` green — §25-E 동치 예상 | — |
+
+## 5. 사람 실기 경계 (verify 5)
+
+AC10(Windows 설치본 S-E1~S-E5)만 사람 몫이다(0330). 나머지는 위 기계 검증으로 닫았다.
+
+## 6. V-pair closeout (verify 5)
+
+이번 변경이 닿은 pair와 ΔV7이 다시 연 pair를 판정한다. 나머지는 verify 3·4 §6의 좌표 그대로다(코드 변경 0 · ④ red → green 0).
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-18 AR-05↔IT-05 | PASS | EP10″ census 미분류 0 · 자동 변이 15 잡음 · V7-a·R5·R6·W1 · `send.ts` 형제 자리 7 red. Q15″ 좌표 `main/app/chat-turn/send.busy.test.ts` ‘checks the source harness and fork capability (backend=$backend, fork=$forkSupported)’ |
+| VP-13 SD-04↔ST-04 | PASS | EP6 ⑦″ census 미분류 0 · 자동 변이 14 잡음 + 동치 1 · ⑦ B5~B7·W3 red(좌표: `renderer/src/features/chat/store/history-search.test.ts` r5 신규 3사례) · ⑤⑥은 verify 4 좌표 그대로 |
+| VP-03 R-03↔AT-03 REGRESSION | PASS | VP-13 root가 닫혀 BLOCKED_BY 해소. 현재 TODO는 VP-05(verify 4) 좌표 Q7″ 그대로 |
+| VP-05 · VP-16 · VP-19 | PASS (verify 4 좌표 유지) | 파일 변경 0 |
+
+## 7. 숫자 재측정 (verify 5)
+
+- Vitest 전체: 파일 9 failed / 1,139 passed / 4 skipped(1,152), 케이스 22 failed / 10,900 passed / 1 expected fail / 11 skipped(10,934), 처리되지 않은 오류 1. 구현 보고(1,152파일·10,934건·기존 실패 9파일 22건)와 같다. 실패 9파일은 r5 실행 기록의 기준선 목록과 `diff` 차집합 0이고 이번 diff와 교집합 0.
+- 케이스 총수 10,931 → 10,934(+3)는 `history-search.test.ts` 신규 3사례와 같다.
+- Node 스크립트 테스트 1,104/1,104(`# fail 0`).
+- 구현 보고 “지정 변이 7/7” — 이번 재실행에서 같은 7개(V7-a·R5·R6·W1·B5·B6·B7)가 모두 red.
+
+## 8. gate (verify 5)
+
+| 단계 | 결과 |
+|---|---|
+| `check-migrations-appendonly` · `check-doc-inventory --check` · `check-product-naming` · `check-test-budgets` · `check-ui-thread` | 5/5 exit 0 (`append-only ok since v0.3.1` · `links ok` · `2748파일 · 허용 7항목` · `18 real-git suites ok` · `OK`) |
+| `npm run typecheck` | exit 0 · `error TS` 0 |
+| `npm run lint` | exit 0 · 오류 0 · 경고 12. 별도 worktree, 전후 `git status --short` 빈 출력 |
+| `./node_modules/.bin/vitest run`(필터 없음) | 22 failed — 9파일이 기준선과 차집합 0, 이번 diff와 교집합 0. 비귀속 N1 |
+| `node --test scripts/*.test.mjs` | 1,104/1,104 (`# fail 0`) |
+| `npx electron-vite build` · `smoke-hosts` · `smoke-preload out/preload` | exit 0 (`[smoke-hosts] OK` · `smoke-preload: OK`) |
+
+## 9. Repository operation checks (verify 5)
+
+- trailer: `git log -1 --format='%(trailers:only=true)' b5101150`가 `Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met: 11/12`·`Criteria-Pending: AC10 …`·`Verified-By: pending`을 돌려준다. 본문 ✅ 11 · ⚠️ 1 = 12와 같다.
+- `[구현자 기입] r5` 일곱 필드: 7/7. 강제 지점 표는 VP-18·VP-13·VP-03을 담았고 `남긴 곳` 0 — 이번 재측정과 같다.
+- 대상 커밋 좌표: `b5101150`·`1a109284`·`4fea120d`는 `git cat-file -t` = commit, `origin/main` 조상 아님(브랜치 미병합). INDEX에 브랜치 해시로 적는다.
+- 테스트 소스 규칙: 수정한 테스트 2파일 — `check-test-budgets` 통과 · `[test-pools]` 가드(전체 Vitest 실행 중) 위반 0.
+- INDEX 행: 구현자가 `impl/IMPL_DONE`·다음 Claude로 바꿨다. 이 커밋에서 `verify/PASS (기계 범위)`·다음 사람(AC10 → 0330)으로 고친다 — 0324~0328의 기계 범위 PASS 행과 같은 방식이다.
+
+## 10. 사람 vs 에이전트 (verify 5)
+
+AC10 Windows 실기만 사람에게 넘긴다. 분기 하네스 불일치 거절의 분류·재시도 표시를 바꾸는 일은 ΔV7 선언 경계(범위 밖)다.
+
+## 11. 발견과 disposition (verify 5)
+
+| # | 발견 | 출처 원문 | 분류 | disposition |
+|---|---|---|---|---|
+| G4 | 닫힘 — `send.ts:99` 복원, V7-a red | §26-E 선택 변이 | — | 닫힘 |
+| D20 | 닫힘 — B5·B6·B7 red | §25-E EP6 ⑦″ ⑦ 규칙 | — | 닫힘 |
+| NX3 (+Xa) | `send.ts:84` boundId 인계 항 제거도 main 1,352건 green(Xa). verify 4의 `:122` 인계 항(X1)과 같은 축 — 인계 요청이 이 관문을 지나는지는 Q15″가 정하지 않는다 | Q15″는 분기 항만 요구 | 확장(창 밖) | NEXT_HANDOFF(확장) — 기존 후보 행에 합침 |
+| NX1 · NX2 | verify 3·4 그대로 | — | 확장(창 밖) | INDEX 후보 표(기존) |
+| N1 | Vitest 22건 red(diff 밖 9파일) | — | 비귀속 | NON_BLOCKING |
+
+### 발견 원장 — verify 5
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| G4 | PLAN_GAP | 열림 | 닫힘 | — | 새 실행 |
+| D20 | BLOCKING | closed 보고 | 닫힘 | — | 새 실행 |
+| N1 | NON_BLOCKING | 열림 | 열림 | — | 새 실행 |
+| NX1 | NEXT_HANDOFF | 열림 | 열림 | — | 기존 증거 재분류 |
+| NX2 | NEXT_HANDOFF | 열림 | 열림 | — | 기존 증거 재분류 |
+| NX3 | NEXT_HANDOFF | 열림 | 열림 | — | 새 실행 |
+
+F(5) = 0.
+
+## Review Signals — 사실만 (verify 5)
+
+- 이전 실패 G4·D20은 모두 닫혔다. 같은 증상 재발 0.
+- 독립 축 4개에서 확장 1건(Xa — 기존 NX3과 같은 축), 동치 2건(Xc1·Xc2).
+- 반복된 환경 한계: AC10 Windows 실기(0330). 실행 중 컨테이너 재시작 1회 — 변이 하네스가 고친 파일을 남겨 수동으로 되돌렸다.
+- verify 4의 `권고`(oracle 칸 기대값이 기존 동작과 다를 때 plan·impl이 잡게 하는 지침 · 검증 순서에 이전 실패 우선 점검)는 아직 사용자 결정 대기다.
+
+| 리뷰 필요 여부 | 근거 | 검토할 질문 |
+|---|---|---|
+| 불필요 | PASS이고 의무 트리거(3·6회째 비PASS·9회째) 해당 없음. 앞 회차 `검사 완료` 범위에서 나온 누락 0 | — (verify 4 권고는 별도로 유효) |
+
+---
+
+# verify 4회째 기록
+
 ## 판정 — verify 4회째: **RETURN_TO_PLAN**
 
 PLAN_GAP 1건(G4)과 막는 이행 결함 1건(D20)이 있어 RETURN_TO_PLAN이다. 이전 실패 D19·G2·G3은 먼저 다시 확인했고 모두 닫혔다 — E7i가 Q7″에서 red이고, census 4개가 미분류 0이며, 새 자리 자동 변이 61개는 잡음 59 · 동치 2(계획서가 예상한 두 자리)다. G4는 ΔV6 Q15′ (i)의 기대 오류 분류(`provider_connection_error`)가 규칙 칸·기존 분류와 어긋난다. r4는 그 기대에 맞추려고 production 분류를 바꿨고(`send.ts:99`), 결정적인 거절이 화면에서 "백엔드 연결 오류 · 재시도 가능"으로 보이게 됐다. D20은 EP6 ⑦″ ⑦ 규칙 칸의 세 분기에 입력이 없다(B5·B6·B7 못 잡음).
