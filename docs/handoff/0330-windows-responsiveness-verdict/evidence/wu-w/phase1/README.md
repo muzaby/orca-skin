@@ -1,5 +1,17 @@
 # 1단계 실측 기록 (W-042 · W-053 CDP 합성 입력)
 
+## W2″ — Claude 24 run(검색 결과 클릭·Enter) · 확인 값: **강조 없음 12/12(이후 빌드)** — 결함 후보
+
+`w2pp-runner.mjs`: 새 대화에서 상단 검색 → `확인 63` → 결과 클릭 또는 Enter → 8초 관찰. 이후 빌드에서 검색 보기는 63턴을 정확히 연다(`이전 부분 보기 / 확인 63 … / 다음 부분 보기 / 최신 대화로`) — 그러나 대상 행에 `data-history-highlight`가 **한 번도 붙지 않는다**(MutationObserver로 설정 이벤트 0, CDP 클릭·DOM `click()` 둘 다).
+
+| 관측 | 값 |
+|---|---|
+| 일반 열기의 블록 키 | `n:<uuid>:user` · `n:<uuid>:text:0` (원본 전용 ID) |
+| 검색 보기의 블록 키 | `m:170:user` · `m:171:text:0` (로컬 행 ID) |
+| 강조 코드 | `TranscriptViewport.tsx:352` — `targetBlock`은 `b.messageId === target` 또는 부분 키가 `target:`로 시작할 때만. 없으면 `revealSearchRow`를 부르지 않는다(`:398`) |
+
+**결함 후보(0329 D-013·AC6 소유)**: 검색 보기 투영(로컬 행 `m:` 키)과 검색 결과 대상 ID의 형태가 달라 `targetBlock`이 비는 것으로 보인다 — 대상 ID 실값 확인은 소유자 조사로 넘긴다. 이전 빌드는 이 기능이 없어 확인 값 대상이 아니다. OpenCode 6 run은 W2′와 같은 제공자 제한으로 보류.
+
 ## W2′ — 진행 중 · Claude 12 run 기록(확인 값 ok 6/6) · OpenCode 보류
 
 `w2p-runner.mjs`: 과거를 위로 읽는 중 P1 전송 → 3초 뒤 다른 세션 B → 2.5초 뒤 A 복귀 → 30초 기록. 기록 뒤 A 하단에서 답 끝(2999/3000)·P1 1회, B에 P1 흔적 없음을 확인한다.
