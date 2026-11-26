@@ -1,6 +1,10 @@
 import { createElement } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { installFakeDom, type FakeDom } from '../../../shared/ui/renderHarness.testfixture'
+import {
+  installFakeDom,
+  type FakeDom,
+  type FakeNode
+} from '../../../shared/ui/renderHarness.testfixture'
 import { useChatStore } from '../store/chatStore'
 import { installChatStoreHarness } from '../store/chatStore.testHarness'
 import { newTranscriptChanges, recordChange } from '../lib/transcript/changeLog'
@@ -96,8 +100,8 @@ it.each([
     )
     Object.assign(document, { fonts: { addEventListener: vi.fn(), removeEventListener: vi.fn() } })
     dom.render(createElement(ChatTile, { canAbort: false, backendLabel: backend }))
-    const root = () => dom.query('[data-behavior="virtualizable"]')
-    const check = (id: string, text: boolean) => {
+    const root = (): FakeNode | null => dom.query('[data-behavior="virtualizable"]')
+    const check = (id: string, text: boolean): void => {
       expect(root()?.getAttribute('data-transcript-session')).toBe(id)
       expect(Boolean(dom.query('[data-message-id="native-5"]'))).toBe(text)
       expect(root()?.textContent.includes('fixture message 5')).toBe(text)

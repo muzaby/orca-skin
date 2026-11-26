@@ -1,0 +1,149 @@
+# 0330 WU-M Linux 사전 실행
+
+측정 도구는 `ae27c4f77358287c109db816e91daaa28343b4c1`다. Linux x64에서 Node 22.23.3, Electron 39.8.10 및 가상 디스플레이(Xvfb)를 사용했다. 아래 값은 H1-0 재현 기록이다.
+
+## 입력과 빌드
+
+| 확인 | 관측 |
+|---|---|
+| `measure-ui-inputs.mjs --write-inputs` | 216개 파일의 SHA-256 목록이 `inputs-sha256.txt`와 바이트 단위로 일치했다. 목록 SHA-256은 `07b4cfc85c5e522b11c5de73611bceaba2665b12e4bf6e50e8e6e5c8488631aa`이다. |
+| `electron-vite build` · `VITE_OO_DIAGNOSTIC=1 electron-vite build` | renderer 산출에서 `__ooDev`가 있는 파일은 설치용 0개, 진단용 1개다. |
+
+## 기준 앱과 후속 앱
+
+각 작업 트리의 HEAD에 같은 도구를 두고 §19 H1-0의 `git restore --source=… --staged --worktree -- app/src`를 실행했다. 기준 및 후속 앱은 각 참조와의 소스 diff가 0이고 미추적 소스가 0개였다. 출력의 `tool`은 위 커밋, `environment`는 `linux-electron`이다.
+
+| 도구 · 옵션 | 앱 커밋 | 앱 소스 tree | 관측 | 종료 코드 |
+|---|---|---|---|---|
+| E 도구 small | `ae27c4f7` | `cdd028ae9e0ef36383e743507e2afccd807553ad` | 첫 본문 747.3ms · 기능 충족 · 크기 충족 | 0 |
+| E 기준 small | `7db1c7ce` | `9235fa7cb7ea2506abd5a6b38bda665ded21882b` | 첫 본문 841.0ms · 기능 충족 · 크기 충족 | 0 |
+| E 후속 small | `eae9081b` | `6d2962222fe8c1629a937c1b10cabd5839bc1a07` | 첫 본문 747.8ms · 기능 충족 · 크기 충족 | 0 |
+| E 도구 long | `ae27c4f7` | `cdd028ae9e0ef36383e743507e2afccd807553ad` | 첫 본문 8,910.6ms · 기능 충족 · 크기 충족 · Linux 시간 기준 미충족 | 1 |
+| E 기준 long | `7db1c7ce` | `9235fa7cb7ea2506abd5a6b38bda665ded21882b` | 첫 본문 6,079.0ms · 기능 충족 · 크기 충족 | 0 |
+| E 후속 long | `eae9081b` | `6d2962222fe8c1629a937c1b10cabd5839bc1a07` | 첫 본문 8,440.1ms · 기능 충족 · 크기 충족 · Linux 시간 기준 미충족 | 1 |
+| D 도구 host | `ae27c4f7` | `cdd028ae9e0ef36383e743507e2afccd807553ad` | 측정 7행 · 실행 판정 충족 | 0 |
+| D 도구 geometry | `ae27c4f7` | `cdd028ae9e0ef36383e743507e2afccd807553ad` | 마지막 댓글 표시 충족 · 포커스 충족 | 0 |
+| D 기준 host | `c7d2adf2` | `cd989a2f9b8c2689fcb467d3fa2e655d66228cc5` | 측정 7행 · 실행 판정 충족 | 0 |
+| D 후속 host | `7db1c7ce` | `9235fa7cb7ea2506abd5a6b38bda665ded21882b` | 측정 7행 · 실행 판정 충족 | 0 |
+
+같은 도구에서 수집한 stage-d 기준·후속 JSON 쌍과 0328의 `r1.2-host-baseline.json`·`r1.2-host-applied.json` 쌍을 각각 `--compare`로 읽었다. 두 실행 모두 종료 코드 0이었다.
+
+
+## 장문 기록 단독 재측정
+
+위 표의 첫 도구·후속 long 측정은 전체 테스트와 함께 실행했다. 아래 두 실행은 같은 도구 커밋, 같은 소스와 입력을 사용하고 다른 검사가 끝난 뒤 차례로 실행했다. Linux 시간 기준은 3,729ms다.
+
+| 앱 | 동시 실행(ms) | 단독 실행(ms) | 단독 기능 / 크기 | 단독 종료 코드 |
+|---|---:|---:|---|---:|
+| 도구 | 8,910.6 | 2,289.2 | 충족 / 충족 | 0 |
+| 후속 | 8,440.1 | 2,287.1 | 충족 / 충족 | 0 |
+
+## 판독기 예제
+
+| 입력 | 합의만 | 최종 확정 포함 |
+|---|---|---|
+| failing | 불합격 · 1 | 불합격 · 1 |
+| passing | 판정 보류(사용자 확정 대기) · 1 | 합격 · 0 |
+
+`windows-verdict.test.mjs`의 두 `report CLI` 테스트가 stdout 전체를 각각의 기대 JSON과 대조했다. 실패 예제에는 스크롤 지연 위반, 앞삽입 반복 결측, 검색 대상 표시 결측, T17 소유자 FAIL이 함께 남았다.
+
+## §10 자리 재검색
+
+`site_census.mjs`에 §10의 검색식과 아래 좌표를 입력했다. 판독기 182줄(운반 178), stage-d 26줄(운반 19), stage-e 12줄(운반 9), 렌더러 3줄을 분류한 결과 미분류와 목록만 있는 줄이 각각 0이었다. renderer 검색의 세 번째 줄은 기존 스크롤 루트 조회다.
+
+| 파일(app 기준) | 계약 또는 제외 근거 | 검색에 걸린 줄 |
+|---|---|---|
+| `scripts/measure-stage-d.mjs` | S6/S11 | 175 |
+| `scripts/measure-stage-d.mjs` | S6/S7/S10 | 37 |
+| `scripts/measure-stage-d.mjs` | S8/S9 | 194,199–200 |
+| `scripts/measure-stage-d.mjs` | 제외(import) | 5,7–8 |
+| `scripts/measure-stage-e.mjs` | E0/E4~7/V4/V5 | 22,28,30 |
+| `scripts/measure-stage-e.mjs` | E0/E5 | 16 |
+| `scripts/measure-stage-e.mjs` | V5 | 83,86 |
+| `scripts/measure-stage-e.mjs` | 제외(import) | 2,4,9 |
+| `scripts/stage-d-host/electron-main.mjs` | S4 | 87 |
+| `scripts/stage-d-shell/probe.ts` | S5 | 282 |
+| `scripts/stage-d/measurement.mjs` | S1/S8 | 9 |
+| `scripts/stage-d/measurement.mjs` | S11 | 17,20,23 |
+| `scripts/stage-d/measurement.mjs` | S1~3/S7 | 58,60–61 |
+| `scripts/stage-d/measurement.mjs` | S7/S10/S11 | 45–47 |
+| `scripts/stage-d/measurement.mjs` | S8 | 137,141 |
+| `scripts/stage-d/measurement.mjs` | 제외(declaration) | 16,27,68,135 |
+| `scripts/stage-e/baseline-source.mjs` | E1~4 | 1,17 |
+| `scripts/stage-e/verdict.mjs` | V1~V4 | 33 |
+| `scripts/windows-verdict.mjs` | C1~C4 | 697,713,716,719,721,724 |
+| `scripts/windows-verdict.mjs` | P1/P2/P4 | 384 |
+| `scripts/windows-verdict.mjs` | P1/P3/P4/P5 | 515,521,544,549,567,570,572–575,578–579,581–582,586 |
+| `scripts/windows-verdict.mjs` | P1/P4/P5 | 600,607–612,616,619,621,624,626,628–630,632,634,642,646,654,657,664–671 |
+| `scripts/windows-verdict.mjs` | P1/P5 | 292,297,313,326–328,330 |
+| `scripts/windows-verdict.mjs` | P1~P5 공통 키·연산 | 12,29 |
+| `scripts/windows-verdict.mjs` | P2 | 45,47,87–89,91–93,96–97,100–104,106,113–115,117–118,120–121,125–126,128,137,148,150,152,155,160,162,164–165,167,169–170,172–174,177–180,184–188,191–193,197–200,202–204 |
+| `scripts/windows-verdict.mjs` | P2/P3 | 411,413,415–416,422–425,427,429,431–432,435,438,440–441,446–447,452,456 |
+| `scripts/windows-verdict.mjs` | P2/P3/P5 | 355–356,358,365,368,463,481 |
+| `scripts/windows-verdict.mjs` | P3 | 246,254,492–493,498,501–505 |
+| `scripts/windows-verdict.mjs` | P3/P4 | 214,216–218,222–223,225,230–233,236,238,240,272–275,282,284,286 |
+| `scripts/windows-verdict.mjs` | 제외(comment) | 408 |
+| `scripts/windows-verdict.mjs` | 제외(declaration) | 244,268,490 |
+| `src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx` | 제외(스크롤 루트 조회, 속성 작성 없음) | 560 |
+| `src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx` | R1 | 122 |
+| `src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx` | R2 | 122 |
+
+## 통합 테스트의 변경 전후 대조
+
+Git 기준 트리와 구현 트리에 동일한 Node 22.23.3, SQLite Node ABI 127을 사용했다. 두 트리의 파일 제한 없는 Vitest 실행에서 실패한 테스트 이름의 차집합은 양방향 0개다.
+
+| 트리 | 파일 | 테스트 |
+|---|---|---|
+| 설계 기준 `a8bbe99a` | 9 failed · 1139 passed · 4 skipped (1152) | 22 failed · 10900 passed · 1 expected fail · 11 skipped (10934) |
+| 구현 최종 | 9 failed · 1140 passed · 4 skipped (1153) | 22 failed · 10903 passed · 1 expected fail · 11 skipped (10937) |
+
+OpenCode와 Composer 사례는 Linux에서 `C:/…`를 작업 트리 아래로 해석하거나 절대 경로 검사에서 거부했다. Claude 플러그인은 `native-resources.ts:39`에서 `win32`일 때만 프로젝트별 제어를 활성화한다. Linux에서는 적용을 요구하는 테스트에 재시작 필요 또는 제어 불가 상태가 반환됐다.
+
+| 실패 파일(app 기준) | 변경 전후 각각 실패한 테스트 수 |
+|---|---:|
+| `src/main/adapters/claude/adapter.native-plugins.test.ts` | 5 |
+| `src/main/adapters/claude/native-resources.test.ts` | 3 |
+| `src/main/adapters/claude/project-reconciliation.test.ts` | 2 |
+| `src/main/adapters/opencode/v1/adapter.instances.test.ts` | 2 |
+| `src/main/adapters/opencode/v1/adapter.persistent.test.ts` | 1 |
+| `src/main/adapters/opencode/v1/adapter.test.ts` | 1 |
+| `src/main/app/composer-catalog.test.ts` | 6 |
+| `src/main/app/composer-preparation-service.test.ts` | 1 |
+| `src/main/app/handlers/session-resources.claude-assembly.test.ts` | 1 |
+
+두 트리 모두 Claude 플러그인 제어 시 같은 미처리 거부 1건을 기록했다. 직접 원인은 `이 플러그인은 프로젝트별 제어를 지원하지 않습니다.`였다.
+
+## 생산자의 환경 필드 변이
+
+호스트의 `electron-main.mjs`와 셸의 `probe.ts`에서 각각 `environment: measurementEnvironment()` 한 항을 `environment: undefined`로 바꿨다. 아래 명령을 원본, 변이, 복원 순서로 각 생산자에 적용했다. 원본에서는 환경이 `linux-electron`이고 SHA가 도구와 일치했다. 환경이 빠지면 호스트와 셸 모두 종료 코드가 0에서 1로 바뀌었다. 판정은 상위 CLI가 출처를 덧붙이기 전 반환값을 읽는다.
+
+```sh
+# RUNNER를 host와 shell로 각각 실행한다.
+RUNNER=host xvfb-run -a node --input-type=module <<'JS'
+import { resolveElectron } from './scripts/check-transcript-selection.mjs'
+import { runHostMeasurements } from './scripts/stage-d/host-runner.mjs'
+import { runShellMeasurements } from './scripts/stage-d/shell-runner.mjs'
+import { provenance } from './scripts/stage-d/measurement.mjs'
+
+const run = { host: runHostMeasurements, shell: runShellMeasurements }[process.env.RUNNER]
+const source = provenance()
+const result = await run(resolveElectron(), false, source)
+console.log({ env: result.env, environment: result.environment, sha: result.sha })
+if (!result.env || result.environment !== source.environment || result.sha !== source.sha)
+  process.exitCode = 1
+JS
+```
+
+## 재현 명령
+
+`app/`에서 실행했다. 소스 복원 및 CLI 인자는 [§19 H1-0](../plan.md#h1-0-wu-m-사전-실행linux-지금)에 있다.
+
+- `node --test scripts/*.test.mjs`
+- `./node_modules/.bin/vitest run`
+- `npm run lint`
+- `npm run typecheck`
+- `./node_modules/.bin/electron-vite build`
+- `node scripts/smoke-hosts.mjs out/main`
+- `node scripts/smoke-preload.mjs out/preload`
+
+H1-0의 측정 뒤 진단용 JavaScript에 lint 설명 주석을, 렌더러 테스트에 반환 타입을 추가했다. 판독기는 종료 시각 없는 재시도가 확정 시각 비교를 가리지 않도록 U18에서 보완했다. 실제 Electron 측정 스크립트와 제품 실행 코드는 위 커밋과 같다. stage-d/e 도구·생산자 검색에서 `linux-electron` 리터럴은 `stage-d/measurement.mjs:9` 한 곳, 옛 기준 좌표 `3d8e1d90`은 0곳이었다.
