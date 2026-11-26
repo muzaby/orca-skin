@@ -339,6 +339,27 @@ function planCheck(plan) {
       throw Error('예정 소유자 없음: ' + c.key)
 }
 
+function ownersCheck(plan, owners) {
+  for (const row of owners.rows) {
+    const { task, owner, key } = row
+    let target = `${task}/${owner}`
+    if (!plan.tasks.some((entry) => entry.id === task && entry.owners.includes(owner)))
+      throw Error('소유 행 대상 없음: ' + target)
+    if (key != null) {
+      target += '/' + key
+      if (
+        !plan.cells.some((cell) => cell.task === task && cell.owner === owner && cell.key === key)
+      )
+        throw Error('소유 행 대상 없음: ' + target)
+    }
+    for (const kind of ['machine', 'windows']) {
+      const value = row[kind]
+      if (value != null && !['PASS', 'FAIL', '미완'].includes(value))
+        throw Error(`소유 판정 값 오류: ${target} ${kind}=${value}`)
+    }
+  }
+}
+
 function observationIndex(manifest, observations, report) {
   const runs = new Map()
   const rows = new Map()
@@ -600,6 +621,7 @@ export function evaluate({
   readRaw
 }) {
   planCheck(plan)
+  ownersCheck(plan, owners)
   const report = {
     revision: plan.revision,
     cells: [],

@@ -18,6 +18,10 @@ function fixture(key = 'typing') {
   const cell = plan.cells.find((c) => c.key === key)
   plan.cells = [cell]
   plan.tasks = plan.tasks.filter((t) => t.id === cell.task)
+  const owners = load(full, 'owners.json')
+  owners.rows = owners.rows.filter((row) =>
+    plan.tasks.some((task) => task.id === row.task && task.owners.includes(row.owner))
+  )
   const manifest = load(full, 'manifest.json')
   manifest.runs = manifest.runs.filter((r) => r.runId.startsWith(key + '-'))
   const observations = readFileSync(join(full, 'observations.jsonl'), 'utf8')
@@ -34,8 +38,7 @@ function fixture(key = 'typing') {
       return null
     }
   }
-  const owners = load(full, 'owners.json'),
-    decision = load(full, 'decision.confirmed.json')
+  const decision = load(full, 'decision.confirmed.json')
   const input = { plan, manifest, observations, owners, decision, readRaw }
   const put = (path, text) => {
     files.set(path, text)
@@ -145,6 +148,38 @@ test('report CLI: owner FAIL without evidence still fails', (t) => {
   assert.deepEqual(report.ownerFailures, ['T17/0326'])
   assert.deepEqual(report.holds, ['소유 판정 근거 없음'])
   assert.equal(report.cells.find((cell) => cell.key === 'typing').ownerMachine, 'FAIL')
+})
+
+test('cli rejects owner rows outside the plan', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'oo-owner-input-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  cpSync(full, dir, { recursive: true })
+  const owners = load(dir, 'owners.json')
+  const invalidKey = { task: 'T17', owner: '0326', key: 'scrol', machine: 'FAIL' }
+  for (const [rows, message] of [
+    [[...owners.rows, invalidKey], '소유 행 대상 없음: T17/0326/scrol'],
+    [[{ ...owners.rows[0], task: 'T71' }, owners.rows[1]], '소유 행 대상 없음: T71/0326'],
+    [
+      [{ ...owners.rows[0], machine: 'fail' }, owners.rows[1]],
+      '소유 판정 값 오류: T17/0326 machine=fail'
+    ]
+  ]) {
+    writeFileSync(join(dir, 'owners.json'), JSON.stringify({ rows }))
+    const run = cli(dir, '.confirmed')
+    assert.equal(run.status, 2)
+    assert.equal(run.stdout, '')
+    assert.equal(run.stderr.trim(), message)
+  }
+
+  owners.rows.push({ ...invalidKey, key: 'scroll' })
+  writeFileSync(join(dir, 'owners.json'), JSON.stringify(owners))
+  const run = cli(dir, '.confirmed')
+  assert.equal(run.status, 1)
+  const report = JSON.parse(run.stdout)
+  assert.equal(report.overall, '불합격')
+  assert.deepEqual(report.ownerFailures, ['T17/0326'])
+  assert.equal(report.cells.find((cell) => cell.key === 'scroll').ownerMachine, 'FAIL')
+  assert.equal(report.cells.find((cell) => cell.key === 'typing').ownerMachine, 'PASS')
 })
 
 test('cli rejects missing arguments and malformed input and supports optional owners', (t) => {
@@ -706,13 +741,17 @@ test('U39 keeps owner failures and reports missing evidence for each owner colum
     ['machine', 'ownerMachine'],
     ['windows', 'ownerWindows']
   ]) {
-    for (const [value, ref, column, overall] of [
-      ['FAIL', undefined, 'FAIL', '불합격'],
-      ['PASS', undefined, '미기록', '판정 보류'],
-      ['미완', undefined, '미기록', '판정 보류'],
-      ['FAIL', 'verify#owner', 'FAIL', '불합격'],
-      ['PASS', 'verify#owner', 'PASS', '합격'],
-      ['미완', 'verify#owner', '미완', '판정 보류']
+    for (const [value, ref, column, overall, missingFailureRef] of [
+      ['FAIL', undefined, 'FAIL', '불합격', true],
+      ['FAIL', '   ', 'FAIL', '불합격', true],
+      ['FAIL', null, 'FAIL', '불합격', true],
+      ['PASS', undefined, '미기록', '판정 보류', false],
+      ['PASS', 1, '미기록', '판정 보류', false],
+      ['PASS', '', '미기록', '판정 보류', false],
+      ['미완', undefined, '미기록', '판정 보류', false],
+      ['FAIL', 'verify#owner', 'FAIL', '불합격', false],
+      ['PASS', 'verify#owner', 'PASS', '합격', false],
+      ['미완', 'verify#owner', '미완', '판정 보류', false]
     ]) {
       const f = fixture()
       f.owners.rows[0][kind] = value
@@ -721,7 +760,7 @@ test('U39 keeps owner failures and reports missing evidence for each owner colum
       assert.equal(report.cells[0][output], column)
       assert.equal(report.overall, overall)
       assert.deepEqual(report.ownerFailures, value === 'FAIL' ? ['T17/0326'] : [])
-      assert.equal(report.holds.includes('소유 판정 근거 없음'), value === 'FAIL' && !ref)
+      assert.equal(report.holds.includes('소유 판정 근거 없음'), missingFailureRef)
     }
   }
   const f = fixture()
@@ -752,6 +791,40 @@ test('U39 keeps owner failures and reports missing evidence for each owner colum
   assert.equal(report.cells[1].ownerWindows, 'FAIL')
   assert.equal(report.overall, '합격')
   assert.deepEqual(report.holds, [])
+})
+
+test('U40 checks every owner row against its task, owner, cell and verdict columns', () => {
+  const f = fixture()
+  f.plan.tasks[0].owners.push('0328')
+  f.plan.cells.push({ ...f.cell, key: 'owner2', owner: '0328' })
+  f.plan.tasks.push({ id: 'T09', owners: ['0326'] })
+  f.plan.cells.push({ ...f.cell, key: 'other-task', task: 'T09' })
+  const row = { task: 'T17', owner: '0326' }
+  for (const [patch, message] of [
+    [{ task: 'T99' }, '소유 행 대상 없음: T99/0326'],
+    [{ owner: '0399' }, '소유 행 대상 없음: T17/0399'],
+    [{ task: 'T09', owner: '0328', key: 'owner2' }, '소유 행 대상 없음: T09/0328'],
+    [{ key: 'nope' }, '소유 행 대상 없음: T17/0326/nope'],
+    [{ key: 'owner2' }, '소유 행 대상 없음: T17/0326/owner2'],
+    [{ key: 'other-task' }, '소유 행 대상 없음: T17/0326/other-task'],
+    [{ key: '' }, '소유 행 대상 없음: T17/0326/'],
+    [{ machine: 'fail' }, '소유 판정 값 오류: T17/0326 machine=fail'],
+    [{ windows: 'pass', key: 'typing' }, '소유 판정 값 오류: T17/0326/typing windows=pass'],
+    [{ machine: 0 }, '소유 판정 값 오류: T17/0326 machine=0']
+  ]) {
+    f.owners.rows = [row, { ...row, ...patch }]
+    assert.throws(f.report, { message })
+  }
+  for (const patch of [{ key: 'typing', machine: 'PASS' }, { key: null, windows: null }, {}]) {
+    f.owners.rows = [{ ...row, ...patch }]
+    assert.doesNotThrow(f.report)
+  }
+
+  f.owners.rows = [{ ...row, task: 'T99' }]
+  f.input.readRaw = () => assert.fail('owner rows must be checked before reading evidence')
+  assert.throws(f.report, { message: '소유 행 대상 없음: T99/0326' })
+  f.plan.cells = []
+  assert.throws(f.report, { message: '필수 셀 없음' })
 })
 
 test('U13 diagnostic overlay source carries its recorded diff hash', () => {
