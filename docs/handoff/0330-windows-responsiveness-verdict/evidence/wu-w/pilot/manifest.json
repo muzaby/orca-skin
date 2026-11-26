@@ -1,0 +1,44 @@
+{
+ "runs": [
+  {
+   "runId": "pilot-w1-515-cc-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515-cc-h1-r1.json",
+    "sha256": "ce3f1733c261f489687558450812fdf1d303428c11fe064044552c93d9092284",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "fc2c0bbc99c2f19612a0e15675ebaefd7e0b2eb8",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T14:29:03.625Z",
+   "endedAt": "2026-11-26T14:30:29.852Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+
+Caption     : Microsoft Windows 11 Home
+Version     : 10.0.22631
+BuildNumber : 22631
+
+
+
+Name : Intel(R) Core(TM) i7-6500U CPU @ 2.50GHz
+
+
+
+Name                        : Intel(R) HD Graphics 520
+DriverVersion               : 21.20.16.4565
+CurrentRefreshRate          : 60
+CurrentHorizontalResolution : 1920
+CurrentVerticalResolution   : 1080
+
+
+전원 구성표 GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (균형 조정)
+
