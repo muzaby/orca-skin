@@ -1,5 +1,125 @@
 # Verify — 0330-windows-responsiveness-verdict
 
+## 판정 — verify 3회째: **PASS** (WU-M 기계 범위)
+
+막는 발견이 0건이다. verify 2의 F4·F5는 닫혔고, ΔV2 pair 4개와 운영 gate가 모두 PASS다.
+
+- 고장 162건이 모두 기대대로 나왔다. red 161건, 대조 green 1건(`V2.hold-order`)이다. verify 2의 `못 잡음` `V2.textValue-truthy`도 이제 red다(U39).
+- 독립 축은 23건이다. verify 2 변형 11건 중 9건은 출력이 바이트 단위로 같다. F5 두 건은 `합격`·exit 0에서 exit 2와 대상 진단으로 바뀌었다. 새 변형 12건은 W-039·W-040대로 판정됐다.
+- §21-C 자리 검색과 §10-A 판독기 검색은 미분류 0이다. gate 차집합은 ∅다.
+- WU-W(VP-01~07·AC1~AC6)는 W-004 사전 합의 대기라 이번 판정 대상이 아니다(W-018).
+
+## 메타 (verify 3)
+
+| 항목 | 값 |
+|---|---|
+| 회차 · 확장 창 | verify **3회째** — 창 밖. 사용자 요구 변경 ΔV 없음. ΔV2는 verify 2 뒤 마지막 설계 턴이다. 새 열거 항목(P5 ⑧ c·⑨ a~c)의 출처는 사용자 결정(W-039 — D5 처리안 ①)과 verify 2 PLAN_GAP 채택(W-040)이다 |
+| 대상 | `d77d3f3c..07377db7`. 설계 기준 = V1 rev 7 + ΔV1 + ΔV2(`d77d3f3c`). 구현 r3 = `515ff58d`(partial)·`07377db7`(implemented, `Agent: codex`). PR 브랜치 해시, `main` 미병합(`merge-base --is-ancestor` exit 1) |
+| 범위 | ΔV2 REQUIRED VP-10·VP-14 · REGRESSION VP-08·VP-09. NOT_REQUIRED VP-11~13·15~19·R1은 r3 diff가 닿지 않는다 — app 변경은 `windows-verdict.mjs`·그 시험 2파일뿐이다 |
+| 환경 | Linux x64 · Node 22.23.5 · better-sqlite3 바인딩 없음(verify 1·2와 같은 한계). 판독기는 DB와 무관해 모든 범위를 실측했다 |
+| 독립 축(⑥) | 23건 축 변형([`evidence/verify3-axes.txt`](evidence/verify3-axes.txt)) + 구현자 원장 밖 변이 22건(`V3.*`) |
+| ⑦ 전수 잔여 | **0** — 범위는 ΔV2가 새로 열거한 P5 ⑧ c·⑨ a·b·c·호출과 직전 `못 잡음` 1건이다. verify 2가 남긴 잔여는 없다 |
+
+## 0. 기준선 / plan 변경 확인 (verify 3)
+
+- 구현 커밋의 plan diff는 hunk 3개다. 메타 `상태` 1줄, `[구현자 기입]` r3 절 추가, `[검증자 기입]` D4·D5 `상태` 칸이다(`git diff -U0 d77d3f3c 07377db7 -- plan.md`). Decision·AC·§10·V는 바뀌지 않았다. 채점 기준은 V1 rev 7 + ΔV1 + ΔV2다.
+- **plan validity — gap 0**: CHANGED 노드 R-07·MD-02에 같은 레벨 REQUIRED pair(VP-14·VP-10)가 있다. §21-C 자리 검색은 5줄이고 목록 4·제외 1과 차집합 ∅다(`site_census.mjs` 미분류 0). 규칙 칸 ⑧ c·⑨ a·b·c마다 U39·U40 입력이 있다.
+
+## 1~3. diff 비판 · 역방향 탐색 · end-to-end (verify 3)
+
+| 대상 | 판정 · 관측 |
+|---|---|
+| `ownersCheck` `windows-verdict.mjs:342-361` | ✅ task·owner 쌍은 `plan.tasks[].owners`로 대조한다. `key != null`이면 같은 task·owner 셀의 `key`와 대조한다. 값은 `!= null`일 때 `PASS`·`FAIL`·`미완`만 받는다. 셋 다 throw → `cli` catch → exit 2이고 stdout은 비어 있다 |
+| 호출 순서 `:623-624` | ✅ `planCheck` 바로 뒤, 셀·원본 판독 앞이다. 판정 직전으로 옮긴 수동 변이 `call-late`는 U40의 `readRaw` 가드에서 red다 |
+| 소유 열 판독 `:658-676` | ✅ 변경이 없다. plan 안의 행만 도달하므로 `(!row.key \|\| …)`의 `key: ''`는 `ownersCheck`가 먼저 막는다(축 `whitespaceKey` → exit 2) |
+| 시험 `fixture()` `windows-verdict.test.mjs:21-24` | ✅ owners 행도 남은 task·owner로 줄인다. 이 줄을 지우면 판독기 시험 20건이 red다(`V3.fixture-noop`). production symbol만 import하며 로컬 재구현은 0건이다 |
+| 역방향 | `ownersCheck`는 export가 아니고 호출자는 `evaluate` 1곳이다. `app/src`에서 판독기를 참조하는 곳은 0건이다 |
+
+## 4. 증거 재계수 — 하한 ①~⑦ (verify 3)
+
+| # | 결과 |
+|---|---|
+| ① | ΔV2 등록 변이 A-⑨a·A-⑨b·A-⑨c·A-call·A-⑧c 모두 red. oracle은 이름 필터 없이 시험 파일 전체다 |
+| ② | 닫는 D4의 인용 변이 `V2.textValue-truthy`(= A-⑧c) red(U39). 닫는 D5의 인용 입력 `keyedUnknownCellFailNoRef`·`unknownTaskFailNoRef` → exit 2 · `소유 행 대상 없음: T17/0326/nope`·`T99/0326` |
+| ③ | verify 2 `못 잡음` 1건(`V2.textValue-truthy`) → red. `동치` 행은 없다 |
+| ④ | diff가 판독기와 공용 `fixture()`를 바꿨으므로 verify 2의 판독기 행 113건 전부를 다시 돌렸다. 구현자 원장으로 109건, 원장에 없던 형제 맞바꿈 X5.1~4는 재구성해 4건이다. `red → green` 0 |
+| ⑤ | 형제 맞바꿈 — X5.1(`median`↔`max`)·X5.2(소유 두 열)·X5.3·X5.4(W 이후↔이전 SHA)·A-⑨b(형제 소유자 셀 키)·`V3.c-machine-only`/`windows-only`(검사 열) 모두 red |
+| ⑥ | 축 변형 23건과 원장 밖 변이 22건 모두 계약대로다. 축 12건: 꼬리 공백 값·빈 문자열 값·배열 값·숫자 키·공백 키·`task` 누락·다른 task의 소유자·다른 task 셀 키 → exit 2 / `미완` 값·`key: null` FAIL·같은 셀 PASS+FAIL 중복 → 판정 계속 / `rows` 비배열 → exit 2(§21-C 경계) |
+| ⑦ | ⑧ c(`hasRef` 4형태 — truthy·문자열만·`!= null`·trim 없음), ⑨ a(task·owner 항 각각), ⑨ b(`null`·`undefined` 분기, task·owner·key 항 각각, 진단 접미사), ⑨ c(허용 값 셋 각각, `null` 분기, 검사 열 둘 각각, 대소문자 무시, 진단 값), 호출(뒤로 이동)에 그 항만 바꾼 변이를 심었다 — `V3.*` 21건(`V3.fixture-noop` 제외) + `call-late` = 22/22 red. 잔여 0 |
+
+고장 이력 전체는 [`evidence/verify3-mutations.tsv`](evidence/verify3-mutations.tsv)에 있다(162행, 원복 확인 출력 포함). 판정에 영향을 준 행만 적는다.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 결과 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|---|---|
+| V2.textValue-truthy (A-⑧c) | `windows-verdict.mjs:664` | 호출 대체 | `textValue(…)` → truthy | 못 잡음(v2) | 잡음 | U39 | — |
+| V3.b-nullkey | `:348` | 뒤집기 | `key != null` → `!== undefined` | — | 잡음 | U40 대조 `key: null` | — |
+| V3.c-null | `:357` | 뒤집기 | `value != null` → `!== undefined` | — | 잡음 | U40 대조 `windows: null` | — |
+| V3.c-ci | `:357` | 다른 값 | 값을 대문자로 바꿔 대조 | — | 잡음 | U40 `machine: 'fail'`·CLI (3) | — |
+| V3.c8-trimless | `:664` | 다른 값 | 공백만 있는 문자열을 근거로 인정 | — | 잡음 | U39 `'   '` | — |
+| call-late | `:624` → `:698` | 순서 | 호출을 판정 직전으로 이동(수동) | — | 잡음 | U40 `readRaw` 가드 | — |
+| V2.hold-order | `:694-695` | 뒤집기 | 두 hold push 순서 교환 | green(대조) | green(대조) | — | 경계 — hold 순서는 계약 아님 |
+
+## 5. V-pair closeout (verify 3)
+
+| Pair | 결과 | 직접 좌표 · 공유 증거 |
+|---|---|---|
+| VP-10 (UT, REQUIRED) | PASS | `windows-verdict.test.mjs:'U39 keeps owner failures…'`(두 열 × 10입력 — ⑧ c 4입력 포함) · `'U40 checks every owner row…'`(대상 7 · 값 3 · 대조 3 · 순서 2). A-⑧c·A-⑨a/b/c·A-call·V3.* 22 red |
+| VP-14 (AT, REQUIRED) | PASS | `windows-verdict.test.mjs:'cli rejects owner rows outside the plan'` — 실제 자식 프로세스. 세 입력이 exit 2 · stdout 빈 값 · stderr 진단 전문이고, 대조(`scroll`)는 exit 1 · `불합격` · `ownerFailures` `['T17/0326']`다. A-⑨a/c·A-call red |
+| VP-08 (IT, REGRESSION) | PASS | `'cli rejects missing arguments…'` + VP-14 시험. throw → `cli` catch `:753` → exit 2 |
+| VP-09 (UT, REGRESSION) | PASS | 판독기 시험 파일 27건 green. verify 2 판독기 행 113/113 red(X5 포함), `V3.fixture-noop` red |
+| VP-11·12·13·15~19·R1 | NOT_REQUIRED | r3가 닿지 않는다(위 메타). verify 1·2 §5 좌표가 그대로다. 이번 `node --test scripts/*.test.mjs` 1155/1155와 vitest의 실패 목록에 해당 시험이 없다 |
+| VP-01~07 | 미착수(WU-W) | W-004 대기(W-018) |
+
+AC 합계: AC7·AC8·AC9·AC10·AC11 ✅ · AC1~AC6 미착수 = 11. 구현자 합계 `✅ 5 · ⚠️ 6`, trailer `5/11`, INDEX 비고가 같다.
+
+## 8. 게이트 재실행 (마지막 수정 뒤 트리 `07377db7`)
+
+| 단계 | 관측 |
+|---|---|
+| 가드 5종 | migrations·doc-inventory·product-naming·test-budgets·ui-thread 모두 exit 0 |
+| lint · typecheck | error 0 · warning 12 · `error TS` 0. lint 뒤 `git status`의 추적 파일 변화 0 |
+| `node --test scripts/*.test.mjs` | 1155/1155. 판독기 파일은 27건이다(verify 2보다 2건 많다 — U40·CLI 신규) |
+| 전체 `vitest run` | 61파일 실패 / 1,088 통과 · 테스트 421 실패. verify 2와 수치가 같다(SQLite 바인딩 부재 서명). r3 diff의 `app/src` 0줄, vitest에서 판독기를 참조하는 곳 0개 → 차집합 ∅ |
+| `electron-vite build` · `smoke-preload` | exit 0 · OK(키 7). 일반 빌드 `__ooDev` 0파일 |
+
+## 9. Repository operation checks (verify 3)
+
+- 구현 커밋 trailer 두 건이 파싱된다(`Agent: codex` · `Status: partial`/`implemented` · `Criteria-Met: 4/11`/`5/11` · `Verified-By: pending`). `git cat-file -t` → commit ×3(`d77d3f3c`·`515ff58d`·`07377db7`).
+- `[구현자 기입]` r3 일곱 필드가 모두 있다. 강제 지점 표는 ΔV2 pair의 §10 자리 전부(P5 ⑧ c·⑨ a·b·c·호출)를 담는다.
+- INDEX 대상 커밋의 `(ΔV2 설계 — 검증자 기입)`·`(r3 구현 — 검증자 기입)` 자리표시자를 이 커밋에서 채운다.
+
+## 13. Finding disposition (verify 3)
+
+| # | 이슈 | 분류 | disposition |
+|---|---|---|---|
+| F4(D4) | 공백·비문자열 근거 = 없음 — U39 두 열에서 잠겼다(A-⑧c·`V3.c8-*` 5/5 red) | 확장 → 채택(W-040) | 닫힘 |
+| F5(D5) | plan 밖 owners 행·모르는 값 → exit 2 — U40·CLI 시험에서 잠겼다(⑨ 변이 22/22 red — A-⑨a·b·c·A-call·`V3.a-*`·`b-*`·`c-*` 17·`call-late`, 축 2건 exit 2) | 확장 → 채택(W-039) | 닫힘 |
+
+새 발견은 0건이다.
+
+### 발견 원장 — verify 3
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| F4 | PLAN_GAP | closed 보고 | 닫힘 | — | 새 실행 |
+| F5 | PLAN_GAP | closed 보고 | 닫힘 | — | 새 실행 |
+
+F(3) = 0.
+
+## 14. Review Signals (verify 3)
+
+| 리뷰 필요 여부 | 근거 | 검토할 질문 |
+|---|---|---|
+| 불필요 | verify 3회째 PASS — 의무 트리거(3회째 비PASS)에 해당하지 않는다. 새 발견 0 | — |
+
+사실: 확장 후보는 verify 1·2에서 각 2건이었고 둘 다 채택했다. 독립 축의 새 발견은 0건이다. 반복된 환경 한계는 SQLite 바인딩 403이고, 판독기 범위의 판정에는 영향이 없다.
+
+## 15. 결론 (verify 3)
+
+`PASS`(WU-M 기계 범위). 다음 주체는 사용자다 — W-004 사전 합의(목표 프로필·IME·터치패드·시나리오별 지표·허용값)와 H1 필수 셀 목록 고정이다. 그 뒤 WU-W(VP-01~07·AC1~AC6) 판정용 Windows 실측을 시작한다.
+
+---
+
 ## 판정 — verify 2회째: **RETURN_TO_PLAN** (WU-M 기계 범위)
 
 창 안 확장 후보 2건이 `PLAN_GAP`이라 설계자가 먼저다. 이행·현재 결함(`BLOCKING`)은 0건이고, verify 1의 D1·D2는 닫혔다.
