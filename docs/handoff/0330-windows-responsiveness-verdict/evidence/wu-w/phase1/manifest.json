@@ -1,0 +1,724 @@
+{
+ "runs": [
+  {
+   "runId": "w1-d8684684-claude-code-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-d8684684-claude-code-h1-r1.json",
+    "sha256": "d363dab29e31056c73214032ef044f1ffcc00d5fcfbd7449f8e39289b2ffbf11",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T14:44:23.578Z",
+   "endedAt": "2026-11-26T14:45:17.460Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-515ff58d-claude-code-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515ff58d-claude-code-h1-r1.json",
+    "sha256": "a741beff1c8ddf04c855777b3dcc148cc653e2de51f9631743608a2a1093388b",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T14:46:16.533Z",
+   "endedAt": "2026-11-26T14:47:17.732Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-d8684684-claude-work-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-d8684684-claude-work-h1-r1.json",
+    "sha256": "fc0896896372c47c57ca371ee2cd63e1ebe32b6217a9f5d98aa35fbf71d14889",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T14:48:01.919Z",
+   "endedAt": "2026-11-26T14:48:55.336Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-515ff58d-claude-work-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515ff58d-claude-work-h1-r1.json",
+    "sha256": "458c041f5fc4d8d3876dca06f6ae9949a41fba039533025429197296c3b75fe0",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T14:49:36.862Z",
+   "endedAt": "2026-11-26T14:50:26.584Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-d8684684-opencode-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-d8684684-opencode-h1-r1.json",
+    "sha256": "51dba61463964af55cd196f5596e3508d7b26c5e596f6fe3255918b361b73b55",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T14:51:09.349Z",
+   "endedAt": "2026-11-26T14:51:53.538Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-515ff58d-opencode-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515ff58d-opencode-h1-r1.json",
+    "sha256": "a2901fdd2d7672332d2184d6b3e51e13f44b1dc7ccdb1e5dae839bafeefa4930",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T14:52:43.700Z",
+   "endedAt": "2026-11-26T14:53:40.840Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-d8684684-claude-code-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-d8684684-claude-code-h1-r2.json",
+    "sha256": "82239c36d9130857e70956f895086b305ab2d4e270e1bd8895de6872fb81e243",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T14:54:26.396Z",
+   "endedAt": "2026-11-26T14:55:20.198Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-515ff58d-claude-code-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515ff58d-claude-code-h1-r2.json",
+    "sha256": "a55141c27fa2cd8d6b7f3098f8e05bb2d6d2b2d5dd1cd4a47b15963bec88d22b",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T14:55:59.607Z",
+   "endedAt": "2026-11-26T14:56:51.618Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-d8684684-claude-work-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-d8684684-claude-work-h1-r2.json",
+    "sha256": "e29580f0f3ad3d031111c407ea618800e9d49aac7472cbd19b87434c75506f08",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T14:57:36.537Z",
+   "endedAt": "2026-11-26T14:58:31.652Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-515ff58d-claude-work-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515ff58d-claude-work-h1-r2.json",
+    "sha256": "43bc06ca27bfcc6743a41d79a12948053e15f56c2c412aab1e622e539bc56ca4",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T14:59:20.261Z",
+   "endedAt": "2026-11-26T15:00:22.379Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-d8684684-opencode-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-d8684684-opencode-h1-r2.json",
+    "sha256": "961b5e3a2d977bef148fb5d9cf76fb2ede84d9084cc94a73523d057268eae967",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T15:01:11.122Z",
+   "endedAt": "2026-11-26T15:02:05.428Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-515ff58d-opencode-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515ff58d-opencode-h1-r2.json",
+    "sha256": "34b458204233ce4548cbadc3168e4eb42307b3a33441652af77b32fdf5789e42",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T15:03:01.288Z",
+   "endedAt": "2026-11-26T15:03:57.077Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-d8684684-claude-code-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-d8684684-claude-code-h1-r3.json",
+    "sha256": "dfcc6e3ea520b506c208d823824ff170ed1fd2664e4599ecb98ffa0d87d1ea7c",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T15:04:44.649Z",
+   "endedAt": "2026-11-26T15:05:38.243Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-515ff58d-claude-code-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515ff58d-claude-code-h1-r3.json",
+    "sha256": "aaa0d378964f4130c7bdc7113d1cba71fe9b15df7fa0b83b711c126fa50e5975",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T15:06:19.670Z",
+   "endedAt": "2026-11-26T15:07:21.786Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-d8684684-claude-work-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-d8684684-claude-work-h1-r3.json",
+    "sha256": "28c8909e20f1fd2e7107ac760f1dcebffc93a5e1527312e7b627ef571cba10e1",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T15:08:02.744Z",
+   "endedAt": "2026-11-26T15:08:56.618Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-515ff58d-claude-work-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515ff58d-claude-work-h1-r3.json",
+    "sha256": "c2b9a8960f596effac6a3fb93a53fa5bc94f7cf884faf5e3169c167a90d479ca",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T15:09:39.039Z",
+   "endedAt": "2026-11-26T15:10:35.699Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-d8684684-opencode-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-d8684684-opencode-h1-r3.json",
+    "sha256": "3f382158401192b6a0bd9ab5618623384ba24b677ec25103747daa9f6c8e9b04",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T15:11:24.322Z",
+   "endedAt": "2026-11-26T15:12:16.740Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w1-515ff58d-opencode-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w1-515ff58d-opencode-h1-r3.json",
+    "sha256": "1683da69628e658398e058fb88929c5d39da320864cb86c1586e84c6f0f30131",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "8d2300704b01ec17da2fca84cbaf882e5d08f04d",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W1",
+   "operation": "long-chat-type-wheel-drag",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T15:13:05.339Z",
+   "endedAt": "2026-11-26T15:14:06.812Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  }
+ ]
+}
