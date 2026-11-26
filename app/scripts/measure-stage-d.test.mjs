@@ -135,6 +135,13 @@ test('environment follows the generating platform', () => {
     assert.equal(measurementEnvironment(platform), platform + '-electron')
 })
 
+test('child records carry no provenance of their own', () => {
+  for (const path of ['./stage-d-host/electron-main.mjs', './stage-d-shell/probe.ts']) {
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8')
+    assert.doesNotMatch(source, /\bmeasurementEnvironment\b|\benvironment\s*:/, path)
+  }
+})
+
 test('provenance stamps every scenario result', () => {
   const p = provenance({ platform: 'win32', git: fakeGit(), baseline: oldSource })
   assert.deepEqual(p, {
