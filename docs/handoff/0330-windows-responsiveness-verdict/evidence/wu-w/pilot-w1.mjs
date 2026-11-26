@@ -5,7 +5,7 @@
 import { writeFileSync } from 'node:fs'
 
 const P1 = '1부터 3000까지 한 줄에 하나씩 숫자만 출력하라'
-const CATEGORIES = ['devtools.timeline', 'disabled-by-default-devtools.timeline', 'disabled-by-default-devtools.timeline.frame', 'devtools.timeline.frame', 'blink.user_timing', 'toplevel', 'latencyInfo', 'benchmark', 'graphics.pipeline', 'cc', 'gpu', 'v8.execute', 'blink', 'loading', '__metadata']
+const CATEGORIES = ['devtools.timeline', 'disabled-by-default-devtools.timeline', 'disabled-by-default-devtools.timeline.frame', 'blink.user_timing', 'toplevel', '__metadata']
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const json = async (port, path) => (await fetch(`http://127.0.0.1:${port}${path}`)).json()
 
