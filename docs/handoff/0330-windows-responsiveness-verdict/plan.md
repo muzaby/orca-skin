@@ -13,7 +13,7 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **impl/IMPL_DONE — WU-M 기계 범위 (V1 rev 7 + ΔV1 · r2).** D1·D2를 구현하고 검증을 인계했다. 다음은 Claude의 독립 검증이다. WU-W(판정용 Windows 실측)는 W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). |
+| 상태 | **verify/RETURN_TO_PLAN — WU-M 기계 범위 (V1 rev 7 + ΔV1 · r2 · verify 2).** D1·D2 닫힘. [verify.md](verify.md) 확장 PLAN_GAP D4·D5 → 설계자. WU-W(판정용 Windows 실측)는 W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
 | V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · 이번 revision **ΔV1**(§20) · 유효 V = `V1 rev 7 + ΔV1`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
@@ -857,6 +857,8 @@ W-037·W-038과 다른 구현 없음.
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| D1 | §10-C “VP-08~17 좌표 = `node --test`”와 P6 S4(`stage-d-host/electron-main.mjs:87`)·S5(`stage-d-shell/probe.ts:282`)의 실제 잠금이 어긋난다 — 두 변이가 `node --test`에서 green이고 커밋 안 된 Electron 하네스로만 red(S5 재현, S4는 이 환경에서 미실행) | verify r1 · VP-11·VP-15 · AC8 / §10-B P6 S4·S5 · §10-C | 생산자 하네스를 커밋된 `gate:` 명령으로 등록하거나 `node --test` seam을 두고 §10-C를 정정 | 이행(plan 내부 불일치 — oracle 없는 자리) | PLAN_GAP | r2 해결 · W-037 · 자식 2곳 원문 검사 및 S6 CLI 재앵커 확인 |
-| D2 | 근거 좌표(`machineRef`·`windowsRef`) 없는 소유자 `FAIL` 행이 `미기록`으로 읽혀 `ownerFailures`·`불합격`에서 빠지고 `판정 보류`가 된다(`evidence/verify1-axes.txt` `ownerFailNoRef`) | verify r1 · VP-10 · AC7 / §10-A P4 ⑤·P5 ⑤ | 근거 없는 `FAIL`을 `불합격`(+ 근거 없음 표시)으로 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | r2 해결 · W-038 · U39·확정 CLI에서 근거 없는 FAIL 보존 확인 |
+| D1 | §10-C “VP-08~17 좌표 = `node --test`”와 P6 S4(`stage-d-host/electron-main.mjs:87`)·S5(`stage-d-shell/probe.ts:282`)의 실제 잠금이 어긋난다 — 두 변이가 `node --test`에서 green이고 커밋 안 된 Electron 하네스로만 red(S5 재현, S4는 이 환경에서 미실행) | verify r1 · VP-11·VP-15 · AC8 / §10-B P6 S4·S5 · §10-C | 생산자 하네스를 커밋된 `gate:` 명령으로 등록하거나 `node --test` seam을 두고 §10-C를 정정 | 이행(plan 내부 불일치 — oracle 없는 자리) | PLAN_GAP | **closed**(verify 2) · W-037 — P6-child·property·import ×2·S6 red, P6′ 28줄 일치 |
+| D2 | 근거 좌표(`machineRef`·`windowsRef`) 없는 소유자 `FAIL` 행이 `미기록`으로 읽혀 `ownerFailures`·`불합격`에서 빠지고 `판정 보류`가 된다(`evidence/verify1-axes.txt` `ownerFailNoRef`) | verify r1 · VP-10 · AC7 / §10-A P4 ⑤·P5 ⑤ | 근거 없는 `FAIL`을 `불합격`(+ 근거 없음 표시)으로 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | **closed**(verify 2) · W-038 — `ownerFailNoRef` → `불합격`, P5.8a/b red |
 | D3 | 관측 `values`를 `trace-marker` 표시 시각 차와 다르게 적어도 통과(`valueMismatchMarker`) | verify r1 · VP-09 / §10-C 선언 경계 | — | 경계 | — | 기록만 |
+| D4 | 근거 좌표가 공백·비문자열이면 “없음”으로 읽지만(`textValue`, `windows-verdict.mjs:642`) 잠금이 없다 — truthy 판정으로 바꾼 `V2.textValue-truthy`가 `windows-verdict.test.mjs` 전체에서 green | verify r2 · VP-10 / §10-A P5 ⑧ · W-038 | U39에 공백·비문자열 근거 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | 열림 |
+| D5 | owners 행의 `task`·`owner`·`key`가 plan 셀과 맞지 않으면 무시되어 그 행의 `FAIL`이 버려지고 `합격`·exit 0(`evidence/verify2-axes.txt` `keyedUnknownCellFailNoRef`·`unknownTaskFailNoRef`) | verify r2 · VP-10·VP-14 / §10-A P5 · W-038 · R-05 | 맞지 않는 owners 행을 fail-closed(exit 2 또는 `unexpected`+보류)로 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | 열림 |
