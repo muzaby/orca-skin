@@ -29,7 +29,11 @@ const killDiag = () => { try { execSync(`powershell -NoProfile -Command "Get-Pro
 function prepareProfile() {
   if (existsSync(profile)) rmSync(profile, { recursive: true, force: true })
   cpSync(H100 ? `C:/orca-W/profiles/h100-${harness}` : 'C:/orca-W/profiles/real-copy', profile, { recursive: true })
-  if (H100) return
+  if (H100) {
+    const meta = JSON.parse(readFileSync(`C:/orca-W/profiles/h100-${harness}.json`, 'utf8'))
+    if (meta.native && existsSync(`C:/orca-W/profiles/h100-${harness}.native.jsonl`)) cpSync(`C:/orca-W/profiles/h100-${harness}.native.jsonl`, meta.native)
+    return
+  }
   const Database = createRequire('C:/workspace/github/claude/orca-skin/app/package.json')('better-sqlite3')
   const db = new Database(join(profile, 'orcinus-orca.db'))
   const t = Date.now()
@@ -79,9 +83,12 @@ async function makeH1(p) {
     btn(b=>b.getAttribute('aria-label')==='작업 폴더 선택')?.click();await w(500);[...document.querySelectorAll('[role=menuitemradio]')].find(e=>e.innerText.includes('measure-scratch'))?.click();await w(500);
     const m=[...document.querySelectorAll('main button')].find(b=>b.offsetParent&&/\\//.test(b.innerText)&&!b.getAttribute('aria-label'));m?.click();await w(600);
     [...document.querySelectorAll('[role=menuitemradio]')].find(e=>${h.model}.test(e.innerText.trim()))?.click();await w(600);return document.querySelector('[data-harness]')?.dataset.harness})()`)
-  const ta = await p.evaluate(rectOf(TEXTAREA)); await click(p, ta.x, ta.y)
-  await p.c.send('Input.insertText', { text: '안녕' }); await enter(p.c)
-  if (!(await waitDone(p, 180000))) throw Error('h1 준비: 답 시간 초과')
+  // history-1 = 과거 1턴 + 최신 1턴 — 두 번 보낸다.
+  for (const text of ['안녕', '확인 2 — 한 단어로만 답하라']) {
+    const t = await p.evaluate(rectOf(TEXTAREA)); await click(p, t.x, t.y)
+    await p.c.send('Input.insertText', { text }); await enter(p.c)
+    if (!(await waitDone(p, 180000))) throw Error('h1 준비: 답 시간 초과')
+  }
   await sleep(1000)
   return { harness: r, url: await p.evaluate('location.href') }
 }
@@ -106,22 +113,40 @@ async function record(p, sessionId) {
   await sleep(1500); at('opened')
   const sc = await p.evaluate(rectOf("document.querySelector('[data-transcript-session]')"))
   const gestures = []
+  // 제스처 = 상단 도달까지 20ms 간격 휠 ↑ + 도달 뒤 300ms. 끝난 뒤 페이지 안에서 rAF 로 블록 수 변화를 기다리며
+  // 변화 직전·직후 프레임의 첫 가시 메시지 top 을 잰다(앞삽입 순간의 읽던 위치 차). 변화 없으면 1.5초 뒤 끝.
+  // 제스처 시작 전에 페이지 안 관찰자를 건다 — rAF 마다 첫 가시 메시지 top 을 기억하다가 블록 수가 바뀐 첫 프레임에
+  // 같은 요소의 top 과 비교한다(앞삽입 순간 읽던 위치 차 px). 휠 이동 자체는 같은 프레임 안에서 빼지 못하므로,
+  // 변화 직전 프레임과 변화 프레임 사이에 휠 tick 이 들어가면 그만큼 섞인다 — 20ms 간격 tick 이라 섞임은 ≤ 1 tick 분량.
+  const ARM = `(()=>{const sc=document.querySelector('[data-transcript-session]');const n0=window.__ooDev?.blockCount?.()??-1;const w={n0,result:null,lastWheel:0};window.__w2=w;sc.addEventListener('wheel',()=>{w.lastWheel=performance.now()},{passive:true,capture:true});
+    const anchor=()=>{const top=sc.getBoundingClientRect().top;const el=[...sc.querySelectorAll('[data-message-id]')].find(e=>e.getBoundingClientRect().bottom>top+4);return el?{el,top:el.getBoundingClientRect().top,st:sc.scrollTop}:null};
+    let a=anchor();let prev=performance.now();const t0=prev;let scrollable=sc.scrollHeight>sc.clientHeight+1;
+    const tick=(now)=>{const n=window.__ooDev?.blockCount?.()??-1;
+      if(n!==n0){const t1=a&&a.el.isConnected?a.el.getBoundingClientRect().top:null;const wheelMixed=w.lastWheel>=prev;const el=a?.el,top0=a?.top,ms=performance.now()-t0;
+        const tops=[t1];let k=0;const settle=()=>{tops.push(el&&el.isConnected?el.getBoundingClientRect().top:null);if(++k<10)requestAnimationFrame(settle);else{const last=tops.at(-1);
+          w.result={n,ms,scrollable,wheelMixed:wheelMixed||w.lastWheel>=prev,firstFrame:t1!=null&&!wheelMixed?Math.abs(t1-top0):null,offset:last!=null&&!(w.lastWheel>=prev)?Math.abs(last-top0):null,tops:tops.map(x=>x==null?null:Math.round((x-top0)*10)/10)}}};requestAnimationFrame(settle);return}
+      prev=performance.now();scrollable=sc.scrollHeight>sc.clientHeight+1;
+      if(performance.now()-t0>6000){w.result={n,offset:null,ms:null};return}
+      a=anchor();requestAnimationFrame(tick)};requestAnimationFrame(tick);return n0})()`
   for (let g = 0; g < 5; g++) {
-    const before = await p.evaluate(COUNT)
     const edge = await p.evaluate(EDGE)
+    const nStart = await p.evaluate(ARM)
     const t0 = Date.now(); let reachedAt = 0
-    while (Date.now() - t0 < 3000) {
+    // tick 간격 150ms — HISTORY_GESTURE_GAP_MS(200) 안이라 한 제스처이고, 요청(~50ms 뒤 앞삽입)이 다음 tick 전에 끝난다.
+    // 블록 수가 바뀌었거나 요청 상태가 보이면 멈춘다. 상단에 닿은 뒤엔 tick 하나만 더.
+    while (Date.now() - t0 < 4000) {
       await p.c.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: sc.x, y: sc.y, deltaX: 0, deltaY: -120 })
-      await sleep(20)
-      if (!reachedAt && (await p.evaluate("document.querySelector('[data-transcript-session]').scrollTop")) <= 0) reachedAt = Date.now()
-      if (reachedAt && Date.now() - reachedAt > 300) break
+      await sleep(150)
+      const st = await p.evaluate(`({top:document.querySelector('[data-transcript-session]').scrollTop,n:${COUNT},edge:${EDGE}})`)
+      if (st.n !== nStart || ['pull', 'loading'].includes(st.edge)) break
+      if (reachedAt) break
+      if (st.top <= 0) reachedAt = Date.now()
     }
-    const a0 = await p.evaluate(ANCHOR)
     await sleep(1500)
-    const a1 = await p.evaluate(`(()=>{const el=document.querySelector('[data-message-id=${JSON.stringify(a0?.id ?? '')}]');return el?el.getBoundingClientRect().top:null})()`)
-    const after = await p.evaluate(COUNT)
-    gestures.push({ added: after - before, before, after, edge, offset: a0?.id && a1 != null ? Math.abs(a1 - a0.top) : null, reachedTop: !!reachedAt })
-    await sleep(400)
+    const w = await p.evaluate('window.__w2.result')
+    const total = (await p.evaluate(COUNT)) - nStart
+    gestures.push({ edge, added: total, firstChangeMs: w?.ms ?? null, scrollable: w?.scrollable ?? null, offset: w?.offset ?? null, firstFrame: w?.firstFrame ?? null, tops: w?.tops ?? null, wheelMixed: w?.wheelMixed ?? null, reachedTop: !!reachedAt })
+    await sleep(300)
   }
   at('gestures-5')
   await b.send('Tracing.end'); await complete
@@ -141,10 +166,14 @@ try {
   launch(); p = await page(); await newChat(p)
   const r = await record(p, sessionId)
   const added = r.gestures.map((g) => g.added)
-  const offsets = r.gestures.map((g) => g.offset).filter((x) => x != null)
+  // 읽던 위치(D-016 ±1px)는 앞삽입 직전에 본문이 넘쳐(스크롤 가능) 있었고 그 프레임에 휠이 없던 앞삽입만 센다 —
+  // 본문이 화면보다 짧으면 위에 붙은 턴이 내용을 밀 수밖에 없다(probe-pull-shot 캡처 확인).
+  const offsets = r.gestures.filter((g) => g.scrollable && g.wheelMixed === false && g.offset != null).map((g) => g.offset)
   // 이력이 남은 동안(앞 제스처들이 한 턴씩 더한 동안) 정확히 1, 이력 끝 뒤에는 0 — 한 제스처에 2 이상이면 실패.
   // 제스처마다: 시작 상태가 'end'(이력 시작 도달)면 +0, 아니면 한 턴(+1~+4 블록 — 확인 턴 = 사용자·답·시각 3블록).
-  const reqOk = r.gestures.every((g) => (g.edge === 'end' ? g.added === 0 : g.added >= 1 && g.added <= 4))
+  // 계약(0329 S-E2): 플릭 1회당 이전 턴 요청 ≤ 1(한 묶음) — 한 제스처에 두 턴 이상이면 실패. 이력 시작('end') 뒤엔 0.
+  // 상단까지 스크롤해 닿기만 한 제스처는 요청이 없을 수 있다(다음 제스처가 당긴다). 5회 중 한 번도 안 당겨지면 실패.
+  const reqOk = r.gestures.every((g) => g.added >= 0 && g.added <= 4 && (g.edge !== 'end' || g.added === 0)) && (r.gestures.some((g) => g.added > 0) || r.gestures.every((g) => g.edge === 'end'))
   const checks = SIDE[sha8] === 'after' ? `requests-per-gesture-is-1=${reqOk ? 'ok' : 'fail'};reading-offset=${offsets.length ? Math.max(...offsets).toFixed(2) : 'NaN'}` : ''
   mkdirSync(rawDir, { recursive: true })
   const file = runId + '.json'
