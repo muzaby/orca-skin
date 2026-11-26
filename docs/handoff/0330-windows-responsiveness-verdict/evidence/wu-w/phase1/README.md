@@ -1,5 +1,12 @@
 # 1단계 실측 기록 (W-042 · W-053 CDP 합성 입력)
 
+## W2′ — 진행 중 · Claude 12 run 기록(확인 값 ok 6/6) · OpenCode 보류
+
+`w2p-runner.mjs`: 과거를 위로 읽는 중 P1 전송 → 3초 뒤 다른 세션 B → 2.5초 뒤 A 복귀 → 30초 기록. 기록 뒤 A 하단에서 답 끝(2999/3000)·P1 1회, B에 P1 흔적 없음을 확인한다.
+
+- Claude Code·Work: 이후 빌드 6 run 모두 `applied-once-correct-session=ok`.
+- **OpenCode 보류**: ① 100턴 세션 원본이 사용자 전역 `opencode.db`라 되돌리지 않아 앞 run의 P1 답이 쌓였고 문맥 압축·“이미 완료” 응답이 났다(`probe-oc-noswitch.mjs` — 전환 없이도 같은 세션에서 결과가 바뀜). ② run마다 새 세션으로 바꾸자 이번엔 무료 모델(Big Pickle) 요청이 `재시도 대기 중`·`입력 대기 2건`으로 멈췄다 — 수백 회 요청 뒤 제공자 측 제한으로 본다. 앱 결함으로 판정하지 않고, 제공자가 풀리면 6 run을 다시 돈다.
+
 ## W2 — 36 run(열기·상단 당김 · history-1/100 × 3 하네스 × 두 빌드 × 반복 3) · 판정: **충족 11 · 미판정 1**
 
 | 셀(이후 빌드) | Claude Code | Claude Work | OpenCode |
