@@ -1,16 +1,17 @@
 # Plan — 0330 Windows 실창 반응성 통합 판정
 
 > 입력(V1 rev 2): [PR #640 코멘트 — 0330 Windows 통합 판정 · 구현 전 plan 보완 요청](https://github.com/muzaby/orca-skin/pull/640#issuecomment-7179699819)(2026-11-26, 검토 기준 `eae9081b`). 지적별 코드 대조는 §0.
+> 입력(V1 rev 3): [PR #655 코멘트 — V1 rev 2 재검토 · WU-M 착수 전 보완 요청](https://github.com/muzaby/orca-skin/pull/655#issuecomment-7181076179)(2026-11-26, 검토 기준 `ff5c6b02`). 지적별 대조는 §0-B.
 
 ## 메타
 
 | 항목 | 값 |
 |---|---|
-| slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2) · 2026-11-20 / 2026-11-26 |
-| 상태 | **plan/READY — WU-M(기계 범위)만.** WU-W(판정용 Windows 실측)는 W-004 확정과 H1 필수 셀 목록 고정 뒤 착수한다(W-013). 0325 AC19 참고 기준선 수집은 지금도 가능하다. |
-| 기준 트리 | `eae9081b`(PR #640 head `codex-handoff-0326-plan-gap`). V1의 기준 `62125eaa`는 PR 이력에 없다(`git merge-base --is-ancestor 62125eaa eae9081b` 실패) — rev 2가 대체한다. |
-| V mode · 기준 V · revision | Baseline V · none · **V1 rev 2**. 구현·verify 0회라 Delta V가 아니다. rev 1 = `a680ee0`에 포함된 V1 초안. 노드 ID는 V1을 잇고 rev 2가 더한 노드는 §7-A에 `rev 2`로 표시한다. |
-| 작업 단위 | **WU-M**(지금 착수): 판독기 `windows-verdict.mjs`·시험, 측정 도구 출처 스탬프(0328 stage-d), 기준선 측정 소스 좌표(0329 stage-e), H1-0 Linux 사전 실행. **WU-W**(W-004 뒤): H1~H6 Windows 실측·판정. |
+| slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
+| 상태 | **plan/READY — WU-M(기계 범위)만 (V1 rev 3).** WU-W(판정용 Windows 실측)는 W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). 0325 AC19 참고 기준선 수집과 시나리오·fixture 준비는 지금도 가능하다. |
+| 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
+| V mode · 기준 V · revision | Baseline V · none · **V1 rev 3**. 구현·verify 0회라 Delta V가 아니다. rev 1 = `a680ee0`에 포함된 V1 초안 · rev 2 = `ff5c6b02`(PR #655 head — `main` 미병합). 노드 ID는 V1을 잇고 rev 2·rev 3이 더한 노드는 §7-A에 표시한다. |
+| 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
 
 ## 0. PR #640 피드백 대조 — 지적 9건 모두 재현, 수용
 
@@ -28,6 +29,26 @@
 | F7 | H3·H4 사용자 동작·기대 결과 | 원표 좌표 실재 확인: 0326 D-109(plan:165 · §19:1705-1725) · 0327 ΔV1 적용표(:21-32) · 0327 실행표(:1994-2005) · 0328(:437-456) · 0329 AC10(:524-533) | 수용 → W-008 · H3 · H4 |
 | F8 | W-004·판독기·H6 | V1 W-004에 IME·터치패드·필수/기록 전용 칸이 없고, 판독기 시험에 재제출·상충·기능 부재/위반·장비 누락이 없으며, H6에 열 분리가 없다 | 수용 → W-004 · W-011 · AC7 · H6 |
 | F9 | 0329 NX1~NX3 | INDEX `## 새 handoff 후보` 0329 행에 이미 있다 | 유지(새 행 없음) |
+
+## 0-B. PR #655 피드백 대조 — 지적 13건 재현, 수용
+
+| # | 지적 | 재현 명령 → 관측 | 판정 · 반영 |
+|---|---|---|---|
+| G1 | 실패 예제가 확정 뒤 exit 0을 요구 | rev 2 §10-A 예제 = 위반 1·결측 1·소유자 FAIL 1인데 C 칸이 “확정 추가 → exit 0”. 같은 절 P4 ④는 위반이 있으면 `불합격` — plan 내부 불일치 | 수용 → 예제 둘(실패·충족) · §10-A C · AC7 |
+| G2 | 필수 소유 판정 결측이 `미기록`만 | rev 2 P5 ④ | 수용 → P5 ④ `판정 보류` |
+| G3 | 셀 키·실행 짝·표본 구분 필드 부재 | rev 2 `cells`에 조작·부하·구간·짝·표본 종류 없음, `manifest.runs`에 전후 구분 없음 | 수용 → §10-A 입력 스키마 · P3 ⑭ |
+| G4 | 통합 SHA 검사 범위 | rev 2 P4 ⑧이 모든 통과 셀에 `integrationSha`를 요구 → 정상 이전 빌드·소유자 표본이 불일치가 된다 | 수용 → W-016 · P4 ④ |
+| G5 | `count/ratio/equal`·세 반복 집계 미정 | rev 2 `rule`에 피연산자·`combine` 없음 | 수용 → §10-A `rule` 표 |
+| G6 | 합의·확정 구분, 같은 시각, 실물 없는 원본, T33 | rev 2 P4가 `decision.confirmed`만 본다. P1 ①은 `startedAt < lockedAt`만 정의, P2는 `rawRef` 형식만 본다 | 수용 → W-015 · P1 · P2 · P5 ⑤ |
+| G7 | 0329 기준선 절차 | 깨끗한 worktree(`ff5c6b02`)에서 `git checkout 7db1c7ce -- app/src` → 추가 파일 48개 잔존, `git diff --quiet 7db1c7ce -- src` exit 1. `git restore --source=7db1c7ce --staged --worktree -- app/src` → exit 0 · 미추적 0 · `git write-tree --prefix=app/src/` = `9235fa7c…` = `git rev-parse 7db1c7ce:app/src` | 수용 → W-014 · H1-0 3 · P7 |
+| G8 | 0329 Windows 종료 코드 | `measure-stage-e.mjs:98` `verdict`에 `latencyGate.pass`가 들어가고 `:109` `selectionExitCode`(`check-transcript-selection.mjs:95-99`)가 exit 1 | 수용 → W-017 · AC10 · P8 |
+| G9 | 0328 기준선 도구 배치 | `git ls-tree -r --name-only c7d2adf2 -- app/scripts \| grep -c stage-d` → 0. `measure-stage-d.mjs:49` · `host-runner.mjs:12` · `shell-runner.mjs:29`가 HEAD `c7d2adf2`를 요구 | 수용 → W-014 · P6 S10 |
+| G10 | 출처 충돌·환경 부재 표본 | rev 2 P6 S8은 `provenanceConflict`를 만들지만 소비하지 않는다 | 수용 → P6 S8 · 판독기 P2 ④ |
+| G11 | H1 두 쌍·예제 경로·fixture 목록 | rev 2 PowerShell은 비교축 쌍만 diff. H1-0 5번 경로가 `app/` 기준이 아니다. fixture 해시 목록이 없다 | 수용 → H1 (a)/(b) · H1-0 · `evidence/inputs-sha256.txt` |
+| G12 | §7 R 수준 pair · `BLOCKED_BY:W-004` | rev 2 §7-A에 R-07~09 pair 없음. pair 결과는 `PASS`·`PAIR_FAIL`·`BLOCKED_BY:<root-pair>`·`NOT_REQUIRED`뿐이다(`docs/handoff/AGENTS.md:82`) | 수용 → VP-14~17 · W-018 세 구분 |
+| G13 | T09 적용 경계 | `7db1c7ce`가 0329 기준선(전량 열기, 0329 plan:517)인데 rev 2 §12는 “`7db1c7ce` 이전”. 0329 AC1(plan:228)은 출판된 세션만, AC11(:238)은 미준비 첫 클릭 | 수용 → W-019 · §12 |
+
+(표의 G1~G13은 코멘트 3절을 지적 단위로 나눈 것이다. 코멘트가 이미 확인했다고 적은 항목 — 여덟 시나리오·담당 구분·유효 계약·D-109·J9/K12 폐기·검색 첫 가시 프레임·W-004 서식 — 은 바꾸지 않았다.)
 
 # Part I — 사용자와 테스터가 받는 결과
 
@@ -59,20 +80,26 @@ WU-M이 끝나면 테스터는 같은 명령으로 빌드·입력·측정 도구
 | W-006 | 진단 경로는 로컬 계측 빌드로 한정한다. 설치본에서 production의 DevTools 차단·정상 preload와 저장 동작을 유지하고 진단 기능이 노출되지 않음을 따로 확인한다. | 앱 빌드·보안 계약, 0325 §19, 0326 §7-A “개발 메뉴 제외” | ACTIVE |
 | W-007 | 소유 유효 계약과 PASS 커밋을 아래로 고정하고 모든 절·INDEX가 이 표를 가리킨다: 0325 `V1 rev 4 + ΔV1 + ΔV2` @ `d8684684` · 0326 `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3`(실기 판정 D-109) @ `7c241d19` · 0327 `V1 rev 3 + ΔV1~ΔV8` @ `c7d2adf2`(원 브랜치 `d3033986`) · 0328 `V1 rev 5 + ΔV1` @ `7db1c7ce` · 0329 `V1 rev 5 + ΔV1~ΔV7` @ `eae9081b`(원 브랜치 `421d2393`). 0326 S8/T17·S9/T18은 W의 별도 관측 행이다. | PR #640 코멘트 §1 · F1 | ACTIVE |
 | W-008 | 선택·복사는 **정상 복사**와 **선택 취소** 두 결과로 판정한다. 폐기한 J9·K12와 복사 전용 50ms 기준은 필수 셀에서 제외한다. 규칙 문장은 H4 W3 행. | 0326 D-102·D-109 ⑤ · 0327 ΔV1 적용표 · PR #640 코멘트 §2 | ACTIVE |
-| W-009 | 일반 열기의 주 측정 경로는 **제한 페이지 조회 → IPC 응답 → 창의 `HistoryPageReplySchema` 검증 → 상태 반영 → 첫 실제 본문 paint**다. 구 빌드의 조각 조립과 전체 archive가 필요한 실행 복구·분기는 별도 행이다. | PR #640 코멘트 §1 · F6 | ACTIVE |
+| W-009 | 일반 열기의 주 측정 경로는 **제한 페이지 조회 → IPC 응답 → 창의 `HistoryPageReplySchema` 검증 → 상태 반영 → 첫 실제 본문 paint**다. 구 빌드의 조각 조립과 전체 archive가 필요한 실행 복구·분기는 별도 행이다. | PR #640 코멘트 §1 · F6 | SUPERSEDED → W-019 |
 | W-010 | 판독기는 `app/scripts/windows-verdict.mjs`·`windows-verdict.test.mjs`에 둔다 — `npm test`의 `node --test "scripts/*.test.mjs"`를 통해 `ci.yml` test 단계가 그대로 실행하므로 CI 파일을 바꾸지 않는다. V1의 handoff 폴더 위치를 대체한다. | 설계 판단(되돌리기 쉬움) · PR #640 코멘트 §3 “PR 자동 게이트로 운영할 경우 CI에 해당 명령을 연결” | ACTIVE |
 | W-011 | 결과표는 **소유자 기계 PASS · 소유자 Windows 결과 · W 통합 판정 · 사용자 확정**을 별도 열로 둔다. 최종 통합 PASS는 하나의 통합 SHA와 하나의 기준 revision에 대한 W 필수 셀 전체가 필요하다. 수정 효과 확인은 영향 셀·교차 조작만 재실행할 수 있고 다른 SHA의 통과 셀을 합쳐 PASS를 만들지 않는다. | PR #640 코멘트 §3 · V1 H6 | ACTIVE |
 | W-012 | 측정 기록은 **생성한 프로세스의 실제 플랫폼과 앱 트리 SHA**를 원본에 남긴다. 기준선 측정 소스는 PR에서 도달 가능한 커밋과 blob 해시로 고정하고, 해시가 다르거나 도달 불가면 측정을 시작하지 않는다. | PR #640 코멘트 §1 · F4·F5 | ACTIVE |
 | W-013 | 순서: 지금 plan 개정·WU-M·0325 AC19 참고 기준선. W-004 확정과 H1 필수 셀 목록 고정 뒤에 판정용 Windows 실측(WU-W). 합의 전 실행은 W 최종 표본으로 승격하지 않는다. | PR #640 코멘트 “진행 순서” | ACTIVE |
+| W-014 (rev 3) | 기준선 측정 모델은 stage-d·stage-e 공통으로 **도구 체크아웃 + 기준 앱 소스 복원**이다. 측정 전용 worktree에서 HEAD = 도구 커밋, `git restore --source=<기준> --staged --worktree -- app/src`로 앱 소스만 되돌린다. 기준선 검사는 HEAD가 아니라 `app/src` 내용(기준과 diff 0 · 미추적 0)으로 하고, 출력은 `tool`(HEAD)과 `appSource`(기준 커밋·tree)를 따로 남긴다. 포기한 것: 기준 앱 HEAD에 도구를 복사하는 방식(0329 plan:1068) — 도구 출처가 HEAD에 남지 않고 stage-e의 PR 도달 검사(P7 E3)와 양립하지 않는다. | 설계 판단 · PR #655 §2 “도구에 앱 트리를 넘기는 방법” · G7·G9 | ACTIVE |
+| W-015 (rev 3) | 사전 합의(`agreement`)와 최종 확정(`confirmation`)은 별도 기록이고 둘 다 `plan.revision`과 같아야 한다. 합의 시각보다 **뒤**(`startedAt > lockedAt`, 같은 시각은 합의 전)에 시작한 W 표본만 필수 셀을 채운다. 필수 원본(`rawRef` 파일·SHA-256·구간)과 도구 기록은 판독기가 `--raw-root`로 전수 대조하고 누락 셀을 `미판정`으로 보류한다. 구간 내용 재계산은 H5 사람 검증이다. | PR #655 §1 · G6 | ACTIVE |
+| W-016 (rev 3) | 통합 SHA 일치는 **W 표본의 이후 쪽**에만 건다. W 표본 이전 쪽은 `plan.wBaselineSha`, 소유자 표본은 그 셀의 `pair` SHA와 대조한다. | PR #655 §1 · G4 | ACTIVE |
+| W-017 (rev 3) | 0329 구 DB 측정 도구는 **기능 충족**(`functional`)·**Linux 기준**(`linuxLatencyGate`, 3,729ms)·**W-004 판정**(판독기 셀)을 따로 낸다. 시간 기준이 `verdict`·종료 코드에 들어가는 것은 `linux-electron`에서만이다. | PR #655 §2 · 0329 §17(Linux 단독 실행 기준) · G8 | ACTIVE |
+| W-018 (rev 3) | 판정 구분은 셋이다 — **WU-M 기계**(VP-08~17·VP-R1, WU-M verify가 닫음) · **참고 기준선**(0325 AC19, 0325 소유, W에서는 `기록 전용`) · **WU-W 실측**(VP-01~07). W-004는 pair가 아니라 WU-W 착수 조건이며, WU-M verify는 VP-01~07에 pair 결과를 주지 않고 `미착수(WU-W)`로 적는다. | PR #655 §3 · `docs/handoff/AGENTS.md:82` · G12 | ACTIVE |
+| W-019 (rev 3) | W-009의 주 경로를 승계하고 적용 경계를 정한다: 과거 전체 본문 읽기·조립 0회는 **색인이 준비된 세션의 일반 열기**에 적용한다. **색인 미준비 구 DB의 첫 열기**는 0329 AC11대로 색인 준비 비용(변환 시간·디스크·읽은 bytes)과 첫 실제 본문 paint를 분리한다. `7db1c7ce` **포함** 이전 빌드는 조각 조립 경로(T09′)다. | PR #655 §3 · G13 | ACTIVE |
 
-**갱신 메모.** 추가 W-007~W-013, 대체 W-003 → W-007, 유지 W-001·002·004(칸 확장)·005·006. `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — W-008 ↔ AC4(W3 두 결과), W-009 ↔ AC4(T09 행), W-010 ↔ AC7(CLI 위치), W-011 ↔ AC6·AC7(열·단일 SHA), W-012 ↔ AC8·AC9, W-013 ↔ AC1·AC6(합의 전 표본 승격 금지)을 나란히 읽었다. W-004의 빈 값으로 통과할 수 있는 셀은 없다(AC7 U12·U14).
+**갱신 메모(rev 3).** 추가 W-014~W-019, 대체 W-009 → W-019. rev 2의 추가 W-007~W-013·대체 W-003 → W-007은 유지한다. `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — W-014 ↔ AC8·AC9(기준선 모델), W-015 ↔ AC7(P1 ①②④·P2), W-016 ↔ AC7(P4 ④), W-017 ↔ AC10, W-018 ↔ §7-A 세 구분·AC1~AC6(WU-W), W-019 ↔ AC4(T09 행)를 나란히 읽었다. rev 2 대조(W-008 ↔ AC4 · W-010 ↔ AC7 · W-011 ↔ AC6·AC7 · W-012 ↔ AC8·AC9 · W-013 ↔ AC1·AC6)는 그대로다. W-004의 빈 값으로 통과할 수 있는 셀은 없다(P1 ①④ · P4 ⑥⑦).
 
 ## 4. 요구 비판적 검토
 
 - 설치본의 `perf.stall`은 50ms 미만 작업·페인트·읽던 문장의 위치를 보여주지 않는다. 설치본은 로그와 화면 동작을, 같은 소스의 진단 빌드는 프레임·React commit·layout을 관측한다.
 - `build:win`은 일반 production 설치본을 만든다. `VITE_OO_DIAGNOSTIC=1`이 켜는 것은 진단 다리 등록(`main.tsx:23-26`)뿐이고 React profiling 번들·비압축·DevTools는 H1의 진단 오버레이가 따로 만든다.
 - 소유자 자체 실기 기준(0324 AC22, 0326 D-109, 0328 분기 규칙, 0329 3,729ms)은 각자 판정하고 W 장비 목표로 바꾸지 않는다. 특히 `measure-stage-e.mjs`의 `latencyGate`(3,729ms, `:88-89`)는 Linux 기준이라 Windows 출력의 그 필드를 W 셀에 쓰지 않는다.
-- 측정 도구 수정(F4·F5)은 0328·0329 소유 도구지만 둘 다 PASS 종료라 0330 WU-M이 W 재현을 위해 고친다. 0328의 분기 판정(R-H·R-W·R-R)은 `linux-electron` 행 기준 그대로다(0328 plan:450).
+- 측정 도구 수정(F4·F5·G7~G9)은 0328·0329 소유 도구지만 둘 다 PASS 종료라 0330 WU-M이 W 재현을 위해 고친다. 0328의 분기 판정(R-H·R-W·R-R)은 `linux-electron` 행 기준 그대로다(0328 plan:450). 0329의 3,729ms는 `linux-electron` 종료 코드에만 남는다(W-017).
 
 ## 5. 동작과 상태
 
@@ -109,32 +136,45 @@ WU-M이 끝나면 테스터는 같은 명령으로 빌드·입력·측정 도구
 | R-04 ↔ AT-04 / AC4 | 세 하네스의 복합 조작에서 H4 표의 기대 결과(선택 두 결과 · D-109 시나리오별 규칙 · Markdown 꼬리 세 구간 · 첨부 순서 · 페이지 첫 paint · 검색 강조)와 느린 구간을 구별해 재현한다. | 조작 구간 원본의 원인별 마커·프레임·프로세스 식별자와 화면 결과를 대조한다. | 입력/에이전트 → data·창·워커 → commit/layout/paint |
 | R-05 ↔ AT-05 / AC5 | 셀별 집계·비교·결측 사유가 원자료로 재현되고 원소유자의 FAIL이 보존된다. | 실기 원본 한 셀을 처음부터 다시 계산해 판독기 출력과 대조한다(H5). | 원래 단위·구간·표본 → 수치·셀 상태 |
 | R-06 ↔ AT-06 / AC6 | 사용자 합의와 관측이 모두 갖춰지고 단일 통합 SHA일 때만 `합격`을 제시한다. 위반과 결측이 동시에 있으면 둘 다 보인다. 결과표는 W-011의 네 열을 가진다. | H6 결과표와 판독기 출력(AC7 U7·U13·U14)을 대조한다. | 잠근 기준 → 셀 판정 → W verify와 INDEX |
-| R-07 ↔ AT-07 / AC7 (rev 2) | 판독기 CLI가 예제 입력에서 기대 출력과 같은 보고서를 내고, U1~U16 입력마다 §10 P3·P4·P5 규칙 칸의 결과를 낸다. 모르는 지표·단위·연산자·키는 `충족`이 되지 않는다. | `app/scripts/windows-verdict.test.mjs` — CLI 자식 프로세스 실행(IT-01) + 순수 함수(UT-01·UT-02). `npm test`의 `node --test` 단계 | 테스터 파일 → CLI → 보고서 JSON · exit code |
-| R-08 ↔ AT-08 / AC8 (rev 2) | `measure-stage-d.mjs`의 모든 시나리오 출력에 생성 프로세스의 `environment`(`<process.platform>-electron`)·`sha`·`dirty`가 있다. `--compare`는 환경이 같고 허용 집합(`linux-electron`·`win32-electron`)에 있을 때만 호환이며, 기존 Linux 증거 쌍은 계속 호환이다. | `measure-stage-d.test.mjs` 추가 케이스(UT-03) + CLI `--compare` 자식 프로세스(IT-02) | CLI → 측정 결과 → 스탬프 → stdout / 증거 파일 → `--compare` |
-| R-09 ↔ AT-09 / AC9 (rev 2) | `measure-stage-e.mjs --baseline`은 PR 도달 커밋 `4412276f`의 `app/scripts/stage-e/host.ts`를 blob `1c4bcb1a…`로 확인한 뒤에만 빌드한다. blob 불일치·커밋 부재·HEAD에서 도달 불가면 측정 없이 실패한다. 출력에 `environment`·`sha`가 있다. | `measure-stage-e.test.mjs`(신규, UT-04) | `--baseline` → 기준 host 소스 해석 → esbuild stdin |
+| R-07 ↔ AT-07 / AC7 (rev 3) | 판독기 CLI가 **실패 예제**에서 확정 전후 모두 `불합격`·exit 1을 내고 위반·결측·소유자 FAIL 목록을 함께 보인다. **충족 예제**는 확정 전 `판정 보류(사용자 확정 대기)`·exit 1 → 확정 후 `합격`·exit 0이다. U1~U24 입력마다 §10-A 규칙 칸 결과를 낸다. 모르는 지표·단위·연산자·집계·키는 `충족`이 되지 않는다. | `app/scripts/windows-verdict.test.mjs` — CLI 자식 프로세스(AT-07·IT-01) + 순수 `evaluate`(UT-01·UT-02). `npm test`의 `node --test scripts/*.test.mjs` | 테스터 파일·원본 폴더 → CLI → 보고서 JSON · exit code |
+| R-08 ↔ AT-08 / AC8 (rev 3) | `measure-stage-d.mjs`의 모든 시나리오 출력에 `environment`(`<process.platform>-electron`)·`tool`(HEAD)·`sha`(= `appSource.commit`)·`appSource`(commit·tree·dirty)가 있다. 기준선은 W-014 모델로 실행된다. `--compare`는 허용 환경이 같고, 양쪽에 출처 충돌이 없고, 앱 소스가 다를 때만 호환이다. 기존 Linux 증거 쌍(`r1.2-host-baseline.json` ↔ `r1.2-host-applied.json`)은 계속 호환이다(현재 exit 0). | `measure-stage-d.test.mjs` 추가(UT-03) + `--compare` 자식 프로세스(AT-08) | CLI → 측정 → 스탬프 → stdout / 증거 → `--compare` |
+| R-09 ↔ AT-09 / AC9 (rev 3) | `measure-stage-e.mjs --baseline`은 앱 소스가 `7db1c7ce`와 같고(diff 0 · 미추적 0) PR 도달 커밋 `4412276f`의 host blob이 `1c4bcb1a…`일 때만 **Electron을 띄우기 전에** 통과한다. 하나라도 어긋나면 측정 없이 exit 1이다. 출력에 `environment`·`tool`·`appSource`가 있다. | `measure-stage-e.test.mjs`(신규 — UT-04) + `--baseline` 자식 프로세스(AT-09 — 현 트리는 앱 소스가 다르다) | `--baseline` → 앱 소스 검사 → host 소스 해석 → esbuild stdin |
+| R-10 ↔ AT-10 / AC10 (rev 3) | 같은 측정 결과에서 `functional`·`linuxLatencyGate{limitMs:3729, pass, applies}`·`verdict`를 따로 읽는다. **시간만** 3,729ms를 넘은 긴 DB 결과는 `linux-electron`에서 `verdict:false`·exit 1, `win32-electron`에서 `verdict:true`·exit 0이고 두 경우 모두 `linuxLatencyGate.pass:false`가 남는다. 기능 실패는 두 환경 모두 exit 1이다. | `measure-stage-e.test.mjs`(UT-05 — `stageEVerdict` + `selectionExitCode`) | 측정 결과 → `stageEVerdict()` → 출력 · `process.exitCode` |
 
 ## 7-A. Baseline V / Trace Matrix
 
-좌·우 노드는 모두 NEW다(VP-01~10은 V1, VP-11~13과 AC7~9는 rev 2). A~E의 기존 V는 변경하지 않는다. `P`는 §10의 고정 자리, `H`는 §19의 실제 장비 증거, `U`는 AC7 입력이다.
+좌·우 노드는 모두 NEW다(VP-01~10 = V1, VP-11~13 = rev 2, VP-14~17 = rev 3). A~E의 기존 V는 변경하지 않는다. `P`는 §10 자리, `H`는 §19 실제 장비 증거, `U`는 §10-A 입력이다.
 
-| Pair · 노드 | requiredness | 생산 경로 `start → edges → end` | §10 자리 · 직접 좌표 |
+**세 구분(W-018 — §19 H6·INDEX와 같은 표기)**
+
+| 구분 | 대상 | 언제 · 누가 닫나 |
+|---|---|---|
+| WU-M 기계 | VP-08~17 · VP-R1 · AC7~AC10 | 지금. WU-M verify가 pair 결과(`PASS`·`PAIR_FAIL`)로 닫는다 |
+| 참고 기준선 | 0325 AC19(H2) | 지금 수집 가능. 판정은 0325 소유. W 판독기에서는 합의 전 표본이라 `기록 전용` |
+| WU-W 실측 | VP-01~07 · AC1~AC6 | W-004 사전 합의 + H1 필수 셀 고정 뒤. WU-M verify에서는 pair 결과 없이 `미착수(WU-W)` |
+
+| Pair · 노드 | requiredness · 구분 | 생산 경로 `start → edges → end` | §10 자리 · 직접 좌표 |
 |---|---|---|---|
-| VP-01 R-01 ↔ AT-01 | REQUIRED (WU-W) | 프로필 잠금 → 3쌍 실행 → 비교 행 | P1·P3; H1·H6 |
-| VP-02 R-02 ↔ AT-02 | REQUIRED (WU-W) | AC19 실창 → 원자료 → 두 소유 verify → W | P2·P5; H2 |
-| VP-03 R-03 ↔ AT-03 | REQUIRED (WU-W) | B/C/D/E 시나리오 → 소유 결과 → T 행 | P2·P5; H3 |
-| VP-04 R-04 ↔ AT-04 | REQUIRED (WU-W) | 통합 설치본·진단 조작 → 구간별 결과·첫 paint | P2·P3; H4 |
-| VP-05 R-05 ↔ AT-05 | REQUIRED (WU-W) | raw 관측 → 유효성/집계 → 셀 | P3·P4; H5 |
-| VP-06 R-06 ↔ AT-06 | REQUIRED (WU-W) | 합의 원본 → 셀 결과 → 사용자 확인 결과·공유 보드 | P1·P4·P5; H6 |
-| VP-07 SD-01 ↔ ST-01 | REQUIRED (WU-W) | 수집/재시도 → 합의·증거 여부 → 최종 상태 | P1·P3·P4·P5; H6 + `windows-verdict.test.mjs:'report CLI …'` |
-| VP-08 AR-01 ↔ IT-01 | REQUIRED (WU-M) | 테스터 파일(plan·manifest·observations·owners·decision) → `windows-verdict.mjs` CLI 인자 해석 → 스키마 검증 → 판정 → stdout JSON·exit code | P2·P3·P4·P5 (CLI 자리 C1~C4); `windows-verdict.test.mjs:'report CLI …'` 4건(§10) |
-| VP-09 MD-01 ↔ UT-01 | REQUIRED (WU-M) | 표본·단위·수집 구간 → 지표/분모/결측 | P3; `windows-verdict.test.mjs` U1~U6·U10·U11·U15·U16 |
-| VP-10 MD-02 ↔ UT-02 | REQUIRED (WU-M) | 예정 셀·판정식·허용치 revision → 누락 목록·셀·전체 결과 | P1·P4·P5; U7~U9·U12~U14 |
-| VP-11 MD-03 ↔ UT-03 (rev 2) | REQUIRED (WU-M) | `process.platform`·`git rev-parse HEAD` → `provenance()` → `stampProvenance()` → 기록 / 기록 쌍 → `compatibleRun()` | P6 S1~S9; `measure-stage-d.test.mjs` 추가 케이스(§10 P6) |
-| VP-12 MD-04 ↔ UT-04 (rev 2) | REQUIRED (WU-M) | 고정 좌표 상수 → `baselineHostSource(git)` → 소스 텍스트 / 오류 | P7 E1~E4; `measure-stage-e.test.mjs`(§10 P7) |
-| VP-13 AR-02 ↔ IT-02 (rev 2) | REQUIRED (WU-M) | `node scripts/measure-stage-d.mjs --compare a b`(자식 프로세스) → `compareEvidence` → `compatibleRun` → stdout·exit code | P6 S8·S9; `measure-stage-d.test.mjs:'compare CLI …'` 2건 |
-| VP-R1 0328 VP-12·VP-25 | REGRESSION (WU-M) | 0328 EP12 판정 함수 | INHERITED `0328:V1 rev 5 + ΔV1@7db1c7ce` — `measure-stage-d.test.mjs` 기존 7케이스(`:11`~`:64`) 전부 green |
+| VP-01 R-01 ↔ AT-01 | REQUIRED · WU-W | 프로필 잠금 → 3쌍 실행 → 비교 행 | P1·P3; H1·H6 |
+| VP-02 R-02 ↔ AT-02 | REQUIRED · WU-W | AC19 실창 → 원자료 → 두 소유 verify → W | P2·P5; H2 |
+| VP-03 R-03 ↔ AT-03 | REQUIRED · WU-W | B/C/D/E 시나리오 → 소유 결과 → T 행 | P2·P5; H3 |
+| VP-04 R-04 ↔ AT-04 | REQUIRED · WU-W | 통합 설치본·진단 조작 → 구간별 결과·첫 paint | P2·P3; H4 |
+| VP-05 R-05 ↔ AT-05 | REQUIRED · WU-W | raw 관측 → 유효성/집계 → 셀 | P3·P4; H5 |
+| VP-06 R-06 ↔ AT-06 | REQUIRED · WU-W | 합의 원본 → 셀 결과 → 사용자 확인 결과·공유 보드 | P1·P4·P5; H6 |
+| VP-07 SD-01 ↔ ST-01 | REQUIRED · WU-W | 수집/재시도 → 합의·증거 여부 → 최종 상태 | P1~P5; H6 + 판독기 실제 입력 실행 |
+| VP-08 AR-01 ↔ IT-01 | REQUIRED · WU-M | CLI 인자 → 파일 읽기·파싱 → `evaluate` → stdout·exit code | C1~C4; `windows-verdict.test.mjs:'cli …'` 3건(§10-A C 칸) |
+| VP-09 MD-01 ↔ UT-01 | REQUIRED · WU-M | 표본·단위·구간 → 집계/분모/결측 | P2·P3; `windows-verdict.test.mjs` U1~U5·U10·U11·U15·U16·U19~U23 |
+| VP-10 MD-02 ↔ UT-02 | REQUIRED · WU-M | 예정 셀·판정식·합의/확정 → 누락·셀·전체 결과 | P1·P4·P5; U6~U9·U12~U14·U17·U18·U24 |
+| VP-11 MD-03 ↔ UT-03 (rev 2·3) | REQUIRED · WU-M | `process.platform`·git → `provenance()`·`appSourceIdentity()` → `stampProvenance()` / 기록 쌍 → `compatibleRun()` | P6 S1~S10; `measure-stage-d.test.mjs` 추가 케이스(§10-B P6) |
+| VP-12 MD-04 ↔ UT-04 (rev 2·3) | REQUIRED · WU-M | 앱 소스 검사 → 고정 좌표 → `baselineHostSource(git)` → 소스 / 오류 | P7 E0~E5; `measure-stage-e.test.mjs`(§10-B P7) |
+| VP-13 AR-02 ↔ IT-02 (rev 2) | REQUIRED · WU-M | `--compare a b` 자식 프로세스 → `compareEvidence` → `compatibleRun` → stdout·exit | P6 S8·S9; `measure-stage-d.test.mjs:'compare CLI …'` 3건 |
+| VP-14 R-07 ↔ AT-07 (rev 3) | REQUIRED · WU-M | 예제 폴더 → CLI → 보고서·exit code | P4 ⑤~⑧ · C4; `windows-verdict.test.mjs:'report CLI: failing example …'` · `'report CLI: passing example …'` |
+| VP-15 R-08 ↔ AT-08 (rev 3) | REQUIRED · WU-M | 기존 Linux 증거·Windows 변형 증거 → `--compare` → exit | P6 S8·S9; VP-13 좌표 3건 공유 |
+| VP-16 R-09 ↔ AT-09 (rev 3) | REQUIRED · WU-M | `node scripts/measure-stage-e.mjs --baseline --old-db small`(현 트리) → 앱 소스 검사 → exit 1 | P7 E0·E5; `measure-stage-e.test.mjs:'baseline CLI refuses …'` |
+| VP-17 R-10 ↔ AT-10 (rev 3) | REQUIRED · WU-M | 측정 결과 → `stageEVerdict` → `selectionExitCode` | P8 V1~V5; `measure-stage-e.test.mjs:'stage-e verdict …'` |
+| VP-R1 0328 VP-12·VP-25 | REGRESSION · WU-M | 0328 EP12 판정 함수 | INHERITED `0328:V1 rev 5 + ΔV1@7db1c7ce` — `measure-stage-d.test.mjs` 기존 7케이스(`:11`~`:64`) 전부 green, `:64` fixture는 그대로 `true` |
 
-VP-01~07의 H 좌표는 WU-W 실행 전에는 닫힌 좌표가 아니다. WU-M의 verify는 VP-08~13·VP-R1만 닫고, VP-01~07은 `BLOCKED_BY:W-004`로 둔다.
+VP-16의 좌표는 현 트리의 앱 소스가 `7db1c7ce`와 다르다는 사실에 기대므로 `fetch-depth: 0` 이력이 필요하다(`ci.yml:39`). 얕은 클론에서 git 오류로 나는 exit 1은 그 좌표를 닫지 않는다 — 테스트는 오류 문구를 단언한다.
 
 # Part II — Technical Design
 
@@ -148,10 +188,15 @@ VP-01~07의 H 좌표는 WU-W 실행 전에는 닫힌 좌표가 아니다. WU-M�
 | 재현 입력 | `rg -n 'function writeInputs' -A3 app/scripts/measure-ui-inputs.mjs` | `inputFiles()` + `visibleInputs()` + `git-50000/`(F5) + `git-200-files/`(F8). F6 `artifact-1mb.md` · F7 `generated-5mib.ts` · F9 4파일 · `work-5mb.json`. 이 환경은 node_modules가 없어 해시를 재지 않았다 → H1-0이 기록 |
 | J3/J8 | `rg -n "'J3'|J8" app/scripts/measure-ui-inputs.mjs` | 2 — `:825` index 1 산출물 · `:873` 앞삽입 1턴 / 기존 1·100턴. 0326 §19 J3·J8과 같다 |
 | stage-d 환경 스탬프 | `rg -n 'linux-electron|environment' app/scripts/measure-stage-d.mjs app/scripts/stage-d app/scripts/stage-d-host app/scripts/stage-d-shell -g '!*.test.*'` | 생산 5 · 소비 2줄(`measurement.mjs:63-64`). SHA 생산 3(`measure-stage-d.mjs:48` · `host-runner.mjs:11` · `shell-runner.mjs:28`). → §10 P6 |
-| stage-e 기준선 소스 | `rg -n "7db1c7ce|3d8e1d90|'show'" app/scripts/measure-stage-e.mjs` | 3 — `:14` 기준 앱 · `:28` src 대조 · `:52` `git show 3d8e1d90:…`. `3d8e1d90` PR 미도달, 같은 blob이 `4412276f`에 있음 → §10 P7 |
+| stage-e 기준선 소스 | `rg -n "7db1c7ce|3d8e1d90|'show'" app/scripts/measure-stage-e.mjs` | 3 — `:14` 기준 앱 · `:28` src 대조 · `:48` `git show 3d8e1d90:…`. `3d8e1d90` PR 미도달, 같은 blob이 `4412276f`에 있음 → §10 P7 |
 | 일반 열기 경로 | `rg -n 'HistoryPageReplySchema|SessionLoadChunkSchema|assembleSession' app/src/renderer/src/shared/api/transport/session-load.ts` | 페이지 `:91-119`(현행 주 경로) · 조각 `:54`·`:63`(구 빌드·복구) → §12 |
 | T 분모 | `rg -c '^\| T[0-9]{2} \|' docs/handoff/0325-ui-responsiveness-followup/plan.md` | T01~T33. 0325 §6-D 단계분담과 함께 읽어 복수 소유(T01, T33 등)의 잔여를 가르지 않는다 |
 | CI 실행 | `.github/workflows/ci.yml:36-40`·`:83` | `fetch-depth: 0`(전체 이력) · test = `npm test`(vitest + `node --test "scripts/*.test.mjs"`) → W-010 |
+| 기준선 앱 소스 복원(rev 3) | `git worktree add --detach <w> ff5c6b02` → `git -C <w> checkout 7db1c7ce -- app/src` / `git -C <w> restore --source=7db1c7ce --staged --worktree -- app/src` → `git diff --quiet 7db1c7ce -- src` | checkout: 추가 파일 48 잔존 · exit 1 / restore: exit 0 · 미추적 0 · `git write-tree --prefix=app/src/` = `9235fa7c` → W-014 |
+| 0328 기준 트리의 도구(rev 3) | `git ls-tree -r --name-only c7d2adf2 -- app/scripts \| grep -c stage-d` | 0 — 기준 트리에 도구가 없다 → W-014 |
+| node 테스트 범위(rev 3) | `grep -n '"test"' app/package.json` | `:14` `node --test scripts/*.test.mjs` — 하위 폴더 시험은 실행되지 않는다 → 새 시험은 `scripts/` 최상위 |
+| stage-e 실행 방식(rev 3) | `sed -n 106,113p app/scripts/measure-stage-e.mjs` | import 시 `measure()`를 실행한다 → 순수부는 별도 seam 파일 |
+| 재현 입력 고정 목록(rev 3) | §19 H1-0 1번 명령 2회(`ff5c6b02`) | 216줄 · 두 번 동일 → `evidence/inputs-sha256.txt` |
 | 후보 표 | INDEX `## 새 handoff 후보` | 0330 파일과 겹치는 행 없음. 0329 NX1~NX3는 유지 |
 
 ## 9. 구조와 책임 변화
@@ -165,46 +210,82 @@ VP-01~07의 H 좌표는 WU-W 실행 전에는 닫힌 좌표가 아니다. WU-M�
 
 ## 10. 계약과 강제 지점
 
-### 10-A. 판독기 `app/scripts/windows-verdict.mjs`
+### 10-A. 판독기 `app/scripts/windows-verdict.mjs` (rev 3)
 
-**입력**(JSON, UTF-8). `plan` = `{ revision, lockedAt, profiles[], integrationSha, cells[] }` — `cells[]`는 예정 필수 키 `{ key, owner, ownerRevision, scenario, harness, profile, side, buildKind, repeat, metric, required, rule }`, `rule` = `{ aggregate: 'p95'|'max'|'median'|'count'|'ratio'|'equal', operator: '<'|'≤'|'='|'≥'|'>', value, unit, mode: 'absolute'|'relative' }`. `manifest` = `{ runs[]: { runId, sha, binarySha256, buildKind, profile, harness, scenario, repeat, tools{}, startedAt, endedAt } }`. `observations` = JSONL `{ runId, scenario, harness, metric, unit, interval, values[] | status: 'absent'|'failed'|'censored', bound?, rawRef: { sha256, range } }`. `owners` = `{ rows[]: { key, machine: 'PASS'|'FAIL'|'미완', machineRef, windows?, windowsRef? } }`. `decision` = `{ revision, decidedAt, by, confirmed: boolean }`(없으면 미확정).
+**CLI.** `node scripts/windows-verdict.mjs --plan <f> --manifest <f> --observations <f.jsonl> --raw-root <dir> [--owners <f>] [--decision <f>]`. 순수 함수 `evaluate({ plan, manifest, observations, owners, decision, readRaw })`와 CLI 래퍼를 나눈다(`readRaw(path)` → 바이트 또는 `null`). 새 의존성 없음.
 
-**출력**(stdout JSON) `{ cells[]: { key, status: '충족'|'위반'|'미판정'|'기록 전용', aggregate, n, unit, rawRefs[], reason? , ownerMachine, ownerWindows, w, user }, missing[], unexpected[], duplicates[], conflicts[], overall: '합격'|'불합격'|'판정 보류', holds[] }`. exit code: 0 `합격` · 1 `불합격`/`판정 보류` · 2 입력 오류(스키마·예정 키 0). 모르는 `aggregate`·`operator`·`unit`·`status`는 그 셀을 `미판정(지원 안 함: <값>)`으로 만든다 — **열린 입력 집합은 fail-closed**다.
+**입력 스키마**(JSON, UTF-8. `?`는 선택)
 
-| 자리 | 규칙 칸 — 분기마다 결과 | UT/IT 입력 칸 — 분기마다 입력(구별 값) |
+| 파일 | 필드 |
+|---|---|
+| `plan` | `revision` · `lockedAt`(ISO) · `wBaselineSha` · `integrationSha` · `profiles[]` · `tasks[]: { id, owners[] }` · `cells[]` |
+| `plan.cells[]` | `key` · `task` · `owner` · `ownerRevision` · `sample: 'owner'\|'w'` · `scenario` · `operation` · `load` · `harness` · `profile` · `pair: { id, beforeSha, afterSha }` · `side: 'after'\|'pair'\|'before'` · `buildKind: 'install'\|'diagnostic'\|'node'` · `metric` · `interval` · `repeats`(기본 3) · `required` · `ownerChecks: { machine, windows }` · `rule` |
+| `plan.cells[].rule` | `aggregate` · `combine: 'pooled'\|'median-of-runs'\|'each'` · `operator: '<'\|'≤'\|'='\|'≥'\|'>'` · `value` · `unit` · `mode: 'absolute'\|'relative'` · `where?: { operator, value }`(count) · `numerator?`·`denominator?`(ratio 지표 이름) |
+| `manifest.runs[]` | `runId` · `sample` · `pairId` · `side: 'before'\|'after'` · `sha` · `appSource?` · `binarySha256` · `buildKind` · `profile` · `harness` · `scenario` · `operation` · `load` · `repeat` · `startedAt` · `endedAt` · `tools: { <이름>: { version, environment, provenanceConflict? } }` |
+| `observations`(JSONL) | `runId` · `metric` · `interval` · `unit` · `values[]` 또는 `status: 'absent'\|'failed'\|'censored'` + `bound?` · `rawRef: { path, sha256, range }` |
+| `owners?` | `rows[]: { task, owner, key?, machine: 'PASS'\|'FAIL'\|'미완', machineRef, windows?: 'PASS'\|'FAIL'\|'미완', windowsRef? }` |
+| `decision?` | `agreement: { revision, lockedAt, by }` · `confirmation?: { revision, confirmedAt, by }` |
+
+관측은 `runId`의 실행 속성(시나리오·조작·부하·하네스·프로필·반복·전후·짝)과 `metric`·`interval`로 셀에 대응한다 — 같은 실행·지표의 다른 구간은 다른 셀이다. **이전 쪽 run과 이후 쪽 run은 같은 `pairId`·같은 `repeat`로 짝짓는다.**
+
+**집계(`rule`)**
+
+| `aggregate` | 피연산자 · 단위 | 값 |
 |---|---|---|
-| P1 기준 고정 | ① `run.startedAt < plan.lockedAt` → 그 run의 셀은 `기록 전용(합의 전)` ② `run.profile ∉ plan.profiles` → `미판정(프로필 불일치)` ③ 모든 셀에 `plan.revision` 표시 | U12: lockedAt보다 1ms 앞 / 같음 / 뒤 run · U6: 60Hz plan에 120Hz run · 출력의 `revision` 단언 |
-| P2 원본 인계 | ① 셀 표본의 `rawRef.sha256` 누락·형식 오류 → `미판정(원본 없음)` ② `observation.runId ∉ manifest` → `unexpected`에 기록, 셀 불변 ③ `buildKind` 서로 다른 두 run 비교 → `미판정(빌드 종류 혼합)` | U6′: rawRef 없는 관측 · U8: manifest에 없는 runId · U16: 설치/진단 혼합 쌍 |
-| P3 비교·집계 | ① p95 = 오름차순 `ceil(0.95N)`번째, max, median ② 같은 runId·metric·interval의 같은 해시·같은 값 → `duplicates`, 1회로 셈 ③ 같은 키 다른 값/해시 → `conflicts` + `미판정(충돌)` ④ 한 runId의 지표·구간 여럿 → 키마다 별도 셀 ⑤ `status:'absent'`(구 빌드) → 상대 비교 제외, 절대 규칙만 ⑥ `status:'failed'`(신 빌드) → `위반` ⑦ `censored`(`<16ms`) → 상한 비교가 결정되면 판정, 아니면 `미판정(검열)` ⑧ 상대 비교 분모 0 → `미판정(분모 0)` ⑨ 반복 3 중 누락 → `미판정(반복 부족)` + `missing`에 그 반복 키 | U10: N=1·19·20·21 p95 · U2: 같은 재제출 2회 · U3: 같은 키 값 다름 / 해시 다름 · U1: 한 runId에 지표 2·구간 2 · U4: before `absent` + 절대 규칙 있음/없음 · U5: after `failed` · U10′: `<16ms` vs `≤ 50` / `≤ 10` · U11: before 값 0 · U15: 반복 2 누락 |
-| P4 판정 | ① 연산자 5종 각각 경계 전/같음/후 ② 미지원 연산자·단위·집계 → `미판정(지원 안 함)` ③ `required:false` → `기록 전용` ④ 전체: 위반 ≥1 또는 소유자 `FAIL` → `불합격` + 모든 미판정·결측을 `holds`에 함께 ⑤ 위반 0이고 필수 결측·미판정·소유자 `미완` ≥1 → `판정 보류` ⑥ 전건 충족 + `decision.confirmed !== true` → `판정 보류(사용자 확정 대기)` ⑦ 전건 충족 + 확정 → `합격` ⑧ 통과 셀의 run SHA가 `plan.integrationSha`와 다름 → 그 셀 `미판정(통합 SHA 아님)` | U9: `<,≤,=,≥,>` × 경계 −1/0/+1 · U9′: `≈` 연산자·`fps` 단위·`p99` 집계 · `required:false` 셀 · U7: 소유자 FAIL + 필수 결측 동시(둘 다 보고) · U14: 전건 충족 + confirmed 없음 / false / true · U13: 다른 SHA 통과 셀 |
-| P5 원소유·공유 | ① 예정 필수 키 − 유효 실제 키 → `missing`(프로필·시나리오·하네스·반복·지표별 복원) ② 실제 − 예정 → `unexpected`(충족 수 불변) ③ 예정 필수 키 0 → exit 2 ④ 셀마다 `ownerMachine`·`ownerWindows`·`w`·`user` 네 열을 owners·decision에서 채운다(없으면 `미기록`) | U8: 제출자가 manifest에서 키 1개 삭제 · 예상 밖 키 1개 추가 · 빈 `cells` · 빈 observations(모든 셀 미판정) · U7′: owners 행 없는 셀 → `미기록` |
-| C1~C4 CLI (VP-08) | C1 인자 `--plan --manifest --observations [--owners] [--decision]` 해석 ② C2 파일 읽기·JSONL 파싱 실패 → exit 2 + 파일명 ③ C3 판정 결과 → stdout JSON ④ C4 overall → exit code 0/1/2 | `windows-verdict.test.mjs:'report CLI …'` — 예제 입력 → 기대 출력 일치·exit 1 · 확정 추가 → exit 0 · 깨진 JSONL → exit 2 · `--owners` 생략 → `미기록` |
+| `p95` · `max` · `median` | 수치 `values`(ms·px·frames) | p95 = 오름차순 `ceil(0.95N)`번째 · median = N 짝수면 가운데 둘의 평균 |
+| `count` | `values` 중 `where`(연산자·값)를 만족하는 수 · 단위 `건` | 예: 정지 ≥160ms 수 |
+| `ratio` | Σ `numerator` 지표 값 / Σ `denominator` 지표 값(같은 run·interval) · 단위 `비` | 분모 0 → `미판정(분모 0)` |
+| `equal` | 문자열 `values`가 전부 `rule.value`와 같은가 · 연산자 `=`만 · 단위 `text` | 복사 결과 해시 등 |
 
-**자리 검색 명령.** 구현 뒤 `rg -n "operator|aggregate|status|missing|unexpected|conflicts|duplicates|overall|exitCode|process.argv" app/scripts/windows-verdict.mjs` 출력의 각 줄을 P1~P5·C1~C4 중 하나로 분류하고, 분류되지 않는 운반 줄은 사유와 함께 제외 줄로 적는다(`site_census.mjs`). 판독기는 신규 파일이라 rev 2 시점 출력은 0줄이다 — 분모는 위 규칙 칸 분기(P1 3 · P2 3 · P3 9 · P4 8 · P5 4 · C 4 = 31)이고 구현 diff 자리마다 sweep한다.
+| `combine` | 세 반복을 합치는 법 |
+|---|---|
+| `pooled` | 반복 셋의 표본을 합친 뒤 한 번 집계(0325 타이핑 p95) |
+| `median-of-runs` | 반복마다 집계한 뒤 그 중앙값(0326 D-090) |
+| `each` | 반복마다 판정, 하나라도 위반이면 위반 |
 
-**예제 입력.** `app/scripts/windows-verdict/example/{plan,manifest,owners,decision}.json`·`observations.jsonl`·`expected-report.json`. 예제는 구현자 안내이자 계약 fixture라 `'report CLI …'` 첫 케이스가 예제 → 기대 출력을 단언한다. 예제는 최소 W1 셀 2개(충족 1·위반 1), 결측 1, 소유자 FAIL 1을 담는다.
+`mode: 'relative'`는 `side: 'pair'` 셀에서 `이후 집계 / 이전 집계`를 `value`(예: `≤ 1.10`)와 비교한다. 모르는 `aggregate`·`combine`·`operator`·`unit`·`mode`·`status`는 그 셀을 `미판정(지원 안 함: <값>)`으로 만든다 — **열린 입력 집합은 fail-closed**다.
 
-### 10-B. 측정 도구 출처 (W-012)
+**출력**(stdout JSON) `{ revision, cells[]: { key, status: '충족'|'위반'|'미판정'|'기록 전용', aggregate, n, unit, rawRefs[], reason?, ownerMachine, ownerWindows, w, user }, violations[], missing[], unexpected[], duplicates[], conflicts[], ownerFailures[], holds[], overall: '합격'|'불합격'|'판정 보류', overallReason }`. exit code: 0 `합격` · 1 `불합격`·`판정 보류` · 2 입력 오류.
+
+| 자리 | 규칙 칸 — 분기마다 결과 | 입력 칸 — 분기마다 입력(구별 값) |
+|---|---|---|
+| P1 기준 고정 | ① `agreement.revision ≠ plan.revision` 또는 `agreement.lockedAt ≠ plan.lockedAt` → 모든 W 셀 `미판정(합의 불일치)` + hold ② W run `startedAt ≤ lockedAt` → 그 run의 셀 `기록 전용(합의 전)`, 필수 키를 채우지 않는다 ③ run·셀 `profile` 불일치 또는 `profiles` 밖 → `미판정(프로필 불일치)` ④ `confirmation` 없음 → hold `사용자 확정 대기` · `confirmation.revision ≠ plan.revision` → hold `확정 revision 불일치` · `confirmedAt` < 마지막 W run `endedAt` → hold `확정이 실행보다 앞섬` ⑤ 보고서·셀에 `plan.revision` | U18: agreement revision 다름 / lockedAt 다름 · U12: `startedAt` = lockedAt −1ms / 같음 / +1ms · U6: 60Hz 셀에 120Hz run · U18′: 확정 없음 / revision 다름 / `confirmedAt` 앞섬 · 출력 `revision` 단언 |
+| P2 원본 인계 | ① `rawRef` 없음 · `path`가 `--raw-root` 밖(`..`·절대 경로) · 파일 없음 → `미판정(원본 없음)` ② 파일 SHA-256 ≠ `rawRef.sha256` → `미판정(원본 해시 불일치)` ③ `range` 빈 값 → `미판정(구간 없음)` ④ run의 `tools` 비었음 · `environment` 없음 · `MEASUREMENT_ENVIRONMENTS` 밖 · `provenanceConflict: true` → `미판정(도구 출처 불명)` ⑤ `observation.runId ∉ manifest` → `unexpected`, 셀 불변 ⑥ 짝의 `buildKind`가 다름 → `미판정(빌드 종류 혼합)` | U19: rawRef 없음 / `../x` / 없는 파일 / 해시 1글자 다름 / `range: ''` · U23: tools `{}` / environment 없음 / `darwin-electron` / `provenanceConflict` · U8′: manifest 밖 runId · U16: 설치·진단 짝 |
+| P3 비교·집계 | ① p95·max·median ② count `where` ③ ratio(분모 0 → 미판정) ④ equal ⑤ combine 3종 ⑥ 같은 키·같은 해시·같은 값 → `duplicates`, 1회로 셈 ⑦ 같은 키 다른 값/해시 → `conflicts` + `미판정(충돌)` ⑧ 한 runId의 지표·구간 여럿 → 키마다 별도 셀 ⑨ 이전 `absent` → 상대 비교 `미판정(이전 기능 없음)`, 같은 키의 절대 셀은 계속 ⑩ 이후 `failed` → `위반` ⑪ `censored`(bound 16): `≤ 50` → 결정, `≤ 10` → `미판정(검열)` ⑫ 상대 비교 이전 집계 0 → `미판정(분모 0)` ⑬ `repeats` 중 누락 → `미판정(반복 부족)` + `missing`에 그 반복 키 ⑭ 상대 셀의 짝(같은 pairId·repeat) 없음 → `미판정(짝 없음)` | U10: N=1·19·20·21 p95, N=2 median · U20: `where ≥160` 값 `[159,160,161]` → 2 · ratio `[3]/[0]`·`[3]/[60]` · equal `['a','a','b']` vs `'a'` · U21: 반복 `[10,10,100]`·`[10,10,10]`·`[10,10,10]`, `p95 ≤ 50` → pooled 위반 / median-of-runs 충족 / each 위반 · U2 · U3: 값 다름 / 해시 다름 · U1: 한 runId에 지표 2 × 구간 2 · U4: absent + 절대 셀 있음/없음 · U5 · U10′ · U11 · U15: 반복 2 누락 · U22: pairId 다름 / repeat 짝 없음 |
+| P4 판정 | ① 연산자 5종 경계 −1/0/+1 ② 미지원 연산자·단위·집계·combine·mode → `미판정(지원 안 함)` ③ `required: false` → `기록 전용` ④ SHA(W-016): W·이후 `sha ≠ integrationSha` → `미판정(통합 SHA 아님)` · W·이전 `sha ≠ wBaselineSha` → `미판정(기준 SHA 아님)` · 소유자 표본 `sha ≠ cell.pair.<side>Sha` → `미판정(소유 SHA 아님)` ⑤ 전체: 위반 ≥1 또는 `ownerFailures` ≥1 → `불합격`, `holds`에 미판정·결측·확정 상태를 함께 ⑥ 위반 0 + 필수 결측·미판정·소유 판정 결측/`미완`·합의 불일치 ≥1 → `판정 보류` ⑦ 전건 충족 + P1 ④ hold → `판정 보류(<사유>)` ⑧ 전건 충족 + 확정 정상 → `합격`. 확정은 `불합격`을 바꾸지 않는다 | U9: `<,≤,=,≥,>` × 경계 −1/0/+1 · U9′: `≈`·`fps`·`p99`·`combine: 'mean'` · `required:false` 셀 · U13: W 이후 SHA 다름 / W 이전 = `wBaselineSha`(유효) / 소유자 표본 SHA = pair SHA(유효)·다름 · U7: 위반 + 결측 + 소유자 FAIL, 확정 없음·있음 → 둘 다 `불합격`이고 세 목록이 비지 않음 · U14: 전건 충족 + 확정 없음 / revision 다름 / 정상 |
+| P5 원소유·공유 | ① 예정 필수 키 − 유효 실제 키 → `missing`(프로필·시나리오·하네스·반복·지표별 복원) ② 실제 − 예정 → `unexpected`(충족 수 불변) ③ 예정 필수 키 0 → exit 2 ④ `ownerChecks.machine`·`windows`가 요구하는데 owners 행이 없거나 그 칸이 없음 → 열 `미기록` + `판정 보류(소유 판정 없음)` ⑤ `tasks[].owners`의 소유자마다 그 task의 셀 또는 owners 행이 있어야 한다 — 하나라도 없으면 `missing`에 `<task>/<owner>` + `판정 보류` ⑥ 셀마다 네 열(`ownerMachine`·`ownerWindows`·`w`·`user`)을 채운다 | U8: 제출자가 manifest에서 키 1개 삭제 / 예상 밖 키 1개 추가 / 빈 `cells` / 빈 observations(모든 셀 미판정) · U24: `ownerChecks.windows: true`인데 windows 칸 없음 · U17: T33 소유 `0327`·`0328` 중 `0328` 행 없음 → `T33/0328` |
+| C1~C4 CLI | C1 `--plan`·`--manifest`·`--observations`·`--raw-root` 필수 — 하나라도 없으면 exit 2 · C2 파일 읽기·JSON/JSONL 파싱 실패 → exit 2 + 파일명 · C3 판정 결과 → stdout JSON · C4 `overall` → exit 0/1 | AT-07 `'report CLI: failing example …'`: 실패 예제 확정 없음·있음 → 둘 다 exit 1·`불합격`, `violations`·`missing`·`ownerFailures` 비지 않음, `expected.json`·`expected.confirmed.json` 일치 · `'report CLI: passing example …'`: 확정 없음 → exit 1·`판정 보류(사용자 확정 대기)` · 확정 → exit 0·`합격` · IT-01 `'cli rejects …'`: `--raw-root` 누락 → 2 / 깨진 JSONL → 2 + 파일명 / `--owners` 생략 → 소유 열 `미기록`·ownerChecks 셀 `판정 보류` |
+
+분기 수: P1 5 · P2 6 · P3 14 · P4 8 · P5 6 · C 4 = **43**. 판독기는 신규 파일이라 rev 3 시점 자리 검색 출력은 0줄이다 — 분모는 이 43 분기이고 구현 diff 자리마다 sweep한다. 구현 뒤 `rg -n "operator|aggregate|combine|status|missing|unexpected|conflicts|duplicates|ownerFailures|holds|overall|exitCode|process.argv|readRaw|lockedAt|confirm" app/scripts/windows-verdict.mjs`의 각 줄을 P1~P5·C 중 하나로 분류하고 운반하지 않는 줄은 사유와 함께 제외 줄로 적는다(`site_census.mjs`).
+
+**예제(계약 fixture).** `app/scripts/windows-verdict/example/failing/`과 `…/passing/`에 각각 `plan.json`·`manifest.json`·`observations.jsonl`·`owners.json`·`decision.json`(합의만)·`decision.confirmed.json`(합의 + 확정)·`raw/`(작은 원본 파일)·`expected.json`·`expected.confirmed.json`. failing = W1 셀 2(충족 1·위반 1) + 결측 1 + 소유자 FAIL 1. passing = 같은 셀 구성에서 전건 충족 + 소유 판정 전부 PASS. AT-07 두 케이스가 이 폴더를 그대로 읽는다.
+
+### 10-B. 측정 도구 출처·기준선 (W-012 · W-014 · W-017)
 
 | 자리 | 규칙 | 직접 oracle 좌표 · 구별 입력 |
 |---|---|---|
-| P6 stage-d | **SSOT** `stage-d/measurement.mjs`에 `MEASUREMENT_ENVIRONMENTS = new Set(['linux-electron','win32-electron'])` · `measurementEnvironment(platform = process.platform)` = `${platform}-electron` · `provenance({ platform, git })` = `{ environment, sha: git('rev-parse','HEAD'), dirty: git('status','--porcelain','--','src') !== '' }` · `stampProvenance(result, p)` = 최상위에 `environment`·`sha`·`dirty`를 넣되 결과에 이미 있는 같은 키는 **같을 때만 유지**, 다르면 `provenanceConflict: true`. 자리: S1 `measure-stage-d.mjs:51` · S2 `:114` · S3 `:128` · S4 `stage-d-host/electron-main.mjs:86` · S5 `stage-d-shell/probe.ts:281` — 리터럴 대신 `measurementEnvironment()` · S6 CLI 출력 `measure-stage-d.mjs:174-178` — 비교 모드가 아닌 모든 결과(`env:false` 포함)에 `stampProvenance` · S7 SHA 원천 3자리(`:48` · `host-runner.mjs:11` · `shell-runner.mjs:28`) → `provenance().sha`로 통일 · S8 `compatibleRun`(`measurement.mjs:63`) — `MEASUREMENT_ENVIRONMENTS.has(before.environment) && before.environment === after.environment` · S9 `compareEvidence` 결과에 양쪽 `environment` 표기 | `measure-stage-d.test.mjs` 추가: `'environment follows the generating platform'`(`win32`→`win32-electron` · `linux`→`linux-electron` · `darwin`→`darwin-electron`) · `'provenance stamps every scenario result'`(`{env:false}`·환경 없는 geometry 결과·같은 값 보유·다른 값 보유 → conflict) · `'comparison requires the same allowed environment'`(linux/linux 기존 `:68` fixture 유지 true · win32/win32 true · linux/win32 false · darwin/darwin false) · `'compare CLI …'` 2건: 자식 프로세스로 linux 쌍 → 호환 exit 0 · linux↔win32 → exit 1 |
-| P7 stage-e | `BASELINE_HOST = { commit: '4412276f248ffe6a447760f56ad2fa424fa0e78a', path: 'app/scripts/stage-e/host.ts', blob: '1c4bcb1a7c0319ff9fdbff92cae8c220b3742a79' }` · `baselineHostSource(git)`: E1 `git('cat-file','-e', commit)` 실패 → `Error('baseline host commit missing')` · E2 `git('rev-parse', commit+':'+path) !== blob` → `Error('baseline host blob mismatch')` · E3 `git('merge-base','--is-ancestor', commit, 'HEAD')` 실패 → `Error('baseline host not reachable from HEAD')` · E4 통과 시 `git('show', …)` 텍스트 반환, `measure-stage-e.mjs:52`가 이 함수를 쓴다. 출력(`:91-96`)에 `stampProvenance`(P6 SSOT 재사용). `:14`·`:28`의 기준 앱 `7db1c7ce`는 유지 | `measure-stage-e.test.mjs`(신규) — 가짜 `git`으로 E1~E4 각각(커밋 없음 · blob 1글자 다름 · ancestor 실패 · 정상 → 텍스트) · 출력 스탬프는 P6 `stampProvenance` 케이스가 잠근다 |
+| P6 stage-d | **SSOT** `stage-d/measurement.mjs`: `MEASUREMENT_ENVIRONMENTS = new Set(['linux-electron','win32-electron'])` · `measurementEnvironment(platform = process.platform)` = `${platform}-electron` · `appSourceIdentity({ git, baseline })` — baseline이면 `git diff --quiet <baseline> -- src` 실패 또는 `git ls-files --others --exclude-standard -- src` 비어 있지 않음 → `Error('Baseline application sources must equal <baseline>')`, 통과면 `{ commit: <baseline full>, tree: git rev-parse <baseline>:./src, dirty: false }` · baseline 아니면 `status --porcelain --untracked-files=all -- src` 비었을 때 `{ commit: HEAD, tree: HEAD:./src, dirty: false }`, 아니면 `{ commit: HEAD, tree: null, dirty: true, diffSha256 }` · `provenance({ platform, git, baseline })` = `{ environment, tool: HEAD, appSource, sha: appSource.commit }` · `stampProvenance(result, p)` — 결과에 이미 같은 키가 있고 값이 다르면 `provenanceConflict: true`. 자리: **S1** `measure-stage-d.mjs:51` · **S2** `:114` · **S3** `:128` · **S4** `stage-d-host/electron-main.mjs:86` · **S5** `stage-d-shell/probe.ts:281` → 리터럴 대신 `measurementEnvironment()` · **S6** CLI 출력 `measure-stage-d.mjs:174-178` — 비교 모드가 아닌 모든 결과(`env:false` 포함)에 `stampProvenance` · **S7** SHA 원천 `:48` · `host-runner.mjs:11` · `shell-runner.mjs:28` → `provenance()` · **S8** `compatibleRun`(`measurement.mjs:61-85`) — 양쪽 `environment`가 허용 집합 안이고 같다 · 양쪽 `provenanceConflict` 아님 · 양쪽에 `appSource.tree`가 있으면 서로 다르다 · 기존 `sha`·전기·측정 항목 규칙 유지 · **S9** `compareEvidence`(`:182-206`) 결과에 양쪽 `environment`·`tool`·`appSource` · **S10** 기준선 검사 `measure-stage-d.mjs:49` · `host-runner.mjs:12`·`:15-21` · `shell-runner.mjs:29` → `appSourceIdentity({ baseline: 'c7d2adf2ddb548a2ce897cfc4f19173a2879b77f' })`(HEAD 요구 제거) | `measure-stage-d.test.mjs` 추가: `'environment follows the generating platform'`(`win32`·`linux`·`darwin`) · `'provenance stamps every scenario result'`(`{env:false}` · 환경 없는 geometry 결과 · 같은 값 보유 → 유지 · 다른 값 → conflict) · `'baseline identity checks application sources, not HEAD'`(가짜 git: diff 0·미추적 0 → identity / diff 1 → throw / 미추적 1 → throw / 비기준 dirty → `tree: null`) · `'comparison requires the same allowed environment and distinct sources'`(`:64` fixture 그대로 true · win32 쌍 true · linux↔win32 false · darwin 쌍 false · 한쪽 conflict false · 한쪽 environment 없음 false · 같은 tree false) · AT-08 `'compare CLI …'` 3건: 기존 `docs/handoff/0328-…/evidence/r1.2-host-baseline.json` ↔ `r1.2-host-applied.json` → exit 0 · 한쪽 environment를 `win32-electron`으로 바꾼 임시 사본 → exit 1 · 한쪽 `provenanceConflict: true` → exit 1 |
+| P7 stage-e | seam 파일 `stage-e/baseline-source.mjs`(`measure-stage-e.mjs`는 import 시 측정을 실행하므로 같은 파일에 둘 수 없다): **E0** `appSourceIdentity({ baseline: '7db1c7cefcdd3ef6d7f44cadbb9e6dc10fde76e6' })`(P6 SSOT) — `measure-stage-e.mjs:28-34` 대체 · **E1** `git cat-file -e <commit>` 실패 → `baseline host commit missing` · **E2** `git rev-parse <commit>:app/scripts/stage-e/host.ts ≠ 1c4bcb1a7c0319ff9fdbff92cae8c220b3742a79` → `baseline host blob mismatch` · **E3** `git merge-base --is-ancestor <commit> HEAD` 실패 → `baseline host not reachable from HEAD` · **E4** 통과 → `git show` 텍스트(`:48` 대체, commit = `4412276f248ffe6a447760f56ad2fa424fa0e78a`) · **E5** E0~E4를 `resolveElectron()`(`:22`) **앞**에서 실행 · **E6** 출력(`:91-99`)에 `stampProvenance` | `measure-stage-e.test.mjs`(신규, `scripts/` 최상위 — `node --test scripts/*.test.mjs`가 하위 폴더를 읽지 않는다): `'baseline host source is pinned'` 가짜 git으로 E1~E4 각각(커밋 없음 / blob 1글자 다름 / ancestor 실패 / 정상 → 텍스트) · E0은 P6 `'baseline identity …'` 공유 · AT-09 `'baseline CLI refuses mismatched application sources'`: 자식 프로세스 `node scripts/measure-stage-e.mjs --baseline --old-db small` → exit 1 · 출력에 `Baseline application sources must equal 7db1c7ce` |
+| P8 stage-e 판정 | seam 파일 `stage-e/verdict.mjs`: `stageEVerdict(result, { isBaseline, size, environment })` → `{ functional, bounded, linuxLatencyGate, verdict }`. **V1** functional = `:71-77` 조건 · **V2** bounded = `:78-86` 조건 · **V3** `linuxLatencyGate` = 긴 DB·비기준이면 `{ limitMs: 3729, pass: clickToBodyFrameMs ≤ 3729, applies: environment === 'linux-electron' }`, 아니면 없음(`:87-90` 대체) · **V4** `verdict = functional && bounded && (gate?.applies ? gate.pass : true)`(`:98` 대체) · **V5** 종료 코드는 `selectionExitCode`(`:109`) 그대로 | `measure-stage-e.test.mjs:'stage-e verdict …'`: 긴 DB 정상 결과 `clickToBodyFrameMs` 3730 → linux `verdict:false`·exit 1 / win32 `verdict:true`·exit 0 / 둘 다 `pass:false` · 3729 → linux `verdict:true` · `visible:false` → 두 환경 모두 exit 1 · small → gate 없음 · baseline → gate 없음 · `replyJsonBytes` 256KiB+1 → bounded false |
 
-**자리 검색 명령.** P6: `rg -n "linux-electron|win32-electron|environment|rev-parse|stampProvenance|compatibleRun" app/scripts/measure-stage-d.mjs app/scripts/stage-d app/scripts/stage-d-host app/scripts/stage-d-shell -g '!*.test.*'`. P7: `rg -n "7db1c7ce|3d8e1d90|4412276f|baselineHostSource|'show'|stampProvenance" app/scripts/measure-stage-e.mjs app/scripts/stage-e`. rev 2 시점 출력은 §8 두 행(P6 생산 5 · 소비 2 · SHA 3 / P7 3)이고 위 S1~S9·E1~E4가 그 줄 전부를 덮는다. 구현 뒤 다시 돌려 리터럴 `linux-electron`이 `MEASUREMENT_ENVIRONMENTS` 한 곳에만 남는지(테스트 fixture 제외) 확인한다.
+**자리 검색 명령 · rev 3 출력.**
+- P6: `rg -n "linux-electron|win32-electron|environment|rev-parse|startsWith\('c7d2adf2'\)|'--porcelain'|stampProvenance|compatibleRun|appSourceIdentity" app/scripts/measure-stage-d.mjs app/scripts/stage-d app/scripts/stage-d-host app/scripts/stage-d-shell -g '!*.test.*'` → 17줄. 분류: S1 `:51` · S2 `:114` · S3 `:128` · S4 `electron-main.mjs:86` · S5 `probe.ts:281` · S7 `:48`·`host-runner.mjs:11`·`shell-runner.mjs:28` · S8 `measurement.mjs:61`·`:63`·`:64` · S9 `:188` · S10 `:49`·`host-runner.mjs:12`·`:15`·`shell-runner.mjs:29`. 제외 1: `measure-stage-d.mjs:4`(import — 값 운반 없음). S6(`:174-178`)과 `host-runner.mjs:21`은 술어 밖이지만 path edge라 목록에 넣었다.
+- P7·P8: `rg -n "7db1c7ce|3d8e1d90|4412276f|'show'|'--quiet'|ls-files|resolveElectron|latencyGate|verdict|exitCode" app/scripts/measure-stage-e.mjs app/scripts/stage-e -g '!*.test.*'` → 15줄. 분류: E0 `:14`·`:28`·`:30` · E4 `:48` · E5 `:22`·`:24` · V1 `:71` · V3 `:87`·`:97` · V4 `:98` · V5 `:109`·`:112`. 제외 1: `:7`(import).
+- 구현 뒤 같은 명령을 다시 돌려 리터럴 `linux-electron`이 `MEASUREMENT_ENVIRONMENTS` 한 곳(테스트 fixture 제외)에만, `3d8e1d90`이 0곳에 남는지 확인한다.
 
 ### 10-C. 선택 적대 증거 · 선언 경계
 
-- **선택 적대 증거**: VP-10 P4 ④~⑦은 순서 의존 판정이라 `위반 → 보류 → 확정` 순서를 맞바꾼 변이(⑤를 ④ 앞에)를 자리마다 심는다. VP-11 S8은 `has(...)` 항만 지운 변이와 `===` 항만 지운 변이를 각각 심는다. VP-12 E2·E3은 각 검사 한 줄 제거 변이. 이유: 셋 다 “통과시키지 않음”이 불변식이라 존재 단언만으로는 방향이 잡히지 않는다.
-- **선언 경계**: 판독기는 원본 trace·로그 파일 자체를 열어 재계산하지 않는다 — `rawRef`의 해시·범위 형식만 검사하고 원본 재계산은 H5 사람 검증이다. 측정 도구 스탬프는 `process.platform`이 아는 플랫폼만 구별하며 Windows 버전·GPU 같은 장비 프로필은 manifest(H1) 몫이다. WU-M의 Linux 사전 실행이 Electron 바이너리 부재(exit 3)로 끝나면 그 실행은 `환경 없음`이고 VP-08~13 판정에 쓰지 않는다.
-- **게이트가 green인 채로 남는 차이**: CI는 판독기 규칙과 도구 스탬프만 잰다. 목표 장비의 GPU·디스플레이·IME·native 앱 동작은 CI에서 측정되지 않는다(§17).
+- **선택 적대 증거**: VP-10 P4 ⑤~⑧은 순서 의존이라 `위반 → 보류 → 확정` 순서를 맞바꾼 변이(⑥을 ⑤ 앞에, ⑧을 ⑤ 앞에)를 자리마다 심는다. VP-11 S8은 허용 집합 항·같음 항·conflict 항·tree 항을 하나씩 지운 변이 4개. VP-12 E0·E2·E3은 각 검사 한 줄 제거. VP-17 V3은 `applies` 항 제거(linux 3730이 exit 0이 되면 red). 이유: 모두 “통과시키지 않음”이 불변식이라 존재 단언만으로는 방향이 잡히지 않는다.
+- **선언 경계**: 판독기는 원본 파일의 존재·SHA-256·구간 칸의 형식까지 본다 — trace 구간 안의 내용을 다시 계산하는 것은 H5 사람 검증이다. 도구 스탬프는 `process.platform`만 구별하고 Windows 버전·GPU 같은 장비 프로필은 manifest(H1) 몫이다. W-014 모델의 기준선은 앱 `src`만 기준으로 되돌리므로 `package.json`·의존성은 도구 커밋 것을 쓴다 — 이 차이는 manifest의 `tool`·`appSource` 두 칸으로 드러나고 판정 셀에는 영향을 주지 않는다.
+- **환경 한계**: WU-M의 Linux 사전 실행이 Electron 바이너리 부재(exit 3)로 끝나면 그 실행은 `환경 없음`이고 VP-08~17 판정에 쓰지 않는다 — VP-08~17의 좌표는 전부 Electron 없이 도는 `node --test`다.
+- **게이트가 green인 채로 남는 차이**: CI는 판독 규칙과 도구 출처·기준선 검사만 잰다. 목표 장비의 GPU·디스플레이·IME·native 앱 동작은 CI에서 측정되지 않는다(§17).
 
 ## 11. 구현 설계와 재현 가능한 판독
 
-1. `manifest`는 시나리오 원문 revision·목표와 두 커밋 full SHA·바이너리 SHA-256·도구 버전·모델·하네스·시나리오 및 입력 해시·필수 셀 목록·측정자·시작/종료 UTC·프로필·캡처 종류·반복 번호를 가진다. 실제 세션은 익명 별칭·복원 스냅샷 해시·메시지/part/행 수로 식별한다.
+1. `manifest`는 시나리오 원문 revision·목표와 두 커밋 full SHA·바이너리 SHA-256·도구 출처(`tool`·`appSource`·`environment`)·모델·하네스·시나리오 및 입력 해시·필수 셀 목록·측정자·시작/종료 UTC·프로필·캡처 종류·반복 번호·전후·짝 ID를 가진다(§10-A 스키마). 실제 세션은 익명 별칭·복원 스냅샷 해시·메시지/part/행 수로 식별한다.
 2. 각 관측은 §10-A `observations` 형식이다. 표본이 여럿이면 원본 배열과 단위를 보존한다.
-3. 판독기는 순수 함수 `evaluate({ plan, manifest, observations, owners, decision })`와 CLI 래퍼로 나눈다 — 시험은 순수 함수(UT)와 자식 프로세스 CLI(IT)를 따로 둔다. 새 의존성 없음(Node 표준 모듈만).
-4. 측정 도구는 §10-B의 SSOT 함수만 더하고 측정 로직·판정 규칙(0328 R-H·R-W·R-R, 0329 `latencyGate`)은 바꾸지 않는다.
+3. 판독기는 순수 `evaluate`와 CLI 래퍼로 나눈다 — 시험은 순수 함수(UT)와 자식 프로세스 CLI(IT·AT)를 따로 둔다. 원본 읽기는 `readRaw` 주입으로 순수부를 파일 시스템에서 떼어 낸다. 새 의존성 없음(Node 표준 모듈만).
+4. 측정 도구는 §10-B의 SSOT 함수와 seam 파일만 더한다. 측정 로직과 소유 판정 규칙(0328 R-H·R-W·R-R, 0329 기능·크기 조건)은 바꾸지 않고, 0329 시간 기준이 종료 코드에 걸리는 환경만 `linux-electron`으로 좁힌다(W-017).
 
 ## 12. 종단 경로와 지연 귀속
 
@@ -213,8 +294,9 @@ VP-01~07의 H 좌표는 WU-W 실행 전에는 닫힌 좌표가 아니다. WU-M�
 | 구간 | 관측 위치 및 부하 구별 |
 |---|---|
 | agent → data 또는 창 | 세션·요청 식별자, 발행·수신 순서와 각 프로세스 처리 시간. 발행까지의 모델 대기는 UI 처리 구간과 별도 표기. |
-| T09 일반 열기(W-009) | data 제한 페이지 조회 → IPC 응답 → `session-load.ts:91-119` `page()`의 `HistoryPageReplySchema.safeParse`·세션/요청/세대 대조 → store 반영 → 첫 실제 본문 paint. 행·바이트·호출 수, 취소·늦은 응답을 기록하고 **일반 열기에서 과거 전체 본문 읽기·조립 0회**를 확인한다. |
-| T09′ 별도 행 | 구 빌드(`7db1c7ce` 이전)의 조각 수신 `:54` `SessionLoadChunkSchema` → `:63` `assembleSession`, 그리고 전체 archive가 필요한 실행 복구·분기. 주 경로와 섞지 않는다. |
+| T09 일반 열기(W-019) | **색인이 준비된 세션**: data 제한 페이지 조회 → IPC 응답 → `session-load.ts:91-119` `page()`의 `HistoryPageReplySchema.safeParse`·세션/요청/세대 대조 → store 반영 → 첫 실제 본문 paint. 행·바이트·호출 수, 취소·늦은 응답을 기록하고 **과거 전체 본문 읽기·조립 0회**를 확인한다(0329 AC1). |
+| T09″ 색인 미준비 구 DB 첫 열기 | 0329 AC11대로 색인 준비 비용(변환 시간·디스크 증가·읽은 과거 본문 bytes)과 첫 실제 본문 paint를 분리하고, 준비 중 화면과 첫 본문 시각을 따로 남긴다. 이 행은 AC1의 0회 규칙을 받지 않는다. |
+| T09′ 구 빌드·복구 | `7db1c7ce` **포함** 이전 빌드의 조각 수신 `:54` `SessionLoadChunkSchema` → `:63` `assembleSession`(0329 기준선 = 전량 열기), 그리고 전체 archive가 필요한 실행 복구·분기. 주 경로와 섞지 않는다. |
 | R → Web Worker → R | 요청·대기·처리·응답 revision. 진단 계측은 `startComputeTimings()` → 조작 → `finishComputeTimings()`(jobs·paints). 응답 폐기와 화면 반영을 구별한다. |
 | 화면 | React Profiler commit, trace Layout, 표시 프레임. 마커가 없거나 요청을 식별할 수 없으면 `미관측(구간, 이유)`로 남겨 결과를 역산하지 않는다. |
 
@@ -252,7 +334,7 @@ VP-01~07의 H 좌표는 WU-W 실행 전에는 닫힌 좌표가 아니다. WU-M�
 | 0326 D-109(D-095·D-106 대체) | ① 110%·누락 증가는 S1·S2·S6·S7의 “비교 지표” 열에만 ② S1~S7·S7d(S5 포함) 160ms 정지 ③b S3·S4 50ms 초과 작업 >1 ④ 연속 누락 ≥3 ⑤ S4·S5 위치·선택 결과 — 각각 판정. S8/S9는 W 측정 전용. |
 | 0327 D-025 · ΔV1(D-052) | AC30은 기록 완결로 판정한다. K12와 복사 전용 50ms는 폐기(W-008). |
 | 0328 분기 규칙(plan:450-458) | R-H·R-W·R-R은 0328이 `linux-electron` 행으로 판정한다. Windows 기록은 W 셀과 소유자 Windows 열에만 쓴다. |
-| 0329 §17 3,729ms | Linux 단독 실행 기준. `measure-stage-e.mjs` 출력의 `latencyGate`는 Windows에서 W 셀로 쓰지 않는다(W-004). |
+| 0329 §17 3,729ms | Linux 단독 실행 기준. 도구 출력 `linuxLatencyGate`는 `linux-electron`에서만 `verdict`·종료 코드에 들어가고 Windows에서는 `applies:false`로 기록만 한다. W 셀은 원값으로 판독기가 판정한다(W-017). |
 | [앱 게이트와 DevTools 정책](../../../app/AGENTS.md) | 정상 설치본은 pristine 트리의 `build:win`. 진단 패치·profiler 환경·입력 fixture revision은 별도 기록한다. 새 스크립트는 `app/AGENTS.md` 스크립트 목록에 한 줄씩 더한다. |
 
 ## 17. 위험과 판정 한계
@@ -263,11 +345,12 @@ VP-01~07의 H 좌표는 WU-W 실행 전에는 닫힌 좌표가 아니다. WU-M�
 
 | 파일 | 역할 | WU |
 |---|---|---|
-| `app/scripts/windows-verdict.mjs` · `windows-verdict.test.mjs`(신규) | 판독기·시험 | M |
-| `app/scripts/windows-verdict/example/*`(신규) | 예제 입력·기대 출력 | M |
-| `app/scripts/stage-d/measurement.mjs` · `measure-stage-d.mjs` · `stage-d-host/electron-main.mjs` · `stage-d-shell/probe.ts` · `stage-d/host-runner.mjs` · `stage-d/shell-runner.mjs` · `measure-stage-d.test.mjs` | 출처 스탬프(P6) | M |
-| `app/scripts/measure-stage-e.mjs` · `measure-stage-e.test.mjs`(신규) | 기준선 소스 좌표(P7) | M |
-| `app/AGENTS.md` 스크립트 목록 | `windows-verdict.mjs` 한 줄 · stage-d/e 스탬프 한 구절 | M |
+| `app/scripts/windows-verdict.mjs` · `windows-verdict.test.mjs`(신규) | 판독기·시험(§10-A) | M |
+| `app/scripts/windows-verdict/example/{failing,passing}/*`(신규) | 예제 입력·원본·기대 출력 | M |
+| `app/scripts/stage-d/measurement.mjs` · `measure-stage-d.mjs` · `stage-d-host/electron-main.mjs` · `stage-d-shell/probe.ts` · `stage-d/host-runner.mjs` · `stage-d/shell-runner.mjs` · `measure-stage-d.test.mjs` | 출처 스탬프·기준선 검사(P6) | M |
+| `app/scripts/stage-e/baseline-source.mjs` · `stage-e/verdict.mjs`(신규 seam) · `measure-stage-e.mjs` · `measure-stage-e.test.mjs`(신규, `scripts/` 최상위) | 기준선 좌표·판정 분리(P7·P8) | M |
+| `app/AGENTS.md` 스크립트 목록 | `windows-verdict.mjs` 한 줄 · stage-d/e의 기준선 모델(W-014)과 `linuxLatencyGate` 구절 | M |
+| 이 폴더 `evidence/inputs-sha256.txt` | 재현 입력 고정 목록(rev 3 설계 턴 생성) | — |
 | 이 폴더 `evidence/H1-0-linux.md`(신규) | WU-M 사전 실행 기록 | M |
 | 이 폴더 `verify.md` · manifest·표본·결과표, 원소유자 verify AC 행 | WU-W 실행·판정 | W |
 
@@ -275,39 +358,54 @@ VP-01~07의 H 좌표는 WU-W 실행 전에는 닫힌 좌표가 아니다. WU-M�
 
 ### H1-0. WU-M 사전 실행(Linux, 지금)
 
-| # | 명령(`app/`) | 기대 · 기록 |
+모든 명령은 `app/`에서 실행한다. 결과는 `evidence/H1-0-linux.md`에 적는다.
+
+| # | 명령 | 기대 · 기록 |
 |---|---|---|
-| 1 | `node scripts/measure-ui-inputs.mjs --write-inputs <dir>` 후 파일별 `sha256sum` | 파일 수와 해시를 `evidence/H1-0-linux.md`에 기록 — 기대 파일: `inputFiles()` 전부 + F6 `artifact-1mb.md` · F7 `generated-5mib.ts` · F9 `table-1600.md`·`table-2001.md`·`footnote-60k.md`·`single-line-1mb.json` · `work-5mb.json` + F5 `git-50000/` + F8 `git-200-files/`(파일 수 200). 같은 인자는 같은 바이트(`measure-ui-inputs.mjs:178`)라 Windows H1의 해시가 이 값과 같아야 한다. |
+| 1 | `node scripts/measure-ui-inputs.mjs --write-inputs <dir>` → `(cd <dir> && find . -type f -not -path '*/.git/*' \| LC_ALL=C sort \| sed 's\|^\./\|\|' \| xargs sha256sum) > inputs.sha256` → `cmp inputs.sha256 ../docs/handoff/0330-windows-responsiveness-verdict/evidence/inputs-sha256.txt` | 216줄(F8 `git-200-files/` 200 + 나머지 16, F5 `git-50000/generated.ts` 포함 · `.git/` 내부 제외)이 고정 목록과 같다. 고정 목록은 rev 3 설계 턴에 `ff5c6b02` 도구로 두 번 생성해 같음을 확인한 값이다(목록 파일 SHA-256 `07b4cfc85c5e522b11c5de73611bceaba2665b12e4bf6e50e8e6e5c8488631aa`). |
 | 2 | `npx electron-vite build && rg -c "__ooDev" out/renderer` / `VITE_OO_DIAGNOSTIC=1 npx electron-vite build && rg -c "__ooDev" out/renderer` | 0 / ≥ 1(W-006) |
-| 3 | 깨끗한 worktree 두 개: `git worktree add --detach <m> <WU-M 커밋>` · `git -C <m> checkout 7db1c7ce -- app/src` 뒤 `xvfb-run -a node scripts/measure-stage-e.mjs --baseline --old-db small` · `… long`, 그리고 `<WU-M 커밋>` 그대로 `… --old-db small` · `… long` | 네 출력 모두 `environment`·`sha`·`dirty` 보유, baseline 둘은 `4412276f` blob 검증 통과. Electron 부재면 exit 3을 `환경 없음`으로 적는다(통과로 세지 않음). |
-| 4 | `xvfb-run -a node scripts/measure-stage-d.mjs --geometry` · `--host` · `--host --baseline`(`c7d2adf2` 트리) · `--compare <기존 r1.2-host-baseline.json> <r1.2-host-applied.json>` | 새 출력에 `environment: linux-electron`·`sha`. 기존 Linux 증거 쌍 `--compare` 호환 유지. `--host`가 egress로 막히면 서명과 함께 기록(0328 verify:61 선례). |
-| 5 | `node scripts/windows-verdict.mjs --plan windows-verdict/example/plan.json --manifest … --observations … --owners … --decision …` | `expected-report.json`과 같음 · exit 1(예제는 위반 포함) |
+| 3 | 측정 전용 worktree `git worktree add --detach <m> <WU-M 커밋>` → `git -C <m> restore --source=7db1c7cefcdd3ef6d7f44cadbb9e6dc10fde76e6 --staged --worktree -- app/src` → `git -C <m>/app diff --quiet 7db1c7ce -- src`(exit 0) · `git -C <m>/app ls-files --others --exclude-standard -- src`(0줄) → `xvfb-run -a node scripts/measure-stage-e.mjs --baseline --old-db small` · `… long`. 후속은 다른 worktree `<p>`(WU-M 커밋 그대로)에서 `--old-db small` · `long` | baseline 두 출력: `tool` = WU-M 커밋 · `appSource.commit` = `7db1c7ce…` · `appSource.tree` = `9235fa7cb7ea2506abd5a6b38bda665ded21882b`. 후속 두 출력: `tool` = `appSource.commit` = WU-M 커밋 · `dirty: false`. 네 출력 모두 `environment: linux-electron`. Electron 부재면 exit 3을 `환경 없음`으로 적는다(통과로 세지 않음). |
+| 4 | 측정 전용 worktree `<d>`(WU-M 커밋) → `git -C <d> restore --source=c7d2adf2ddb548a2ce897cfc4f19173a2879b77f --staged --worktree -- app/src` → `xvfb-run -a node scripts/measure-stage-d.mjs --host --baseline`. `<p>`에서 `--host` · `--geometry`. `--compare <d의 출력> <p의 출력>` · `--compare ../docs/handoff/0328-composer-panels-lists-shell/evidence/r1.2-host-baseline.json ../docs/handoff/0328-composer-panels-lists-shell/evidence/r1.2-host-applied.json` | 새 출력에 `environment`·`tool`·`appSource`. baseline의 `appSource.commit` = `c7d2adf2…`. 두 `--compare` 모두 exit 0. `--host`가 egress로 막히면 서명과 함께 기록(0328 verify:61 선례). |
+| 5 | `node scripts/windows-verdict.mjs --plan scripts/windows-verdict/example/failing/plan.json --manifest scripts/windows-verdict/example/failing/manifest.json --observations scripts/windows-verdict/example/failing/observations.jsonl --owners scripts/windows-verdict/example/failing/owners.json --decision scripts/windows-verdict/example/failing/decision.confirmed.json --raw-root scripts/windows-verdict/example/failing/raw` · 같은 명령의 `passing/` + `decision.json` / `decision.confirmed.json` | failing: `expected.confirmed.json`과 같고 exit 1. passing: exit 1(`판정 보류(사용자 확정 대기)`) → exit 0(`합격`) |
 
 ### H1. 빌드·장비·재현 입력을 고정한다(WU-W)
 
 **필수 셀 분모를 먼저 만든다.** 검증자가 측정 결과를 열기 전에 ① §6의 각 소유 §19 표와 H4의 W1~W4·부하 쌍에서 시나리오·조작·하네스·빌드·계측 종류·지표·반복 수를 전개하고 ② W-004에서 확정한 목표 프로필과 W 필수 지표를 결합해 판독기 `plan.cells`로 고정한다. 키는 `소유자/revision × 시나리오/조작/부하수준 × 하네스 × 프로필 × 기준/후속 SHA × 설치/진단/Node × 반복 × 지표`다. 소유 표가 미지원으로 지정한 셀(예: 0326 S4의 설치본)은 사유를 보존한다.
 
-**빌드 좌표**(W-007). 각 쌍은 full SHA로 checkout하고 빌드마다 설치 파일 SHA-256을 manifest에 넣는다. verify 커밋은 문서 전용이라 빌드 SHA로 쓸 수 있되 H1에서 `git diff --stat <구현 커밋> <verify 커밋> -- app`이 비었음을 기록한다.
+**빌드 좌표**(W-007). 두 쌍을 구별한다 — **(a) 동일성 쌍**: 소유 verify가 판정한 구현 커밋과 PR 빌드 SHA의 앱이 같은가. **(b) 비교축 쌍**: 이전 단계 빌드와 이후 단계 빌드의 성능 비교. 각 빌드의 설치 파일 SHA-256을 manifest에 넣는다.
 
-| 비교축 | 이전 full SHA | 이후 full SHA | 원 브랜치 verify 사본 |
+| 소유 | (a) 판정 구현 커밋(소유 verify 메타) | PR에서 해석 | (a) `git diff --quiet <판정 구현> <빌드> -- app` |
 |---|---|---|---|
-| ① 0325 AC19 | `ee8ac8173c83a97114a9dc8bd257ba770a7dc368` | `d86846844dc9ea092f394f942621b78dc3d50e02` | (같음 — `main`) |
-| ② 0326 AC33 | `d86846844dc9ea092f394f942621b78dc3d50e02` | `7c241d191438e7aa9625a2914c38fe0a1b3d1bdd` | (같음) |
-| ③ 0327 AC30 | `7c241d191438e7aa9625a2914c38fe0a1b3d1bdd` | `c7d2adf2ddb548a2ce897cfc4f19173a2879b77f` | `d30339868980d28a9ede14740e798984fbd21dd8` |
-| ④ 0328 | `c7d2adf2ddb548a2ce897cfc4f19173a2879b77f` | `7db1c7cefcdd3ef6d7f44cadbb9e6dc10fde76e6` | (같음) |
-| ⑤ 0329 | `7db1c7cefcdd3ef6d7f44cadbb9e6dc10fde76e6` | `eae9081b5536232da98ab918ed9f0c1b525660f6` | `421d2393d4cdb3bfe64d81d1cefe1dc729252531` |
-| ⑥ W 통합 | `d86846844dc9ea092f394f942621b78dc3d50e02` | `(WU-W 착수 시 통합 SHA — 검증자 기입)` | — |
+| 0325 | `3867427`(verify 3 메타 — r3) | 가져온 ref에 없음 → PR 쪽 구현 `a2ad3a5397bc6479edf9c0914bce6bb121cd7fea`(`Handoff: …0325` · `Status: implemented` 마지막) | `a2ad3a53` ↔ `d8684684` exit 0 |
+| 0326 | `7244c0c`(verify 7 메타 — r7) | 없음 → `98ec1b1d06ca780d2d0013e2e0c119b44950a88d` | `98ec1b1d` ↔ `7c241d19` exit 0 |
+| 0327 | `a1d1b49c`(verify 5 메타 — r5) | 있음 `a1d1b49cb680…` | `a1d1b49c` ↔ `c7d2adf2` exit 0 |
+| 0328 | `dc6f69a`(verify 2 메타 — r2) | 없음 → `498cc3d356dd9ea683a5ac80be7618c5942de448` | `498cc3d3` ↔ `7db1c7ce` exit 0 |
+| 0329 | `b5101150`(verify 5 메타 — r5) | 있음 `b5101150e83f…` | `b5101150` ↔ `eae9081b` exit 0 |
 
-⑥의 구 빌드에 없는 E 전용 조작은 `N/A(이전 기능 없음)`으로 남기고 통합 쪽의 기능·절대 기준을 수행한다. AC19의 합의 전 기록은 참고 기준선이며 W-004 합의 전 실행을 W 최종 표본으로 승격하지 않는다(W-013).
+PR에 없는 판정 커밋은 같은 handoff의 PR 쪽 마지막 구현 커밋(`git log -1 --grep="Handoff: docs/handoff/<NNNN>" --grep='Status: implemented' --all-match <빌드>`)으로 대조하고 그 사실을 manifest에 적는다. 위 다섯 줄은 rev 3 설계 턴에 실행한 값이다.
+
+| (b) 비교축 | 이전 full SHA | 이후 full SHA |
+|---|---|---|
+| ① 0325 AC19 | `ee8ac8173c83a97114a9dc8bd257ba770a7dc368` | `d86846844dc9ea092f394f942621b78dc3d50e02` |
+| ② 0326 AC33 | `d86846844dc9ea092f394f942621b78dc3d50e02` | `7c241d191438e7aa9625a2914c38fe0a1b3d1bdd` |
+| ③ 0327 AC30 | `7c241d191438e7aa9625a2914c38fe0a1b3d1bdd` | `c7d2adf2ddb548a2ce897cfc4f19173a2879b77f` |
+| ④ 0328 | `c7d2adf2ddb548a2ce897cfc4f19173a2879b77f` | `7db1c7cefcdd3ef6d7f44cadbb9e6dc10fde76e6` |
+| ⑤ 0329 | `7db1c7cefcdd3ef6d7f44cadbb9e6dc10fde76e6` | `eae9081b5536232da98ab918ed9f0c1b525660f6` |
+| ⑥ W 통합 | `d86846844dc9ea092f394f942621b78dc3d50e02`(`plan.wBaselineSha`) | `(WU-W 착수 시 통합 SHA — 검증자 기입)`(`plan.integrationSha`) |
+
+⑥의 구 빌드에 없는 E 전용 조작은 이전 셀을 `absent`로 두고(P3 ⑨) 통합 쪽의 절대 셀을 수행한다. AC19의 합의 전 기록은 참고 기준선이며 W-004 합의 전 실행을 W 최종 표본으로 승격하지 않는다(W-013 · P1 ②).
 
 ```powershell
 $repo = (git rev-parse --show-toplevel)
 $runDir = Join-Path $env:TEMP ("orca-W-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $runDir | Out-Null
+# (a) 동일성 쌍 — 소유마다 한 번
+git -C $repo diff --quiet "<판정 구현 SHA>" "<빌드 SHA>" -- app
+if ($LASTEXITCODE -ne 0) { throw "judged implementation differs from build" }
+# (b) 비교축 쌍 — 빌드
 $beforeSha = "<비교축 이전 full SHA>"; $afterSha = "<비교축 이후 full SHA>"
 git -C $repo worktree add --detach "$runDir/before" $beforeSha
 git -C $repo worktree add --detach "$runDir/after" $afterSha
-git -C $repo diff --stat "$beforeSha" "$afterSha" -- app | Out-File -Encoding utf8 "$runDir/app-diff.txt"
 node --version
 Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber
 Get-CimInstance Win32_Processor | Select-Object Name
@@ -326,9 +424,9 @@ foreach ($side in @("before","after")) {
 
 Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어 IME와 정밀 터치패드 드라이버를 확인한다. 같은 전원 모드, 최대화 창, 동일 GPU·드라이버, 동일 모델·버전으로 다른 앱을 종료한다. 앱을 동시에 띄우지 않는다.
 
-**재현 입력.** 통합 쪽 트리에서 `node scripts/measure-ui-inputs.mjs --write-inputs "$runDir/inputs"`를 실행하고 파일별 SHA-256을 H1-0 1번 값과 대조한다 — F1~F5(0325) · F6~F9(0327 S-C4는 F6·F7·F9) · F8 `git-200-files`(S-C2). 다르면 그 입력의 셀은 측정하지 않는다. 함수 재측정은 `foreach ($repeat in 1..3) { foreach ($side in "before","after") { node scripts/measure-ui-inputs.mjs --src "$runDir/$side/app" | Out-File … } }`이다.
+**재현 입력.** 통합 쪽 트리의 `app/`에서 `node scripts/measure-ui-inputs.mjs --write-inputs "$runDir/inputs"`를 실행하고 `.git/` 내부를 뺀 파일별 SHA-256을 고정 목록(`evidence/inputs-sha256.txt`, 216줄)과 대조한다 — PowerShell은 `Get-ChildItem -Recurse -File "$runDir/inputs" | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' }`의 상대 경로(`/` 구분)·`Get-FileHash`를 같은 순서로 정렬해 비교한다. 목록은 F1~F5(0325 — F5 `git-50000/generated.ts`) · F6 `artifact-1mb.md` · F7 `generated-5mib.ts` · F8 `git-200-files/` 200 · F9 `table-1600.md`·`table-2001.md`·`footnote-60k.md`·`single-line-1mb.json` · `work-5mb.json`이다. 다른 줄이 있으면 그 입력의 셀은 측정하지 않는다. 함수 재측정은 `foreach ($repeat in 1..3) { foreach ($side in "before","after") { node scripts/measure-ui-inputs.mjs --src "$runDir/$side/app" | Out-File … } }`이다.
 
-**측정 도구 좌표.** stage-d·stage-e는 WU-M 커밋(`(WU-M 구현 — 검증자 기입)`)의 도구를 쓴다. 0328 `--host`·`--shell`의 `--baseline`은 `c7d2adf2` 트리, 0329 `--baseline`은 H1-0 3번 절차(WU-M 커밋 worktree + `7db1c7ce`의 `app/src`)다. 출력의 `environment`가 `win32-electron`이 아니면 그 기록은 Windows 셀에 쓰지 않는다. 기존 Linux 원본(0328 `evidence/*.json`, 0329 r1.4 표)은 **인용**으로만 표시하고 새 Windows 실행과 다른 열에 둔다.
+**측정 도구 좌표(W-014).** stage-d·stage-e는 WU-M 커밋(`(WU-M 구현 — 검증자 기입)`)의 도구를 쓰고, 기준선은 H1-0 3·4번과 같은 측정 전용 worktree(HEAD = 도구 커밋, `git restore --source=<기준> --staged --worktree -- app/src`)에서 실행한다 — 0328 기준 `c7d2adf2`, 0329 기준 `7db1c7ce`. 출력의 `tool`과 `appSource`를 manifest의 두 칸으로 옮긴다. `environment`가 `win32-electron`이 아니거나 `provenanceConflict`가 있으면 그 기록은 Windows 셀에 쓰지 않는다(판독기 P2 ④). 기존 Linux 원본(0328 `evidence/*.json`, 0329 r1.4 표)은 **인용**으로만 표시하고 새 Windows 실행과 다른 열에 둔다. 0329 도구의 `linuxLatencyGate`는 Windows에서 `applies:false`이고 W 셀은 원값 `clickToBodyFrameMs`로 판독기가 판정한다(W-017).
 
 **진단 빌드 준비.** 설치본과 동일 SHA에서 별도 진단 worktree를 만들고 diff와 diff SHA-256을 보관한다.
 
@@ -379,16 +477,20 @@ Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어
 
 ### H6. 결과를 소유자에게 돌리고 사용자 판정을 기록한다
 
+**구분 표기**는 §7-A “세 구분” 표와 같다 — 결과 표의 모든 행에 `WU-M 기계` · `참고 기준선` · `WU-W 실측` 중 하나를 적는다.
+
 | 결과 표의 열(W-011) | 작성 단위 |
 |---|---|
-| 소유·커버리지 | T/잔여 단위 · 소유 AC/§19 · 유효 계약(W-007) · 처리(수정·검증 완료 / 근거와 현행 유지 / 미검증·잔여 위험) |
+| 소유·커버리지 | T/잔여 단위(복수 소유는 소유자마다 한 행 — 예: T33/0327 · T33/0328) · 소유 AC/§19 · 유효 계약(W-007) · 처리(수정·검증 완료 / 근거와 현행 유지 / 미검증·잔여 위험) |
 | 소유자 기계 PASS | 소유 verify 좌표와 판정(`PASS`·`FAIL`·`미완`) |
 | 소유자 Windows 결과 | 소유 AC(AC19·AC33·AC30·0328 Windows 행·AC10)의 Windows 기록 좌표와 소유 규칙 판정 |
 | W 통합 판정 | 프로필 · 기준 revision · 하네스 · 입력/세 축 크기 · 빌드 종류/양 SHA · 구간 · 3쌍 값/N·단위·rawRef · 집계 · 비교식 · 충족/위반/미판정/기록 전용(판독기 출력) |
-| 사용자 확정 | 결정자·일시·W-004 revision |
-| 최종 기록 | H1 예정 셀과 실제 셀의 양방향 차집합·중복·충돌 · 위반/빠진 셀과 소유자 · 합의 전/후 구분 · W verify 링크 · 원소유 verify와 INDEX 반영 상태 |
+| 사용자 확정 | 사전 합의(revision·lockedAt) · 최종 확정(revision·confirmedAt·결정자) |
+| 최종 기록 | 판독기의 `missing`·`unexpected`·`duplicates`·`conflicts`·`ownerFailures`·`holds` · 합의 전/후 구분 · W verify 링크 · 원소유 verify와 INDEX 반영 상태 |
 
-**재측정.** 수정 효과 확인은 영향 셀과 그 셀이 속한 교차 조작만 재실행할 수 있고 이전 SHA 결과를 보존한다. **최종 통합 PASS**는 하나의 통합 SHA와 하나의 기준 revision에 대한 W 필수 셀 전체가 필요하다 — 서로 다른 SHA의 통과 셀을 모아 만들 수 없다(판독기 P4 ⑧). 0329 NX1~NX3는 INDEX 후보 표의 기존 행으로 추적한다.
+**원본 전수 대조(W-015).** 판독기가 `--raw-root`로 모든 `rawRef`의 파일 존재·SHA-256·구간 칸과 run의 도구 기록을 대조하고, 누락 셀은 `미판정`으로 보류한다. 검증자는 판독기 출력의 보류 목록을 보고서에 그대로 옮기고, H5에서 셀 하나 이상을 원본 구간에서 다시 계산한다.
+
+**재측정.** 수정 효과 확인은 영향 셀과 그 셀이 속한 교차 조작만 재실행할 수 있고 이전 SHA 결과를 보존한다. **최종 통합 PASS**는 하나의 통합 SHA와 하나의 기준 revision에 대한 W 필수 셀 전체가 필요하다 — 서로 다른 SHA의 통과 셀을 모아 만들 수 없다(판독기 P4 ④). 0329 NX1~NX3는 INDEX 후보 표의 기존 행으로 추적한다.
 
 **운영 gate.**
 - 설계 턴: 참조·보드 정합성, `git diff --check`, `cd app && node scripts/check-doc-inventory.mjs --check`.
@@ -397,12 +499,13 @@ Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어
 
 ## READY self-review
 
-- **WU-M READY · WU-W 대기(W-004 OPEN).** WU-M은 W-004 값과 무관하게 판독기가 결정 파일을 입력으로 받으므로 막히지 않는다. W-004는 측정 장비나 내부 stall 상수에서 추론할 수 없다.
-- Ledger: W-003 → W-007 대체, W-007~W-013 추가. `ACTIVE 결정 ↔ AC` 대조 결과는 §3 갱신 메모(충돌 0).
-- V: 모든 NEW 왼쪽 노드에 같은 레벨 REQUIRED pair(VP-01~13). 영향받은 상위 동작은 0328 VP-12·25 → VP-R1 REGRESSION. VP-01~07은 WU-W에서 닫는다.
-- §10: 규칙 칸 분기마다 입력 칸 입력이 있다 — P1 3/3 · P2 3/3 · P3 9/9 · P4 8/8 · P5 4/4 · C 4/4 · P6 S1~S9 · P7 E1~E4. 판독기는 모르는 형태 fail-closed(§10-A 출력 문단). 자리 검색 명령과 rev 2 시점 출력은 §10-A·§10-B 말미와 §8.
-- 인용 실측: 커밋 5개 조상 관계·tree 동일성, `3d8e1d90`/`4412276f` blob, `main.tsx:23-26`, `session-load.ts:91-119`, J3/J8, F9 파일명, 진단 다리 실제 이름, CI `fetch-depth: 0`·`npm test`를 이번 턴에 확인했다(§0·§8). 입력 파일 해시는 이 환경에 node_modules가 없어 재지 않았다 — H1-0 1번이 기록한다.
-- 사람 실기로 미룬 순수 로직 없음: 판독 규칙·스탬프·좌표 검증은 전부 `node --test`. Windows 실기는 장비·IME·터치패드·GPU 관측만 남는다.
+- **WU-M READY · WU-W 대기(W-004 OPEN).** WU-M은 판독기가 합의·확정 파일을 입력으로 받으므로 W-004 값과 무관하게 막히지 않는다. W-004는 측정 장비나 내부 stall 상수에서 추론할 수 없다.
+- Ledger: rev 3이 W-014~W-019를 추가하고 W-009를 W-019로 대체했다. `ACTIVE 결정 ↔ AC` 대조 결과는 §3 갱신 메모(충돌 0).
+- V: 모든 NEW 왼쪽 노드에 같은 레벨 REQUIRED pair(VP-01~17). R-07~R-10은 VP-14~17이 R 수준으로 닫는다. 영향받은 상위 동작은 0328 VP-12·25 → VP-R1 REGRESSION. VP-01~07은 WU-W이며 WU-M verify에서 pair 결과를 받지 않는다(W-018).
+- §10: 규칙 칸 분기마다 입력 칸 입력이 있다 — P1 5/5 · P2 6/6 · P3 14/14 · P4 8/8 · P5 6/6 · C 4/4 · P6 S1~S10 · P7 E0~E6 · P8 V1~V5. 판독기는 모르는 형태 fail-closed. 자리 검색 명령과 rev 3 출력(P6 17줄 · P7·P8 15줄, 제외 각 1)은 §10-B 끝.
+- 예제 정합: 실패 예제는 확정 전후 모두 `불합격`·exit 1, 충족 예제만 확정으로 exit 0이 된다 — P4 ⑤·⑧과 C4가 같은 문장을 쓴다(G1 해소).
+- 인용 실측(rev 3 턴): `checkout` vs `restore` 재현(48 · exit 1 / exit 0 · tree `9235fa7c`), `c7d2adf2`의 stage-d 도구 0개, 판정 구현 ↔ 빌드 앱 diff 5/5 exit 0, 기존 Linux 증거 `--compare` exit 0, 입력 216줄 두 번 생성 동일, `node --test` glob이 `scripts/*.test.mjs` 최상위만 읽음(`package.json:14`), `measure-stage-e.mjs`가 import 시 측정을 실행(`:106-113`).
+- 사람 실기로 미룬 순수 로직 없음: 판독 규칙·스탬프·기준선 검사·종료 코드는 전부 `node --test`. Windows 실기는 장비·IME·터치패드·GPU 관측만 남는다.
 
 ---
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
