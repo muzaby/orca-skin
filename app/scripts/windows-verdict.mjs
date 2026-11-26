@@ -111,8 +111,14 @@ function markerSample(events, range, run, cell) {
 }
 
 function tableSample(text, range, obs) {
-  const lines = text.split(/\r?\n/).filter((line) => line.startsWith('| ' + range.id + ' |'))
-  if (lines.length !== 1 || range.id !== obs.metric) return { reason: '지표 없음' }
+  // ΔV4(W-045): 같은 ID 행이 여럿이면 둘째 열(`label`)로 한 행을 고르고, 관측 구간이 그 label 이어야 한다.
+  const labelled = range.label !== undefined
+  if (labelled && (typeof range.label !== 'string' || !range.label))
+    return { reason: '구간 형식 지원 안 함' }
+  const prefix = '| ' + range.id + ' |' + (labelled ? ' ' + range.label + ' |' : '')
+  const lines = text.split(/\r?\n/).filter((line) => line.startsWith(prefix))
+  if (lines.length !== 1 || range.id !== obs.metric || (labelled && obs.interval !== range.label))
+    return { reason: '지표 없음' }
   const cell = lines[0].trim().split('|').at(-2)?.trim() ?? ''
   const unavailable = /^N\/A\((.*)\)$/.exec(cell.replace(/ \(시도 \d+\)$/, ''))
   if (unavailable) return { status: 'unavailable', reason: unavailable[1] }

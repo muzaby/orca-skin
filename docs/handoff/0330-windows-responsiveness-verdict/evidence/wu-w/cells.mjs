@@ -218,23 +218,24 @@ row('W', 'W4', ALL3, [{ op: 'images-5-send-switch', metrics: [{ metric: 'source-
 row('W', 'W4p', CC, [{ op: 'lists-panels-installer', metrics: [{ metric: 'state-restored', rule: R.ok() }, ...wMin] }], ['T09'])
 
 // ── Node 함수 재측정(win32-node) — measure-ui-inputs 표 행. 이전/이후 짝 3회. 기록 완결.
-// 판독기 `tableSample`은 `| <id> |` 행이 정확히 1개이고 관측 지표 = 행 ID일 때만 읽는다
-// (`windows-verdict.mjs:114-115`). 같은 ID가 여러 행인 K 행은 ΔV4 정정 전까지 셀을 만들지 않는다.
-const nodeIds = arg('--node-rows')
-  ? readFileSync(arg('--node-rows'), 'utf8').split(/\r?\n/).map((l) => l.match(/^\| ([A-Z][0-9][^|]*?) \|/)?.[1]).filter(Boolean)
+// 판독기는 관측 지표 = 행 ID(`windows-verdict.mjs` `tableSample`), 같은 ID 행은 둘째 열 `range.label`과
+// 관측 `interval`로 가른다(ΔV4 W-045). 그래서 셀 `interval`은 둘째 열이다. (ID, 둘째 열) 중복은 exit 1.
+const nodeRows = arg('--node-rows')
+  ? readFileSync(arg('--node-rows'), 'utf8')
+      .split(/\r?\n/)
+      .map((l) => l.match(/^\| ([A-Z][0-9][^|]*?) \| ([^|]*?) \|/))
+      .filter(Boolean)
+      .map((m) => ({ id: m[1], label: m[2] }))
   : []
-const counts = new Map()
-for (const id of nodeIds) counts.set(id, (counts.get(id) ?? 0) + 1)
+const nodeSeen = new Set()
 const nodeStage = (id) => (id.startsWith('I') ? 'A' : id.startsWith('J') ? 'B' : id.startsWith('K') ? 'C' : null)
 const nodeTask = { A: 'T19', B: 'T04', C: 'T14' }
-for (const [id, count] of counts) {
+for (const { id, label } of nodeRows) {
   const stage = nodeStage(id)
   if (!stage) continue
-  if (count > 1) {
-    process.stderr.write(`node 행 보류(ID 중복 ${count}): ${id}\n`)
-    continue
-  }
-  cell({ stage, scenario: 'node-fn', operation: 'measure-ui-inputs', load: 'fixed-inputs', harness: 'node', buildKind: 'node', side: 'pair', task: nodeTask[stage], metric: id, interval: 'fn', required: stage !== 'A', rule: R.recorded('ms') })
+  if (nodeSeen.has(id + '|' + label)) throw Error('Node 행 (ID, 이름) 중복: ' + id + ' | ' + label)
+  nodeSeen.add(id + '|' + label)
+  cell({ stage, scenario: 'node-fn', operation: 'measure-ui-inputs', load: 'fixed-inputs', harness: 'node', buildKind: 'node', side: 'pair', task: nodeTask[stage], metric: id, interval: label, required: stage !== 'A', rule: R.recorded('ms') })
 }
 
 const plan = {

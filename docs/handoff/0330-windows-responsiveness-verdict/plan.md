@@ -14,7 +14,7 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **plan/READY — ΔV4(§23) · ΔV3 r4 구현 완료.** WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
+| 상태 | **impl/IMPL_DONE — ΔV3 r4 · ΔV4 r4.2.** WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
 | V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · revision **ΔV2**(§21, 설계 `d77d3f3c` · 구현 r3 `515ff58d`·`07377db7` · verify 3 `18b5d5fe`) · revision **ΔV3**(§22, 설계 `7d4e6b60` · 구현 r4 `ebb69702`) · 이번 revision **ΔV4**(§23) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2 + ΔV3 + ΔV4`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
@@ -1184,6 +1184,73 @@ W-039·W-040의 구현은 §21-C와 일치한다. 별도 캐시·비동기 처�
 - **mutate.py가 Windows에서 거짓 red를 낸다.** oracle을 `shell=True`(cmd.exe)로 돌려 `./node_modules/.bin/vitest`·`/dev/null`이 경로 오류로 exit 1이 된다. 또 출력 디코딩(cp949·UTF-8 혼재)에서 스레드 예외로 하네스가 멈춘다. 대조 3건을 넣고 `sh -c "… > /dev/null 2>&1"`로 감싸 우회했다 — 대조 없이 돌렸으면 IT 행 전부가 거짓 `잡음`이었다.
 - 첫 sweep의 `못 잡음` 3건 중 2건은 시험이 기대값을 시드 표(`HARNESSES`)에서 가져온 동어반복이었다.
 - 라벨 r4(verify 3 PASS 뒤 사용자 결정 ΔV3 턴).
+
+## [구현자 기입] 설계 리뷰 (r4.2 — ΔV4)
+
+- **동의.** §23 대로 `tableSample` 행 선택 한 자리(`windows-verdict.mjs:113-121`)와 `cells.mjs` Node 셀 구간만 바꿨다. 측정 도구 출력·예제 fixture 무변경.
+- **이견 / 현실성.** 해당 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r4.2)
+
+자리 검색 `rg -n "label" app/scripts/windows-verdict.mjs` 5줄 — 주석 1(제외) · `:115` labelled 판정 → (a)~(e) 공통 · `:116` (e) · `:118` (a)(b) 접두 · `:120` (c)(d). 미분류 0.
+
+| pair | §10이 적은 지점 | 닫은 수 | 좌표 | 남긴 곳 |
+|---|---|---|---|---|
+| VP-10 MD-02↔UT-02 | P2 ⑨″ (a)~(e) | 5/5 | `windows-verdict.test.mjs:'U41 a repeated Node row ID …'` — 같은 ID `K13` 4행(접두 형제 `5MiB codeView extra` 포함) 원본에 분기별 입력 6개 | 0 |
+| VP-22 SD-02↔ST-02 | `--node-rows` 107행 전부 셀 | 1/1 | `gate:sh vp22.sh`(시드 → `cells.mjs --targets --node-rows` → Node 셀 = 107 단언 → 판독기 exit ≠ 2) | 0 |
+
+| pair | requiredness | 자기 상태 | 근거 |
+|---|---|---|---|
+| VP-10 | REQUIRED | SELF_PASS | U41 · 변이 6/6 red |
+| VP-22 | REQUIRED | SELF_PASS | gate green · `D4-cells-interval` red |
+| VP-09 | REGRESSION | SELF_PASS | U34·U37 포함 `windows-verdict.test.mjs` 28/28 |
+| VP-08 | REGRESSION | SELF_PASS | 같은 파일의 `report CLI …` 2건·`cli rejects …` 통과 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4.2)
+
+| ID | 자리 | 변이 | 결과 · 좌표 |
+|---|---|---|---|
+| CONTROL | — | 무해 append | green(기대) |
+| D4-a-label | `:118` | label 접두 제거 | 잡음 — U41 (a)(d 아닌 경로로 지표 없음) |
+| A-⑨″a | `:118` | 닫는 `' \|'` 제거(접두 일치) | 잡음 — U41 (a) 접두 형제 |
+| D4-c | `:120` | interval 검사 제거 | 잡음 — U41 (c) |
+| D4-e-type · D4-e-empty | `:116` | 형식·빈 값 검사 각각 제거 | 잡음 — U41 (e) `5` · `''` |
+| D4-labelled | `:115` | `labelled = false` | 잡음 — U41 (a) |
+| D4-cells-interval | `cells.mjs` | Node 셀 구간을 `'fn'`으로 | 잡음 — VP-22 gate(중복 키가 조용히 합쳐져 Node 셀 72) |
+| D4-cells-dup | `cells.mjs` | (ID, 이름) 중복 throw 무력화 | green(기대) — 실제 107행에 중복 0이라 동치, 가드로 남김 |
+
+검산: 선택 증거 1(A-⑨″a; A-⑨″c = D4-c) · 인용 변이 0 · 새 oracle 1(U41) · sweep 6/6(⑨″ 5분기 + labelled) + cells 2 = 변이 8 · 대조 1.
+
+## [구현자 기입] Product/UX 파생 검토 (r4.2)
+
+해당 없음 — 측정 판독 도구. 새 사유 문자열 없음(`지표 없음`·`구간 형식 지원 안 함`은 기존 사유).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4.2)
+
+| # | 발견 | 관측 | 분류 · 처리 |
+|---|---|---|---|
+| K4 | r4 커밋 `scripts/history-seed.mjs:48` 기본 cwd `C:/orca-W/seed-work`가 제품 이름 가드 위반이다. r4 gate는 파일이 미추적일 때 돌아 가드가 보지 못했다(가드는 추적 파일만 본다) | `check-product-naming` `위반 1건 … 옛 표기(lower)` | 이행(운영 gate) · 선조치 — 기본값 `seed-work`. 재실행 OK 2,806파일 |
+| K5 | `npm run lint`(`--fix`)가 `windows-verdict.test.mjs` 서식을 고쳤다 | `git diff` | 도구 변경분 — 그대로 커밋(동작 무관) |
+
+## [구현자 기입] 구현 보고 (r4.2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/scripts/windows-verdict.mjs` · `windows-verdict.test.mjs` · `history-seed.mjs`(K4) · `evidence/wu-w/cells.mjs` |
+| 실행 명령 | §23 운영 gate — 가드 5 · lint · typecheck · 필터 없는 `vitest run` · `node --test scripts/*.test.mjs` · `npx electron-vite build` · `smoke-hosts` · `smoke-preload` · 자리 검색 · VP-22 gate. 마지막 수정(K4) 뒤 트리에서 전부 재실행 |
+| 관측한 게이트 산출 | 가드 5 exit 0 · lint 오류 0·경고 12 · typecheck 0 · vitest 1,152파일 통과·실패 0(테스트 10,935) · `node --test` 1,160 통과·5 실패 — r4와 이름 차집합 ∅, 전부 `ERR_UNKNOWN_FILE_EXTENSION ".ts"`(Node 22.15 환경) · build·smoke 둘 exit 0 |
+| 추가·수정 테스트의 subtree 규칙 | 수정 1파일(`windows-verdict.test.mjs` — Node 내장 시험, 임시 파일 없음 · 시간 값 없음) · 위반 0 |
+| V-pair 자기확인 | REQUIRED 2 · REGRESSION 2 SELF_PASS · SELF_BLOCKED 0 |
+| 강제 지점 전수 | ⑨″ 5/5 · 자리 검색 5줄 미분류 0 · Node 셀 107/107(보류 0) |
+| AC 자기보고 | AC7(모르는 구간 형식 → 충족 불가)에 ⑨″ (e)가 더해진다. 그 밖 AC 불변 |
+| 합계 검산 | pair ✅ 4 · ⚠️ 0 · ❌ 0 = 총 4 |
+| 블로커 / 역질문 | 없음. 다음은 verify 4(ΔV3 + ΔV4) |
+| 대상 커밋 | (r4.2 구현 — 좌표는 INDEX) |
+
+## [구현자 기입] Review Signals — 사실만 (r4.2)
+
+- 새 파일을 커밋하기 전에 돌린 gate는 추적 파일만 보는 가드(`check-product-naming`)에서 그 파일을 빠뜨린다 — r4가 그렇게 위반을 통과시켰다(K4).
+- 라벨 r4.2(같은 라운드 두 번째 impl 턴).
 
 ---
 
