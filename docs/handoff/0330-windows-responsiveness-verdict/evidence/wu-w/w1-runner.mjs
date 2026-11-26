@@ -3,7 +3,7 @@
 //   node w1-runner.mjs <sha8> <harness> <repeat> [--runsheet <tsv>] [--raw <dir>]
 // 저장 trace 는 측정 표식 pid 의 이벤트와 메타데이터(`ph:'M'`)만 남긴다 — 추출기가 쓰는 전부다(§25 E1′·E3′).
 import { execSync, spawn } from 'node:child_process'
-import { appendFileSync, cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 
@@ -19,14 +19,15 @@ const CATEGORIES = ['devtools.timeline', 'disabled-by-default-devtools.timeline'
 const PORT = 9333
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const arg = (n, d) => (process.argv.includes(n) ? process.argv[process.argv.indexOf(n) + 1] : d)
-const [sha8, harness, repeat] = process.argv.slice(2)
-if (!SHAS[sha8] || !HARNESS[harness] || !/^[1-9]$/.test(repeat ?? '')) {
+const [sha8, harness, repeat, load = 'history-1'] = process.argv.slice(2)
+const H100 = load === 'history-100'
+if (!SHAS[sha8] || !HARNESS[harness] || !/^[1-9]$/.test(repeat ?? '') || !['history-1', 'history-100', 'build-100'].includes(load)) {
   console.error('사용법: <d8684684|515ff58d> <claude-code|claude-work|opencode> <반복>')
   process.exit(2)
 }
 const runsheet = arg('--runsheet', 'C:/orca-W/phase1/runs.tsv')
 const rawDir = arg('--raw', 'C:/orca-W/phase1/raw')
-const runId = `w1-${sha8}-${harness}-h1-r${repeat}`
+const runId = load === 'build-100' ? `h100-build-${harness}` : `w1-${sha8}-${harness}-${H100 ? 'h100' : 'h1'}-r${repeat}`
 const exe = `C:/orca-W/run1/diag-${sha8}/app/dist/win-unpacked/orcinus-orca.exe`
 const profile = `C:/orca-W/work/${runId}`
 const log = (...a) => console.error(new Date().toISOString(), runId, ...a)
@@ -39,7 +40,8 @@ function killDiag() {
 
 function prepareProfile() {
   if (existsSync(profile)) rmSync(profile, { recursive: true, force: true })
-  cpSync('C:/orca-W/profiles/real-copy', profile, { recursive: true })
+  cpSync(H100 ? `C:/orca-W/profiles/h100-${harness}` : 'C:/orca-W/profiles/real-copy', profile, { recursive: true })
+  if (H100) return
   const Database = createRequire('C:/workspace/github/claude/orca-skin/app/package.json')('better-sqlite3')
   const db = new Database(join(profile, 'orcinus-orca.db'))
   const t = Date.now()
@@ -214,13 +216,43 @@ child.unref()
 let code = 0
 try {
   const p = await page()
-  const s = await setup(p)
+  if (load === 'build-100') {
+    // 100턴 세션 만들기(측정 아님) — '안녕' 1턴 + 짧은 확인 99턴. 완성된 프로필을 템플릿으로 남긴다.
+    const s0 = await setup(p)
+    for (let i = 2; i <= 100; i++) {
+      await focus(p)
+      await p.c.send('Input.insertText', { text: `확인 ${i} — 한 단어로만 답하라` })
+      await enter(p.c)
+      if (!(await waitDone(p, 180000))) throw Error('build: ' + i + '턴 시간 초과')
+      if (i % 10 === 0) log('turns', i)
+    }
+    const url = await p.evaluate('location.href')
+    p.c.close()
+    killDiag()
+    await sleep(2000)
+    const dest = `C:/orca-W/profiles/h100-${harness}`
+    if (existsSync(dest)) rmSync(dest, { recursive: true, force: true })
+    cpSync(profile, dest, { recursive: true })
+    writeFileSync(dest + '.json', JSON.stringify({ url, built: new Date().toISOString(), build: sha8, setup: s0 }))
+    log('built', url)
+    process.exit(0)
+  }
+  let s
+  if (H100) {
+    const meta = JSON.parse(readFileSync(`C:/orca-W/profiles/h100-${harness}.json`, 'utf8'))
+    await p.evaluate(`location.href=${JSON.stringify(meta.url)}`).catch(() => {})
+    await sleep(4000)
+    p.c.close()
+    const q = await page()
+    Object.assign(p, q)
+    s = { url: meta.url, turnsAtBuild: 100 }
+  } else s = await setup(p)
   const r = await record(p)
   mkdirSync(rawDir, { recursive: true })
   const file = runId + '.json'
   writeFileSync(join(rawDir, file), JSON.stringify({ traceEvents: r.kept, metadata: { startedAt: r.startedAt, endedAt: r.endedAt, steps: r.steps, setup: s, totalEvents: r.total, kept: 'measure-mark pid + metadata', source: 'w1-runner.mjs CDP Tracing + CDP synthetic input' } }))
   if (!existsSync(runsheet)) writeFileSync(runsheet, ['owner', 'scenario', 'operation', 'load', 'harness', 'build', 'side', 'sha', 'repeat', 'runId', 'startedAt', 'endedAt', 'traceFile', 'checks', 'note'].join('\t') + '\n')
-  appendFileSync(runsheet, ['0330', 'W1', 'long-chat-type-wheel-drag', 'history-1', harness, 'diagnostic', SIDE[sha8], SHAS[sha8], repeat, runId, r.startedAt, r.endedAt, file, '', 'CDP 합성 입력 · ' + r.steps.map((x) => x.step).join('>')].join('\t') + '\n')
+  appendFileSync(runsheet, ['0330', 'W1', 'long-chat-type-wheel-drag', H100 ? 'history-100' : 'history-1', harness, 'diagnostic', SIDE[sha8], SHAS[sha8], repeat, runId, r.startedAt, r.endedAt, file, '', 'CDP 합성 입력 · ' + (H100 ? '100턴 세션(실행마다 1턴 누적) · ' : '') + r.steps.map((x) => x.step).join('>')].join('\t') + '\n')
   log('ok', r.kept.length, '/', r.total, 'events', r.steps.at(-1).step)
   p.c.close()
 } catch (e) {

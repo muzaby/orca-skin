@@ -1,0 +1,2177 @@
+{
+ "overall": "불합격",
+ "cells": [
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-code|diagnostic|after|longest-stall-ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    1,
+    1,
+    1
+   ],
+   "n": 4,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-claude-code-h1-r1.json",
+     "sha256": "a741beff1c8ddf04c855777b3dcc148cc653e2de51f9631743608a2a1093388b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588381303503,
+      "end": 3588417315762
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r2.json",
+     "sha256": "a55141c27fa2cd8d6b7f3098f8e05bb2d6d2b2d5dd1cd4a47b15963bec88d22b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588964386578,
+      "end": 3588999662500
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r3.json",
+     "sha256": "aaa0d378964f4130c7bdc7113d1cba71fe9b15df7fa0b83b711c126fa50e5975",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589584450449,
+      "end": 3589620304372
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-code|diagnostic|after|longest-consecutive-dropped|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    17,
+    15,
+    19
+   ],
+   "n": 3,
+   "unit": "frames",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-claude-code-h1-r1.json",
+     "sha256": "a741beff1c8ddf04c855777b3dcc148cc653e2de51f9631743608a2a1093388b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588381329161,
+      "end": 3588417316025
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r2.json",
+     "sha256": "a55141c27fa2cd8d6b7f3098f8e05bb2d6d2b2d5dd1cd4a47b15963bec88d22b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588964402439,
+      "end": 3588999658314
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r3.json",
+     "sha256": "aaa0d378964f4130c7bdc7113d1cba71fe9b15df7fa0b83b711c126fa50e5975",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589584467266,
+      "end": 3589620295665
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-code|diagnostic|pair|input-to-paint|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 67.133,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-code-h1-r1.json",
+     "sha256": "d363dab29e31056c73214032ef044f1ffcc00d5fcfbd7449f8e39289b2ffbf11",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588268389275,
+      "end": 3588284464592
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r1.json",
+     "sha256": "a741beff1c8ddf04c855777b3dcc148cc653e2de51f9631743608a2a1093388b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588381348368,
+      "end": 3588397242279
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h1-r2.json",
+     "sha256": "82239c36d9130857e70956f895086b305ab2d4e270e1bd8895de6872fb81e243",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588871218989,
+      "end": 3588887126303
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r2.json",
+     "sha256": "a55141c27fa2cd8d6b7f3098f8e05bb2d6d2b2d5dd1cd4a47b15963bec88d22b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588964420217,
+      "end": 3588979566430
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h1-r3.json",
+     "sha256": "dfcc6e3ea520b506c208d823824ff170ed1fd2664e4599ecb98ffa0d87d1ea7c",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589489459305,
+      "end": 3589505618429
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r3.json",
+     "sha256": "aaa0d378964f4130c7bdc7113d1cba71fe9b15df7fa0b83b711c126fa50e5975",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589584480945,
+      "end": 3589600197809
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-code|diagnostic|pair|input-to-paint-max|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 83.15,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-code-h1-r1.json",
+     "sha256": "d363dab29e31056c73214032ef044f1ffcc00d5fcfbd7449f8e39289b2ffbf11",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588268389275,
+      "end": 3588284464592
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r1.json",
+     "sha256": "a741beff1c8ddf04c855777b3dcc148cc653e2de51f9631743608a2a1093388b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588381348368,
+      "end": 3588397242279
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h1-r2.json",
+     "sha256": "82239c36d9130857e70956f895086b305ab2d4e270e1bd8895de6872fb81e243",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588871218989,
+      "end": 3588887126303
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r2.json",
+     "sha256": "a55141c27fa2cd8d6b7f3098f8e05bb2d6d2b2d5dd1cd4a47b15963bec88d22b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588964420217,
+      "end": 3588979566430
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h1-r3.json",
+     "sha256": "dfcc6e3ea520b506c208d823824ff170ed1fd2664e4599ecb98ffa0d87d1ea7c",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589489459305,
+      "end": 3589505618429
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r3.json",
+     "sha256": "aaa0d378964f4130c7bdc7113d1cba71fe9b15df7fa0b83b711c126fa50e5975",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589584480945,
+      "end": 3589600197809
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-code|diagnostic|pair|dropped-frames|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 329,
+   "n": 2297,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-code-h1-r1.json",
+     "sha256": "d363dab29e31056c73214032ef044f1ffcc00d5fcfbd7449f8e39289b2ffbf11",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588268386032,
+      "end": 3588304672941
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r1.json",
+     "sha256": "a741beff1c8ddf04c855777b3dcc148cc653e2de51f9631743608a2a1093388b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588381329161,
+      "end": 3588417316025
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h1-r2.json",
+     "sha256": "82239c36d9130857e70956f895086b305ab2d4e270e1bd8895de6872fb81e243",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588871204746,
+      "end": 3588907313408
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r2.json",
+     "sha256": "a55141c27fa2cd8d6b7f3098f8e05bb2d6d2b2d5dd1cd4a47b15963bec88d22b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588964402439,
+      "end": 3588999658314
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h1-r3.json",
+     "sha256": "dfcc6e3ea520b506c208d823824ff170ed1fd2664e4599ecb98ffa0d87d1ea7c",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589489446309,
+      "end": 3589525816170
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r3.json",
+     "sha256": "aaa0d378964f4130c7bdc7113d1cba71fe9b15df7fa0b83b711c126fa50e5975",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589584467266,
+      "end": 3589620295665
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-code|diagnostic|pair|tasks-over-50ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 2,
+   "n": 6,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-code-h1-r1.json",
+     "sha256": "d363dab29e31056c73214032ef044f1ffcc00d5fcfbd7449f8e39289b2ffbf11",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588268358220,
+      "end": 3588304675066
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r1.json",
+     "sha256": "a741beff1c8ddf04c855777b3dcc148cc653e2de51f9631743608a2a1093388b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588381303503,
+      "end": 3588417315762
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h1-r2.json",
+     "sha256": "82239c36d9130857e70956f895086b305ab2d4e270e1bd8895de6872fb81e243",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588871175634,
+      "end": 3588907315387
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r2.json",
+     "sha256": "a55141c27fa2cd8d6b7f3098f8e05bb2d6d2b2d5dd1cd4a47b15963bec88d22b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588964386578,
+      "end": 3588999662500
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h1-r3.json",
+     "sha256": "dfcc6e3ea520b506c208d823824ff170ed1fd2664e4599ecb98ffa0d87d1ea7c",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589489426659,
+      "end": 3589525820962
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h1-r3.json",
+     "sha256": "aaa0d378964f4130c7bdc7113d1cba71fe9b15df7fa0b83b711c126fa50e5975",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589584450449,
+      "end": 3589620304372
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-code|diagnostic|after|longest-stall-ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    1,
+    1,
+    1
+   ],
+   "n": 3,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-claude-code-h100-r1.json",
+     "sha256": "45345754cc0c3dc88745e2af48d1b126a8592fd974baed9a27ce68821e898629",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593064173440,
+      "end": 3593100161623
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r2.json",
+     "sha256": "e46f88c860228802625023167b64cef410d197fdf5fb2f6169c580481f092ebc",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593620897043,
+      "end": 3593656909820
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r3.json",
+     "sha256": "0dafa5a9010913e8abc6f2470eb9c26ebcad2082babd92ef2edfa2e89ee98550",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594180661701,
+      "end": 3594216523894
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-code|diagnostic|after|longest-consecutive-dropped|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    18,
+    17,
+    18
+   ],
+   "n": 3,
+   "unit": "frames",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-claude-code-h100-r1.json",
+     "sha256": "45345754cc0c3dc88745e2af48d1b126a8592fd974baed9a27ce68821e898629",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593064191404,
+      "end": 3593100147719
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r2.json",
+     "sha256": "e46f88c860228802625023167b64cef410d197fdf5fb2f6169c580481f092ebc",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593620895880,
+      "end": 3593656897398
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r3.json",
+     "sha256": "0dafa5a9010913e8abc6f2470eb9c26ebcad2082babd92ef2edfa2e89ee98550",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594180682472,
+      "end": 3594216519323
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-code|diagnostic|pair|input-to-paint|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 68.025,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-code-h100-r1.json",
+     "sha256": "09df19e3c2c915e67f6f945757e06f8beebb2fc0e83a733a116dc0883820c78d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3592967651526,
+      "end": 3592984165802
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r1.json",
+     "sha256": "45345754cc0c3dc88745e2af48d1b126a8592fd974baed9a27ce68821e898629",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593064246364,
+      "end": 3593080125250
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h100-r2.json",
+     "sha256": "5036e86d17248db0a777f084ab14aa2d41b2b878d223e33687b2269ecc5c4a25",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593532097236,
+      "end": 3593548602131
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r2.json",
+     "sha256": "e46f88c860228802625023167b64cef410d197fdf5fb2f6169c580481f092ebc",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593620930915,
+      "end": 3593636789355
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h100-r3.json",
+     "sha256": "2084c26ab6affdeeeea1d54dd3d1f0abb15d337efe52eab4762f8eeffb8c63cf",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594092098204,
+      "end": 3594108486236
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r3.json",
+     "sha256": "0dafa5a9010913e8abc6f2470eb9c26ebcad2082babd92ef2edfa2e89ee98550",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594180699633,
+      "end": 3594196344645
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-code|diagnostic|pair|input-to-paint-max|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 113.731,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-code-h100-r1.json",
+     "sha256": "09df19e3c2c915e67f6f945757e06f8beebb2fc0e83a733a116dc0883820c78d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3592967651526,
+      "end": 3592984165802
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r1.json",
+     "sha256": "45345754cc0c3dc88745e2af48d1b126a8592fd974baed9a27ce68821e898629",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593064246364,
+      "end": 3593080125250
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h100-r2.json",
+     "sha256": "5036e86d17248db0a777f084ab14aa2d41b2b878d223e33687b2269ecc5c4a25",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593532097236,
+      "end": 3593548602131
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r2.json",
+     "sha256": "e46f88c860228802625023167b64cef410d197fdf5fb2f6169c580481f092ebc",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593620930915,
+      "end": 3593636789355
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h100-r3.json",
+     "sha256": "2084c26ab6affdeeeea1d54dd3d1f0abb15d337efe52eab4762f8eeffb8c63cf",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594092098204,
+      "end": 3594108486236
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r3.json",
+     "sha256": "0dafa5a9010913e8abc6f2470eb9c26ebcad2082babd92ef2edfa2e89ee98550",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594180699633,
+      "end": 3594196344645
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-code|diagnostic|pair|dropped-frames|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 137,
+   "n": 2430,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-code-h100-r1.json",
+     "sha256": "09df19e3c2c915e67f6f945757e06f8beebb2fc0e83a733a116dc0883820c78d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3592967644895,
+      "end": 3593004429884
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r1.json",
+     "sha256": "45345754cc0c3dc88745e2af48d1b126a8592fd974baed9a27ce68821e898629",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593064191404,
+      "end": 3593100147719
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h100-r2.json",
+     "sha256": "5036e86d17248db0a777f084ab14aa2d41b2b878d223e33687b2269ecc5c4a25",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593532067646,
+      "end": 3593568865671
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r2.json",
+     "sha256": "e46f88c860228802625023167b64cef410d197fdf5fb2f6169c580481f092ebc",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593620895880,
+      "end": 3593656897398
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h100-r3.json",
+     "sha256": "2084c26ab6affdeeeea1d54dd3d1f0abb15d337efe52eab4762f8eeffb8c63cf",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594092094782,
+      "end": 3594128693254
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r3.json",
+     "sha256": "0dafa5a9010913e8abc6f2470eb9c26ebcad2082babd92ef2edfa2e89ee98550",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594180682472,
+      "end": 3594216519323
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-code|diagnostic|pair|tasks-over-50ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 1,
+   "n": 6,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-code-h100-r1.json",
+     "sha256": "09df19e3c2c915e67f6f945757e06f8beebb2fc0e83a733a116dc0883820c78d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3592967614070,
+      "end": 3593004437662
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r1.json",
+     "sha256": "45345754cc0c3dc88745e2af48d1b126a8592fd974baed9a27ce68821e898629",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593064173440,
+      "end": 3593100161623
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h100-r2.json",
+     "sha256": "5036e86d17248db0a777f084ab14aa2d41b2b878d223e33687b2269ecc5c4a25",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593532045396,
+      "end": 3593568873439
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r2.json",
+     "sha256": "e46f88c860228802625023167b64cef410d197fdf5fb2f6169c580481f092ebc",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593620897043,
+      "end": 3593656909820
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-code-h100-r3.json",
+     "sha256": "2084c26ab6affdeeeea1d54dd3d1f0abb15d337efe52eab4762f8eeffb8c63cf",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594092065582,
+      "end": 3594128691351
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-code-h100-r3.json",
+     "sha256": "0dafa5a9010913e8abc6f2470eb9c26ebcad2082babd92ef2edfa2e89ee98550",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594180661701,
+      "end": 3594216523894
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-work|diagnostic|after|longest-stall-ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    1,
+    1,
+    1
+   ],
+   "n": 3,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-claude-work-h1-r1.json",
+     "sha256": "458c041f5fc4d8d3876dca06f6ae9949a41fba039533025429197296c3b75fe0",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588581641396,
+      "end": 3588616895587
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r2.json",
+     "sha256": "43bc06ca27bfcc6743a41d79a12948053e15f56c2c412aab1e622e539bc56ca4",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589165044291,
+      "end": 3589201047937
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r3.json",
+     "sha256": "c2b9a8960f596effac6a3fb93a53fa5bc94f7cf884faf5e3169c167a90d479ca",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589783821647,
+      "end": 3589819188415
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-work|diagnostic|after|longest-consecutive-dropped|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    20,
+    16,
+    19
+   ],
+   "n": 3,
+   "unit": "frames",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-claude-work-h1-r1.json",
+     "sha256": "458c041f5fc4d8d3876dca06f6ae9949a41fba039533025429197296c3b75fe0",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588581662871,
+      "end": 3588616879129
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r2.json",
+     "sha256": "43bc06ca27bfcc6743a41d79a12948053e15f56c2c412aab1e622e539bc56ca4",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589165060159,
+      "end": 3589201034145
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r3.json",
+     "sha256": "c2b9a8960f596effac6a3fb93a53fa5bc94f7cf884faf5e3169c167a90d479ca",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589783837970,
+      "end": 3589819187827
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-work|diagnostic|pair|input-to-paint|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 67.601,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-work-h1-r1.json",
+     "sha256": "fc0896896372c47c57ca371ee2cd63e1ebe32b6217a9f5d98aa35fbf71d14889",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588486740428,
+      "end": 3588502593386
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r1.json",
+     "sha256": "458c041f5fc4d8d3876dca06f6ae9949a41fba039533025429197296c3b75fe0",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588581678166,
+      "end": 3588596816717
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h1-r2.json",
+     "sha256": "e29580f0f3ad3d031111c407ea618800e9d49aac7472cbd19b87434c75506f08",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589061349160,
+      "end": 3589077312574
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r2.json",
+     "sha256": "43bc06ca27bfcc6743a41d79a12948053e15f56c2c412aab1e622e539bc56ca4",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589165072469,
+      "end": 3589180965328
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h1-r3.json",
+     "sha256": "28c8909e20f1fd2e7107ac760f1dcebffc93a5e1527312e7b627ef571cba10e1",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589687566387,
+      "end": 3589703587841
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r3.json",
+     "sha256": "c2b9a8960f596effac6a3fb93a53fa5bc94f7cf884faf5e3169c167a90d479ca",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589783852481,
+      "end": 3589799123084
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-work|diagnostic|pair|input-to-paint-max|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 378.86,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-work-h1-r1.json",
+     "sha256": "fc0896896372c47c57ca371ee2cd63e1ebe32b6217a9f5d98aa35fbf71d14889",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588486740428,
+      "end": 3588502593386
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r1.json",
+     "sha256": "458c041f5fc4d8d3876dca06f6ae9949a41fba039533025429197296c3b75fe0",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588581678166,
+      "end": 3588596816717
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h1-r2.json",
+     "sha256": "e29580f0f3ad3d031111c407ea618800e9d49aac7472cbd19b87434c75506f08",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589061349160,
+      "end": 3589077312574
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r2.json",
+     "sha256": "43bc06ca27bfcc6743a41d79a12948053e15f56c2c412aab1e622e539bc56ca4",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589165072469,
+      "end": 3589180965328
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h1-r3.json",
+     "sha256": "28c8909e20f1fd2e7107ac760f1dcebffc93a5e1527312e7b627ef571cba10e1",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589687566387,
+      "end": 3589703587841
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r3.json",
+     "sha256": "c2b9a8960f596effac6a3fb93a53fa5bc94f7cf884faf5e3169c167a90d479ca",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589783852481,
+      "end": 3589799123084
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-work|diagnostic|pair|dropped-frames|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 406,
+   "n": 2405,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-work-h1-r1.json",
+     "sha256": "fc0896896372c47c57ca371ee2cd63e1ebe32b6217a9f5d98aa35fbf71d14889",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588486726751,
+      "end": 3588522694549
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r1.json",
+     "sha256": "458c041f5fc4d8d3876dca06f6ae9949a41fba039533025429197296c3b75fe0",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588581662871,
+      "end": 3588616879129
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h1-r2.json",
+     "sha256": "e29580f0f3ad3d031111c407ea618800e9d49aac7472cbd19b87434c75506f08",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589061336339,
+      "end": 3589097481626
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r2.json",
+     "sha256": "43bc06ca27bfcc6743a41d79a12948053e15f56c2c412aab1e622e539bc56ca4",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589165060159,
+      "end": 3589201034145
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h1-r3.json",
+     "sha256": "28c8909e20f1fd2e7107ac760f1dcebffc93a5e1527312e7b627ef571cba10e1",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589687553110,
+      "end": 3589723842594
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r3.json",
+     "sha256": "c2b9a8960f596effac6a3fb93a53fa5bc94f7cf884faf5e3169c167a90d479ca",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589783837970,
+      "end": 3589819187827
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|claude-work|diagnostic|pair|tasks-over-50ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 1,
+   "n": 6,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-work-h1-r1.json",
+     "sha256": "fc0896896372c47c57ca371ee2cd63e1ebe32b6217a9f5d98aa35fbf71d14889",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588486697152,
+      "end": 3588522700842
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r1.json",
+     "sha256": "458c041f5fc4d8d3876dca06f6ae9949a41fba039533025429197296c3b75fe0",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588581641396,
+      "end": 3588616895587
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h1-r2.json",
+     "sha256": "e29580f0f3ad3d031111c407ea618800e9d49aac7472cbd19b87434c75506f08",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589061316788,
+      "end": 3589097488642
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r2.json",
+     "sha256": "43bc06ca27bfcc6743a41d79a12948053e15f56c2c412aab1e622e539bc56ca4",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589165044291,
+      "end": 3589201047937
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h1-r3.json",
+     "sha256": "28c8909e20f1fd2e7107ac760f1dcebffc93a5e1527312e7b627ef571cba10e1",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589687523276,
+      "end": 3589723846915
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h1-r3.json",
+     "sha256": "c2b9a8960f596effac6a3fb93a53fa5bc94f7cf884faf5e3169c167a90d479ca",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589783821647,
+      "end": 3589819188415
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-work|diagnostic|after|longest-stall-ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    1,
+    1,
+    1
+   ],
+   "n": 3,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-claude-work-h100-r1.json",
+     "sha256": "af9cab7c32029fb4d6bce7b6b99fde29f2302ba7e4ee36e7d868f5063c641020",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593248247462,
+      "end": 3593284057275
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r2.json",
+     "sha256": "9f57699d48dc4c757b2302e2bb4e0f3643042ccf0dbc7f3f5975d3ba8401618b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593805516782,
+      "end": 3593841372741
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r3.json",
+     "sha256": "fd3f539fcc5f2a09e6001fb3ac65542ae70762c677356fb4663559076a033b9b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594362268802,
+      "end": 3594398309426
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-work|diagnostic|after|longest-consecutive-dropped|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    16,
+    17,
+    16
+   ],
+   "n": 3,
+   "unit": "frames",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-claude-work-h100-r1.json",
+     "sha256": "af9cab7c32029fb4d6bce7b6b99fde29f2302ba7e4ee36e7d868f5063c641020",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593248269597,
+      "end": 3593284050694
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r2.json",
+     "sha256": "9f57699d48dc4c757b2302e2bb4e0f3643042ccf0dbc7f3f5975d3ba8401618b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593805547223,
+      "end": 3593841375062
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r3.json",
+     "sha256": "fd3f539fcc5f2a09e6001fb3ac65542ae70762c677356fb4663559076a033b9b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594362297988,
+      "end": 3594398295653
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-work|diagnostic|pair|input-to-paint|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 67.821,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-work-h100-r1.json",
+     "sha256": "a1c9888a633863e2e1e783a34c5463c58b5be5f66ba2578e957edf817aa2b306",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593159607116,
+      "end": 3593175536570
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r1.json",
+     "sha256": "af9cab7c32029fb4d6bce7b6b99fde29f2302ba7e4ee36e7d868f5063c641020",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593248282282,
+      "end": 3593263890419
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h100-r2.json",
+     "sha256": "9d58efc357591122638a96d178bd983615f1e6a29cb3e7e8f6e5e8ff40c146be",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593718059415,
+      "end": 3593734154204
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r2.json",
+     "sha256": "9f57699d48dc4c757b2302e2bb4e0f3643042ccf0dbc7f3f5975d3ba8401618b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593805551153,
+      "end": 3593821249903
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h100-r3.json",
+     "sha256": "affaf0514201189174de631362b5aec020c3cf242497dbdba94882ec4a7da5a1",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594274331778,
+      "end": 3594291069757
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r3.json",
+     "sha256": "fd3f539fcc5f2a09e6001fb3ac65542ae70762c677356fb4663559076a033b9b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594362301809,
+      "end": 3594378143824
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-work|diagnostic|pair|input-to-paint-max|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 70.667,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-work-h100-r1.json",
+     "sha256": "a1c9888a633863e2e1e783a34c5463c58b5be5f66ba2578e957edf817aa2b306",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593159607116,
+      "end": 3593175536570
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r1.json",
+     "sha256": "af9cab7c32029fb4d6bce7b6b99fde29f2302ba7e4ee36e7d868f5063c641020",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593248282282,
+      "end": 3593263890419
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h100-r2.json",
+     "sha256": "9d58efc357591122638a96d178bd983615f1e6a29cb3e7e8f6e5e8ff40c146be",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593718059415,
+      "end": 3593734154204
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r2.json",
+     "sha256": "9f57699d48dc4c757b2302e2bb4e0f3643042ccf0dbc7f3f5975d3ba8401618b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593805551153,
+      "end": 3593821249903
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h100-r3.json",
+     "sha256": "affaf0514201189174de631362b5aec020c3cf242497dbdba94882ec4a7da5a1",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594274331778,
+      "end": 3594291069757
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r3.json",
+     "sha256": "fd3f539fcc5f2a09e6001fb3ac65542ae70762c677356fb4663559076a033b9b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594362301809,
+      "end": 3594378143824
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-work|diagnostic|pair|dropped-frames|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 150,
+   "n": 2364,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-work-h100-r1.json",
+     "sha256": "a1c9888a633863e2e1e783a34c5463c58b5be5f66ba2578e957edf817aa2b306",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593159576798,
+      "end": 3593195771465
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r1.json",
+     "sha256": "af9cab7c32029fb4d6bce7b6b99fde29f2302ba7e4ee36e7d868f5063c641020",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593248269597,
+      "end": 3593284050694
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h100-r2.json",
+     "sha256": "9d58efc357591122638a96d178bd983615f1e6a29cb3e7e8f6e5e8ff40c146be",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593718035834,
+      "end": 3593754350670
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r2.json",
+     "sha256": "9f57699d48dc4c757b2302e2bb4e0f3643042ccf0dbc7f3f5975d3ba8401618b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593805547223,
+      "end": 3593841375062
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h100-r3.json",
+     "sha256": "affaf0514201189174de631362b5aec020c3cf242497dbdba94882ec4a7da5a1",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594274319471,
+      "end": 3594311349762
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r3.json",
+     "sha256": "fd3f539fcc5f2a09e6001fb3ac65542ae70762c677356fb4663559076a033b9b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594362297988,
+      "end": 3594398295653
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|claude-work|diagnostic|pair|tasks-over-50ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 1,
+   "n": 6,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-claude-work-h100-r1.json",
+     "sha256": "a1c9888a633863e2e1e783a34c5463c58b5be5f66ba2578e957edf817aa2b306",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593159553468,
+      "end": 3593195782453
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r1.json",
+     "sha256": "af9cab7c32029fb4d6bce7b6b99fde29f2302ba7e4ee36e7d868f5063c641020",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593248247462,
+      "end": 3593284057275
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h100-r2.json",
+     "sha256": "9d58efc357591122638a96d178bd983615f1e6a29cb3e7e8f6e5e8ff40c146be",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593718004122,
+      "end": 3593754350275
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r2.json",
+     "sha256": "9f57699d48dc4c757b2302e2bb4e0f3643042ccf0dbc7f3f5975d3ba8401618b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593805516782,
+      "end": 3593841372741
+     }
+    },
+    {
+     "path": "w1-d8684684-claude-work-h100-r3.json",
+     "sha256": "affaf0514201189174de631362b5aec020c3cf242497dbdba94882ec4a7da5a1",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594274296728,
+      "end": 3594311361374
+     }
+    },
+    {
+     "path": "w1-515ff58d-claude-work-h100-r3.json",
+     "sha256": "fd3f539fcc5f2a09e6001fb3ac65542ae70762c677356fb4663559076a033b9b",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594362268802,
+      "end": 3594398309426
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|opencode|diagnostic|after|longest-stall-ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    1,
+    1,
+    1
+   ],
+   "n": 6,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-opencode-h1-r1.json",
+     "sha256": "a2901fdd2d7672332d2184d6b3e51e13f44b1dc7ccdb1e5dae839bafeefa4930",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588768441300,
+      "end": 3588804381652
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r2.json",
+     "sha256": "34b458204233ce4548cbadc3168e4eb42307b3a33441652af77b32fdf5789e42",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589386067124,
+      "end": 3589421711588
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r3.json",
+     "sha256": "1683da69628e658398e058fb88929c5d39da320864cb86c1586e84c6f0f30131",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589990117894,
+      "end": 3590025764501
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|opencode|diagnostic|after|longest-consecutive-dropped|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    23,
+    19,
+    22
+   ],
+   "n": 3,
+   "unit": "frames",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-opencode-h1-r1.json",
+     "sha256": "a2901fdd2d7672332d2184d6b3e51e13f44b1dc7ccdb1e5dae839bafeefa4930",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588768452625,
+      "end": 3588804377053
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r2.json",
+     "sha256": "34b458204233ce4548cbadc3168e4eb42307b3a33441652af77b32fdf5789e42",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589386083025,
+      "end": 3589421714950
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r3.json",
+     "sha256": "1683da69628e658398e058fb88929c5d39da320864cb86c1586e84c6f0f30131",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589990122537,
+      "end": 3590025763566
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|opencode|diagnostic|pair|input-to-paint|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 66.843,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-opencode-h1-r1.json",
+     "sha256": "51dba61463964af55cd196f5596e3508d7b26c5e596f6fe3255918b361b73b55",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588674162764,
+      "end": 3588687112708
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r1.json",
+     "sha256": "a2901fdd2d7672332d2184d6b3e51e13f44b1dc7ccdb1e5dae839bafeefa4930",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588768514372,
+      "end": 3588784285376
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h1-r2.json",
+     "sha256": "961b5e3a2d977bef148fb5d9cf76fb2ede84d9084cc94a73523d057268eae967",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589275935286,
+      "end": 3589292367181
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r2.json",
+     "sha256": "34b458204233ce4548cbadc3168e4eb42307b3a33441652af77b32fdf5789e42",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589386100504,
+      "end": 3589401597816
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h1-r3.json",
+     "sha256": "3f382158401192b6a0bd9ab5618623384ba24b677ec25103747daa9f6c8e9b04",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589889136131,
+      "end": 3589904656832
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r3.json",
+     "sha256": "1683da69628e658398e058fb88929c5d39da320864cb86c1586e84c6f0f30131",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589990156177,
+      "end": 3590005696268
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|opencode|diagnostic|pair|input-to-paint-max|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 94.551,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-opencode-h1-r1.json",
+     "sha256": "51dba61463964af55cd196f5596e3508d7b26c5e596f6fe3255918b361b73b55",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588674162764,
+      "end": 3588687112708
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r1.json",
+     "sha256": "a2901fdd2d7672332d2184d6b3e51e13f44b1dc7ccdb1e5dae839bafeefa4930",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588768514372,
+      "end": 3588784285376
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h1-r2.json",
+     "sha256": "961b5e3a2d977bef148fb5d9cf76fb2ede84d9084cc94a73523d057268eae967",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589275935286,
+      "end": 3589292367181
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r2.json",
+     "sha256": "34b458204233ce4548cbadc3168e4eb42307b3a33441652af77b32fdf5789e42",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589386100504,
+      "end": 3589401597816
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h1-r3.json",
+     "sha256": "3f382158401192b6a0bd9ab5618623384ba24b677ec25103747daa9f6c8e9b04",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589889136131,
+      "end": 3589904656832
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r3.json",
+     "sha256": "1683da69628e658398e058fb88929c5d39da320864cb86c1586e84c6f0f30131",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589990156177,
+      "end": 3590005696268
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|opencode|diagnostic|pair|dropped-frames|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 301,
+   "n": 1614,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-opencode-h1-r1.json",
+     "sha256": "51dba61463964af55cd196f5596e3508d7b26c5e596f6fe3255918b361b73b55",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588674138863,
+      "end": 3588707106015
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r1.json",
+     "sha256": "a2901fdd2d7672332d2184d6b3e51e13f44b1dc7ccdb1e5dae839bafeefa4930",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588768452625,
+      "end": 3588804377053
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h1-r2.json",
+     "sha256": "961b5e3a2d977bef148fb5d9cf76fb2ede84d9084cc94a73523d057268eae967",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589275922602,
+      "end": 3589312551426
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r2.json",
+     "sha256": "34b458204233ce4548cbadc3168e4eb42307b3a33441652af77b32fdf5789e42",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589386083025,
+      "end": 3589421714950
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h1-r3.json",
+     "sha256": "3f382158401192b6a0bd9ab5618623384ba24b677ec25103747daa9f6c8e9b04",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589889120615,
+      "end": 3589924880649
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r3.json",
+     "sha256": "1683da69628e658398e058fb88929c5d39da320864cb86c1586e84c6f0f30131",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589990122537,
+      "end": 3590025763566
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-1|opencode|diagnostic|pair|tasks-over-50ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 2,
+   "n": 6,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-opencode-h1-r1.json",
+     "sha256": "51dba61463964af55cd196f5596e3508d7b26c5e596f6fe3255918b361b73b55",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588674123645,
+      "end": 3588707130262
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r1.json",
+     "sha256": "a2901fdd2d7672332d2184d6b3e51e13f44b1dc7ccdb1e5dae839bafeefa4930",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3588768441300,
+      "end": 3588804381652
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h1-r2.json",
+     "sha256": "961b5e3a2d977bef148fb5d9cf76fb2ede84d9084cc94a73523d057268eae967",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589275905228,
+      "end": 3589312562603
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r2.json",
+     "sha256": "34b458204233ce4548cbadc3168e4eb42307b3a33441652af77b32fdf5789e42",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589386067124,
+      "end": 3589421711588
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h1-r3.json",
+     "sha256": "3f382158401192b6a0bd9ab5618623384ba24b677ec25103747daa9f6c8e9b04",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589889104333,
+      "end": 3589924883165
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h1-r3.json",
+     "sha256": "1683da69628e658398e058fb88929c5d39da320864cb86c1586e84c6f0f30131",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3589990117894,
+      "end": 3590025764501
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|opencode|diagnostic|after|longest-stall-ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    1,
+    1,
+    1
+   ],
+   "n": 16,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-opencode-h100-r1.json",
+     "sha256": "252d07e2e662003907e1278f48236a2c50ec70a592d717af4851cf96486f287d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593436344622,
+      "end": 3593471628860
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r2.json",
+     "sha256": "7ee2971c7401ce640fc55a2a32b5b2dc8cd4ff3306058f4449e42c358ded6577",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593996739762,
+      "end": 3594031997118
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r3.json",
+     "sha256": "b7467eb071bdde6246a67d9817262a67c40f01c00449fb2f30a6846f013a7325",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594549772044,
+      "end": 3594585020489
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|opencode|diagnostic|after|longest-consecutive-dropped|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": [
+    24,
+    24,
+    23
+   ],
+   "n": 3,
+   "unit": "frames",
+   "rawRefs": [
+    {
+     "path": "w1-515ff58d-opencode-h100-r1.json",
+     "sha256": "252d07e2e662003907e1278f48236a2c50ec70a592d717af4851cf96486f287d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593436371500,
+      "end": 3593471616423
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r2.json",
+     "sha256": "7ee2971c7401ce640fc55a2a32b5b2dc8cd4ff3306058f4449e42c358ded6577",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593996778384,
+      "end": 3594031993737
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r3.json",
+     "sha256": "b7467eb071bdde6246a67d9817262a67c40f01c00449fb2f30a6846f013a7325",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594549792907,
+      "end": 3594585022143
+     }
+    }
+   ],
+   "status": "위반",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "위반",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|opencode|diagnostic|pair|input-to-paint|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 68.818,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-opencode-h100-r1.json",
+     "sha256": "094cdc9efa0bfa3e607b010e08f2da828df3b788707864cedbde05634288e24a",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593343601787,
+      "end": 3593358736235
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r1.json",
+     "sha256": "252d07e2e662003907e1278f48236a2c50ec70a592d717af4851cf96486f287d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593436389972,
+      "end": 3593451550377
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h100-r2.json",
+     "sha256": "0eb2aab788977782bd7e8037f3e19fceb951a0e3544a36f7dce2ba3c81fc5483",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593900531409,
+      "end": 3593915701901
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r2.json",
+     "sha256": "7ee2971c7401ce640fc55a2a32b5b2dc8cd4ff3306058f4449e42c358ded6577",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593996807117,
+      "end": 3594011931919
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h100-r3.json",
+     "sha256": "e2678f72c2d637991984d3ede50df84f46edc62afd87285d11c9937f970699a7",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594458431328,
+      "end": 3594473610171
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r3.json",
+     "sha256": "b7467eb071bdde6246a67d9817262a67c40f01c00449fb2f30a6846f013a7325",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594549823421,
+      "end": 3594564950918
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|opencode|diagnostic|pair|input-to-paint-max|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 87.706,
+   "n": 3612,
+   "unit": "ms",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-opencode-h100-r1.json",
+     "sha256": "094cdc9efa0bfa3e607b010e08f2da828df3b788707864cedbde05634288e24a",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593343601787,
+      "end": 3593358736235
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r1.json",
+     "sha256": "252d07e2e662003907e1278f48236a2c50ec70a592d717af4851cf96486f287d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593436389972,
+      "end": 3593451550377
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h100-r2.json",
+     "sha256": "0eb2aab788977782bd7e8037f3e19fceb951a0e3544a36f7dce2ba3c81fc5483",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593900531409,
+      "end": 3593915701901
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r2.json",
+     "sha256": "7ee2971c7401ce640fc55a2a32b5b2dc8cd4ff3306058f4449e42c358ded6577",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593996807117,
+      "end": 3594011931919
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h100-r3.json",
+     "sha256": "e2678f72c2d637991984d3ede50df84f46edc62afd87285d11c9937f970699a7",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594458431328,
+      "end": 3594473610171
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r3.json",
+     "sha256": "b7467eb071bdde6246a67d9817262a67c40f01c00449fb2f30a6846f013a7325",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594549823421,
+      "end": 3594564950918
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|opencode|diagnostic|pair|dropped-frames|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 317,
+   "n": 452,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-opencode-h100-r1.json",
+     "sha256": "094cdc9efa0bfa3e607b010e08f2da828df3b788707864cedbde05634288e24a",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593343592352,
+      "end": 3593378829943
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r1.json",
+     "sha256": "252d07e2e662003907e1278f48236a2c50ec70a592d717af4851cf96486f287d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593436371500,
+      "end": 3593471616423
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h100-r2.json",
+     "sha256": "0eb2aab788977782bd7e8037f3e19fceb951a0e3544a36f7dce2ba3c81fc5483",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593900521569,
+      "end": 3593935829895
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r2.json",
+     "sha256": "7ee2971c7401ce640fc55a2a32b5b2dc8cd4ff3306058f4449e42c358ded6577",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593996778384,
+      "end": 3594031993737
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h100-r3.json",
+     "sha256": "e2678f72c2d637991984d3ede50df84f46edc62afd87285d11c9937f970699a7",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594458407272,
+      "end": 3594493735062
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r3.json",
+     "sha256": "b7467eb071bdde6246a67d9817262a67c40f01c00449fb2f30a6846f013a7325",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594549792907,
+      "end": 3594585022143
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  },
+  {
+   "key": "0330|W1|long-chat-type-wheel-drag|history-100|opencode|diagnostic|pair|tasks-over-50ms|operation|T09",
+   "revision": "0330-W004-r1",
+   "aggregate": 9,
+   "n": 6,
+   "unit": "건",
+   "rawRefs": [
+    {
+     "path": "w1-d8684684-opencode-h100-r1.json",
+     "sha256": "094cdc9efa0bfa3e607b010e08f2da828df3b788707864cedbde05634288e24a",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593343551975,
+      "end": 3593378836501
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r1.json",
+     "sha256": "252d07e2e662003907e1278f48236a2c50ec70a592d717af4851cf96486f287d",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593436344622,
+      "end": 3593471628860
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h100-r2.json",
+     "sha256": "0eb2aab788977782bd7e8037f3e19fceb951a0e3544a36f7dce2ba3c81fc5483",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593900490792,
+      "end": 3593935835880
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r2.json",
+     "sha256": "7ee2971c7401ce640fc55a2a32b5b2dc8cd4ff3306058f4449e42c358ded6577",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3593996739762,
+      "end": 3594031997118
+     }
+    },
+    {
+     "path": "w1-d8684684-opencode-h100-r3.json",
+     "sha256": "e2678f72c2d637991984d3ede50df84f46edc62afd87285d11c9937f970699a7",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594458373313,
+      "end": 3594493732490
+     }
+    },
+    {
+     "path": "w1-515ff58d-opencode-h100-r3.json",
+     "sha256": "b7467eb071bdde6246a67d9817262a67c40f01c00449fb2f30a6846f013a7325",
+     "range": {
+      "kind": "trace-ts",
+      "start": 3594549772044,
+      "end": 3594585020489
+     }
+    }
+   ],
+   "status": "기록 전용",
+   "ownerMachine": "미기록",
+   "ownerWindows": "미기록",
+   "w": "기록 전용",
+   "user": "사용자 확정 대기"
+  }
+ ]
+}
