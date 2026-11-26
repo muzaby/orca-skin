@@ -8,14 +8,14 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0332-right-panel-global-depth` |
-| 작성자 | Claude Code (V1) · Codex (ΔV1 추가 요구) |
+| 작성자 | Claude Code (V1·ΔV2) · Codex (ΔV1 추가 요구) |
 | 일자 | 2026-11-26 |
-| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 |
-| 상태 | DRAFT — 추가 모션 요구와 직전 계획 리뷰 보완을 합친 뒤 READY 재판정 |
+| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26, 기준 `3f3646fb`) |
+| 상태 | READY — ΔV2가 PR #656 리뷰의 READY 전환 조건을 반영했다(§20) |
 | V mode | `Delta V` |
-| 기준 V | 0332 V1 (`ea866261`) |
-| 이번 V revision | `ΔV1` — 패널·본문 동시 재배치, 깊이 이동, 앱 공통 전환 |
-| 유효 V | `V1 + ΔV1` |
+| 기준 V | 0332 V1 + ΔV1 (`3f3646fb`) |
+| 이번 V revision | `ΔV2` — 리뷰 보완: 모드별 기본 폭·공통 프레임 소유 위치·화면 기억 규칙·산출물 열기 상태·그리드 제거 범위 |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 | 기준 트리 | `18b5d5f`(0330 verify 3의 앱 코드) |
 
 # Part I — Product & UX Contract
@@ -37,6 +37,7 @@
 | 명시 요구 | “이제 우측 패널은 depth 이동이 기본으로 할 것. 기존의 4x4 지원은 폐기. 관련 코드도 모두 제거할 것” | 같음 |
 | 명시 요구 | 질의 답 — depth: “스택 이동”(설명 “패널은 한 화면만 보인다. 다른 타일·상세·산출물을 열면 그 위로 한 단계 들어가고(push), 뒤로 가기로 직전 화면에 돌아온다. 닫기는 패널 전체를 닫는다.”) | 이번 턴 AskUserQuestion |
 | 명시 요구 | 질의 답 — 세션 이동: “화면 종류 유지”(설명 “Work/Code별로 마지막에 본 화면 종류를 전역으로 기억해 새 세션의 같은 화면을 보인다. 지원하지 않는 종류면 그 모드의 기본 화면.”) · 질문 전제 “상세·산출물처럼 그 세션에만 있는 깊은 화면은 이동 시 닫힙니다” | 같음 |
+| 리뷰 요구 | “계획 작성자(Claude)가 아래 동작을 결정하고, 각 결정에 구현 소유자와 통과 기준을 연결하면 같은 설계 커밋에서 해당 핸드오프를 READY로 전환해 주세요.” — 0332 3묶음(설정·폭 전환 · 전역 프레임·화면 복원 · 깊이 이동·그리드 폐기) | [PR #656 소유자 댓글](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7189285486) · 반영 대조는 §20-A |
 | 추론 의도 | ‘4x4’ = 현재 여러 열 × 열당 2행 타일 그리드(`ROWS_PER_COL = 2`) — 질문 문구로 확인받음 | 질의 1 전제 |
 | 추론 의도 | “좌측 nav처럼” = 좌측 nav의 `sidebarCollapsed`·`sidebarWidth`처럼 설정에 저장되어 앱 재시작 뒤에도 유지 — 추론 | `TweakProvider.tsx:20-21` · `protocol.ts:810-816` |
 | 추론 의도 | 자동 이벤트(턴 시작·세션 열기의 기본 타일)는 전역 열림을 바꾸지 않는다 — 좌측 nav는 스스로 열리지 않는다 — 추론 | 질의 2 전제 |
@@ -47,20 +48,27 @@
 |---|---|---|---|---|---|
 | D-001 | 패널 프레임(열림·폭)은 세션이 아니라 앱 전역 상태다. 좌측 nav처럼 설정에 저장한다 — `rightPanelOpen`·`rightPanelWidths { work, code }` | “좌측 nav처럼 전역 관리 … 프레임을 세션에 귀속하지 말 것” | 사용자 피드백 | ACTIVE | 세션별 `rightPanelTiles`·`rightPanelColWidths` 대체 |
 | D-002 | 열린 채 세션을 옮기면 프레임 DOM은 그대로이고 진입 애니메이션이 재생되지 않는다. 내용만 새 세션으로 바뀐다 | “다시 열리는 효과 제거” | 사용자 피드백 | ACTIVE | — |
-| D-003 | 폭은 Work/Code별 전역 값(기본 360px, 범위는 `sidePaneBounds`)이고, 폭이 다른 종류의 세션으로 옮기면 200ms 동안 폭이 전환된다. 열기는 0→폭, 닫기는 폭→0 전환이며 닫는 동안 내용은 남는다. 드래그 중·`prefers-reduced-motion`은 전환 없음 | “트랜지션 효과로 사이즈 조정 … 나타났다 사라지도록” · 수치 200ms는 기존 `transition-[flex-basis] duration-200`을 따른 설계자 기본값 | 사용자 피드백 | ACTIVE | — |
+| D-003 | 폭은 Work/Code별 전역 값(기본 360px, 범위는 `sidePaneBounds`)이고, 폭이 다른 종류의 세션으로 옮기면 200ms 동안 폭이 전환된다. 열기는 0→폭, 닫기는 폭→0 전환이며 닫는 동안 내용은 남는다. 드래그 중·`prefers-reduced-motion`은 전환 없음 | “트랜지션 효과로 사이즈 조정 … 나타났다 사라지도록” · 수치 200ms는 기존 `transition-[flex-basis] duration-200`을 따른 설계자 기본값 | 사용자 피드백 | SUPERSEDED | D-011 — 모드별 기본 폭을 정함(리뷰). 200ms·닫는 중 내용 유지·드래그/축소 모션 규칙은 D-011이 그대로 잇는다 |
 | D-004 | 정착한 패널은 한 화면만 보인다(스택). 다른 타일·상세·산출물·작업 상세를 열면 push, 뒤로(헤더 버튼·Escape)로 pop, 닫기는 패널 전체를 닫고 스택을 비운다. 이미 스택에 있는 타일을 열면 그 층까지 pop한다. 메뉴·토글에서 지금 맨 위 화면을 다시 고르면 닫는다 | 답 “스택 이동” | 질의 | ACTIVE | 0205~0215 타일 그리드 · OpenCode 상세 덮기 규칙(`rendering.md` “상세에는 추가 제목·뒤로 행 없이”) 대체 |
 | D-005 | 여러 열·행 타일 그리드와 그 코드(열 구조 상태·열/행 폭·분할·리플로우 슬라이드·가로 스크롤·`columnMode`)를 모두 제거한다 | “기존의 4x4 지원은 폐기. 관련 코드도 모두 제거할 것” | 사용자 피드백 | ACTIVE | — |
-| D-006 | Work/Code별 마지막 루트 화면 종류(타일 id)를 앱 실행 동안 전역 기억한다. 세션을 옮기면 새 세션 종류의 기억 화면으로 스택을 다시 세우고, 그 하네스·종류가 지원하지 않으면 기본 화면(`initialTile ?? taskTarget`)이다. 상세·산출물·작업 상세 층은 닫힌다 | 답 “화면 종류 유지” · 질문 전제 “깊은 화면은 이동 시 닫힙니다” | 질의 | ACTIVE | — |
+| D-006 | Work/Code별 마지막 루트 화면 종류(타일 id)를 앱 실행 동안 전역 기억한다. 세션을 옮기면 새 세션 종류의 기억 화면으로 스택을 다시 세우고, 그 하네스·종류가 지원하지 않으면 기본 화면(`initialTile ?? taskTarget`)이다. 상세·산출물·작업 상세 층은 닫힌다 | 답 “화면 종류 유지” · 질문 전제 “깊은 화면은 이동 시 닫힙니다” | 질의 | SUPERSEDED | D-013 — ‘루트’를 ‘맨 위 타일 층’으로 고치고 갱신 시점·예시를 고정(리뷰) |
 | D-007 | 자동 진입: 턴 시작·세션 열기의 기본 타일 활성화는 열림을 바꾸지 않는다. 계획 검토 요청은 활성 세션이고 패널이 열려 있을 때만 `plan`을 push한다. 사용자 조작 진입(메뉴·카드·버튼)은 닫혀 있으면 연다 | “좌측 nav처럼” — 설계자 기본값 | 설계자 | ACTIVE | `chatReducer` `BEGIN_TURN`·`LOAD_SESSION`·`RECV_EVENT`의 `activateTile` 대체 |
 | D-008 | 확대(expand)·초점 복귀·산출물 뷰어 기능은 유지한다 — 스택의 맨 위 화면에 적용된다 | 피드백 대상 아님 | 설계자 | ACTIVE | — |
 | D-009 | 패널을 열고 닫거나 폭을 바꿀 때 transcript가 같은 프레임·같은 진행률로 남은 폭을 차지한다. 깊이 진입과 뒤로 가기는 패널 안에서 반대 방향으로 전환한다 | 사용자 추가 모션 요구 | 사용자 | ACTIVE | D-002~004 보완 |
 | D-010 | 앱 전체의 가시 상태 전환에는 [디자인 시스템 §7](../../arch/frontend/design-system.md#앱-전체-gui-전환-원칙)을 적용한다. 조립 화면은 영역 간 타이밍, 공통 컴포넌트와 기능 컴포넌트는 각자 소유하는 상태의 전환을 담당한다 | 모든 GUI 상태 변화에 적용 | 사용자 | ACTIVE | 0331 AC12는 transcript 스크롤 담당 |
+| D-011 | 폭은 Work/Code별 전역 값이고 저장값이 없는 첫 실행의 기본은 **Work 360px · Code 520px**다(범위 `sidePaneBounds` — 최소 320 · 최대 min(960, host−240), 좁은 창은 자른다). 폭이 다른 종류의 세션으로 옮기면 200ms 동안 폭이 전환된다. 열기 0→폭, 닫기 폭→0 전환, 닫는 동안 내용 유지, 드래그 중·축소 모션은 전환 없음 | 리뷰 “저장값이 없는 첫 실행에서 사용할 모드별 기본 폭을 확정”. 사용자 원문 “기본 우측 패널의 사이즈가 다름”을 첫 실행에도 유지 | PR #656 리뷰 + 사용자 피드백 | ACTIVE | D-003 대체 |
+| D-012 | 프레임 소유자는 공통 부모 `ChatTile`이다 — `RightPanel` 자리(`ChatTile.tsx:188`)에 `RightPanelFrame`을 세션·하네스 key 없이 둔다. 하네스 registry는 화면 내용(타일 본문·머리·OpenCode 탐색 Context)만 제공하고 프레임 컴포넌트(`Panel`)·`resetBySession`을 갖지 않는다. Claude↔OpenCode 이동은 프레임 안 내용 층만 바꾼다 | 리뷰 “공통 부모가 프레임을 소유하고 하네스별 내용만 교체되는 위치를 지정” | PR #656 리뷰 | ACTIVE | D-002 보완 |
+| D-013 | 화면 기억은 Work/Code별 ‘사용자 조작으로 맨 위 타일 층이 바뀐 마지막 타일 id’다(상세·산출물·작업 상세 층은 기억하지 않는다). 세션을 옮기면 새 스택 = [기억 타일] — 새 세션이 지원하지 않으면 [기본(`initialTile ?? taskTarget`)]이고 이 대체는 기억을 바꾸지 않는다. 예시는 §20-D | 답 “화면 종류 유지” + 리뷰 “A에서 B로 이동한 뒤 … 어떤 타일을 기억하는지, B의 상세에서 바꿀 때 어디까지 복원하는지 예시로 고정” | 질의 + PR #656 리뷰 | ACTIVE | D-006 대체 |
+| D-014 | 산출물 열기: 클릭한 카드의 세션 key가 대상이다. 결과가 열 수 있음이고 그 요청이 최신이며 대상 세션이 여전히 활성일 때만 패널을 열고(닫혀 있으면 열기 전환) 산출물 층을 push한다. 미지원 형식은 탐색기 열기, 그 밖 실패는 기존 실패 안내이고 패널은 그대로다. 결과 전 세션이 바뀌면 열기를 취소하고 늦은 결과는 버린다 | 리뷰 “성공·실패, 파일을 여는 도중 세션이 바뀌거나 응답이 늦게 도착하는 경우의 패널 상태와 대상 세션을 명시” · 0242 D-014(결과 뒤 공간 할당) 유지 | PR #656 리뷰 | ACTIVE | D-004 보완 |
+| D-015 | 그리드 제거 범위 = production 상태·컴포넌트·공유 props(`RightPanelHostProps.layout`)·하네스 registry 계약(`RightPanelModule.Panel`·`resetBySession`)·기본 폭 상수 + 테스트·`chatStore.testHarness`·UI 시나리오 mock(`scripts/fixtures/opencode-ui/scenarios.ts`). 완료 조건은 `app/src`·`app/scripts` 전체(테스트 포함) 음성 검색 0 | 리뷰 “4×4 제거 범위에는 기존 상태·컴포넌트 외에 공유 props, 어댑터, 테스트용 데이터와 mock도 포함” | PR #656 리뷰 | ACTIVE | D-005 보완 |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-008.
 - 변경된 결정(앞선 handoff): 타일 그리드(0205~0215) · OpenCode 상세 덮기 규칙 · 세션별 패널 상태 — 대체 근거는 각 행.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-001↔AC1 · D-002↔AC2 · D-003↔AC4·AC5 · D-004↔AC6·AC8 · D-005↔AC7 · D-006↔AC3 · D-007↔AC9 · D-008↔AC10. ΔV1은 D-009↔AC11·AC12, D-010↔AC13 및 0331 AC12다.
+- ΔV2 추가 결정: D-011~D-015 · 대체: D-003 → D-011, D-006 → D-013.
+- **ΔV2 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-011↔AC4′·AC5 · D-012↔AC2′ · D-013↔AC3′ · D-014↔AC14 · D-015↔AC7′ · D-004↔AC6·AC8. D-003·D-006은 SUPERSEDED라 대조 대상 아님.
 
 ## 4. 요구 비판적 검토
 
@@ -127,18 +135,19 @@
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 | 세션 A에서 열고 B로 옮기면 열린 채, B에서 닫고 A로 가면 닫힌 채다. 설정 저장 → 재시작 뒤 같은 열림·폭 | 세션 전환 전후 열림 · `settingsApi.set` 호출 값 · 설정 스키마 기본·범위 | 진입 → 전역 store → `settingsApi` → `SettingsSchema` → 다음 부팅 load |
-| R-02 | AT-02 / AC2 | 열린 채 같은 종류·다른 종류 세션으로 옮겨도 프레임 루트 DOM 노드가 같고, 프레임 자체의 재열림 0회(자식 내용의 전환은 허용) | DOM 노드 동일성 · 프레임 자신의 이벤트와 실제 폭·불투명도 | `ChatTile` → `RightPanelFrame` |
-| R-03 | AT-03 / AC3 | Code에서 변경사항을 보다 다른 Code 세션으로 가면 변경사항, Work 세션으로 가면 Work 기억 화면(없으면 `task`), OpenCode에서 Claude 전용 화면이면 기본 화면. 상세·산출물·작업 상세 층은 닫힌다 | 세션 전환 뒤 스택 | 전역 store `switchSession` |
-| R-04 | AT-04 / AC4 | Work 폭 360·Code 폭 520인 상태에서 종류가 다른 세션으로 옮기면 200ms 동안 폭이 전환된다 — 중간 프레임 폭이 두 값 사이. 같은 폭이면 전환 0. 드래그 중 전환 0. reduced motion 즉시 | Electron 실기 프레임별 계산 폭 | 실제 Chromium |
+| R-02 | AT-02 / AC2 → **AC2′(ΔV2 §20-B)** | 열린 채 같은 종류·다른 종류 세션으로 옮겨도 프레임 루트 DOM 노드가 같고, 프레임 자체의 재열림 0회(자식 내용의 전환은 허용) | DOM 노드 동일성 · 프레임 자신의 이벤트와 실제 폭·불투명도 | `ChatTile` → `RightPanelFrame` |
+| R-03 | AT-03 / AC3 → **AC3′(ΔV2 §20-B)** | Code에서 변경사항을 보다 다른 Code 세션으로 가면 변경사항, Work 세션으로 가면 Work 기억 화면(없으면 `task`), OpenCode에서 Claude 전용 화면이면 기본 화면. 상세·산출물·작업 상세 층은 닫힌다 | 세션 전환 뒤 스택 | 전역 store `switchSession` |
+| R-04 | AT-04 / AC4 → **AC4′(ΔV2 §20-B)** | Work 폭 360·Code 폭 520인 상태에서 종류가 다른 세션으로 옮기면 200ms 동안 폭이 전환된다 — 중간 프레임 폭이 두 값 사이. 같은 폭이면 전환 0. 드래그 중 전환 0. reduced motion 즉시 | Electron 실기 프레임별 계산 폭 | 실제 Chromium |
 | R-05 | AT-05 / AC5 | 열기: 폭 0→W 전환(중간 프레임 존재), 닫기: W→0 전환 동안 내용 DOM 유지 후 제거. reduced motion 즉시 | Electron 실기 프레임별 폭·내용 존재 | 실제 Chromium |
 | R-06 | AT-06 / AC6 | 안정 상태에 보이는 타일 1개 이하. 깊이 전환 중 입력·접근성 대상은 도착 층 하나(나가는 층은 퇴장 동안만 보일 수 있다). push·pop·이미 있는 타일 pop·맨 위 재선택 닫기·닫기(스택 비움)·Escape pop · 뒤로 버튼은 깊이 > 1에서만 · 산출물 열기는 닫힌 패널을 열고 맨 위에 뷰어 | 스택 상태 · 안정 상태의 가시 화면 수·전환 중 조작 대상 수·헤더 버튼 | 진입점 → 전역 store → `RightPanelFrame` |
-| R-07 | AT-07 / AC7 | 그리드 코드 0 — 열/행 상태·핸들·슬라이드·가로 스크롤·`columnMode` 식별자가 production에 없다. 열/행 분할 핸들 DOM 0 | 음성 검색 0 + AC6 양성 | 저장소 소스 |
+| R-07 | AT-07 / AC7 → **AC7′(ΔV2 §20-B)** | 그리드 코드 0 — 열/행 상태·핸들·슬라이드·가로 스크롤·`columnMode` 식별자가 production에 없다. 열/행 분할 핸들 DOM 0 | 음성 검색 0 + AC6 양성 | 저장소 소스 |
 | R-08 | AT-08 / AC8 | 진입점 전수(타이틀 메뉴·Git 행 diff 토글·작업 상태·셸 백그라운드·서브에이전트 카드 4·OpenCode 요약 2·작업 목록 선택·산출물 카드·타일 닫기·OpenCode 상세 닫기)가 스택 규칙으로 동작 | 진입점마다 스택·열림 | 각 컴포넌트 → store |
 | R-09 | AT-09 / AC9 | 턴 시작·세션 열기는 열림을 바꾸지 않는다. 계획 검토 요청은 활성·열림일 때만 `plan` push, 닫힘·비활성이면 변화 0 | 이벤트 전후 열림·스택 | `chatReducer` 이벤트 → store |
 | R-R1 | AT-R1 / AC10 | 확대·복원·확대 중 닫기·초점 복귀·산출물 뷰어 복사/저장은 회귀 없다 | 기존 테스트 green(스택 맨 위 화면에 대해) | `ResizableSidePane` · `ArtifactViewer` |
 | R-11 | AT-11 / AC11 | 열기·닫기·모드 폭 변경·도중 반전에서 패널과 transcript의 공통 경계가 매 프레임 함께 움직인다. 빈 띠·겹침·한 프레임 늦은 재배치 0회 | Electron `pairedWidth`. 같은 프레임에 두 DOMRect를 측정(§10-A) | ChatTile → 공통 프레임·transcript |
 | R-12 | AT-12 / AC12 | 타일·상세·아티팩트의 push와 pop/pop-to가 서로 반대 방향으로 부드럽게 진행된다. 프레임은 유지되고 도착 화면만 조작할 수 있다 | Electron `depthMotion`. 중간 위치, 포커스·Escape, 빠른 뒤로, 세션 교체, 축소 모션 | 사용자 진입점 → 패널 스택 → 콘텐츠 층 |
 | R-13 | AT-13 / AC13 | 앱 전체의 가시 상태 전환을 소유자별로 열거하고 공통·개별 구현에서 순간 교체되는 경로를 수정한다 | §10-A 적용표에서 경로별 동작과 실제 표시 증거를 대조. 열린 항목을 둔 채 앱 전체 적용 완료로 판정하지 않는다 | 페이지·셸 → 공통 UI 또는 기능 컴포넌트 |
+| R-14 | AT-14 / AC14 (ΔV2) | 산출물 카드 열기의 성공·미지원·실패·결과 전 세션 전환·늦은 응답·연속 클릭에서 패널 상태와 대상 세션이 §20-E 표대로다 | §20-B AC14 | 카드 → `openArtifactViewer`(세션 key 고정) → 결과 → `rightPanelStore.navigate(artifact)` |
 
 ### AC 검증 주의사항
 
@@ -406,7 +415,124 @@ Tweaks(열림·폭) ──────────────┼→ RightPanelF
 - IMPL_DONE 전: `app/AGENTS.md` 로컬 확인 목록 전부 + `xvfb-run -a node scripts/check-right-panel.mjs`.
 - 사람 실기: 없음.
 
-## V1 READY self-review (ΔV1 종합 판정 대기)
+## 20. ΔV2 — PR #656 리뷰 보완
+
+**판정: 리뷰 3묶음(설정·폭 · 전역 프레임·화면 복원 · 깊이·그리드 폐기)을 모두 채택해 열거 원문으로 고정했다 — 기각 0.** 리뷰 기준은 `3f3646fb`. 줄 번호는 기준 트리 `18b5d5f`, 검색은 `app/`에서 실행한다.
+
+### 20-A. 리뷰 지적 ↔ 반영 대조
+
+| 리뷰 지적(원문 요지) | 판정 | 반영 |
+|---|---|---|
+| 저장값 없는 첫 실행의 모드별 기본 폭 확정 · 첫 Work↔Code 이동과 사용자가 폭을 바꾼 뒤 이동을 각각 검증 | 채택 — Work 360 · Code 520 | D-011 · AC4′ · EP-1′ |
+| 공통 부모가 프레임을 소유하고 하네스별 내용만 교체되는 위치 | 채택 — `ChatTile`(`ChatTile.tsx:188`) | D-012 · §20-C · AC2′ · EP-3′ |
+| A→B 뒤 다른 세션에서 무엇을 기억하는지 · B의 상세에서 바꿀 때 복원 범위를 예시로 | 채택 | D-013 · §20-D · AC3′ |
+| 열린 채 Claude↔OpenCode 이동에도 같은 프레임 DOM | 채택 — AC2에 있던 조건을 D-012 위치로 고정 | AC2′ |
+| 아티팩트 카드 성공·실패·도중 세션 전환·늦은 응답의 패널 상태와 대상 세션 | 채택 | D-014 · §20-E · AC14 · EP-10 |
+| 4×4 제거 범위에 공유 props·어댑터·테스트 데이터·mock 포함 | 채택 — 하네스 registry 계약과 UI 시나리오 mock 포함 | D-015 · AC7′ · EP-6′ |
+| 모션 구분(0331 AC12·0332 AC11~13) 유지 | 유지 | §20-H(0331 §20-E M4·M5와 대조) |
+
+### 20-B. AC 변경·추가
+
+| AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| AC2′ (CHANGED) | 열린 채 Claude Code↔Claude Code · Claude Code↔Claude Work · Claude↔OpenCode · OpenCode↔OpenCode 세션으로 옮겨도 프레임 루트(`[data-right-panel-frame]`)가 같은 DOM 노드이고 프레임 재열림 0. 바뀌는 것은 내용 층(`[data-right-panel-layer]`)뿐이다 | `RightPanelFrame.render.test.ts` 네 쌍(노드 동일성 · 내용 층 key 변경) + Electron `switch` 네 쌍 | `ChatTile` → `RightPanelFrame` → 내용 층 |
+| AC3′ (CHANGED) | §20-D 예시 E1~E8마다 세션 이동 뒤 스택과 기억이 표의 값과 같다 | `rightPanelStore.test.ts` 예시마다 1케이스 | 진입점 → `rightPanelStore` → `switchSession` |
+| AC4′ (CHANGED) | (i) 저장값 없음: Work→Code 360→520, Code→Work 520→360 — 중간 프레임 폭이 두 값 사이 · (ii) 사용자가 Code를 600으로 드래그해 저장한 뒤 Work→Code 360→600 · (iii) Work도 600이면 전환 0 · (iv) host 700px(최대 460)에서 Code 목표는 460으로 잘린다 · (v) 드래그 중 전환 0 · 축소 모션 즉시 | 순수 `targetWidth(kind, widths, host)` 단위(입력 5) + Electron `kindWidth` (i)~(v) | `Tweaks.rightPanelWidths` → 프레임 전환 상태 → 실제 폭 |
+| AC7′ (CHANGED) | §20-G EP-6′ 음성 검색이 `app/src`·`app/scripts` 전체(테스트·testHarness·UI 시나리오 mock 포함)에서 0이다. 하네스 registry 계약은 화면 내용만 제공한다(`Panel`·`resetBySession`·`layout` 없음) | `gate:rg`(0) + AC2′·AC6 양성 동작 | 저장소 소스 |
+| AC14 (NEW) | §20-E 산출물 열기 표 A1~A9의 사건마다 패널 상태·스택·대상 세션이 표의 값과 같다 | `artifactViewerStore.test.ts`·`rightPanelStore.test.ts` 사건마다 1케이스 · Electron `artifactOpen`(A2·A6) | 카드 → `openArtifactViewer` → `rightPanelStore.navigate({ kind: 'artifact' })` |
+
+### 20-C. 프레임 소유 위치 (D-012)
+
+```text
+ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
+ ├─ 대화 열: ChatTitleBar · transcript · Composer
+ └─ RightPanelFrame  [key 없음 · data-right-panel-frame]  ← 열림·폭·전환(M4)·뒤로/닫기 탐색 Context
+      └─ 내용 층  [key = `${sessionKey}:${layer.id}` · data-right-panel-layer]  ← 깊이 전환(M5)
+           └─ harnessRightPanel(backend).screen(layer)  ← 타일 본문·머리 · OpenCode 탐색 Context
+```
+
+- `RightPanel.tsx`의 세션 key(`:29`)와 하네스별 `Panel` 컴포넌트(`ClaudeRightPanel`·`OpenCodeRightPanel`)는 삭제한다. OpenCode의 상세 탐색 Context는 OpenCode `task` 화면 안으로 옮긴다.
+- 뒤로·닫기 버튼은 각 층의 기존 머리(타일 머리·뷰어 머리·상세 머리)에 프레임 Context(`useRightPanelNav()` → `{ canGoBack, back, close }`)로 들어간다. 뷰어의 닫기도 패널 닫기다(D-004).
+
+### 20-D. 화면 기억 예시 (D-013)
+
+| # | 시작(세션 · 스택) | 조작 | 기억(work · code) | 다른 세션으로 옮긴 뒤 스택 |
+|---|---|---|---|---|
+| E1 | Code S1 [plan] | diff 진입 → [plan, diff] | code = diff | Code S2 → [diff] |
+| E2 | Code S1 [plan, diff] | 뒤로 → [plan] | code = plan | Code S2 → [plan] |
+| E3 | Code S1 [plan, diff, 산출물] | 그 상태로 S2 이동 | code = diff(산출물 층은 기억 안 함) | Code S2 → [diff] · 뷰어 닫힘 |
+| E4 | OpenCode S3 [task, 상세(subagent)] | Claude Code S4로 이동 | code = task | S4는 task 미지원 → [plan](기본) · 기억은 task 유지 |
+| E5 | E4 뒤 S4 [plan] | 조작 없이 OpenCode S5로 | code = task | S5 → [task] |
+| E6 | E4 뒤 S4에서 diff 진입 → [plan, diff] | OpenCode S5로 | code = diff | S5 → [diff](OpenCode가 `diff` 지원 — `opencode/rightPanel.ts:7`) |
+| E7 | Work S6 [task, 작업 상세] | Work S7로 | work = task | S7 → [task] · 작업 상세 닫힘 |
+| E8 | 앱 재시작 | — | 기억 없음(실행 동안만) | 열림이면 [기본] |
+
+### 20-E. 산출물 열기 상태 (D-014)
+
+| # | 사건 | 패널 상태 · 스택 | 대상 세션 |
+|---|---|---|---|
+| A1 | 카드 클릭(대상 세션 활성) | 변화 없음 · 카드에 열기 중 표시(기존 `openingId`) | 클릭 때의 세션 key |
+| A2 | 결과 열 수 있음 · 최신 요청 · 대상 세션 활성 · 패널 닫힘 | 열기 전환(0→폭) · 스택 [기억 ∨ 기본, 산출물] | 대상 세션 |
+| A3 | 같은 조건 · 패널 열림 | 산출물 층 push — 같은 산출물이 이미 맨 위면 변화 없음, 스택 안에 있으면 그 층까지 pop | 대상 세션 |
+| A4 | 미지원 형식 | 변화 없음 · 탐색기에서 파일 선택(기존 `revealUnsupported`) | — |
+| A5 | 그 밖 실패(`missing` 등) | 변화 없음 · 실패 안내(기존 `blocked` — 0331 AC13 (b)(c)) | — |
+| A6 | 결과 전 세션 전환 | 열기 취소(`switchSession`이 `closeArtifactViewer(이전 세션)` 호출) · 새 세션 패널 변화 없음 · 늦은 결과 버림 | 버림 |
+| A7 | 결과 전 다른 산출물 클릭 | 앞 요청 무효(요청 번호) · 뒤 결과만 A2·A3 | 마지막 클릭의 세션 |
+| A8 | 산출물 층에서 뒤로·Escape | pop → 아래 화면 · 초점은 카드 원점(남아 있으면) | — |
+| A9 | 산출물 층에서 닫기 | 패널 닫기 전환 · 스택 비움 | — |
+
+### 20-F. V 변경 (ΔV2)
+
+| Node | provenance | 대체/출처 |
+|---|---|---|
+| R-02·R-03·R-04·R-07 / 같은 번호 AT | CHANGED (ΔV2) | §20-B |
+| R-14 · AT-14 | NEW (ΔV2) | §20-B · §20-E |
+| AR-03 | NEW — 하네스 registry 계약: 화면 내용만(`screen`), 프레임 없음 | D-012 · EP-3′ |
+| MD-01 | CHANGED — 기억 규칙(맨 위 타일 층 · 대체는 기억 불변) · 산출물 층 | D-013·D-014 · EP-4′ |
+| MD-02 | CHANGED — 목표 폭 = 모드별 기본·저장값·host 자르기 | D-011 · EP-5 |
+| MD-03 | CHANGED — 제거 범위 확장 | D-015 · EP-6′ |
+
+| Pair | left ↔ right | requiredness | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|
+| VP-02′ | R-02 ↔ AT-02 | REQUIRED | `RightPanelFrame.render.test.ts` `AC2′ four switch pairs keep the frame node` · `gate:… check-right-panel.mjs` `switch` 네 쌍 | required — 프레임에 `key={backend}`를 단 변이(Claude↔OpenCode 쌍 red) | EP-3′(17) |
+| VP-03′ | R-03 ↔ AT-03 | REQUIRED | `rightPanelStore.test.ts` `AC3′ E1-E8` | required — 미지원 대체가 기억을 덮어쓰는 변이(E5 red) | EP-4′(8) |
+| VP-04′ | R-04 ↔ AT-04 | REQUIRED | `rightPanelFrameState.test.ts` `AC4′ targetWidth (i)-(v)` · `gate:… check-right-panel.mjs` `kindWidth` (i)~(v) | required — Code 기본을 360으로 되돌린 변이((i) red) · host 자르기 제거 변이((iv) red) | EP-1′(6) · EP-5 |
+| VP-07′ | R-07 ↔ AT-07 | REQUIRED | `gate:rg` EP-6′ → 0 + VP-02′·VP-06 양성 | required — 음성 장치 민감도: 테스트 파일 하나에 `rightPanelTiles`를 남긴 상태에서 명령이 1을 낸다(테스트 범위 포함 확인) | EP-6′ |
+| VP-20 | R-14 ↔ AT-14 | REQUIRED | `artifactViewerStore.test.ts` `AC14 A1-A7` · `rightPanelStore.test.ts` `AC14 A8-A9` · `gate:… check-right-panel.mjs` `artifactOpen` | required — 대상 세션 활성 검사 제거 변이(A6 red) | EP-10(7) |
+| VP-21 | AR-03 ↔ IT-03 | REQUIRED | `registry.test.ts`(신규 케이스) `AC7′ harness modules provide screens only` — Claude·OpenCode 모듈로 프레임 안 화면을 렌더하고 프레임 노드는 하나 | not selected | EP-3′ |
+
+### 20-G. §10 추가·대체 행
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 · 제외 줄 | 실패 의미 |
+|---|---|---|---|---|
+| AR-01 / VP-04′ · **EP-1′**(EP-1 대체) | `rightPanelWidths` 기본 `{ work: 360, code: 520 }` · 범위 320~960 · 누락·범위 밖 필드는 그 필드 기본값 | EP-1 6자리 그대로 — 기본값 운반은 ①(`SettingsSchema` 기본)·④(`DEFAULTS`) | EP-1 명령 | 첫 실행에 두 모드 폭이 같아 전환이 일어나지 않는다 |
+| AR-03·SD-01 / VP-02′·VP-21 · **EP-3′**(EP-3 ①② 확장) | 프레임 소유 = `ChatTile` · registry = 화면 내용만 | 17줄 7자리 — ① `ChatTile.tsx:188` 프레임 배치 ② `RightPanel.tsx:29` 세션 key 삭제 ③ `contracts.ts:156,166,167,170` 계약(`layout`·`Panel`·`resetBySession` 삭제, `screen` 추가) ④ `registries/rightpanel.ts:12,15,18,25,27,29` 항목·접근자 ⑤ `claude/rightpanel/Panel.tsx:2,4`(삭제) ⑥ `opencode/rightpanel/Panel.tsx:15`(→ OpenCode 화면 Context) ⑦ `TilePanel.tsx:6,40`(→ `RightPanelFrame`) | `rg -n "resetBySession\|<RightPanel\b\|RightPanelHostProps\|RightPanelModule\|ClaudeRightPanel\|OpenCodeRightPanel" src/renderer/src --glob '!*.test.*'` → 20 · 제외 3: `registries/rightpanel.ts:2,3,6`(import) | 세션·하네스를 옮길 때 프레임이 다시 마운트된다 |
+| MD-01 / VP-03′ · **EP-4′**(EP-4 대체) | EP-4 7분기 + ⑧ 기억 갱신 = 사용자 조작으로 맨 위 타일 층이 바뀔 때만(대체·상세·산출물 층 제외) | 8자리 — EP-4 ①~⑦ + ⑧ 기억 갱신 분기 | 신규 파일 — 구현자가 분기 대응표 고정(EP-4와 같은 방식) | 대체 화면이 기억을 덮어 다음 세션이 엉뚱한 화면을 연다 |
+| MD-03 / VP-07′ · **EP-6′**(EP-6 대체) | 그리드·세션별 패널 상태·하네스 프레임 계약 0 | 60파일 421줄(production 28파일 186줄 · 테스트 32파일 235줄 · mock `scripts/fixtures/opencode-ui/scenarios.ts:124` 포함) — 전부 삭제 또는 스택·전역 기대로 수정 | `rg -n "ROWS_PER_COL\|rightPanelColWidths\|rightPanelRowSplits\|rightPanelTiles\b\|addTileColumnMajor\|removeTileFromColumns\|deriveRightPanelLayout\|RightPanelLayout\b\|RightPanelColumns?\b\|RightPanelColumnState\|columnMode\|ColumnResizeSeparator\|RowSeparator\|useColumnSlideOnReflow\|adjustPanelViewport\|SET_RIGHT_PANEL_COL_WIDTH\|SET_RIGHT_PANEL_ROW_SPLIT\|PANEL_DEFAULT_ROW_SPLIT\|PANEL_DEFAULT_WIDTH\|setRightPanelColWidth\|setRightPanelRowSplit\|flattenColumns\|columnsContain\|rightPanelColumnsForAgent\|RightPanelHandle\|standard-grid\|task-focus\|resetBySession\|panelReveal\|revealRightPanelTile\|TilePanel(Detail)?\b\|ROW_GROW_MS\|animate-tile-in" src scripts` → 완료 조건 0 · 제외 0(`docs/handoff/**` 이력은 `app/` 밖) | 쓰지 않는 그리드·세션 상태가 테스트·mock에 남아 다음 변경이 그 위에 쌓인다 |
+| R-14 / VP-20 · **EP-10** | A1~A9 | 7자리 — ① `ArtifactCards.tsx:115` 클릭(세션 key 고정) ② `artifactViewerStore.ts:109` 결과 → 대상 세션 활성 검사 → `navigate(artifact)` ③ `artifactViewerStore.ts:142` 취소 ④ `TilePanel.tsx:146` 세션 변경 취소(→ `switchSession`으로 이동) ⑤ `TilePanel.tsx:65` 검색 시 확대 뷰어 닫기(→ 프레임) ⑥ `ArtifactViewer.tsx:50` 닫기(→ `close`) ⑦ `ArtifactViewer.tsx:128` 닫기 버튼(→ `close`) | `rg -n "openArtifactViewer\(\|closeArtifactViewer\(" src/renderer/src --glob '!*.test.*'` → 10 · 제외 3: `useArtifactCatalogViewer.tsx:39,43,51`(카탈로그 화면 — 비범위) | 늦은 결과가 다른 세션 패널을 열거나 실패가 빈 패널을 만든다 |
+
+- **선언 경계(ΔV2 추가)**: 산출물 카탈로그 화면의 뷰어 열기·닫기(EP-10 제외 3) · 기억 화면의 재시작 뒤 유지(E8).
+- 규칙 칸 ↔ 입력: AC4′ (i)~(v) → VP-04′ 입력 5 · D-013 E1~E8 → VP-03′ 입력 8 · D-014 A1~A9 → VP-20 입력 9 · AC2′ 네 쌍 → VP-02′ 입력 4.
+
+### 20-H. 0331과 공통 동작 대조
+
+| 대상 | 0332 문장 | 0331 문장 | 판정 |
+|---|---|---|---|
+| 패널 폭 변화 중 transcript | EP-7 — 같은 프레임 재배치 · 하단·읽던 글줄 유지 | §20-E M4 — 유지는 M3 즉시 보정 | 일치 |
+| 깊이 전환 | EP-8 — 패널 안 전환 | M5 — transcript 영향 0 | 일치 |
+| 산출물 실패 | A5 — 패널 변화 없음 | AC13 — 실패 안내 · 공간 0(0242 D-014) | 일치 |
+| 렌더러 예산 | §10-A — 0324 50ms | AC14 — `longtask` 0 | 일치 |
+
+## READY self-review (V1 + ΔV1 + ΔV2)
+
+- [x] ΔV2: 리뷰 지적 7건 모두 §20-A에 판정·반영 위치가 있다 — 기각 0.
+- [x] ΔV2: D-003 → D-011, D-006 → D-013 SUPERSEDED · 새 결정 D-011~D-015 ↔ AC 대조 충돌 0(§3 갱신 메모).
+- [x] ΔV2: CHANGED AC는 §7 구 행에 포인터, §20-B가 대체 — AC 총 14(AC1~AC14, AC10은 R-R1 회귀).
+- [x] ΔV2: 규칙 칸 ↔ 입력 칸 1:1(§20-G 마지막 줄) · 새 pair마다 좌표·§10.
+- [x] ΔV2: EP-6′ 분모를 이번 턴에 실측(60파일 421줄) — 완료 조건 0.
+- [x] ΔV2: 0331과 공통 동작 4항목 일치(§20-H).
+
+## V1 READY self-review (ΔV1 종합 판정 대기 — ΔV2에서 종합)
 
 - [x] Decision Ledger가 질의 답 2건·피드백 4건·설계자 기본값(D-007·D-008)을 보존한다.
 - [x] Part I만으로 완료 상태가 보인다.
