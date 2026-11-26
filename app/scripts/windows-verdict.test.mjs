@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
@@ -129,6 +129,24 @@ for (const [name, expected] of [
         for (const k of ['violations', 'missing', 'ownerFailures']) assert.ok(report[k].length)
     }
   })
+test('report CLI: owner FAIL without evidence still fails', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'oo-owner-fail-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  cpSync(full, dir, { recursive: true })
+  const owners = load(dir, 'owners.json')
+  owners.rows[0].machine = 'FAIL'
+  delete owners.rows[0].machineRef
+  writeFileSync(join(dir, 'owners.json'), JSON.stringify(owners))
+
+  const run = cli(dir, '.confirmed')
+  assert.equal(run.status, 1)
+  const report = JSON.parse(run.stdout)
+  assert.equal(report.overall, '불합격')
+  assert.deepEqual(report.ownerFailures, ['T17/0326'])
+  assert.deepEqual(report.holds, ['소유 판정 근거 없음'])
+  assert.equal(report.cells.find((cell) => cell.key === 'typing').ownerMachine, 'FAIL')
+})
+
 test('cli rejects missing arguments and malformed input and supports optional owners', (t) => {
   for (const flag of ['raw-root', 'plan', 'manifest', 'observations']) {
     const invalid = cli(full, '', { [flag]: null })
@@ -681,6 +699,59 @@ test('U8/U17/U24 distinguish required keys, unrequested owner columns, and missi
   assert.equal(f.report().overall, '불합격')
   f.owners.rows[0].windows = undefined
   assert.equal(f.report().overall, '합격')
+})
+
+test('U39 keeps owner failures and reports missing evidence for each owner column', () => {
+  for (const [kind, output] of [
+    ['machine', 'ownerMachine'],
+    ['windows', 'ownerWindows']
+  ]) {
+    for (const [value, ref, column, overall] of [
+      ['FAIL', undefined, 'FAIL', '불합격'],
+      ['PASS', undefined, '미기록', '판정 보류'],
+      ['미완', undefined, '미기록', '판정 보류'],
+      ['FAIL', 'verify#owner', 'FAIL', '불합격'],
+      ['PASS', 'verify#owner', 'PASS', '합격'],
+      ['미완', 'verify#owner', '미완', '판정 보류']
+    ]) {
+      const f = fixture()
+      f.owners.rows[0][kind] = value
+      f.owners.rows[0][kind + 'Ref'] = ref
+      const report = f.report()
+      assert.equal(report.cells[0][output], column)
+      assert.equal(report.overall, overall)
+      assert.deepEqual(report.ownerFailures, value === 'FAIL' ? ['T17/0326'] : [])
+      assert.equal(report.holds.includes('소유 판정 근거 없음'), value === 'FAIL' && !ref)
+    }
+  }
+  const f = fixture()
+  // Only the row declaring the failure can supply its evidence.
+  const row = f.owners.rows[0]
+  row.machine = 'FAIL'
+  const sibling = { ...row, machine: 'PASS', machineRef: undefined }
+  f.owners.rows.push(sibling)
+  assert.deepEqual(f.report().holds, [])
+  sibling.machine = 'FAIL'
+  assert.deepEqual(f.report().holds, ['소유 판정 근거 없음'])
+
+  const referenceCase = fixture()
+  const reference = {
+    ...referenceCase.cell,
+    key: 'reference',
+    sample: 'reference',
+    required: false
+  }
+  referenceCase.plan.cells.push(reference)
+  referenceCase.owners.rows.push({
+    task: referenceCase.cell.task,
+    owner: referenceCase.cell.owner,
+    key: reference.key,
+    windows: 'FAIL'
+  })
+  const report = referenceCase.report()
+  assert.equal(report.cells[1].ownerWindows, 'FAIL')
+  assert.equal(report.overall, '합격')
+  assert.deepEqual(report.holds, [])
 })
 
 test('U13 diagnostic overlay source carries its recorded diff hash', () => {

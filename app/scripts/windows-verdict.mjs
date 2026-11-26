@@ -630,6 +630,7 @@ export function evaluate({
   if (user !== '확정') report.holds.push(user)
   const ownerMissing = new Set(),
     ownerFailures = new Set()
+  let ownerFailureWithoutRef = false
   for (const c of plan.cells) {
     const result = cellResult(c, plan, index, report, agreed, readRaw)
     const entries = owners.rows.filter(
@@ -637,11 +638,16 @@ export function evaluate({
     )
     const ownerKey = c.task + '/' + c.owner
     const column = (kind) => {
-      const values = entries.map((row) => (row[kind + 'Ref'] ? row[kind] : undefined))
-      if (values.includes('FAIL')) {
-        if (c.sample !== 'reference') ownerFailures.add(ownerKey)
+      const failures = entries.filter((row) => row[kind] === 'FAIL')
+      const hasRef = (row) => textValue(row[kind + 'Ref'])
+      if (failures.length) {
+        if (c.sample !== 'reference') {
+          ownerFailures.add(ownerKey)
+          if (failures.some((row) => !hasRef(row))) ownerFailureWithoutRef = true
+        }
         return 'FAIL'
       }
+      const values = entries.filter(hasRef).map((row) => row[kind])
       const value = values.includes('미완') ? '미완' : values.includes('PASS') ? 'PASS' : '미기록'
       if (c.sample !== 'reference' && c.required && c.ownerChecks[kind] && value !== 'PASS')
         ownerMissing.add(ownerKey)
@@ -663,6 +669,7 @@ export function evaluate({
     }
   for (const key of index.rows.keys()) if (!index.matched.has(key)) report.unexpected.push(key)
   report.ownerFailures.push(...ownerFailures)
+  if (ownerFailureWithoutRef) report.holds.push('소유 판정 근거 없음')
   if (ownerMissing.size) report.holds.push('소유 판정 없음')
   report.missing.push(...ownerMissing)
   if (report.missing.length) report.holds.push('필수 결측')
