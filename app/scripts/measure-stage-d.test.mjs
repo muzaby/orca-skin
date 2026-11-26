@@ -302,6 +302,10 @@ test('non-comparison CLI stamps unavailable results and rejects a mismatched bas
     const invalid = command('--baseline')
     assert.equal(invalid.status, 1)
     assert.match(invalid.stderr, /Baseline application sources must equal/)
+    const otherSource = '7db1c7cefcdd3ef6d7f44cadbb9e6dc10fde76e6'
+    const mismatched = command('--app-source', otherSource)
+    assert.equal(mismatched.status, 1)
+    assert.ok(mismatched.stderr.includes('Application sources must equal ' + otherSource))
     const missing = command('--app-source')
     assert.equal(missing.status, 1)
     assert.match(missing.stderr, /full commit SHA/)

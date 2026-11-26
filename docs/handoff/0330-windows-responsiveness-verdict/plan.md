@@ -13,7 +13,7 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **plan/READY — WU-M 기계 범위 (V1 rev 7 + ΔV1).** verify 1회째 RETURN_TO_PLAN의 D1·D2를 §20에서 정정했다. 다음은 구현 r2(Codex). WU-W(판정용 Windows 실측)는 W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). |
+| 상태 | **impl/IMPL_DONE — WU-M 기계 범위 (V1 rev 7 + ΔV1 · r2).** D1·D2를 구현하고 검증을 인계했다. 다음은 Claude의 독립 검증이다. WU-W(판정용 Windows 실측)는 W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
 | V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · 이번 revision **ΔV1**(§20) · 유효 V = `V1 rev 7 + ΔV1`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
@@ -754,6 +754,102 @@ stage-d S1~S3·S7·S10은 진입 시 한 번 구한 출처를 하위 측정에 �
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r2)
+
+- **동의 / 그대로 진행**. ΔV1의 W-037·W-038을 구현했다. 호스트·셸 기록은 CLI의 환경 값을 공유한다. 소유자 실패와 근거 누락은 한 보고서에서 함께 읽을 수 있다.
+- **이견 / 현실성 문제**. 해당 없음. 자식 필드와 import를 제거한 뒤 §20-C의 P6′ 검색이 32줄에서 28줄로 줄었다.
+- **ACTIVE Decision과 충돌하는 설계 발견**. 해당 없음. U39에서 참고 셀은 소유자 열에 실패를 표시하고 전체 합격은 유지했다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r2)
+
+판독기는 `windows-verdict.test.mjs`, stage-d는 `measure-stage-d.test.mjs`에서 확인했다. 아래 U 번호는 판독기 테스트의 이름이다. 실행별 값과 비교 대상은 [Linux 사전 실행](evidence/H1-0-linux.md#r2-사전-실행)에 있다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-08 | CLI 입력과 결과 | C1~C4 | 4/4 | `cli rejects…`, `report CLI…` 3건 | 파일 누락·파싱 오류는 2, 확정 예제와 무근거 실패는 각각 0·1 | — |
+| VP-09 | 원본과 집계 | P2 ①~⑩·P3 ①~⑯ 및 ⑨′ | 27/27 | U1~5·U10~11·U15~16·U19~23·U25~26·U28~38 | 해시·반복·선택 ID는 제출한 run의 원본과 대조. 중앙값·최댓값을 바꾼 X5.1 검출 | — |
+| VP-10 | 결정·전체 판정·소유 열 | P1 5·P4 9·P5 10 (§20-C 포함) | 24/24 | U6~9·U12~14·U17~18·U24·U27·U33·U39 | machine/windows 각각 FAIL·PASS·미완과 근거 유무, 같은 소유자 복수 행·참고 셀. U39가 열·ownerFailures·hold·전체를 직접 확인 | — |
+| VP-14 | CLI 인수 예제 | C4·P4 ⑤~⑧·P5 ⑧ a·b 공유 | 7/7 | `report CLI: failing/passing example …`와 `report CLI: owner FAIL without evidence still fails` | 확정된 passing 예제의 machine 한 행을 바꾸면 T17/0326·근거 없음 hold 한 건씩, 불합격·1 | — |
+| VP-11 | 부모 출처와 자식 필드 제거 | P6′ 24줄·제거 대상 S4/S5 | 24/24, 두 자식 파일 0줄 | `environment follows…`·`provenance stamps…`·`child records carry…`·`baseline identity…`·`app-source names…`·`non-comparison CLI…`·`comparison requires…`·`compare CLI…` | linux/win32/darwin, tool·appSource, 기준·후속 SHA, dirty·충돌, CLI 측정 실패·geometry. 자식마다 필드·import 재도입 검출 | — |
+| VP-13·VP-15 | 비교 CLI와 출처 | P6′의 S8·S9 공유 | 9/9줄 | `compare CLI…` 4건 및 0328 보관 쌍 재실행 | 양쪽 source·sha를 보존. 보관 Linux 쌍 0, 혼합 환경·충돌 1 | — |
+
+- §10 자리 목록 밖에서 본 운반 자리 없음. 판독기 검색 결과 184줄은 운반 180·제외 4, P6′는 명세 좌표 24·import 4였다. 각 검색과 좌표 목록의 양방향 차집합은 0줄이다. 부록에 파일별 줄을 남겼다.
+- 직전 verify의 S4·S5는 W-037로 제거했다. S4의 미실행 잔여와 S5의 Electron 의존을 대체하는 Node 검사는 두 파일에 값을 되살렸을 때 각각 실패했다. 최종 환경을 붙이는 S6은 CLI 호출 제거로 다시 검출했다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-10 | REQUIRED | SELF_PASS | U7·U14·U24·U39 | P4.priority5/8·P5.8a/b 검출 |
+| VP-11 | REQUIRED | SELF_PASS | `child records carry no provenance of their own`, `provenance stamps every scenario result`, `non-comparison CLI…` | host·shell 필드 복원, S6와 S8a~e 검출 |
+| VP-14 | REQUIRED | SELF_PASS | 기존 CLI 예제 2건과 무근거 FAIL CLI 인수 시험 | 무근거 FAIL 누락 변이 P5.8a 검출 |
+| VP-08·VP-09 | REGRESSION | SELF_PASS | 판독기 시험 파일 전체 | 원본 연결 P2.8a/b·9a·10 및 CLI 종료 코드 검출 |
+| VP-13·VP-15 | REGRESSION | SELF_PASS | `compare CLI…` 4건 | 비교의 환경·충돌·앱 tree 대조를 지우면 실패 |
+
+VP-12·16·17·18·19·R1은 §20-B의 NOT_REQUIRED다. 이전 독립 검증 좌표는 [verify 1 §5](verify.md#5-v-pair-closeout)에 있다. VP-01~07은 WU-W에 남는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| P5.8a/b·양쪽 자식 필드 복원 등 선택 증거 15행 | §10-C·§20-C | 신규 4, 상속 11 red | U39·무근거 FAIL CLI·자식 원문 검사 등 원장 행별 좌표 | 15/15 |
+| S6 부모 스탬프 호출 제거 | D1 인용 변이 재앵커 | S6 red, 자식 S4/S5는 Node 검사에서 green | `non-comparison CLI…` | 1/1 |
+| host·shell 각각 import만 복원하거나 환경 값을 리터럴로 재도입 | 새 구조 검사 민감도 | 최초 | `child records carry…` | 4/4 |
+| §10 자리·분기와 형제 교환, 새 소유자 근거 처리 | 열거 sweep | 이전 결과와 현재 결과는 원장에 기록 | P6-parent-after는 전달을 끊어도 최초 green. 다른 40자 SHA를 인자로 주고 종료 1과 해당 SHA를 포함한 진단을 확인한 뒤 red | 116/116 |
+
+- 분모 검산은 선택 증거 15·인용 변이 1·새 구조 검사 4·sweep 116 = 136행이다. D2의 무근거 FAIL 누락은 P5.8a와 같은 행이다. 각 행에 변경한 원문·좌표·실패한 테스트와 명령을 적었다. [r2 변이 원장](evidence/r2-mutations.tsv)
+- 덮개 회귀는 이번 범위의 이전 100행과 verify 1 형제 교환 4행에서 0건이다. S4·S5 자리 삭제와 S6 재앵커는 별도로 확인했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용자 대면 문구·상태의 소비자 | CLI 보고서에서 테스터가 실패한 소유자와 `소유 판정 근거 없음`을 함께 읽는다. | 근거가 추가되면 hold가 사라지는 U39 대조 |
+| 정리 코드의 스코프 | 자식 기록 객체의 필드와 import 두 쌍만 제거했다. | 동일한 Linux 창에서 host·shell 프로세스 종료 확인 |
+| 실패 경로와 Part I 상태 전이 | P4 ⑤. 소유자의 FAIL이 있으면 다른 결측·확정 상태와 함께 불합격을 표시한다. | 확정된 passing 예제로 CLI 검사 |
+| 사용자가 실패를 식별할 수 있는가 | 소유자 열에 FAIL, 결과에 T17/0326이 남고 CLI는 1을 반환했다. | AT-07 |
+| 늦게 도착한 응답 | 판독은 입력 파일 한 벌을 동기적으로 평가한다. 같은 소유자 두 행은 각각 자기 근거를 사용한다. | U39 복수 행 검사 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 링크가 없는 다른 행이 근거 있는 FAIL에 결손을 잘못 붙이거나, 근거 있는 형제가 무근거 FAIL을 가릴 수 있다. | 실패를 기록한 해당 열·행에서 근거를 확인한다. | U39 · P5.8-own-ref/mixed-fail/ref-column |
+| 2 | stage-d CLI의 후속 SHA 인자가 부모 스탬프까지 전달되지 않아도 기존 인자 형식 검사가 통과했다. | 소유 앱과 다른 유효 SHA를 줘 실제 거부 문구와 종료 코드를 검사했다. | P6-parent-after 최초 green → red |
+
+### 설계 대비 명시적 차이 (r2)
+
+W-037·W-038과 다른 구현 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음. 출처 스탬프는 CLI 실행마다 만든다. | AC8 · S6 제거 검출 |
+| 공유 | 해당 없음. 소유 열·행마다 근거를 평가한다. | AC7 · U39의 형제 열·복수 행 |
+| 재진입 | 해당 없음. 보류 사유는 `evaluate` 호출에 속한다. | U39의 실패·성공 연속 실행 |
+| 다른 무효화 | 해당 없음. 같은 장비의 자식 기록은 부모 환경을 따른다. | 자식 원문 검사와 부모 스탬프 시험 |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 판독기와 시험, stage-d 호스트·셸 생산자, stage-d 시험. 생산자 두 곳에서 import 한 줄·필드 한 줄씩 제거했다. |
+| 실행 명령 | §19 H6 전체, §20-C 네 스크립트 시험, P6′ 재검색, H1-0 및 실제 셸 시나리오. [사전 실행과 게이트](evidence/H1-0-linux.md#r2-사전-실행) |
+| 관측한 게이트 산출 | 가드 5개·타입 검사·일반/진단 빌드·host/preload smoke 통과. lint 오류 0·경고 12. Node 1,153건 통과. Linux 전체 Vitest는 10,903건 통과·22건 실패였다. 변경 전과 실패 테스트 이름 차집합은 양방향 0이다. |
+| 추가·수정 테스트의 subtree 규칙 | Node 내장 시험 2파일. 임시 디렉터리는 테스트 종료 시 제거하고 실제 앱 CLI는 자식 Node로 실행한다. 새 시간 예산·실제 Git 스위트·Vitest 풀 추가 0. |
+| V-pair 자기확인 | REQUIRED 3·REGRESSION 4 모두 SELF_PASS, SELF_BLOCKED 0. |
+| 강제 지점 전수 | 판독기 §10-A 55/55분기, P6′ 24/24좌표, 호스트·셸의 중복 환경 필드를 제거한 생산자 2/2곳. |
+| AC 자기보고 | AC7 확정 예제의 무근거 FAIL이 불합격·1, AC8 부모 스탬프와 두 기준·후속 비교 정상. AC9~11은 verify 1 PASS이며 이번 실행에서도 stage-e 출처·시간 분기 및 세 렌더러 하네스 통과. |
+| 합계 검산 | ✅ 5 · ⚠️ 6 · ❌ 0 = 총 11. |
+| 블로커 / 역질문 | WU-W(AC1~6)는 W-004 사용자 합의와 H1 필수 셀 고정 대기. |
+| 대상 커밋 | (r2 구현 — 좌표는 INDEX) |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식은 이전 검증에서 열렸던 출처 단일화(D1)와 소유자 실패 정보 보존(D2)이다.
+- ΔV1 §20에 두 자식의 음성 검사와 CLI의 양성 검사, 무근거 실패의 최종 판정을 명시했다. r1의 설계는 이 입력·좌표를 정하지 않았다.
+- Linux 전체 테스트의 기존 Windows 경로·플러그인 제어 실패와 목표 장비 측정 한계는 H1-0에 기록했다.
+- 현재 라운드·구현 턴은 r2다. 다음 주체는 WU-M 독립 검증자다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
@@ -761,6 +857,6 @@ stage-d S1~S3·S7·S10은 진입 시 한 번 구한 출처를 하위 측정에 �
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| D1 | §10-C “VP-08~17 좌표 = `node --test`”와 P6 S4(`stage-d-host/electron-main.mjs:87`)·S5(`stage-d-shell/probe.ts:282`)의 실제 잠금이 어긋난다 — 두 변이가 `node --test`에서 green이고 커밋 안 된 Electron 하네스로만 red(S5 재현, S4는 이 환경에서 미실행) | verify r1 · VP-11·VP-15 · AC8 / §10-B P6 S4·S5 · §10-C | 생산자 하네스를 커밋된 `gate:` 명령으로 등록하거나 `node --test` seam을 두고 §10-C를 정정 | 이행(plan 내부 불일치 — oracle 없는 자리) | PLAN_GAP | ΔV1 정정(W-037 · §20) — r2 구현 대기 |
-| D2 | 근거 좌표(`machineRef`·`windowsRef`) 없는 소유자 `FAIL` 행이 `미기록`으로 읽혀 `ownerFailures`·`불합격`에서 빠지고 `판정 보류`가 된다(`evidence/verify1-axes.txt` `ownerFailNoRef`) | verify r1 · VP-10 · AC7 / §10-A P4 ⑤·P5 ⑤ | 근거 없는 `FAIL`을 `불합격`(+ 근거 없음 표시)으로 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | ΔV1 채택(W-038 · §20) — r2 구현 대기 |
+| D1 | §10-C “VP-08~17 좌표 = `node --test`”와 P6 S4(`stage-d-host/electron-main.mjs:87`)·S5(`stage-d-shell/probe.ts:282`)의 실제 잠금이 어긋난다 — 두 변이가 `node --test`에서 green이고 커밋 안 된 Electron 하네스로만 red(S5 재현, S4는 이 환경에서 미실행) | verify r1 · VP-11·VP-15 · AC8 / §10-B P6 S4·S5 · §10-C | 생산자 하네스를 커밋된 `gate:` 명령으로 등록하거나 `node --test` seam을 두고 §10-C를 정정 | 이행(plan 내부 불일치 — oracle 없는 자리) | PLAN_GAP | r2 해결 · W-037 · 자식 2곳 원문 검사 및 S6 CLI 재앵커 확인 |
+| D2 | 근거 좌표(`machineRef`·`windowsRef`) 없는 소유자 `FAIL` 행이 `미기록`으로 읽혀 `ownerFailures`·`불합격`에서 빠지고 `판정 보류`가 된다(`evidence/verify1-axes.txt` `ownerFailNoRef`) | verify r1 · VP-10 · AC7 / §10-A P4 ⑤·P5 ⑤ | 근거 없는 `FAIL`을 `불합격`(+ 근거 없음 표시)으로 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | r2 해결 · W-038 · U39·확정 CLI에서 근거 없는 FAIL 보존 확인 |
 | D3 | 관측 `values`를 `trace-marker` 표시 시각 차와 다르게 적어도 통과(`valueMismatchMarker`) | verify r1 · VP-09 / §10-C 선언 경계 | — | 경계 | — | 기록만 |
