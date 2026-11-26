@@ -8,14 +8,14 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0332-right-panel-global-depth` |
-| 작성자 | Claude Code (V1·ΔV2) · Codex (ΔV1 추가 요구) |
+| 작성자 | Claude Code (V1·ΔV2·ΔV3) · Codex (ΔV1 추가 요구) |
 | 일자 | 2026-11-26 |
-| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26, 기준 `3f3646fb`) |
-| 상태 | READY — ΔV2가 PR #656 리뷰의 READY 전환 조건을 반영했다(§20) |
+| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
+| 상태 | READY — ΔV3가 PR #656 2차 리뷰의 규칙 2건을 정리했다(§21) |
 | V mode | `Delta V` |
-| 기준 V | 0332 V1 + ΔV1 (`3f3646fb`) |
-| 이번 V revision | `ΔV2` — 리뷰 보완: 모드별 기본 폭·공통 프레임 소유 위치·화면 기억 규칙·산출물 열기 상태·그리드 제거 범위 |
-| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 기준 V | 0332 V1 + ΔV1 + ΔV2 (`09d8b2ae`) |
+| 이번 V revision | `ΔV3` — 2차 리뷰 보완: VP-01 누락 기본값(Work 360·Code 520) · 닫힌 패널의 산출물 성공은 `navigate` 일반 규칙의 예외 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
 | 기준 트리 | `18b5d5f`(0330 verify 3의 앱 코드) |
 
 # Part I — Product & UX Contract
@@ -38,6 +38,7 @@
 | 명시 요구 | 질의 답 — depth: “스택 이동”(설명 “패널은 한 화면만 보인다. 다른 타일·상세·산출물을 열면 그 위로 한 단계 들어가고(push), 뒤로 가기로 직전 화면에 돌아온다. 닫기는 패널 전체를 닫는다.”) | 이번 턴 AskUserQuestion |
 | 명시 요구 | 질의 답 — 세션 이동: “화면 종류 유지”(설명 “Work/Code별로 마지막에 본 화면 종류를 전역으로 기억해 새 세션의 같은 화면을 보인다. 지원하지 않는 종류면 그 모드의 기본 화면.”) · 질문 전제 “상세·산출물처럼 그 세션에만 있는 깊은 화면은 이동 시 닫힙니다” | 같음 |
 | 리뷰 요구 | “계획 작성자(Claude)가 아래 동작을 결정하고, 각 결정에 구현 소유자와 통과 기준을 연결하면 같은 설계 커밋에서 해당 핸드오프를 READY로 전환해 주세요.” — 0332 3묶음(설정·폭 전환 · 전역 프레임·화면 복원 · 깊이 이동·그리드 폐기) | [PR #656 소유자 댓글](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7189285486) · 반영 대조는 §20-A |
+| 리뷰 요구(2차) | “기존 필수 검증 `VP-01`의 누락 기본값을 Work 360px·Code 520px로 맞춰 주세요. 일반 `navigate(X)`가 닫힌 패널을 `[X]`로 여는 규칙에는 산출물 성공(A2)의 예외를 명시해 주세요.” | [PR #656 소유자 댓글(2차, `09d8b2ae` 기준)](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7189285486) · §21 |
 | 추론 의도 | ‘4x4’ = 현재 여러 열 × 열당 2행 타일 그리드(`ROWS_PER_COL = 2`) — 질문 문구로 확인받음 | 질의 1 전제 |
 | 추론 의도 | “좌측 nav처럼” = 좌측 nav의 `sidebarCollapsed`·`sidebarWidth`처럼 설정에 저장되어 앱 재시작 뒤에도 유지 — 추론 | `TweakProvider.tsx:20-21` · `protocol.ts:810-816` |
 | 추론 의도 | 자동 이벤트(턴 시작·세션 열기의 기본 타일)는 전역 열림을 바꾸지 않는다 — 좌측 nav는 스스로 열리지 않는다 — 추론 | 질의 2 전제 |
@@ -68,6 +69,7 @@
 - 변경된 결정(앞선 handoff): 타일 그리드(0205~0215) · OpenCode 상세 덮기 규칙 · 세션별 패널 상태 — 대체 근거는 각 행.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-001↔AC1 · D-002↔AC2 · D-003↔AC4·AC5 · D-004↔AC6·AC8 · D-005↔AC7 · D-006↔AC3 · D-007↔AC9 · D-008↔AC10. ΔV1은 D-009↔AC11·AC12, D-010↔AC13 및 0331 AC12다.
 - ΔV2 추가 결정: D-011~D-015 · 대체: D-003 → D-011, D-006 → D-013.
+- ΔV3: 새 결정 없음 — D-011(기본 폭)·D-014(산출물 A2)를 검증·규칙 칸에 맞춘 정정. **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-011↔VP-01′ · D-014↔EP-4″ ⑨·VP-20′.
 - **ΔV2 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-011↔AC4′·AC5 · D-012↔AC2′ · D-013↔AC3′ · D-014↔AC14 · D-015↔AC7′ · D-004↔AC6·AC8. D-003·D-006은 SUPERSEDED라 대조 대상 아님.
 
 ## 4. 요구 비판적 검토
@@ -177,7 +179,7 @@
 
 | Pair | left ↔ right | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
 |---|---|---|---|---|---|---|
-| VP-01 | R-01 ↔ AT-01 | REQUIRED | 진입 → store → settings | 신규 `rightPanelStore.test.ts` `AC1 open state survives session switches`(A 열기→B 열림 · B 닫기→A 닫힘) · `shared/theme/TweakProvider.store.test.ts` 신규 케이스 `AC1 persists rightPanelOpen and widths` · `main/infra/settings-store.test.ts` 신규 케이스 `AC1 settings defaults and bounds`(누락 → false·360 · 범위 밖 → 기본) | required — store가 세션 키별로 값을 다시 갖게 한 변이(A/B 교차 입력 red) | EP-1(6) |
+| VP-01 → **VP-01′(ΔV3 §21)** | R-01 ↔ AT-01 | REQUIRED | 진입 → store → settings | 신규 `rightPanelStore.test.ts` `AC1 open state survives session switches`(A 열기→B 열림 · B 닫기→A 닫힘) · `shared/theme/TweakProvider.store.test.ts` 신규 케이스 `AC1 persists rightPanelOpen and widths` · `main/infra/settings-store.test.ts` 신규 케이스 `AC1 settings defaults and bounds`(누락 → false·360 · 범위 밖 → 기본) | required — store가 세션 키별로 값을 다시 갖게 한 변이(A/B 교차 입력 red) | EP-1(6) |
 | VP-02 | R-02 ↔ AT-02 | REQUIRED | `ChatTile` → 프레임 | 신규 `RightPanelFrame.render.test.ts` `AC2 keeps the frame node across session switches`(같은 종류·다른 종류 · Claude↔OpenCode) · `gate:xvfb-run -a node scripts/check-right-panel.mjs` `switch`(프레임 재열림 0, 자식 이벤트 제외) | required — 프레임에 `key={sessionKey}`를 다시 단 변이 | EP-3(4) |
 | VP-03 | R-03 ↔ AT-03 | REQUIRED | `switchSession` | `rightPanelStore.test.ts` `AC3 restores the remembered screen per kind` — 입력: Code diff→Code · Code diff→Work(기억 있음/없음) · OpenCode에서 미지원 화면 · 상세·뷰어·작업 상세 층 닫힘 | not selected — 분기마다 입력 | EP-4(7) |
 | VP-04 | R-04 ↔ AT-04 | REQUIRED | Chromium | `gate:… check-right-panel.mjs` `kindWidth`(360↔520 중간 폭 존재 · 같은 폭 전환 0 · 드래그 중 0 · reduced motion 0) | required — 전환 클래스 제거 변이 | EP-5(4) · EP-7 |
@@ -296,7 +298,7 @@ ChatTile → RightPanelFrame(key 없음 · 폭 전환) → 스택 맨 위 화면
 | AR-01 / VP-01·VP-11 · **EP-1** | `rightPanelOpen: boolean`(기본 false) · `rightPanelWidths: { work: int, code: int }`(320~960, 기본 360) | `shared/protocol.ts` `SettingsSchema` | data·창 | 6자리 — ① `protocol.ts` `SettingsSchema`(`:810` 곁) ② `protocol.ts` 부분 쓰기 스키마(`:877` 곁) ③ `shared/ipc.ts` `Settings` 형(`:1163` 곁) ④ `TweakProvider.tsx` `Tweaks`·`DEFAULTS`(`:14-44`) ⑤ `TweakProvider.tsx` load 투영(`:96-108`) ⑥ 프레임의 쓰기(`setTweak` — 열기/닫기·드래그 끝) | `rg -n "sidebarCollapsed\|sidebarWidth" src/shared src/renderer/src/shared/theme src/main --glob '!*.test.*'` → 12줄(키 2개 × 위치 ①~⑤의 형제 자리 — 새 키가 같은 위치에 생긴다) · ⑥은 신규 호출 · 제외: `app/Header.tsx`·`app/Sidebar.tsx`(좌측 nav 소비처) | 세션마다 열림이 다르거나 재시작 뒤 잃는다 |
 | AR-02 / VP-08·VP-12 · **EP-2** | 사용자 진입은 store `navigate(screen, origin)`·`back()`·`close()`로만 패널을 바꾼다 | `rightPanelStore.ts` | 창 | 17자리 — 진입 15(§8 검산 목록, 자리별 좌표: `ChatTitleBar.render.test.ts` · `GitRow` 렌더 · `PendingAssistantStatus` · `ForegroundShellActions` · `opencode/tiles` 2 · `opencode/ToolCard` · `AgentTaskBody` · `AgentTaskRow` · `SubagentNoticeRow` · `TaskProgressList` · `TaskPanelContent` 2 · `RightPanelTile` 닫기 · `opencode/Panel` 상세 닫기) + 산출물 `ArtifactCards.tsx:115` + 폭 쓰기 1(프레임 드래그 — `opencode/Panel:57`·`PanelResizeSeparators:66,92`를 대체) | §8 진입 검색 → 18 + `openArtifactViewer\(` → 3 · 제외: `artifactViewerStore.ts:109`(선언) · `useArtifactCatalogViewer.tsx:43`(카탈로그 — 비범위) · `PanelResizeSeparators:92`(행 분할 — 삭제, EP-6) | 진입점이 열지 못하거나 그리드식으로 덧붙인다 |
 | SD-01·R-09 / VP-02·VP-09 · **EP-3** | 프레임은 세션 key로 remount되지 않고 진입 애니메이션이 없다 · 자동 이벤트는 열림 불변 | `RightPanelFrame.tsx` · `chatReducer.ts` | 창 | 4자리 — ① `RightPanel.tsx:29` 세션 key 제거(`resetBySession` 계약 삭제 `contracts.ts:170`·`registries/rightpanel.ts:15,25`) ② `animate-tile-in` 사용처 제거(`RightPanelColumn.tsx:82` 삭제 · `app.css:195-199` 사용처 0이면 삭제) ③ 자동 활성화 3(`BEGIN_TURN:1040`·`LOAD_SESSION:1825` 제거 · `RECV_EVENT:1427` 조건부 push) ④ 사용자 활성화 6(`TOGGLE`·`SET_ACTIVE`·`SELECT_DIFF_REQUIREMENT`·`OPEN_TASK`·`OPEN_SUBAGENT_TASK`·`OPEN_PROCESS_TOOL`)의 `activateTile`을 store `navigate`로 | `rg -n "animate-tile-in\|resetBySession\|key=\{column.id\}\|activateTile\(" src/renderer/src --glob '!*.test.*'` → 19 · 운반 17 · 제외 2: `activateTile` 선언(`:2481` — 삭제) · `RightPanelColumn.tsx:70`(주석) | 세션 이동마다 다시 열리거나 자동 이벤트가 패널을 연다 |
-| MD-01 / VP-03·VP-06·VP-13 · **EP-4** | 스택: `navigate(X)` = 닫힘이면 [X]로 열기 · 맨 위 = X면 닫기(토글 진입만) · 스택에 X면 그 층까지 pop · 아니면 push / `back` = 깊이 > 1이면 pop / `close` = 비움 / `switchSession(kind, backend)` = [기억(kind) 지원 ∨ 기본] · 루트가 바뀔 때 기억(kind) 갱신 | `rightPanelStack.ts` | 창 | 7자리 — ① `navigate` 열기 분기 ② 토글 닫기 분기 ③ pop-to 분기 ④ push 분기 ⑤ `back` ⑥ `close` ⑦ `switchSession`(기억 화면 · 지원 검사 `isRightPanelTileVisible` · 기본 `initialTile ?? taskTarget`) | 신규 파일 — `rg -n "case '\|function " src/renderer/src/features/chat/lib/rightPanelStack.ts`로 구현자가 자리-분기 대응표를 `[구현자 기입]`에 고정 | push·pop 규칙이 갈려 뒤로가 엉뚱한 화면으로 간다 |
+| MD-01 / VP-03·VP-06·VP-13 · **EP-4**(→ EP-4′ → **EP-4″ ΔV3 §21**) | 스택: `navigate(X)` = 닫힘이면 [X]로 열기 · 맨 위 = X면 닫기(토글 진입만) · 스택에 X면 그 층까지 pop · 아니면 push / `back` = 깊이 > 1이면 pop / `close` = 비움 / `switchSession(kind, backend)` = [기억(kind) 지원 ∨ 기본] · 루트가 바뀔 때 기억(kind) 갱신 | `rightPanelStack.ts` | 창 | 7자리 — ① `navigate` 열기 분기 ② 토글 닫기 분기 ③ pop-to 분기 ④ push 분기 ⑤ `back` ⑥ `close` ⑦ `switchSession`(기억 화면 · 지원 검사 `isRightPanelTileVisible` · 기본 `initialTile ?? taskTarget`) | 신규 파일 — `rg -n "case '\|function " src/renderer/src/features/chat/lib/rightPanelStack.ts`로 구현자가 자리-분기 대응표를 `[구현자 기입]`에 고정 | push·pop 규칙이 갈려 뒤로가 엉뚱한 화면으로 간다 |
 | MD-02 / VP-04·VP-05·VP-14 · **EP-5** | 전환: 상태 `closed`·`opening`·`open`·`closing` · 폭 목표(종류별) · `transition-[width,opacity] duration-200 motion-reduce:transition-none` · 드래그 중 전환 끔 · `closing` 동안 내용 유지 → `transitionend`(또는 200ms 타이머 안전망)에서 `closed` | `rightPanelFrameState.ts` | 창 | 4자리 — ① 열기 이벤트 ② 닫기 이벤트(내용 유지) ③ 종류·폭 목표 변경 ④ 드래그 시작/끝 | 신규 파일 — 같은 방식으로 `[구현자 기입]`에 고정 | 순간 전환이거나 닫는 동안 내용이 사라진다 |
 | MD-03 / VP-07·VP-15 · **EP-6** | 그리드 코드 0 | — | 창 | 16파일 101줄(§8) — `rightPanelLayout.ts`(파일 삭제) · `useColumnSlideOnReflow.ts`(삭제) · `rightPanelViewport.ts`(삭제) · `RightPanelColumn.tsx`(삭제) · `PanelResizeSeparators.tsx`(삭제) · `chatReducer.ts`(상태·동작·`PANEL_DEFAULT_ROW_SPLIT`) · `chatStore.ts`·`RightPanel.tsx`·`ApprovalCard.tsx`·`opencode/rightpanel/Panel.tsx`·`ChatTitleBar.tsx`·`GitRow.tsx`·`opencode/rightPanel.ts`·`claude/rightPanel.ts`·`rightPanelTiles.ts`(`columnMode`)·`TilePanel.tsx`(→ `RightPanelFrame`) | `rg -n "ROWS_PER_COL\|rightPanelColWidths\|rightPanelRowSplits\|addTileColumnMajor\|removeTileFromColumns\|deriveRightPanelLayout\|RightPanelColumns\b\|RightPanelColumnState\|columnMode\|ColumnResizeSeparator\|RowSeparator\|useColumnSlideOnReflow\|adjustPanelViewport\|SET_RIGHT_PANEL_COL_WIDTH\|SET_RIGHT_PANEL_ROW_SPLIT\|PANEL_DEFAULT_ROW_SPLIT\|setRightPanelColWidth\|setRightPanelRowSplit\|flattenColumns\|columnsContain\|rightPanelColumnsForAgent\|RightPanelHandle\|standard-grid\|task-focus" src --glob '!*.test.*' --glob '!*.testfixture.*'` → 완료 조건 0 | 쓰지 않는 그리드가 남아 다음 변경이 그 위에 쌓인다 |
 
@@ -507,7 +509,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 |---|---|---|---|---|
 | AR-01 / VP-04′ · **EP-1′**(EP-1 대체) | `rightPanelWidths` 기본 `{ work: 360, code: 520 }` · 범위 320~960 · 누락·범위 밖 필드는 그 필드 기본값 | EP-1 6자리 그대로 — 기본값 운반은 ①(`SettingsSchema` 기본)·④(`DEFAULTS`) | EP-1 명령 | 첫 실행에 두 모드 폭이 같아 전환이 일어나지 않는다 |
 | AR-03·SD-01 / VP-02′·VP-21 · **EP-3′**(EP-3 ①② 확장) | 프레임 소유 = `ChatTile` · registry = 화면 내용만 | 17줄 7자리 — ① `ChatTile.tsx:188` 프레임 배치 ② `RightPanel.tsx:29` 세션 key 삭제 ③ `contracts.ts:156,166,167,170` 계약(`layout`·`Panel`·`resetBySession` 삭제, `screen` 추가) ④ `registries/rightpanel.ts:12,15,18,25,27,29` 항목·접근자 ⑤ `claude/rightpanel/Panel.tsx:2,4`(삭제) ⑥ `opencode/rightpanel/Panel.tsx:15`(→ OpenCode 화면 Context) ⑦ `TilePanel.tsx:6,40`(→ `RightPanelFrame`) | `rg -n "resetBySession\|<RightPanel\b\|RightPanelHostProps\|RightPanelModule\|ClaudeRightPanel\|OpenCodeRightPanel" src/renderer/src --glob '!*.test.*'` → 20 · 제외 3: `registries/rightpanel.ts:2,3,6`(import) | 세션·하네스를 옮길 때 프레임이 다시 마운트된다 |
-| MD-01 / VP-03′ · **EP-4′**(EP-4 대체) | EP-4 7분기 + ⑧ 기억 갱신 = 사용자 조작으로 맨 위 타일 층이 바뀔 때만(대체·상세·산출물 층 제외) | 8자리 — EP-4 ①~⑦ + ⑧ 기억 갱신 분기 | 신규 파일 — 구현자가 분기 대응표 고정(EP-4와 같은 방식) | 대체 화면이 기억을 덮어 다음 세션이 엉뚱한 화면을 연다 |
+| MD-01 / VP-03′ · **EP-4′**(EP-4 대체 → **EP-4″ ΔV3 §21**) | EP-4 7분기 + ⑧ 기억 갱신 = 사용자 조작으로 맨 위 타일 층이 바뀔 때만(대체·상세·산출물 층 제외) | 8자리 — EP-4 ①~⑦ + ⑧ 기억 갱신 분기 | 신규 파일 — 구현자가 분기 대응표 고정(EP-4와 같은 방식) | 대체 화면이 기억을 덮어 다음 세션이 엉뚱한 화면을 연다 |
 | MD-03 / VP-07′ · **EP-6′**(EP-6 대체) | 그리드·세션별 패널 상태·하네스 프레임 계약 0 | 60파일 421줄(production 28파일 186줄 · 테스트 32파일 235줄 · mock `scripts/fixtures/opencode-ui/scenarios.ts:124` 포함) — 전부 삭제 또는 스택·전역 기대로 수정 | `rg -n "ROWS_PER_COL\|rightPanelColWidths\|rightPanelRowSplits\|rightPanelTiles\b\|addTileColumnMajor\|removeTileFromColumns\|deriveRightPanelLayout\|RightPanelLayout\b\|RightPanelColumns?\b\|RightPanelColumnState\|columnMode\|ColumnResizeSeparator\|RowSeparator\|useColumnSlideOnReflow\|adjustPanelViewport\|SET_RIGHT_PANEL_COL_WIDTH\|SET_RIGHT_PANEL_ROW_SPLIT\|PANEL_DEFAULT_ROW_SPLIT\|PANEL_DEFAULT_WIDTH\|setRightPanelColWidth\|setRightPanelRowSplit\|flattenColumns\|columnsContain\|rightPanelColumnsForAgent\|RightPanelHandle\|standard-grid\|task-focus\|resetBySession\|panelReveal\|revealRightPanelTile\|TilePanel(Detail)?\b\|ROW_GROW_MS\|animate-tile-in" src scripts` → 완료 조건 0 · 제외 0(`docs/handoff/**` 이력은 `app/` 밖) | 쓰지 않는 그리드·세션 상태가 테스트·mock에 남아 다음 변경이 그 위에 쌓인다 |
 | R-14 / VP-20 · **EP-10** | A1~A9 | 7자리 — ① `ArtifactCards.tsx:115` 클릭(세션 key 고정) ② `artifactViewerStore.ts:109` 결과 → 대상 세션 활성 검사 → `navigate(artifact)` ③ `artifactViewerStore.ts:142` 취소 ④ `TilePanel.tsx:146` 세션 변경 취소(→ `switchSession`으로 이동) ⑤ `TilePanel.tsx:65` 검색 시 확대 뷰어 닫기(→ 프레임) ⑥ `ArtifactViewer.tsx:50` 닫기(→ `close`) ⑦ `ArtifactViewer.tsx:128` 닫기 버튼(→ `close`) | `rg -n "openArtifactViewer\(\|closeArtifactViewer\(" src/renderer/src --glob '!*.test.*'` → 10 · 제외 3: `useArtifactCatalogViewer.tsx:39,43,51`(카탈로그 화면 — 비범위) | 늦은 결과가 다른 세션 패널을 열거나 실패가 빈 패널을 만든다 |
 
@@ -522,6 +524,32 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 깊이 전환 | EP-8 — 패널 안 전환 | M5 — transcript 영향 0 | 일치 |
 | 산출물 실패 | A5 — 패널 변화 없음 | AC13 — 실패 안내 · 공간 0(0242 D-014) | 일치 |
 | 렌더러 예산 | §10-A — 0324 50ms | AC14 — `longtask` 0 | 일치 |
+
+## 21. ΔV3 — PR #656 2차 리뷰 보완
+
+**판정: 2차 리뷰의 0332 규칙 2건을 채택했다 — 새 결정 없이 D-011·D-014를 검증 행과 규칙 칸에 맞춘 정정이다.** 기준은 `09d8b2ae`.
+
+| 리뷰 지적 | 판정 | 반영 |
+|---|---|---|
+| `VP-01`의 누락 기본값 “false·360”이 D-011(Work 360·Code 520)과 다르다 | 채택 — plan 내부 불일치 | VP-01′ |
+| 일반 `navigate(X)`가 닫힌 패널을 `[X]`로 여는 규칙(EP-4 ①)에 산출물 성공(A2) 예외가 없다 | 채택 — 규칙 칸이 §20-E A2보다 좁았다 | EP-4″ ⑨ · VP-20′ |
+
+| Pair | left ↔ right | requiredness | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|
+| VP-01′ (CHANGED — VP-01 대체) | R-01 ↔ AT-01 | REQUIRED | `rightPanelStore.test.ts` `AC1 open state survives session switches`(A 열기→B 열림 · B 닫기→A 닫힘) · `TweakProvider.store.test.ts` `AC1 persists rightPanelOpen and widths` · `main/infra/settings-store.test.ts` `AC1 settings defaults and bounds` — 입력: 키 누락 → `rightPanelOpen = false`·`rightPanelWidths = { work: 360, code: 520 }` · `work`만 있음 → `code = 520` · 범위 밖(100·2000) → 그 필드 기본값 | required — store가 세션 키별로 값을 다시 갖게 한 변이(A/B 교차 입력 red) · `code` 기본을 360으로 바꾼 변이(누락 입력 red) | EP-1′(6) |
+| VP-20′ (CHANGED — VP-20 확장) | R-14 ↔ AT-14 | REQUIRED | VP-20 좌표 + `rightPanelStack.test.ts` `AC14 A2 opens a closed panel with the tile beneath the artifact` — 닫힘에서 산출물 성공 → 스택 = [기억 타일(있음) ∨ 기본 타일(없음), 산출물] · 뒤로 → 아래 타일 표시(패널 열린 채) · 일반 타일 `navigate(X)`는 닫힘에서 [X] 그대로 | required — 산출물 예외 분기 제거 변이(스택 [산출물] → 뒤로 시 빈 패널, red) | EP-4″ |
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 · 제외 줄 | 실패 의미 |
+|---|---|---|---|---|
+| MD-01 / VP-03′·VP-06·VP-20′ · **EP-4″**(EP-4′ 대체) | EP-4′ 8분기 + ⑨ **산출물 성공 예외**: 패널이 닫혀 있고 대상이 산출물 층이면 `navigate(artifact)` = [기억 타일 ∨ 기본 타일, 산출물]로 연다(①의 [X] 규칙 대신). 패널이 열려 있으면 ③·④(pop-to·push) 그대로. 기억 갱신(⑧)은 하지 않는다 — 산출물 층은 기억 대상이 아니다 | 9자리 — EP-4′ ①~⑧ + ⑨ 산출물 예외 분기 | 신규 파일 — 구현자가 분기 대응표 고정(EP-4와 같은 방식, 분기 수 9) | 닫힌 패널에서 산출물을 열고 뒤로 가면 빈 패널이 되거나 산출물이 기억을 덮는다 |
+
+- 규칙 칸 ↔ 입력: EP-4″ ⑨(닫힘·열림 2갈래) → VP-20′ 입력 3(닫힘+기억 · 닫힘+기억 없음 · 일반 타일 대조) · VP-01′ 기본값 3갈래 → 입력 3.
+
+## READY self-review (V1 + ΔV1 + ΔV2 + ΔV3)
+
+- [x] ΔV3: 2차 리뷰 2건 모두 판정·반영 — 기각 0. 새 결정 없음(D-011·D-014 정합 정정).
+- [x] ΔV3: VP-01 → VP-01′, EP-4′ → EP-4″ 대체 포인터를 구 행에 남겼다.
+- [x] ΔV3: 규칙 칸(EP-4″ 9분기) ↔ 입력(VP-03′·VP-06·VP-20′) 대응 · AC 수 불변(14).
 
 ## READY self-review (V1 + ΔV1 + ΔV2)
 
