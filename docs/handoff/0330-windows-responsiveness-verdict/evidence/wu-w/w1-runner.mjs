@@ -38,10 +38,16 @@ function killDiag() {
   } catch {}
 }
 
+// 100턴 세션의 하네스 원본(측정 폴더 안 Claude jsonl)을 템플릿 시점으로 되돌린다 — 실행마다 같은 100턴.
+// OpenCode 는 원본이 사용자 전역 DB(opencode.db)라 되돌리지 않는다(실행마다 1턴 누적 — 실행표 note).
+function restoreNative() {
+  const meta = JSON.parse(readFileSync(`C:/orca-W/profiles/h100-${harness}.json`, 'utf8'))
+  if (meta.native && existsSync(`C:/orca-W/profiles/h100-${harness}.native.jsonl`)) cpSync(`C:/orca-W/profiles/h100-${harness}.native.jsonl`, meta.native)
+}
 function prepareProfile() {
   if (existsSync(profile)) rmSync(profile, { recursive: true, force: true })
   cpSync(H100 ? `C:/orca-W/profiles/h100-${harness}` : 'C:/orca-W/profiles/real-copy', profile, { recursive: true })
-  if (H100) return
+  if (H100) return restoreNative()
   const Database = createRequire('C:/workspace/github/claude/orca-skin/app/package.json')('better-sqlite3')
   const db = new Database(join(profile, 'orcinus-orca.db'))
   const t = Date.now()
@@ -233,7 +239,10 @@ try {
     const dest = `C:/orca-W/profiles/h100-${harness}`
     if (existsSync(dest)) rmSync(dest, { recursive: true, force: true })
     cpSync(profile, dest, { recursive: true })
-    writeFileSync(dest + '.json', JSON.stringify({ url, built: new Date().toISOString(), build: sha8, setup: s0 }))
+    const sid = url.split('/chat/')[1]
+    const nativeFile = `${process.env.USERPROFILE}/.claude/projects/C--orca-W-work-scratch/${sid}.jsonl`
+    if (harness !== 'opencode' && existsSync(nativeFile)) cpSync(nativeFile, dest + '.native.jsonl')
+    writeFileSync(dest + '.json', JSON.stringify({ url, built: new Date().toISOString(), build: sha8, setup: s0, native: harness !== 'opencode' ? nativeFile : null }))
     log('built', url)
     process.exit(0)
   }
