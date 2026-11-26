@@ -1,3 +1,4 @@
+import { measurementEnvironment } from '../stage-d/measurement.mjs'
 import { app, BrowserWindow, MessageChannelMain, utilityProcess } from 'electron'
 import { mkdtempSync } from 'node:fs'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
@@ -83,7 +84,7 @@ app.whenReady().then(async () => {
           ...result,
           sha,
           baseline,
-          environment: 'linux-electron',
+          environment: measurementEnvironment(),
           electron: process.versions.electron
         })
     )

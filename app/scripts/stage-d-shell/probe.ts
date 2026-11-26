@@ -1,3 +1,4 @@
+import { measurementEnvironment } from '../stage-d/measurement.mjs'
 /* eslint-disable @typescript-eslint/no-unused-vars -- The runner inserts the production callbacks that reference these bindings. */
 import { app, BrowserWindow, net, protocol as electronProtocol } from 'electron'
 import { existsSync, mkdtempSync } from 'node:fs'
@@ -278,7 +279,7 @@ void app
       console.log(
         'OO_RESULT ' +
           JSON.stringify({
-            environment: 'linux-electron',
+            environment: measurementEnvironment(),
             electron: process.versions.electron,
             budget: UI_TASK_BUDGET_MS,
             assets,

@@ -1,0 +1,253 @@
+{
+  "revision": "example-v1",
+  "cells": [
+    {
+      "key": "typing",
+      "revision": "example-v1",
+      "aggregate": 12,
+      "n": 3,
+      "unit": "ms",
+      "rawRefs": [
+        {
+          "path": "typing-1.json",
+          "sha256": "6a5ce3ef1d420abfed262dd6761bdbcb304b0553d6efb56c5849de58631178f4",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "typing-2.json",
+          "sha256": "6a5ce3ef1d420abfed262dd6761bdbcb304b0553d6efb56c5849de58631178f4",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "typing-3.json",
+          "sha256": "6a5ce3ef1d420abfed262dd6761bdbcb304b0553d6efb56c5849de58631178f4",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        }
+      ],
+      "status": "충족",
+      "ownerMachine": "PASS",
+      "ownerWindows": "PASS",
+      "w": "충족",
+      "user": "사용자 확정 대기"
+    },
+    {
+      "key": "scroll",
+      "revision": "example-v1",
+      "aggregate": 28,
+      "n": 3,
+      "unit": "ms",
+      "rawRefs": [
+        {
+          "path": "scroll-1.json",
+          "sha256": "2ccca25813ff7830b0283f68ab984c2f5465dc7466df0e4b38f135776c61544a",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "scroll-2.json",
+          "sha256": "2ccca25813ff7830b0283f68ab984c2f5465dc7466df0e4b38f135776c61544a",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "scroll-3.json",
+          "sha256": "2ccca25813ff7830b0283f68ab984c2f5465dc7466df0e4b38f135776c61544a",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        }
+      ],
+      "status": "충족",
+      "ownerMachine": "PASS",
+      "ownerWindows": "PASS",
+      "w": "충족",
+      "user": "사용자 확정 대기"
+    },
+    {
+      "key": "prepend",
+      "revision": "example-v1",
+      "aggregate": 0,
+      "n": 3,
+      "unit": "px",
+      "rawRefs": [
+        {
+          "path": "prepend-1.json",
+          "sha256": "302ffaabf54607058478a7a8fdf678db4d62eedf630a7dd62c4ef7a9f8cea668",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "prepend-2.json",
+          "sha256": "302ffaabf54607058478a7a8fdf678db4d62eedf630a7dd62c4ef7a9f8cea668",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "prepend-3.json",
+          "sha256": "302ffaabf54607058478a7a8fdf678db4d62eedf630a7dd62c4ef7a9f8cea668",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        }
+      ],
+      "status": "충족",
+      "ownerMachine": "PASS",
+      "ownerWindows": "PASS",
+      "w": "충족",
+      "user": "사용자 확정 대기"
+    },
+    {
+      "key": "reply",
+      "revision": "example-v1",
+      "aggregate": 11020,
+      "n": 9,
+      "unit": "bytes",
+      "rawRefs": [
+        {
+          "path": "reply-1.json",
+          "sha256": "3692b94939a210f1fa56bb8daa3cd4ac5388cca35fdc8527da1cca7c70f5f2d7",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "reply-2.json",
+          "sha256": "3692b94939a210f1fa56bb8daa3cd4ac5388cca35fdc8527da1cca7c70f5f2d7",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "reply-3.json",
+          "sha256": "3692b94939a210f1fa56bb8daa3cd4ac5388cca35fdc8527da1cca7c70f5f2d7",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        }
+      ],
+      "status": "충족",
+      "ownerMachine": "PASS",
+      "ownerWindows": "PASS",
+      "w": "충족",
+      "user": "사용자 확정 대기"
+    },
+    {
+      "key": "function",
+      "revision": "example-v1",
+      "aggregate": 12.34,
+      "n": 3,
+      "unit": "ms",
+      "rawRefs": [
+        {
+          "path": "function-1.txt",
+          "sha256": "dad7366a625f0644ea09ae03ad86c1ac6869d29f40d035d1ac012f76002fc800",
+          "range": {
+            "kind": "table-row",
+            "id": "I3",
+            "column": "median"
+          }
+        },
+        {
+          "path": "function-2.txt",
+          "sha256": "dad7366a625f0644ea09ae03ad86c1ac6869d29f40d035d1ac012f76002fc800",
+          "range": {
+            "kind": "table-row",
+            "id": "I3",
+            "column": "median"
+          }
+        },
+        {
+          "path": "function-3.txt",
+          "sha256": "dad7366a625f0644ea09ae03ad86c1ac6869d29f40d035d1ac012f76002fc800",
+          "range": {
+            "kind": "table-row",
+            "id": "I3",
+            "column": "median"
+          }
+        }
+      ],
+      "status": "충족",
+      "ownerMachine": "PASS",
+      "ownerWindows": "PASS",
+      "w": "충족",
+      "user": "사용자 확정 대기"
+    },
+    {
+      "key": "search",
+      "revision": "example-v1",
+      "aggregate": 0.08,
+      "n": 3,
+      "unit": "ms",
+      "rawRefs": [
+        {
+          "path": "search-1.json",
+          "sha256": "18ef4a2d54c4985445f2b8ddb6840a51218cbf7d1014978fe0b523b5b506179d",
+          "range": {
+            "kind": "trace-marker",
+            "start": 100,
+            "end": 200,
+            "opId": "op-r1"
+          }
+        },
+        {
+          "path": "search-2.json",
+          "sha256": "7a15b5d7d05b7ed4022319e5d62d209f70d7a58cb4110bf1d7fcb10e83009410",
+          "range": {
+            "kind": "trace-marker",
+            "start": 100,
+            "end": 200,
+            "opId": "op-r2"
+          }
+        },
+        {
+          "path": "search-3.json",
+          "sha256": "5a2acc8147526170fc8815871dffb4d88095e382a90c1960bafdebb83e800d99",
+          "range": {
+            "kind": "trace-marker",
+            "start": 100,
+            "end": 200,
+            "opId": "op-r3"
+          }
+        }
+      ],
+      "status": "충족",
+      "ownerMachine": "PASS",
+      "ownerWindows": "PASS",
+      "w": "충족",
+      "user": "사용자 확정 대기"
+    }
+  ],
+  "violations": [],
+  "missing": [],
+  "unexpected": [],
+  "duplicates": [],
+  "conflicts": [],
+  "ownerFailures": [],
+  "holds": [
+    "사용자 확정 대기"
+  ],
+  "overall": "판정 보류",
+  "overallReason": "사용자 확정 대기"
+}

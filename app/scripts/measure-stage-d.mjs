@@ -1,10 +1,14 @@
 import { runHostMeasurements } from './stage-d/host-runner.mjs'
 import { runShellMeasurements } from './stage-d/shell-runner.mjs'
 import { runInstallFlow } from './stage-d/install-runner.mjs'
-import { compatibleRun } from './stage-d/measurement.mjs'
+import {
+  compatibleRun,
+  provenance,
+  stampProvenance,
+  parseMeasureArgs
+} from './stage-d/measurement.mjs'
 import { readFile } from 'node:fs/promises'
-import { fileURLToPath, pathToFileURL } from 'node:url'
-import { execFileSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import {
   resolveElectron,
   runElectron,
@@ -26,7 +30,14 @@ export function imageLane(records, budget) {
   return { p95, max: durations.at(-1), lane: p95 >= budget ? 'image' : 'compute' }
 }
 
-export async function main(scenario = 'image', baseline = false) {
+const fixedBaseline = 'c7d2adf2ddb548a2ce897cfc4f19173a2879b77f'
+
+export async function main(scenario = 'image', baseline = false, expected) {
+  const stamp = provenance({ baseline: baseline ? fixedBaseline : undefined, expected })
+  return stampProvenance(await measure(scenario, baseline, stamp), stamp)
+}
+
+async function measure(scenario, baseline, stamp) {
   let electron
   try {
     electron = resolveElectron()
@@ -35,21 +46,12 @@ export async function main(scenario = 'image', baseline = false) {
   }
   let probe
   try {
-    if (scenario === 'host') return await runHostMeasurements(electron, baseline)
-    if (scenario === 'usage') return await runHostMeasurements(electron, baseline, 'usage')
-    if (scenario === 'data-flows') return await runHostMeasurements(electron, baseline, true)
-    if (scenario === 'shell') return await runShellMeasurements(electron, baseline)
+    if (scenario === 'host') return await runHostMeasurements(electron, baseline, stamp)
+    if (scenario === 'usage') return await runHostMeasurements(electron, baseline, stamp, 'usage')
+    if (scenario === 'data-flows') return await runHostMeasurements(electron, baseline, stamp, true)
+    if (scenario === 'shell') return await runShellMeasurements(electron, baseline, stamp)
     if (scenario === 'installer') return await runInstallFlow(electron)
     const panelComparison = scenario === 'resources' || scenario === 'panel-timings'
-    let stamp
-    if (panelComparison) {
-      const cwd = fileURLToPath(new URL('..', import.meta.url))
-      const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
-      const sha = git('rev-parse', 'HEAD')
-      if (baseline && (!sha.startsWith('c7d2adf2') || git('status', '--porcelain', '--', 'src')))
-        throw Error('Baseline requires clean c7d2adf2 application sources')
-      stamp = { baseline, sha, environment: 'linux-electron' }
-    }
     probe = await serveProbe(baseline && panelComparison ? 'stage-d-baseline' : 'stage-d')
     const runs = scenario === 'catalogs' ? 1 : 9
     const result = await runElectron(electron, probe.origin, 'stage-d', [scenario], runs)
@@ -57,7 +59,7 @@ export async function main(scenario = 'image', baseline = false) {
       return {
         env: true,
         ...result,
-        ...stamp,
+        baseline,
         verdict:
           !result.error &&
           result.samples?.length === runs &&
@@ -73,7 +75,7 @@ export async function main(scenario = 'image', baseline = false) {
       return {
         env: true,
         ...result,
-        ...stamp,
+        baseline,
         verdict:
           !result.error &&
           result.samples?.length === runs &&
@@ -111,7 +113,6 @@ export async function main(scenario = 'image', baseline = false) {
     if (scenario === 'catalogs') {
       return {
         env: true,
-        environment: 'linux-electron',
         ...result,
         verdict:
           !result.error &&
@@ -125,7 +126,6 @@ export async function main(scenario = 'image', baseline = false) {
     const decision = imageLane(result.records ?? [], result.budget)
     return {
       env: true,
-      environment: 'linux-electron',
       ...result,
       decision,
       verdict:
@@ -171,12 +171,18 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
       'panel-timings',
       'overlap'
     ].find((name) => process.argv.includes('--' + name)) ?? 'image'
-  const result =
-    compare < 0
-      ? await main(scenario, process.argv.includes('--baseline'))
-      : await compareEvidence(process.argv.slice(compare + 1))
-  console.log(JSON.stringify(result, null, 2))
-  process.exitCode = selectionExitCode(result)
+  try {
+    const { baseline, expected } = parseMeasureArgs(process.argv.slice(2), { fixedBaseline })
+    const result =
+      compare < 0
+        ? await main(scenario, Boolean(baseline), expected)
+        : await compareEvidence(process.argv.slice(compare + 1))
+    console.log(JSON.stringify(result, null, 2))
+    process.exitCode = selectionExitCode(result)
+  } catch (error) {
+    console.error(String(error))
+    process.exitCode = 1
+  }
 }
 
 async function compareEvidence(paths) {
@@ -190,6 +196,12 @@ async function compareEvidence(paths) {
     return {
       env: true,
       verdict: true,
+      sources: [before, after].map(({ environment, tool, appSource, sha }) => ({
+        environment,
+        tool: tool ?? null,
+        appSource: appSource ?? null,
+        sha
+      })),
       measurements: before.measurements.map(({ id, size, host, renderer }, index) => ({
         id,
         size,

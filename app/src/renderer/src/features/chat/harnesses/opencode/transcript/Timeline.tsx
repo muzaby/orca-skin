@@ -36,6 +36,7 @@ const gaps = { 0: '', 8: 'pt-[8px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
 export const OpenCodeTimeline = memo(function OpenCodeTimeline({
   history,
   search,
+  sessionId,
   messages,
   showAutomaticFeeds,
   inflight,
@@ -119,6 +120,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
         tabIndex={0}
         data-harness="opencode"
         data-behavior="virtualizable"
+        data-transcript-session={sessionId ?? undefined}
         data-timeline-scroll=""
         className={`app-frame-transcript flex-1 overflow-auto bg-bg py-5 outline-none [overflow-anchor:none] [--oc-sticky-top:0px] ${textScaleClassName}`}
       >

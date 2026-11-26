@@ -35,6 +35,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   backend = 'claude',
   history,
   search,
+  sessionId,
   messages,
   pendingSteer,
   onRestoreSteerDraft,
@@ -119,6 +120,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
       className={`app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] ${textScaleClassName} ${surfaces.transcriptRoot}`}
       data-harness={backend ?? 'claude'}
       data-behavior="virtualizable"
+      data-transcript-session={sessionId ?? undefined}
     >
       <ReadingColumn ref={contentRef} className="flex min-h-full flex-col">
         {loadingSession && (

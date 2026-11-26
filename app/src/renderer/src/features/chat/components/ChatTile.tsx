@@ -147,6 +147,7 @@ export function ChatTile({
                     key={policy.transcript.remountTranscriptBySession ? activeKey : undefined}
                     agentKind={agentKind}
                     backend={backend}
+                    sessionId={sessionId}
                     messages={messages}
                     pendingSteer={pendingSteer}
                     onRestoreSteerDraft={restoreSteerDraft}

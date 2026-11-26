@@ -1,5 +1,7 @@
 // WU-0. Run against the baseline application sources, with an Electron-ABI SQLite binding.
-import { execFileSync } from 'node:child_process'
+import { appGit, parseMeasureArgs, provenance, stampProvenance } from './stage-d/measurement.mjs'
+import { baselineHostSource } from './stage-e/baseline-source.mjs'
+import { stageEVerdict } from './stage-e/verdict.mjs'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { build } from 'esbuild'
@@ -11,27 +13,21 @@ import {
 } from './check-transcript-selection.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const baseline = '7db1c7ce'
+const baseline = '7db1c7cefcdd3ef6d7f44cadbb9e6dc10fde76e6'
 async function measure() {
   const args = process.argv.slice(2)
   const size = args[args.indexOf('--old-db') + 1]
   if (!args.includes('--old-db') || !['small', 'long'].includes(size))
     throw Error('Usage: node scripts/measure-stage-e.mjs [--baseline] --old-db small|long')
+  const options = parseMeasureArgs(args, { fixedBaseline: baseline })
+  const isBaseline = Boolean(options.baseline)
+  const stamp = provenance(options)
+  const hostSource = isBaseline ? baselineHostSource(appGit) : undefined
   let electron
   try {
     electron = resolveElectron()
   } catch (error) {
-    return { env: false, verdict: false, error: String(error) }
-  }
-  const isBaseline = args.includes('--baseline')
-  if (isBaseline) {
-    execFileSync('git', ['diff', '--quiet', baseline, '--', 'src'], { cwd: root })
-    if (
-      execFileSync('git', ['ls-files', '--others', '--exclude-standard', '--', 'src'], {
-        cwd: root
-      }).length
-    )
-      throw Error('Baseline requires clean application sources')
+    return stampProvenance({ env: false, verdict: false, error: String(error) }, stamp)
   }
   const cache = join(root, 'node_modules', '.cache')
   await mkdir(cache, { recursive: true })
@@ -45,10 +41,7 @@ async function measure() {
             stdin: {
               // The pre-paging host must also build in the historical checkout, where
               // the projection service and its migration do not exist.
-              contents: execFileSync('git', ['show', '3d8e1d90:app/scripts/stage-e/host.ts'], {
-                cwd: root,
-                encoding: 'utf8'
-              }),
+              contents: hostSource,
               loader: 'ts',
               resolveDir: join(root, 'scripts/stage-e')
             }
@@ -67,36 +60,17 @@ async function measure() {
       [JSON.stringify({ bundle, size, root, isBaseline })],
       1
     )
-    const messages = size === 'long' ? 100000 : 100
-    const verdict =
-      !result.error &&
-      result.visible &&
-      result.receivedMessages === (isBaseline ? messages : 2) &&
-      result.clickToBodyFrameMs > 0 &&
-      result.readerPayloadBytes > 0 &&
-      result.replyJsonBytes > 0
-    const bounded =
-      isBaseline ||
-      (result.prepared?.sourceBytes > 0 &&
-        result.replyJsonBytes <= 256 * 1024 &&
-        result.warm?.visible &&
-        result.warm.receivedMessages === 2 &&
-        result.warm.readerPayloadBytes === 0 &&
-        !result.warm.prepared &&
-        result.warm.replyJsonBytes <= 256 * 1024)
-    const latencyGate =
-      !isBaseline && size === 'long'
-        ? { limitMs: 3729, pass: result.clickToBodyFrameMs <= 3729 }
-        : undefined
-    return {
-      env: true,
-      phase: isBaseline ? 'baseline' : 'projection',
-      baseline,
-      oldDb: size,
-      ...result,
-      latencyGate,
-      verdict: verdict && bounded && (latencyGate?.pass ?? true)
-    }
+    return stampProvenance(
+      {
+        env: true,
+        phase: isBaseline ? 'baseline' : 'projection',
+        baseline,
+        oldDb: size,
+        ...result,
+        ...stageEVerdict(result, { isBaseline, size, environment: stamp.environment })
+      },
+      stamp
+    )
   } finally {
     await probe?.close()
     await rm(scratch, { recursive: true, force: true })
