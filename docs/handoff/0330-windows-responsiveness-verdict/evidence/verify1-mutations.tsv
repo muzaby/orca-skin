@@ -1,0 +1,158 @@
+id	결과	exit	요약
+P1.1a	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+P1.1b	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+P1.2	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+P1.3	red (기대 일치)	1	node --test fail 1 · U6/U16 profile and build kind must match the locked cell
+P1.4a	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U12/U14/U18 agreement precedes samples and
+P1.4b	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+P1.4c	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+P2.1	red (기대 일치)	1	node --test fail 2 · U19/U28 raw hash, path and the exact range must be verifiable; U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.2	red (기대 일치)	1	node --test fail 2 · U19/U28 raw hash, path and the exact range must be verifiable; U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.3a	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3b	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3c	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3d	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3e	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3f	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.4a	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.4b	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.6	red (기대 일치)	1	node --test fail 1 · U6/U16 profile and build kind must match the locked cell
+P2.7a	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.7b	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.7c	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.7d	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.8a	red (기대 일치)	1	node --test fail 2 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row; U32 a later search cannot consume an earlier selection’s delayed mark
+P2.8b	red (기대 일치)	1	node --test fail 5 · report CLI: passing example before and after confirmation; U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row; U32 a later se
+P2.8c	red (기대 일치)	1	node --test fail 1 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row
+P2.8d	red (기대 일치)	1	node --test fail 1 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row
+P2.8e	red (기대 일치)	1	node --test fail 1 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row
+P2.9a	red (기대 일치)	1	node --test fail 1 · U34/U37 read numeric Node table cells, N/A reasons, and only the matching run
+P2.9b	red (기대 일치)	1	node --test fail 2 · report CLI: passing example before and after confirmation; U34/U37 read numeric Node table cells, N/A reasons, and only the matching run
+P2.9c	red (기대 일치)	1	node --test fail 1 · U34/U37 read numeric Node table cells, N/A reasons, and only the matching run
+P2.10	red (기대 일치)	1	node --test fail 1 · U34/U37 read numeric Node table cells, N/A reasons, and only the matching run
+P3.1a	red (기대 일치)	1	node --test fail 2 · U10/U11 nearest rank, even median, censored floor and zero relative denominator; U20/U21/U29/U30 aggregation, combination, result units and unsupported equal co
+P3.1b	red (기대 일치)	1	node --test fail 1 · U10/U11 nearest rank, even median, censored floor and zero relative denominator
+P3.1c	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U29 byte maxima retain the measured value 
+P3.2	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.3	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.4	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.5a	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.5b	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.5c	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.6	red (기대 일치)	1	node --test fail 1 · U1–U3 independent intervals and metrics, identical resubmission and conflicting evidence
+P3.7	red (기대 일치)	1	node --test fail 1 · U1–U3 independent intervals and metrics, identical resubmission and conflicting evidence
+P3.8	red (기대 일치)	1	node --test fail 21 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U1–U3 independent intervals and metrics, i
+P3.9	red (기대 일치)	1	node --test fail 1 · U4–U5, U33, U34 absence, unobservable evidence and actual functional failures
+P3.9prime	red (기대 일치)	1	node --test fail 2 · U4–U5, U33, U34 absence, unobservable evidence and actual functional failures; U31–U33/U36/U38 target markers belong to the right selection, repeat, session and
+P3.10	red (기대 일치)	1	node --test fail 2 · U4–U5, U33, U34 absence, unobservable evidence and actual functional failures; U31–U33/U36/U38 target markers belong to the right selection, repeat, session and
+P3.11	red (기대 일치)	1	node --test fail 1 · U10/U11 nearest rank, even median, censored floor and zero relative denominator
+P3.12	red (기대 일치)	1	node --test fail 1 · U10/U11 nearest rank, even median, censored floor and zero relative denominator
+P3.13	red (기대 일치)	1	node --test fail 9 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U1–U3 independent intervals and metrics, i
+P3.14	red (기대 일치)	1	node --test fail 1 · U22 requires the before side of the same pair and repeat
+P3.15a	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.15b	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.15c	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.16a	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.16b	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P4.1a	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.1b	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.1c	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.1d	red (기대 일치)	1	node --test fail 2 · U9 all five comparisons around equality and unsupported rules; U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P4.1e	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.2	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.3	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.3prime	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P4.4a	red (기대 일치)	1	node --test fail 1 · U13 checks owner pair and W side identities independently
+P4.4b	red (기대 일치)	1	node --test fail 1 · U13 checks owner pair and W side identities independently
+P4.4c	red (기대 일치)	1	node --test fail 1 · U13 checks owner pair and W side identities independently
+P4.priority5	red (기대 일치)	1	node --test fail 1 · report CLI: failing example before and after confirmation
+P4.priority8	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; cli rejects missing arguments and malformed input and supports optional owners; U9 all five compariso
+P4.6	red (기대 일치)	1	node --test fail 2 · report CLI: failing example before and after confirmation; U9 all five comparisons around equality and unsupported rules
+P4.7	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U12/U14/U18 agreement precedes samples and
+P4.8	red (기대 일치)	1	node --test fail 6 · report CLI: passing example before and after confirmation; U9 all five comparisons around equality and unsupported rules; U12/U14/U18 agreement precedes samples
+P5.1	red (기대 일치)	1	node --test fail 4 · report CLI: failing example before and after confirmation; U7/U8/U15 required slots, unexpected observations, missing repeats and owner failures coexist; U9 all
+P5.2	red (기대 일치)	1	node --test fail 1 · U7/U8/U15 required slots, unexpected observations, missing repeats and owner failures coexist
+P5.3	red (기대 일치)	1	node --test fail 1 · U8/U17/U24 distinguish required keys, unrequested owner columns, and missing owners
+P5.4	red (기대 일치)	1	node --test fail 1 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row
+P5.5	red (기대 일치)	1	node --test fail 1 · U17/U24 task with two owners and independently required columns
+P5.6a	red (기대 일치)	1	node --test fail 1 · U17/U24 task with two owners and independently required columns
+P5.6b	red (기대 일치)	1	node --test fail 1 · U8/U17/U24 distinguish required keys, unrequested owner columns, and missing owners
+P5.7	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; U17/U24 task with two owners and independently required columns; U8/U17/U24 distinguish required keys
+C1	red (기대 일치)	1	node --test fail 1 · cli rejects missing arguments and malformed input and supports optional owners
+C2	red (기대 일치)	1	node --test fail 1 · cli rejects missing arguments and malformed input and supports optional owners
+C3	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; cli rejects missing arguments and malforme
+C4	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; cli rejects missing arguments and malforme
+S1-3	red (기대 일치)	1	node --test fail 2 · provenance stamps every scenario result; non-comparison CLI stamps unavailable results and rejects a mismatched baseline first
+S7	red (기대 일치)	1	node --test fail 2 · provenance stamps every scenario result; non-comparison CLI stamps unavailable results and rejects a mismatched baseline first
+S8a	red (기대 일치)	1	node --test fail 1 · comparison requires the same allowed environment and distinct sources
+S8b	red (기대 일치)	1	node --test fail 2 · comparison requires the same allowed environment and distinct sources; compare CLI mixed environments
+S8c	red (기대 일치)	1	node --test fail 1 · comparison requires the same allowed environment and distinct sources
+S8d	red (기대 일치)	1	node --test fail 2 · comparison requires the same allowed environment and distinct sources; compare CLI conflicting provenance
+S8e	red (기대 일치)	1	node --test fail 1 · comparison requires the same allowed environment and distinct sources
+S10a	red (기대 일치)	1	node --test fail 5 · baseline identity checks application sources, not HEAD; app-source names the owner follow-up application; non-comparison CLI stamps unavailable results and reje
+S10b	red (기대 일치)	1	node --test fail 1 · baseline identity checks application sources, not HEAD
+S11a	red (기대 일치)	1	node --test fail 2 · app-source names the owner follow-up application; app-source CLI refuses mismatched application sources
+S11b	red (기대 일치)	1	node --test fail 1 · app-source names the owner follow-up application
+S11c	red (기대 일치)	1	node --test fail 2 · app-source names the owner follow-up application; non-comparison CLI stamps unavailable results and rejects a mismatched baseline first
+E1	red (기대 일치)	1	node --test fail 1 · baseline host source is pinned
+E2	red (기대 일치)	1	node --test fail 1 · baseline host source is pinned
+E3	red (기대 일치)	1	node --test fail 1 · baseline host source is pinned
+E4	red (기대 일치)	1	node --test fail 1 · baseline host source is pinned
+V1a	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V1b	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V1c	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V1d	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V1e	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V1f	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V2a	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V2b	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V2c	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V2d	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V2e	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V2f	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V2g	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V3a	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V3b	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+V4	red (기대 일치)	1	node --test fail 1 · stage-e verdict keeps Windows functional and Linux latency results separate
+E0	red (기대 일치)	1	node --test fail 2 · baseline CLI refuses mismatched application sources; app-source CLI refuses mismatched application sources
+E5	red (기대 일치)	1	node --test fail 2 · baseline CLI refuses mismatched application sources; app-source CLI refuses mismatched application sources
+E6	green (기대 red)	0	node --test fail 0
+E7	red (기대 일치)	1	node --test fail 2 · baseline CLI refuses mismatched application sources; app-source CLI refuses mismatched application sources
+V5	green (기대 red)	0	node --test fail 0
+S6	red (기대 일치)	1	node --test fail 1 · non-comparison CLI stamps unavailable results and rejects a mismatched baseline first
+S9	red (기대 일치)	1	node --test fail 1 · compare CLI carries each producer and application separately
+M1a	red (기대 일치)	1	node --test fail 2 · search target needs owner and highlight; other highlights are reported; pick skips empty and other-session rows
+M1b	red (기대 일치)	1	node --test fail 7 · first body belongs to the selected session; search target needs owner and highlight; other highlights are reported; repeats and concurrent selections keep their
+M1c	red (기대 일치)	1	node --test fail 2 · first body belongs to the selected session; pick skips empty and other-session rows
+M1d	red (기대 일치)	1	node --test fail 1 · pick skips empty and other-session rows
+M1e	red (기대 일치)	1	node --test fail 1 · pick skips empty and other-session rows
+M1f	red (기대 일치)	1	node --test fail 1 · pick skips empty and other-session rows
+M2	red (기대 일치)	1	node --test fail 1 · search target needs owner and highlight; other highlights are reported
+M3a	red (기대 일치)	1	node --test fail 8 · first body belongs to the selected session; search target needs owner and highlight; other highlights are reported; select mark is the armed input event
+M3b	red (기대 일치)	1	node --test fail 1 · select mark is the armed input event
+M4	red (기대 일치)	1	node --test fail 5 · first body belongs to the selected session; search target needs owner and highlight; other highlights are reported; visible mark once per selection
+M5	red (기대 일치)	1	node --test fail 2 · visible mark once per selection; repeats and concurrent selections keep their own opId
+M6a	red (기대 일치)	1	node --test fail 1 · unobservable reasons
+M6b	red (기대 일치)	1	node --test fail 2 · unobservable reasons; an older search trace without a session owner stays unobservable
+M7	red (기대 일치)	1	node --test fail 1 · search target needs owner and highlight; other highlights are reported
+R1	red (기대 일치)	1	vitest 2 failed | 1 passed (3)
+R2	red (기대 일치)	1	vitest 1 failed | 2 passed (3)
+P1.4d	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+S5	green (기대 red)	0	node --test fail 0
+S4	green (기대 red)	0	node --test fail 0
+P1.5	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U12/U14/U18 agreement precedes samples and
+P2.5	red (기대 일치)	1	node --test fail 1 · U7/U8/U15 required slots, unexpected observations, missing repeats and owner failures coexist
+R3.0	green (기대 red)	0	vitest 3 passed (3)
+R3.1	red (기대 일치)	1	vitest 3 failed (3)
+# 원복 확인: 모든 파일 원문 그대로
+# 재실행(oracle 정정) — E6·V5: node --test scripts/measure-stage-d.test.mjs scripts/measure-stage-e.test.mjs
+E6	red (기대 일치)	1	non-comparison CLI stamps unavailable results and rejects a mismatched baseline first
+V5	red (기대 일치)	1	non-comparison CLI stamps unavailable results and rejects a mismatched baseline first
+# S5 — Electron 셸 생산자 하네스(H1-0-linux.md:121-134, Xvfb)
+S5	red (기대 일치)	1	environment undefined → 하네스 exit 1
+S5-ctl	green (기대 일치)	0	원문 그대로 → exit 0
+# 형제 맞바꿈(하한 ⑤) — oracle: node --test scripts/windows-verdict.test.mjs
+X5.1	red (기대 일치)	1	tableSample median↔max 열 맞바꿈 — fail 2 (passing example · U34/U37)
+X5.2	red (기대 일치)	1	ownerMachine↔ownerWindows 열 맞바꿈 — fail 2 (failing example · U8/U17/U24)
+X5.3	red (기대 일치)	1	W 이후 검사를 wBaselineSha로 — fail 20
+X5.4	red (기대 일치)	1	W 이전 검사를 integrationSha로 — fail 4 (U4–U5·U33·U34 · U10/U11)
