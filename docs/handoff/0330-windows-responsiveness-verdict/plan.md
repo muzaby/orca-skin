@@ -14,9 +14,9 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **plan/READY — ΔV3(§22).** WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
+| 상태 | **plan/READY — ΔV4(§23) · ΔV3 r4 구현 완료.** WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
-| V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · revision **ΔV2**(§21, 설계 `d77d3f3c` · 구현 r3 `515ff58d`·`07377db7` · verify 3 `18b5d5fe`) · 이번 revision **ΔV3**(§22) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2 + ΔV3`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
+| V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · revision **ΔV2**(§21, 설계 `d77d3f3c` · 구현 r3 `515ff58d`·`07377db7` · verify 3 `18b5d5fe`) · revision **ΔV3**(§22, 설계 `7d4e6b60` · 구현 r4 `ebb69702`) · 이번 revision **ΔV4**(§23) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2 + ΔV3 + ΔV4`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
 
 ## 0. PR #640 피드백 대조 — 지적 9건 모두 재현, 수용
@@ -168,6 +168,7 @@ WU-M이 끝나면 테스터는 같은 명령으로 빌드·입력·측정 도구
 | W-042 (ΔV3) | **실측 순서 2단계.** 1단계 = W 통합 셀(H4 W1~W4p)과 0326 D-109 필수 셀, 2단계 = 나머지 소유 셀. 분모(`plan.cells`)는 두 단계 모두 같은 하나이며 최종 `합격`은 전체 필수 셀이 필요하다(H6 · P4 ④ 불변) | 사용자 “추천대로 하라”(규모 선택 ②) | ACTIVE |
 | W-043 (ΔV3) | **S-E1·S-E5·S-E4 대상 시드.** 측정 전용 도구 `app/scripts/seed-history-fixture.mjs`가 격리 프로필 DB에 세 하네스 세션을 쓰고, H1이 셀 `target`으로 고정할 `sessionId`·`messageId`·`expectText`를 `targets.json`으로 낸다. 제품 코드·IPC·스키마는 바꾸지 않는다 | 사용자 “추천대로 하라”(대상 선택 ⓐ) | ACTIVE |
 | W-044 (ΔV3) | **H1 셀 생성기.** `evidence/wu-w/cells.mjs`가 W-041·W-042와 소유 §19 표에서 `plan.cells`를 만든다. 셀 `target` 키는 `<시나리오>/<하네스>/<부하 또는 입력>`이다. 생성기 출력과 `targets.json`·Node 행 원본의 SHA-256을 합의 기록(`decision.json`)과 함께 잠근다 | W-013 · H1 “필수 셀 분모를 먼저 만든다” | ACTIVE |
+| W-045 (ΔV4) | `table-row` 관측은 선택 칸 `range.label`(둘째 열)로 같은 ID의 행을 가른다 — 있으면 `\| id \| label \|` 행 1개·관측 `interval = label`, 없으면 현행(ID 행 1개). 상세 §23 | 사용자 “판독기가 ID+이름 열로 식별” · r4 K1 | ACTIVE |
 
 **갱신 메모(rev 3).** 추가 W-014~W-019, 대체 W-009 → W-019. rev 2의 추가 W-007~W-013·대체 W-003 → W-007은 유지한다. `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — W-014 ↔ AC8·AC9(기준선 모델), W-015 ↔ AC7(P1 ①②④·P2), W-016 ↔ AC7(P4 ④), W-017 ↔ AC10, W-018 ↔ §7-A 세 구분·AC1~AC6(WU-W), W-019 ↔ AC4(T09 행)를 나란히 읽었다. rev 2 대조(W-008 ↔ AC4 · W-010 ↔ AC7 · W-011 ↔ AC6·AC7 · W-012 ↔ AC8·AC9 · W-013 ↔ AC1·AC6)는 그대로다. W-004의 빈 값으로 통과할 수 있는 셀은 없다(P1 ①④ · P4 ⑥⑦).
 
@@ -755,7 +756,51 @@ Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어
 
 **운영 gate(ΔV3 구현 턴).** §19 H6 “WU-M 구현 턴” 목록 전부(`app/AGENTS.md` IMPL_DONE 전 로컬 확인) + `node --test scripts/history-seed.test.mjs` + `./node_modules/.bin/vitest run src/main/features/history/history-seed.db.test.ts` + 자리 검색 분류표 + VP-22 gate.
 
+## 23. ΔV4 — Node 함수 행을 ID와 이름 열로 식별 (r4 K1)
+
+**판정: READY.** r4 구현자가 현재 결함 K1을 PLAN_GAP으로 돌렸다 — 실제 `measure-ui-inputs.mjs --src` 출력의 K 행 8개 ID가 35행으로 중복되고, 판독기 `tableSample`은 `| <id> |` 행이 정확히 1개일 때만 읽어(`windows-verdict.mjs:114-115`) 0327 K 셀이 영구 `미판정`이다. 사용자가 판독기 쪽 식별(W-045)을 골랐다. 측정 도구 출력·기존 증거 형식은 바뀌지 않는다.
+
+### 23-A. 조사
+
+| 대상 | 검색 · 관측 | N · 의미 |
+|---|---|---|
+| 실제 출력의 행 | `C:\orca-W\precheck\node-head.txt`(HEAD `--src` 사전 점검, 표본 아님) `^\| [A-Z][0-9]` | 107행 · ID 중복 8개(K1 3 · K2 2 · K4 3 · K8 2 · K9 4 · K10 7 · K11 7 · K13 7 = 35행) · (ID, 둘째 열) 쌍 중복 0 |
+| 판독 자리 | `rg -n "table-row\|tableSample" app/scripts/windows-verdict.mjs` | 5줄 — 구간 형식 목록 `:172` · node-stdout 형식 검사 `:177-179` · 판독 `:113-123`. 행 선택은 `:114` 한 곳 |
+| 관측 ↔ 셀 | `observationKeys` `:430-431` — `runId · metric · interval`로 관측을 셀에 대응 | 같은 ID의 행들은 셀 `interval`로 갈라야 한다 → `interval` = 둘째 열 |
+
+### 23-B. 결정
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| W-045 (ΔV4) | `table-row` 관측의 `rawRef.range.label`(선택)은 둘째 열 문자열이다. 있으면 `\| <id> \| <label> \|`로 시작하는 행이 정확히 1개이고 관측 `interval`이 `label`과 같아야 읽는다. 없으면 지금처럼 `\| <id> \|` 행이 1개여야 한다. `cells.mjs`는 Node 셀의 `interval`을 둘째 열로 만든다 | 사용자 AskUserQuestion 답(2026-11-26) “판독기가 ID+이름 열로 식별” · r4 K1 | ACTIVE |
+
+### 23-C. Delta V
+
+| 노드 · pair | provenance | requiredness | 변경 · 좌표 |
+|---|---|---|---|
+| MD-02 ↔ UT-02 / VP-10 | CHANGED(ΔV4) | REQUIRED | P2 ⑨″ — 신규 U41(`windows-verdict.test.mjs`) |
+| MD-01 ↔ UT-01 / VP-09 | INHERITED(V1 rev 7) | REGRESSION | 같은 함수의 기존 U34·U37 전체 재실행 |
+| AR-01 ↔ IT-01 / VP-08 | INHERITED(V1 rev 7) | REGRESSION | CLI 두 예제(`report CLI …`) 재실행 — passing 예제의 Node 셀이 label 없이 계속 `충족` |
+| SD-02 ↔ ST-02 / VP-22 | CHANGED(ΔV4) | REQUIRED | `cells.mjs --node-rows`가 107행 전부(보류 0)를 셀로 만들고 판독기 `planCheck` 통과 — `gate:sh vp22.sh`에 `--node-rows` 추가 |
+| 그 밖 VP | INHERITED | NOT_REQUIRED | 판독기 다른 함수·stage-d/e·렌더러·시드 도구 무변경 |
+
+### 23-D. §10 정정 — P2 ⑨″
+
+| 자리 | 규칙 칸 — 분기마다 결과 | 입력 칸(U41) |
+|---|---|---|
+| `tableSample` 행 선택 `:114` | (a) `label` 있음 · `\| id \| label \|` 행 1개 · `interval = label` → 기존 ⑨ 값 판독 (b) `label` 있음 · 그 행 0개 → `미판정(지표 없음)` (c) `label` 있음 · `interval ≠ label` → `미판정(지표 없음)` (d) `label` 없음 · ID 행 ≥2 → `미판정(지표 없음)`(현행) (e) `label`이 빈 문자열·비문자열 → `미판정(구간 형식 지원 안 함)` | 같은 ID `K13` 세 행(`50000 pair diff rows` 308.12 · `5MiB codeView` 148.67 · `32000-char highlight` 445.97)의 원본에 (a) label `5MiB codeView` · interval 같음 · 관측 148.67 → 통과(형제 행 값 308.12·445.97과 구별) (b) label `없는 행` (c) label `5MiB codeView` · interval `32000-char highlight` (d) label 없음 (e) label `''` / `5` |
+
+자리 검색: `rg -n "label" app/scripts/windows-verdict.mjs` — 구현 뒤 각 줄을 (a)~(e)·제외로 분류한다(`site_census.mjs`).
+
+**선택 적대 증거(ΔV4).** A-⑨″a: label 비교를 접두 일치로(`startsWith`) — U41 (a)의 형제 `5MiB codeView`·`5MiB codeView extra`가 있으면 둘 다 고른다 → U41 입력에 접두 형제 행 1개를 더한다 · A-⑨″c: interval 검사 제거 — U41 (c).
+
+**선언 경계(ΔV4).** 둘째 열 문자열 안의 `|`는 다루지 않는다(실제 107행에 0). label 대소문자·공백 정규화는 하지 않는다 — 측정 도구 출력 그대로다.
+
+**운영 gate(ΔV4 구현 턴).** §19 H6 “WU-M 구현 턴” 목록 + `node --test scripts/windows-verdict.test.mjs` + 자리 검색 분류 + VP-22 gate(`--node-rows` 포함).
+
 ## READY self-review
+
+- **ΔV4(r4 PLAN_GAP K1 · 사용자 결정)**: W-045 추가. CHANGED MD-02·SD-02에 REQUIRED pair(VP-10 · VP-22), 영향 상위 VP-08·09 REGRESSION. P2 ⑨″ 분기 (a)~(e) 5개마다 U41 입력. 열린 입력(label 형식)은 (e)로 막는다. `ACTIVE 결정 ↔ AC` 대조: W-045 ↔ AC7(모르는 구간 형식은 충족 불가 — (e)) · AC3(예정 셀 분모 = Node 107행) 충돌 0.
 
 - **ΔV3(사용자 결정)**: W-041~W-044 추가(출처 = 사용자 결정 · 그 정합). NEW MD-06·AR-05·SD-02에 같은 레벨 REQUIRED pair(VP-20·21·22), 판독기 계열 VP-08~19·R1은 비영향 NOT_REQUIRED(§22-B). 규칙 칸 S1~S7의 분기마다 입력 칸이 있다(S2 ①~⑤ 5 · S5 3 · S7 2). 열린 입력(기존 프로필 폴더)은 exit 2로 막는다(S7). `ACTIVE 결정 ↔ AC` 대조는 갱신 메모(ΔV3) — 충돌 0.
 
