@@ -1,0 +1,1444 @@
+{
+ "runs": [
+  {
+   "runId": "w2-d8684684-claude-code-h100-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-code-h100-r1.json",
+    "sha256": "396b5204581d79aadca510aef2d11b0a9c935da8133eedfa7a0ef18215365f97",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T18:07:05.757Z",
+   "endedAt": "2026-11-26T18:07:44.421Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-work-h100-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-work-h100-r1.json",
+    "sha256": "2bfe4c8dc063e159f2040ef2d1298d184f4e191d2afb11900ec79fac75ff98dd",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T18:11:38.291Z",
+   "endedAt": "2026-11-26T18:12:16.739Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-opencode-h100-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-opencode-h100-r1.json",
+    "sha256": "adce4fad1dc310161951be51d81f249bc1eab698cfa3971d19555801b98a0372",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T18:14:56.720Z",
+   "endedAt": "2026-11-26T18:15:36.026Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-code-h100-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-code-h100-r2.json",
+    "sha256": "135d6f93f107a30a2f776dc6acb8b317ca56ae00f8120e4f1ff08726ae1f7c72",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T18:17:51.353Z",
+   "endedAt": "2026-11-26T18:18:29.404Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-work-h100-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-work-h100-r2.json",
+    "sha256": "792730d8149363aa16ad2f51b29e11e2ec42f9706672ed32e993a264dfa7884a",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T18:20:45.866Z",
+   "endedAt": "2026-11-26T18:21:24.243Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-opencode-h100-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-opencode-h100-r2.json",
+    "sha256": "b747d6487ad64e1c723a45c0fac97c559bac3e2c0d947f0ffa67be2e367aa5b7",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T18:24:03.736Z",
+   "endedAt": "2026-11-26T18:24:42.811Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-code-h100-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-code-h100-r3.json",
+    "sha256": "9ad1176326374a6b40e7739668b5107f25ad4895de2787a66cccc1d75478165f",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T18:26:58.735Z",
+   "endedAt": "2026-11-26T18:27:37.137Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-work-h100-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-work-h100-r3.json",
+    "sha256": "b19fafc5e1fb6ddec5015f4b4a41251b605ebba1966bf4769d30c812235d8b7c",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T18:29:49.086Z",
+   "endedAt": "2026-11-26T18:30:27.364Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-opencode-h100-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-opencode-h100-r3.json",
+    "sha256": "6169c88efda701a8006b8fcc4144176c5cc7ddf7d10bbaa108bd8a92733553dd",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T18:33:07.213Z",
+   "endedAt": "2026-11-26T18:33:46.675Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-code-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-code-h1-r1.json",
+    "sha256": "4063babbe33b7d92aaa2e8fee01e1de2e7ab346d0c1b8f8ebbc8db7502f29fe0",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T19:08:22.113Z",
+   "endedAt": "2026-11-26T19:08:39.023Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-work-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-work-h1-r1.json",
+    "sha256": "c8f5e947e2eb813a13d9f1f047c9fa99d73acbfabc60ab28b4fa244aac9a9d6a",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T19:09:50.574Z",
+   "endedAt": "2026-11-26T19:10:07.819Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-opencode-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-opencode-h1-r1.json",
+    "sha256": "c814642d2b666b3569693e4bbab2413f41318c5a0acaf06502550ad7ca943b1e",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T19:12:56.646Z",
+   "endedAt": "2026-11-26T19:13:14.077Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-code-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-code-h1-r2.json",
+    "sha256": "18081e8a04f5d655d36d85d4085b3798f775826c0205294e9caae03bc40ba643",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T19:16:06.588Z",
+   "endedAt": "2026-11-26T19:16:23.587Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-work-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-work-h1-r2.json",
+    "sha256": "5a4e8cd76e776f718b4d944eb524156a6b716b43a96f5ea0cd04647151af60ce",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T19:19:05.056Z",
+   "endedAt": "2026-11-26T19:19:22.373Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-opencode-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-opencode-h1-r2.json",
+    "sha256": "4479243910f6e83e0a6cb7f9f349af0546f99367ee2e9fc9278395400df72a84",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T19:22:11.305Z",
+   "endedAt": "2026-11-26T19:22:29.787Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-code-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-code-h1-r3.json",
+    "sha256": "f50c785c5914e911ff8d5280193a8e2f0781b03e6c5882d07c3e353c98d34bd0",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T19:25:17.455Z",
+   "endedAt": "2026-11-26T19:25:34.470Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-claude-work-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-claude-work-h1-r3.json",
+    "sha256": "a4fb46606cee7e1ec04313ef1de322836af6bfd718133d336899e865e6708888",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T19:28:14.973Z",
+   "endedAt": "2026-11-26T19:28:32.558Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-d8684684-opencode-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "before",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-d8684684-opencode-h1-r3.json",
+    "sha256": "f177726608121d6a62c601ff05add2eda55439c7877ae7d9332d1e1311620ba9",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "d86846844dc9ea092f394f942621b78dc3d50e02",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "d86846844dc9ea092f394f942621b78dc3d50e02",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "d1d61e66e6f6b03579e149ed6fb1593649cae40cab908c008362b2a3ce57efa2"
+   },
+   "binarySha256": "5b157ac51642b53476cfa4682fe0d6dbf78c68a785d7915709727dec099eb622",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T19:31:18.460Z",
+   "endedAt": "2026-11-26T19:31:33.899Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-code-h100-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-code-h100-r1.json",
+    "sha256": "2154079c593140c66231431c63826e90ddffa18b07a5712c7df265b91f7f6026",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T19:38:07.982Z",
+   "endedAt": "2026-11-26T19:38:21.988Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-code-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-code-h1-r1.json",
+    "sha256": "6498d6fc64c4e77c3b875050b211f17317985388b9097c9ec3dde56c285859c7",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T19:39:47.291Z",
+   "endedAt": "2026-11-26T19:40:04.666Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-work-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-work-h1-r1.json",
+    "sha256": "0a141e3b2e6cedf9cd96cc47795eb68df26d51f83cdffe26d4998e1c4ea66ce8",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T19:41:16.668Z",
+   "endedAt": "2026-11-26T19:41:31.561Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-work-h100-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-work-h100-r1.json",
+    "sha256": "3a2418e16c6704f0f442d6a8486c080b5f1d23579fcb6b54af1a856d42dcdb41",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T19:42:20.693Z",
+   "endedAt": "2026-11-26T19:42:34.759Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-opencode-h1-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-opencode-h1-r1.json",
+    "sha256": "93df17358f0d222bd64c633e07c91571764c36e9b45b7c8a16718aea92394c2a",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T19:43:54.338Z",
+   "endedAt": "2026-11-26T19:44:10.186Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-opencode-h100-r1",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-opencode-h100-r1.json",
+    "sha256": "dff487c8fa905682056c50667210214e9617e812153170ce0d38df66d2063662",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 1,
+   "startedAt": "2026-11-26T19:45:07.795Z",
+   "endedAt": "2026-11-26T19:45:22.663Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-code-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-code-h1-r2.json",
+    "sha256": "48c5794be914bf183d972a1f77ef75c3f6f818b4fb2949b3e1450eefd93772cb",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T19:46:34.963Z",
+   "endedAt": "2026-11-26T19:46:52.144Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-code-h100-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-code-h100-r2.json",
+    "sha256": "bf84d5ee848d9e914db6cf71468aab1c6e5e721853baed47bb1654ddbd32d7de",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T19:47:42.597Z",
+   "endedAt": "2026-11-26T19:47:56.622Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-work-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-work-h1-r2.json",
+    "sha256": "f03fdcd3e13c345662e9dd5a0bd58ea4cf9668ab2da920bef463a10b0b22d47a",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T19:49:08.081Z",
+   "endedAt": "2026-11-26T19:49:23.115Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-work-h100-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-work-h100-r2.json",
+    "sha256": "b17012fb10d8163f5213cacdc975d45483cedf84f4931bcd30af70cddff01db4",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T19:50:15.314Z",
+   "endedAt": "2026-11-26T19:50:29.351Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-opencode-h1-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-opencode-h1-r2.json",
+    "sha256": "41dd767966e01fa2e71da03e7d52c797eb6ee0f74602d8166b37e2383046abf7",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T19:51:47.804Z",
+   "endedAt": "2026-11-26T19:52:03.188Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-opencode-h100-r2",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-opencode-h100-r2.json",
+    "sha256": "a5f38bcb695033f7ff2646d3f5c3d16539e296e34c2b96516daccb402f7d5b17",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 2,
+   "startedAt": "2026-11-26T19:52:56.803Z",
+   "endedAt": "2026-11-26T19:53:11.814Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-code-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-code-h1-r3.json",
+    "sha256": "5fd2bb90b770ce07010beffc0ad48fe096efa8b600972003b2b0c22dcde3a53c",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T19:54:24.054Z",
+   "endedAt": "2026-11-26T19:54:41.123Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-code-h100-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-code-h100-r3.json",
+    "sha256": "857a5bc30b54cf0b74ff437a60095a7e9e2d5d79c4a28aa8b5d2d33621388431",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-code",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T19:55:32.674Z",
+   "endedAt": "2026-11-26T19:55:46.692Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-work-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-work-h1-r3.json",
+    "sha256": "455d671031f60bf4192e98f789371e7231f9c0a9d3346210e9e94d905fe9a949",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T19:56:58.738Z",
+   "endedAt": "2026-11-26T19:57:13.733Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-claude-work-h100-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-claude-work-h100-r3.json",
+    "sha256": "4e803c0606bd1d16a5fa823bfd0c5402607984dceaa5aeb85220dad781695434",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "claude-work",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T19:58:03.913Z",
+   "endedAt": "2026-11-26T19:58:17.975Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-opencode-h1-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-opencode-h1-r3.json",
+    "sha256": "0249cb1258a0fd325f6b51f615500762fa3c8ae6f16ec954704ce727990b23bf",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-1",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T19:59:40.834Z",
+   "endedAt": "2026-11-26T19:59:56.297Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  },
+  {
+   "runId": "w2-515ff58d-opencode-h100-r3",
+   "sample": "w",
+   "pairId": "W-0330",
+   "side": "after",
+   "runtime": "win32-electron",
+   "runRef": {
+    "path": "w2-515ff58d-opencode-h100-r3.json",
+    "sha256": "a3705c7c8fbb13a9d030c1f3b01148f1e078df568fb2bbb2f6165d961be13003",
+    "kind": "trace"
+   },
+   "profileRef": {
+    "path": "profile.txt",
+    "sha256": "a57a22287f693b06775ee4d84af2dd5e2571ce8e18dfe47e8998d0e88a73a1fa"
+   },
+   "sha": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+   "tool": "578f702254ca87f5767f22f01978f6dcaa9541a2",
+   "appSource": {
+    "commit": "515ff58d60eb5d76744cc34aaad20bc7f186d928",
+    "tree": null,
+    "dirty": true,
+    "diffSha256": "b66ed092f037c50d8a7abc1e10e870160c7cb1e0a01f555260e269dc4a191970"
+   },
+   "binarySha256": "8eee1b464071d79251373a5ec9ec1b11c72e0241bf08f1378459af192b25fca3",
+   "scenario": "W2",
+   "operation": "open-pull",
+   "load": "history-100",
+   "harness": "opencode",
+   "buildKind": "diagnostic",
+   "profile": "win-4ejndg",
+   "repeat": 3,
+   "startedAt": "2026-11-26T20:00:54.228Z",
+   "endedAt": "2026-11-26T20:01:09.207Z",
+   "tools": {
+    "chrome-trace": {
+     "version": "devtools-performance",
+     "environment": "win32-electron"
+    }
+   }
+  }
+ ]
+}
