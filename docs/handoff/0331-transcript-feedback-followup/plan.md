@@ -8,14 +8,14 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0331-transcript-feedback-followup` |
-| 작성자 | Claude Code (V1·ΔV3) · Codex (ΔV1·ΔV2 추가 요구) |
+| 작성자 | Claude Code (V1·ΔV3·ΔV4) · Codex (ΔV1·ΔV2 추가 요구) |
 | 일자 | 2026-11-26 |
-| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0332 · PR #656 소유자 리뷰(2026-11-26, 기준 `3f3646fb`) |
-| 상태 | READY — ΔV3가 PR #656 리뷰의 READY 전환 조건을 반영했다(§20) |
+| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0332 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
+| 상태 | READY — ΔV4가 PR #656 2차 리뷰의 보완점과 새 사용자 요구(최상단 당김·로딩)를 반영했다(§21) |
 | V mode | `Delta V` |
-| 기준 V | 0331 V1 + ΔV1 + ΔV2 (`3f3646fb`) |
-| 이번 V revision | `ΔV3` — 리뷰 보완: 상단 채움 단일 흐름·글줄 동일성·큰 본문 담당과 50ms 예산·하네스별 경계·아티팩트 판정·모션 구분 |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 기준 V | 0331 V1 + ΔV1 + ΔV2 + ΔV3 (`09d8b2ae`) |
+| 이번 V revision | `ΔV4` — 2차 리뷰 보완: 최상단 당김·로딩(새 요구) · 하단 이동 중 앞삽입 순서 · 워커 문서 분할·인라인 커밋 분할·스트리밍 종료점 · 일반 산출물 판정 · EP-2′ 정의 · 범위 문구 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
 | 기준 트리 | `18b5d5f`(0330 verify 3의 앱 코드) |
 
 # Part I — Product & UX Contract
@@ -44,6 +44,8 @@
 | 추가 명시 요구 | “기존 세션을 열때 메시지 로드 후 메시지 오프셋으로 화면을 고정하는데 플리커처럼 동작함. 이것도 제거.” | 사용자 추가 피드백 2026-11-26 |
 | 추가 명시 요구 | “모든 gui 상태 변화는 트랜지션( smooth) 으로 렌더링 … 시작위치 고정을 위해 스크롤 바 위치 변경 움직임 까지도.” | 사용자 추가 피드백. 앱 공통 기준은 [디자인 시스템 §7](../../arch/frontend/design-system.md#앱-전체-gui-전환-원칙) |
 | 리뷰 요구 | “계획 작성자(Claude)가 아래 동작을 결정하고, 각 결정에 구현 소유자와 통과 기준을 연결하면 같은 설계 커밋에서 해당 핸드오프를 READY로 전환해 주세요.” — 0331 4묶음(이력 조회·공통 뷰포트 · 큰 본문 자동 로드·Markdown · 하네스별 도구·오류 표시 · 아티팩트 카드)과 공통 모션 구분 | [PR #656 소유자 댓글](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7189285486) · 반영 대조는 §20-A |
+| 리뷰 요구(2차) | 0331 남은 보완 4건(일반 산출물 경로 · 워커 문서 예산과 인라인 노드 분할·스트리밍 종료점 · 하단 이동 중 이전 이력 도착 순서 · 범위 문구·`EP-2′`·`--perf` gate) | [PR #656 소유자 댓글(2차, `09d8b2ae` 기준)](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7189285486) · 반영 대조 §21-A |
+| 추가 명시 요구 | “최상단 도달은 이전 5턴의 자동 조회를 시작하고, 최상단을 넘어서려는 추가 상향 입력은 진행 중인 조회를 화면에 당김 동작으로 보여줍니다.” · “스피너가 보인 뒤에는 성공 또는 실패까지 당겨진 간격을 유지합니다.” · “스피너가 있던 영역을 이전 대화의 끝부분이 바로 채웁니다.” · 실패 시 “이전 대화를 불러오지 못했습니다.” 토스트 | 같은 댓글 ‘추가 사용자 요구’ · D-022 |
 | 추론 의도 | 점 아이콘은 **공백뿐인 text가 만든 빈 메모 행**의 점이다. 공백 아닌 메모의 점·아이콘 없는 도구의 점은 유지한다 — 추론 | §8 R5: 빈 메모 행 높이 16px에 점 20px(`top-2.5`)이 다음 행 위로 겹친다 |
 | 추론 의도 | 상단 머리의 오류 상태 ‘다시 시도’와 아래 끝(다음 부분·대화 끝·최신 대화로)은 피드백 대상이 아니라 유지한다 — 추론 | 피드백이 명시한 문구가 ‘이전 부분 보기’·‘대화 시작’뿐 |
 
@@ -55,7 +57,7 @@
 | D-002 | 한 화면 턴(사용자 입력 사이) 안에서 **보이는 내용 없이 이어지는 도구 호출**은 assistant 메시지 경계와 무관하게 한 도구 그룹이다. 보이는 내용 = 공백 아닌 text · 보이는 reasoning · 질문 · 오류 · 압축/분기 경계 · 서브에이전트 통지 | “도구 그룹으로 묶여있지 않는 사례 … 항상은 아님” — 원인 2개(§8 R1·R2) | 사용자 피드백 | ACTIVE | — |
 | D-003 | 공백뿐인 text part는 보이는 내용이 아니다 — 세그먼트·메모·live 표시를 만들지 않는다. 앞 세그먼트가 text면 그 원문에 이어 붙인다 | R1·R5의 공통 원인. “dot 아이콘이 … 불필요하게 붙어서 출력 … 제거할 것” | 사용자 피드백 + 설계자 | ACTIVE | 0325 EP-2 ① `hasSegmentText = text !== ''` 대체 |
 | D-004 | ‘메시지 본문 열기’ 버튼을 없앤다. 본문이 한 응답 한도(0329 D-007)를 넘어 참조로 온 메시지는 창이 자동으로 조각을 받아 정상 렌더한다. 받는 동안 그 자리에 스피너(버튼 아님), 실패하면 오류 문구 + 다시 시도 | “제거하고 정상 렌더링 할 것.” 실패 표시는 설계자 기본값 | 사용자 피드백 | ACTIVE | 0329 §10 본문 ‘본문 열기’ 버튼 대체 |
-| D-005 | 상단 머리에서 ‘이전 부분 보기’·‘대화 시작’·당김 문구(‘이전 부분 불러오기’)를 없앤다. 로드 중 스피너는 유지한다. 머리 슬롯은 모든 상태에서 같은 높이다. 오류 상태의 ‘다시 시도’는 유지한다 | “버튼/상태 표시를 제거하라. 단 … 스피너 표시 정책은 유지.” 고정 높이는 0329 D-019 | 사용자 피드백 | ACTIVE | 0329 D-016의 당김 표시 대체 |
+| D-005 | 상단 머리에서 ‘이전 부분 보기’·‘대화 시작’·당김 문구(‘이전 부분 불러오기’)를 없앤다. 로드 중 스피너는 유지한다. 머리 슬롯은 모든 상태에서 같은 높이다. 오류 상태의 ‘다시 시도’는 유지한다 | “버튼/상태 표시를 제거하라. 단 … 스피너 표시 정책은 유지.” 고정 높이는 0329 D-019 | 사용자 피드백 | SUPERSEDED | D-023 — 당김 공간을 머리와 따로 두고 스피너 위치를 정함(2차 리뷰 새 요구). 문구 제거·오류 재시도·머리 고정 높이는 D-023이 잇는다 |
 | D-006 | 일반 보기·검색 보기의 위 끝 머리 슬롯이 뷰포트에 닿으면(스크롤바·휠·키·내용이 뷰포트보다 짧음) 이전 대화가 있을 때 자동으로 읽는다. 진행 중이면 더 요청하지 않는다 | “최상단 이동 시 이전 대화가 있는 경우 로드가 자동으로 트리거 돼야 함” | 사용자 피드백 | ACTIVE | 0329 D-003 “위 방향 한 조작에 한 번” 대체 |
 | D-007 | 앞삽입·앵커 보정 중 화면이 깜빡이지 않는다 — 응답 commit 직전 프레임부터 정착까지 매 프레임 읽던 글줄의 화면 top 변화 ≤ 1px | “맞든 아니든 이런 플리커는 있어서는 안 됨.” 0329 AC3′는 정착 뒤만 쟀다 | 사용자 피드백 | ACTIVE | 0329 D-016 ±1px를 매 프레임으로 강화 |
 | D-008 | 로드 단위는 5턴이다 — 세션 열기(최신)와 상단 로드(이전) 모두. 한 응답 한도(메시지 128·part 256·256 KiB)는 유지하고, 넘치면 같은 5턴 단위 잔여를 유휴 채움이 이어 읽는다. 단위가 끝나면 자동 연쇄를 멈춘다(최상단 자동 로드는 D-006) | “한 턴이 아닌 5개 턴으로 변경” + 답 “열기와 상단 로드 모두” | 사용자 피드백 + 질의 | ACTIVE | 0329 D-002(조회 단위 1턴) 대체 · D-009 범위를 같은 턴 → 같은 단위로 확장 |
@@ -68,10 +70,15 @@
 | D-015 | 기존 세션을 열 때 준비된 본문은 부드럽게 나타난다. 이미 표시 중인 대상 세션의 위치가 목표 하단과 다르면 스크롤바와 본문이 함께 하단까지 연속 이동한다. 표시 중인 시작점이 없거나 이미 하단이면 그 자리에서 나타난다 | 오프셋 고정 시 보이는 점프 제거와 스크롤바 이동의 smooth 전환을 함께 충족 | 사용자 추가 피드백 | ACTIVE | D-014 대체. 앞삽입 중 읽던 글줄은 D-007 |
 | D-016 | 위 끝 채움은 한 흐름이다 — 머리 슬롯이 뷰포트 안이면 경계 종류대로 1회 요청(같은 단위 잔여 또는 이전 5턴), 앞삽입·보정이 정착하면 다시 판정해 화면이 짧은 동안 이어 읽는다. 중복 방지는 방향별 진행 중 1개 + 같은 커서 재요청 0. 정지는 이력 끝·실패(자동 재요청 0, ‘다시 시도’만)·세션 전환 | 리뷰 “다음 5턴을 요청하는 조건, 같은 요청의 중복 방지 … 정지 조건을 한 흐름으로” | PR #656 리뷰 | ACTIVE | D-006·D-008 보완(§20-C) |
 | D-017 | 앞삽입 중 읽던 글줄은 **같은 메시지·같은 part·같은 글자 위치**로 판정한다 — 매 프레임 그 글자의 top 변화 ≤ 1px이고, 처음 좌표 아래의 글자가 다른 메시지·다른 글이면 실패 | 리뷰 “좌표만 같고 내용이 바뀌는 경우도 검출” | PR #656 리뷰 | ACTIVE | D-007 보완(AC6′) |
-| D-018 | 큰 본문의 단계별 담당: 조립·역직렬화 = 계산 워커(창은 base64 문자열만 보관) · Markdown 파싱 = 계산 워커(블록·표 200행 조각) · 화면 반영 = 창, 커밋당 hast 노드 ≤ 20,000. 완료 본문 text·reasoning과 스트리밍 확정 블록이 4,000자를 넘으면 워커 블록 경로로 그린다. 렌더러 작업 하나 ≤ 50ms(0324 예산) | 리뷰 “조립·역직렬화·Markdown 파싱·화면 반영을 누가 맡는지 … 분할 지점과 … 50ms 예산을 측정할 입력·구간” | PR #656 리뷰 | ACTIVE | D-009 보완 · 0327 후보 D-026(완료 본문 창 파싱) 승격 |
-| D-019 | 아티팩트 ‘파일 없음’ 판정 조건: (a) 레코드의 파일이 앱이 쓰는 루트에 있는데 실패하면 결함 · (b) 같은 DB를 다른 루트로 열어서만 재현되면 환경 차이 · (c) 파일이 실제로 없으면 `missing` 표시가 정답. 실패 시 data 호스트 로그에 확인한 루트 종류와 상대 경로를 남겨 사용자 사례를 가른다 | 리뷰 “첫 경우에도 실패하면 결함으로 처리하고, 루트 차이로만 재현되면 환경 차이로 기록” | PR #656 리뷰 | ACTIVE | D-013 대체 |
+| D-018 | 큰 본문의 단계별 담당: 조립·역직렬화 = 계산 워커(창은 base64 문자열만 보관) · Markdown 파싱 = 계산 워커(블록·표 200행 조각) · 화면 반영 = 창, 커밋당 hast 노드 ≤ 20,000. 완료 본문 text·reasoning과 스트리밍 확정 블록이 4,000자를 넘으면 워커 블록 경로로 그린다. 렌더러 작업 하나 ≤ 50ms(0324 예산) | 리뷰 “조립·역직렬화·Markdown 파싱·화면 반영을 누가 맡는지 … 분할 지점과 … 50ms 예산을 측정할 입력·구간” | PR #656 리뷰 | SUPERSEDED | D-025 — 워커 문서 분할·인라인 노드 분할·스트리밍 종료점 추가(2차 리뷰) |
+| D-019 | 아티팩트 ‘파일 없음’ 판정 조건: (a) 레코드의 파일이 앱이 쓰는 루트에 있는데 실패하면 결함 · (b) 같은 DB를 다른 루트로 열어서만 재현되면 환경 차이 · (c) 파일이 실제로 없으면 `missing` 표시가 정답. 실패 시 data 호스트 로그에 확인한 루트 종류와 상대 경로를 남겨 사용자 사례를 가른다 | 리뷰 “첫 경우에도 실패하면 결함으로 처리하고, 루트 차이로만 재현되면 환경 차이로 기록” | PR #656 리뷰 | SUPERSEDED | D-026 — 일반 산출물(`category === 'file'`) 경로 추가(2차 리뷰) |
 | D-020 | 그룹 경계는 하네스·이력 형태별로 검증한다 — Claude Code(실시간·로컬 저장 다중 메시지·네이티브 단일 메시지) · Claude Work(응답 경계 있음/없음) · OpenCode(탐색 도구만 묶음 유지, 화면에 안 그리는 reasoning·공백 text·메시지 경계는 묶음을 가르지 않음) | 리뷰 “기존 저장 이력(응답 경계 정보가 부족한 경우 포함)과 OpenCode 고유 도구 사례를 구분” | PR #656 리뷰 | ACTIVE | D-002 보완(AC1′ 매트릭스) |
 | D-021 | 모션 다섯 가지를 구분한다 — 첫 표시 등장 · 보이는 시작 위치→하단 이동(부드러운 스크롤) · 앞삽입 보정(즉시, 부드러운 스크롤 금지) · 패널 열기·닫기에 따른 transcript 폭(같은 프레임, 0332) · 패널 깊이(0332). 앵커 보정 쓰기는 항상 즉시다 | 리뷰 “이 동작들을 구분해 두어야 부드러운 스크롤 때문에 이력 삽입 때 읽던 줄까지 움직이는 회귀를 막을 수 있습니다” | PR #656 리뷰 | ACTIVE | D-007·D-015 사이 경계 고정(§20-E) |
+| D-022 | 최상단 당김·로딩: 최상단 도달은 이전 5턴 자동 조회를 시작한다(유지). 조회 중 최상단을 넘는 추가 상향 입력이 오면 본문이 부드럽게 아래로 밀려 당김 공간이 열리고 그 안에 스피너가 보인다. 스피너가 보인 뒤에는 성공·실패까지 간격을 유지한다 — 입력을 멈춰도 접히지 않고, 계속 입력해도 더 벌어지거나 같은 커서를 다시 조회하지 않는다. 이력이 끝났으면 조회·스피너·당김 0. 성공: 응답 반영 직전 글줄을 기록하고 당김 공간·스피너 제거 + 앞삽입 + 실제 스크롤바 보정을 같은 페인트에 반영해 스피너 자리를 이전 대화의 끝부분이 채운다. 실패: 스피너 제거, 실패한 요청마다 토스트 “이전 대화를 불러오지 못했습니다.” 1회, 당김 공간은 부드럽게 닫혀 당기기 전 위치로, 삽입·자동 재요청 0, 명시 재시도(머리 ‘다시 시도’)·세션 전환 폐기는 유지. 소유: 공통 `TranscriptViewport` = 당김·복귀·스크롤 보정(세 하네스 공통) · 이력 store = 조회 상태·중복 방지·실패 1회 통지 | 2차 리뷰 ‘추가 사용자 요구’ 원문(§2) | 사용자(리뷰 경유) | ACTIVE | D-006·D-007 보완 · 0329 D-016·D-022 당김 규칙 대체 |
+| D-023 | 머리 슬롯은 상태(ready·loading·error·end)와 무관하게 같은 높이다. 당김 공간은 머리 위의 별도 영역이고 높이는 0과 당김 높이 사이에서만 변한다. 당기지 않은 로딩은 머리 슬롯 스피너, 당긴 로딩은 당김 공간 스피너(머리 스피너는 숨김) — 스피너는 늘 하나다. ‘이전 부분 보기’·‘대화 시작’·당김 문구 0, 오류는 머리 ‘다시 시도’ | 2차 리뷰 “D-005의 ‘모든 상태에서 같은 높이’ … 새 동작의 적용 구간을 명시” | PR #656 2차 리뷰 | ACTIVE | D-005 대체 |
+| D-024 | 하단 이동(M2) 도중 이전 이력이 도착하면: M2 일시정지 → 응답 반영 직전 읽던 글줄 기준 앞삽입·즉시 보정(M3) → 사용자가 취소하지 않았을 때만 새 하단으로 M2 재개. 사용자의 상향 입력(휠·트랙패드 위·당김·스크롤바 위로·위쪽 키)은 하단 추종을 취소한다 | 2차 리뷰 “하단 이동 일시정지 → … → 사용자가 이동을 취소하지 않았을 때만 새 하단으로 재개” | PR #656 2차 리뷰 | ACTIVE | D-015·D-021 보완 |
+| D-025 | 큰 본문: D-018(조립·파싱 = 워커, 반영 = 창, 커밋당 ≤ 20,000노드, 4,000자 초과 완료 본문·확정 블록 = 워커 블록 경로)에 셋을 더한다 — ① 워커 문서 등록 전 분할: 등록 단위 ≤ 8,000,000자(용량 32,000,000자의 ¼), 경계는 Markdown 블록, 블록 하나가 넘으면 줄 경계, 줄이 없으면 글자 경계 ② 커밋 분할은 깊이 제한 없이 자식 합이 예산을 넘는 요소로 내려가 인라인 노드까지 나눈다(문단 하나에 인라인 2만 개 초과 포함) ③ 스트리밍 측정 종료 = 마지막 입력 글자의 서식 적용이 끝난 시점 | 2차 리뷰 “등록 전 분할 방법 … 단일 문단 안의 인라인 노드가 2만 개를 넘는 경우 … 마지막 입력 글자까지 서식 적용이 끝난 시점에 종료” | PR #656 2차 리뷰 | ACTIVE | D-018 대체 |
+| D-026 | 아티팩트 판정은 경로 두 종류 × 세 경우다. 관리형(`category !== 'file'`: `<root>/<artifactFileId>/<filename>`, 루트 = `~/.config/orcinus-orca/artifacts[/.dev]`)과 일반 산출물(`category === 'file'`: DB `inputSource` 절대 경로, 부모 = OS 임시 폴더 `tmpdir()/orcinus-orca`) 각각 (a) 정상 파일 → 열림, 실패면 결함 · (b) 실제 누락 → `missing` · (c) 루트·경로 불일치 → 관리형 `missing`, 일반 `unsafe-path`. (c)로만 재현되면 환경 차이(운영 DB를 dev 루트나 다른 프로필에서 연 경우). 실패 시 data 호스트 로그 `{ category, rootKind | reason, relativePath | basename }` 1줄 | 2차 리뷰 “같은 transcript 카드에서 두 경로가 모두 열릴 수 있으므로 각각 정상 파일 클릭, 실제 파일 누락, 루트 또는 경로 불일치를 검증” | PR #656 2차 리뷰 | ACTIVE | D-019 대체 |
 
 ### 갱신 메모
 
@@ -81,6 +88,8 @@
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-002↔AC1 · D-003↔AC1·AC2 · D-004↔AC3 · D-005↔AC4 · D-006↔AC5 · D-007↔AC6 · D-008↔AC7 · D-009↔AC8 · D-010↔AC9 · D-011↔AC10 · D-012↔AC11 · D-013↔§4(AC 없음 — 코드 변경 0) · D-001↔§6. ΔV2에서 D-015↔AC12로 갱신.
 - ΔV3 추가 결정: D-016~D-021 · 대체: D-013 → D-019.
 - **ΔV3 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-016↔AC5′·AC7 · D-017↔AC6′ · D-018↔AC14 · D-019↔AC13 · D-020↔AC1′·AC2 · D-021↔AC6′·AC12·AC15 · D-004↔AC3′(‘최신 대화로’ 경로 추가). D-013은 SUPERSEDED라 대조 대상 아님.
+- ΔV4 추가 결정: D-022~D-026 · 대체: D-005 → D-023, D-018 → D-025, D-019 → D-026.
+- **ΔV4 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-022↔AC16·AC5″·AC6″ · D-023↔AC4″ · D-024↔AC17·AC15′ · D-025↔AC14′ · D-026↔AC13′ · D-021↔AC15′(당김 열기·실패 닫기는 당김 공간 애니메이션 — 앵커 쓰기 아님). D-005·D-018·D-019는 SUPERSEDED.
 
 ## 4. 요구 비판적 검토
 
@@ -136,8 +145,8 @@
 
 ## 6. 범위 / 비범위
 
-- **범위**: §2 명시 요구 중 기존 transcript 피드백과 추가 요구 D-015(아티팩트는 조사 결론만 — D-013).
-- **비범위**: 우측 패널 5건(0332) · 아래 끝(다음 부분·대화 끝·최신 대화로) · OpenCode 도구 간격(D-011은 Claude 투영) · 완료 본문의 창 동기 `<Markdown>` 파싱(후보 표 0327 D-026 행 — 표시 정책이 아니라 파싱 위치) · 아티팩트 dev/prod 공유.
+- **범위**: §2 명시 요구 중 기존 transcript 피드백, 추가 요구 D-015·D-022, 아티팩트 판정 조건과 진단 로그(D-026 — 관리형·일반 산출물), 큰 본문의 워커 조립·완료 본문 워커 블록 경로(D-025). (ΔV4 정정 — 구 문구 ‘아티팩트는 조사 결론만 — D-013’은 D-019·D-026으로 대체됐다)
+- **비범위**: 우측 패널 5건(0332) · 아래 끝(다음 부분·대화 끝·최신 대화로) · OpenCode 도구 간격(D-011은 Claude 투영) · 계획·도구 본문·4,000자 이하 Markdown의 창 파싱(ΔV4 정정 — 완료 본문 4,000자 초과는 D-025로 범위 안) · 아티팩트 dev/prod 저장소 공유.
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
@@ -151,18 +160,20 @@
 | R-01 | AT-01 / AC1 → **AC1′(ΔV3 §20-B)** | Code 투영에서 한 화면 턴 안 도구 A·B·C가 (a) 사이에 공백뿐 text, (b) assistant 메시지 경계(자동 연속 응답), (c) 중복 제거로 빈 도구 세그먼트를 두고 이어지면 **그룹 1개(헤더 “… 3개”)**다. 사이에 공백 아닌 text·보이는 reasoning·질문·오류·경계가 있으면 나뉜다 | 블록 모델: tools 블록 1개·`calls` = [A,B,C] / 분리 입력 5종은 블록 2개 · 렌더: `ClaudeToolGroup` 헤더 수 1 | 메시지 → `createClaudeBlockModel.advance` → `Timeline` → `ClaudeAssistantSegment` → `ClaudeToolGroup` |
 | R-02 | AT-02 / AC2 → **AC2′(ΔV3 §20-B 표시 위치)** | Work 펼침 목록에서 공백뿐 text는 메모 행·점을 만들지 않고 `noteCount`에 들지 않는다. 공백 아닌 메모는 점과 함께 남는다 | `[data-work-note]` 0 · 셸 행 위 점 0 / 메모 입력은 1 | 메시지 → `createWorkProjector` → `ActivityDisclosure` |
 | R-03 | AT-03 / AC3 → **AC3′(ΔV3 §20-B)** | 본문 참조 메시지가 든 페이지를 열면 버튼 없이 자동으로 본문을 받아 원래 자리에 정상 렌더한다. 받는 동안 그 자리에 스피너(`button` 0), 실패하면 오류 문구 + ‘다시 시도’, 성공 뒤 이웃 메시지 순서 불변. 세션 전환 뒤 도착한 본문은 버린다 | 요청 1회·버튼 0·성공 본문 텍스트 / 실패 재시도 1회 / 전환 뒤 화면 불변 | 페이지 commit → `chatStore` 자동 본문 → `sessionApi.page(body)` → `RESOLVE_HISTORY_BODY` → 블록 → 렌더 |
-| R-04 | AT-04 / AC4 | 부분 이력 머리에 ‘이전 부분 보기’·‘대화 시작’·‘이전 부분 불러오기’ 문구·버튼이 없다(ready·end·당김 상태 텍스트 0·`button` 0). loading은 스피너만, error는 ‘다시 시도’ 버튼. 슬롯 높이는 네 상태 모두 같다 | 상태별 렌더 텍스트·버튼 수·클래스 | `useHistoryControls` → `TranscriptViewport` → `HistoryEdge` |
-| R-05 | AT-05 / AC5 → **AC5′(ΔV3 §20-B)** | 머리 슬롯이 뷰포트 안이면(`scrollTop ≤ 머리 높이` 또는 스크롤 불가) before = ready일 때 요청 1회. loading 중 0, end 0, error 0(버튼만), 슬롯 밖 0. 스크롤바 드래그로 닿아도 같다. 검색 보기 위 끝도 같다 | 스크롤 위치별 `request('before')` 호출 수 | 스크롤/commit → `TranscriptViewport` 상단 판정 → `controls.request` → `readPrevious`/`readSearchEdge` |
-| R-06 | AT-06 / AC6 → **AC6′(ΔV3 §20-B)** | 이전 5턴 앞삽입(행 높이가 추정 140px와 다른 행 포함)에서 응답 commit 직전 프레임부터 정착(연속 10프레임 무변화)까지 **매 프레임** 읽던 글줄 top 변화 ≤ 1px. 3 transcript 화면 · 자동 트리거(휠 없음)와 휠 트리거 둘 다 | Electron 실기 프레임 기록 — 프레임별 글줄 top | 실제 Chromium → production `TranscriptView` |
+| R-04 | AT-04 / AC4 → **AC4″(ΔV4 §21-C)** | 부분 이력 머리에 ‘이전 부분 보기’·‘대화 시작’·‘이전 부분 불러오기’ 문구·버튼이 없다(ready·end·당김 상태 텍스트 0·`button` 0). loading은 스피너만, error는 ‘다시 시도’ 버튼. 슬롯 높이는 네 상태 모두 같다 | 상태별 렌더 텍스트·버튼 수·클래스 | `useHistoryControls` → `TranscriptViewport` → `HistoryEdge` |
+| R-05 | AT-05 / AC5 → AC5′(ΔV3 §20-B) → **AC5″(ΔV4 §21-C)** | 머리 슬롯이 뷰포트 안이면(`scrollTop ≤ 머리 높이` 또는 스크롤 불가) before = ready일 때 요청 1회. loading 중 0, end 0, error 0(버튼만), 슬롯 밖 0. 스크롤바 드래그로 닿아도 같다. 검색 보기 위 끝도 같다 | 스크롤 위치별 `request('before')` 호출 수 | 스크롤/commit → `TranscriptViewport` 상단 판정 → `controls.request` → `readPrevious`/`readSearchEdge` |
+| R-06 | AT-06 / AC6 → AC6′(ΔV3 §20-B) → **AC6″(ΔV4 §21-C)** | 이전 5턴 앞삽입(행 높이가 추정 140px와 다른 행 포함)에서 응답 commit 직전 프레임부터 정착(연속 10프레임 무변화)까지 **매 프레임** 읽던 글줄 top 변화 ≤ 1px. 3 transcript 화면 · 자동 트리거(휠 없음)와 휠 트리거 둘 다 | Electron 실기 프레임 기록 — 프레임별 글줄 top | 실제 Chromium → production `TranscriptView` |
 | R-07 | AT-07 / AC7 | 열기 첫 응답 = 최신 5턴(한도 안이면 5턴 전부, before `earlierTurn`). 한도 초과면 한도 직전까지 + before `withinUnit`, 유휴마다 같은 단위 잔여 1묶음, 5번째 턴 첫 메시지까지 채우면 before `earlierTurn`이고 자동 연쇄 0. 상단 로드 1회 = 이전 5턴 단위(같은 규칙). 5턴 미만이면 전부·before 없음 | data 응답 메시지 ID 목록·경계 종류·응답 수 / 창 자동 요청 수 | `sessionApi.page` → data `history-page` → 창 `readPrevious`·유휴 훅 |
 | R-08 | AT-08 / AC8 (예산은 ΔV3 AC14) | 50,001자 블록 · 노드 20,001 · 표 2,001행 · 열 501 · 머리+한 행 50,001자 · 각주 문서 50,001자 · 스트리밍 꼬리 50,001자가 모두 hast로 렌더된다 — `data-md-block-raw`·`data-markdown-tail="final"` 0, 워커 결과에 `tooLarge` 형 없음 | 워커 파서 결과 형 · 블록 분류 `raw` false · 렌더 표지 | `computeClient` → 워커 `markdownBlock` → `VirtualMarkdownView`/`WorkerMarkdownTail` → `MarkdownHast` |
 | R-09 | AT-09 / AC9 → **AC9′(ΔV3 §20-B)** | 연속 오류 턴 6개(Code·Work · 저장된 error part · 응답 중단 status · 열기 후와 실시간 전송 후)에서 인접 오류 버블 사이 세로 거리가 모두 같다(±1px) | Electron 실기 DOM 거리 | production `TranscriptView` |
 | R-10 | AT-10 / AC10 → **AC10′(ΔV3 §20-B)** | Code: 도구 블록 위 간격(앞 블록 끝→도구 위) = 아래 간격(도구 끝→다음 블록 위) = 12px(±1). 그룹 안 카드 사이 4px. Work: 도구 행 사이 8px | Electron 실기 DOM 거리 + 블록 gap 값 | production `TranscriptView` |
 | R-11 | AT-11 / AC11 → **AC11′(ΔV3 §20-B)** | Write 654줄 → 머리 “+654”. 400줄·64,000자를 넘는 Edit·MultiEdit·OpenCode patch도 워커 결과로 +N/−M 표시(계산 중 빈 칸 → 도착 후 표시). 수치는 동기 경로와 같은 규칙(`diffLines` 줄 수) | 카드 머리 텍스트 · 동기/워커 결과 대조 | `ToolCard`/OpenCode 파일 카드 → `toolDiffStat` → (초과) `computeClient` → 워커 |
 | R-12 | AT-12 / AC12 (ΔV2) | 대상 세션의 표시 위치가 목표와 다르면 실제 본문·스크롤바가 중간 위치를 거쳐 최신 하단에 정착한다(오차 ≤ 1 CSS px). 처음 그리는 본문은 하단에서 등장한다. 점프·빈 프레임·이전 세션 재노출 0회. 사용자 입력 시 이동 취소, 축소 모션은 즉시 정착 | Electron `openFrames`에서 가시 글줄·실제 scrollTop·표시 진행률을 매 프레임 기록(§10-A) | 이력 목록 → `chatActions.loadSession` → 하네스 제어기 → 공통 뷰포트 |
-| R-13 | AT-13 / AC13 (ΔV3) | 아티팩트 미리보기 세 경우: (a) 레코드 파일이 서비스 루트에 있음 → 열림 · (b) 같은 레코드를 다른 루트의 서비스로 엶 → `missing` + 진단 로그(확인한 루트 종류·상대 경로) · (c) 파일 삭제 → `missing`. (a) 실패는 결함 | §20-B AC13 | 카드 클릭 → `openArtifactViewer` → `artifactApi.preview` → data `artifacts` 핸들러 → `ArtifactService.preview` → `own` → `inspect` |
-| R-14 | AT-14 / AC14 (ΔV3) | 큰 본문 자동 로드·Markdown 렌더 동안 렌더러 메인 스레드 장기 작업(> 50ms) 0건 — 입력 B1(4 MiB 단일 text)·B2(1 MiB 혼합 Markdown)·B3(50,001자 이상 스트리밍 꼬리) | §20-B AC14 · §20-D | 페이지 commit → 자동 본문 → 워커 `historyBody` → 블록 파이프라인 → `MarkdownHast` 분할 커밋 |
-| R-15 | AT-15 / AC15 (ΔV3) | 앞삽입 보정은 부드러운 스크롤을 쓰지 않는다 — 스크롤 컨테이너에 `scroll-behavior: smooth`가 걸려도, 하단 이동(AC12) 도중이어도 AC6′가 성립한다 | §20-B AC15 · §20-E | 공통 뷰포트 `writeScrollTop` 소유자별 쓰기 |
+| R-13 | AT-13 / AC13 (ΔV3) → **AC13′(ΔV4 §21-C)** | 아티팩트 미리보기 세 경우: (a) 레코드 파일이 서비스 루트에 있음 → 열림 · (b) 같은 레코드를 다른 루트의 서비스로 엶 → `missing` + 진단 로그(확인한 루트 종류·상대 경로) · (c) 파일 삭제 → `missing`. (a) 실패는 결함 | §20-B AC13 | 카드 클릭 → `openArtifactViewer` → `artifactApi.preview` → data `artifacts` 핸들러 → `ArtifactService.preview` → `own` → `inspect` |
+| R-14 | AT-14 / AC14 (ΔV3) → **AC14′(ΔV4 §21-C)** | 큰 본문 자동 로드·Markdown 렌더 동안 렌더러 메인 스레드 장기 작업(> 50ms) 0건 — 입력 B1(4 MiB 단일 text)·B2(1 MiB 혼합 Markdown)·B3(50,001자 이상 스트리밍 꼬리) | §20-B AC14 · §20-D | 페이지 commit → 자동 본문 → 워커 `historyBody` → 블록 파이프라인 → `MarkdownHast` 분할 커밋 |
+| R-15 | AT-15 / AC15 (ΔV3) → **AC15′(ΔV4 §21-C)** | 앞삽입 보정은 부드러운 스크롤을 쓰지 않는다 — 스크롤 컨테이너에 `scroll-behavior: smooth`가 걸려도, 하단 이동(AC12) 도중이어도 AC6′가 성립한다 | §20-B AC15 · §20-E | 공통 뷰포트 `writeScrollTop` 소유자별 쓰기 |
+| R-16 | AT-16 / AC16 (ΔV4) | 최상단 당김·로딩 — 당김 열림·간격 유지·성공 시 같은 페인트 앞삽입·실패 시 토스트 1회와 원위치 복귀·이력 끝 무반응 | §21-C AC16 · §21-D | 실제 상향 휠 → `TranscriptViewport` 당김 영역 → 이력 store 조회 → 앞삽입/실패 통지 |
+| R-17 | AT-17 / AC17 (ΔV4) | 하단 이동 중 이전 이력 도착: 일시정지 → 앵커 앞삽입 → 취소 없을 때만 새 하단으로 재개 · 사용자 상향 입력은 하단 추종 취소 | §21-C AC17 | 세션 열기 하단 이동(AC12) → 단위 채움 응답 → 공통 뷰포트 |
 
 ### AC 검증 주의사항
 
@@ -238,7 +249,7 @@
 | Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
 |---|---|---|---|
 | app subtree | `app/**` 변경 | `app/AGENTS.md` 로컬 확인 목록 전부(가드 6종·lint·typecheck·필터 없는 vitest·`node --test scripts/*.test.mjs`·build+smoke 2종) | 이번 변경이 유발한 실패 · 변경 파일의 가드 위반 |
-| Electron 실기 스크립트 | AC6·AC9·AC10·AC12·ST-01 | `xvfb-run -a node scripts/check-transcript-history.mjs` · `--layout` | exit 1만 blocking · exit 3(바이너리 없음)은 환경 |
+| Electron 실기 스크립트 | AC6″·AC9′·AC10′·AC12·AC14′·AC15′·AC16·AC17·ST-01 (ΔV4 갱신) | `xvfb-run -a node scripts/check-transcript-history.mjs`(기본 — `frames`·`framesWheel`·`framesUnit`·`framesSmoothCss`·`openFrames`·`unitOpen`·`pull*`·`entryPrepend`) · `--layout`(`workDot`·`errorRun`·`toolSpacing`·`editStat`) · `--perf`(`bigBody` B1~B5) | exit 1만 blocking · exit 3(바이너리 없음)은 환경 |
 | 문서 인벤토리 | IPC·요청 종류 변경 | `node scripts/check-doc-inventory.mjs --check` | 재생성 누락 |
 | repository | handoff 산출물 | INDEX 행·trailer 파싱 | 현재 변경만 |
 
@@ -629,6 +640,113 @@ data 색인 → history-page(5턴·withinUnit) → zod → transport → chatSto
 | 깊이 전환과 transcript | M5 — 영향 0 | 0332 D-009 “깊이 진입과 뒤로 가기는 패널 안에서” | 일치 |
 | 렌더러 작업 예산 | AC14 50ms | 0332 §10-A “0324의 renderer 한 작업 50ms 예산” | 일치 |
 | 산출물 열기 | AC13 — 실패면 패널 공간 0(0242 D-014) | 0332 AC14 — 성공일 때만 push | 일치 |
+
+## 21. ΔV4 — PR #656 2차 리뷰 보완과 최상단 당김
+
+**판정: 2차 리뷰의 남은 보완 4건과 새 사용자 요구(최상단 당김·로딩)를 모두 채택했다 — 기각 0.** 기준은 `09d8b2ae`, 줄 번호는 기준 트리 `18b5d5f`, 검색은 `app/`에서 실행한다.
+
+### 21-A. 리뷰 지적 ↔ 반영 대조
+
+| 리뷰 지적(원문 요지) | 판정 | 반영 |
+|---|---|---|
+| 일반 산출물(`category === 'file'`)은 `inspectOutputFile`이 `inputSource`·임시 폴더를 본다 — 두 경로 각각 정상·누락·불일치 검증 | 채택 | D-026 · AC13′ · EP-14′ |
+| 워커 문서 예산 3,200만 자 — 더 큰 문서는 등록 전 분할(지금은 영영 대기: `client.ts:453-464` `available` 거짓이면 대기만) | 채택 | D-025 ① · AC14′ B5 · EP-13′ |
+| 단일 문단 인라인 노드 2만 개 초과도 커밋 분할 | 채택 — 분할을 깊이 제한 없이 인라인까지 | D-025 ② · AC14′ B4 |
+| 스트리밍 측정 종료 = 마지막 입력 글자 서식 적용 완료 | 채택 | D-025 ③ · AC14′ B3 |
+| 하단 이동 중 이전 이력 도착 순서 · 사용자 상향 입력은 하단 추종 취소 | 채택 | D-024 · AC17 · EP-17 |
+| §6 범위 문구 정정 · `EP-2′` 정의 · 운영 gate에 `--perf` | 채택 | §6(ΔV4 정정) · §21-F EP-2′ · 운영 gate 표(ΔV4 갱신) |
+| 새 요구: 최상단 당김·로딩 · 소유자 연결 · D-005·AC4·AC5′·AC6′·AC15 적용 구간 | 채택 | D-022·D-023 · AC4″·AC5″·AC6″·AC15′·AC16 · EP-16 |
+
+### 21-B. 당김 상태 (D-022·D-023)
+
+당김 공간은 머리 위의 별도 요소(`[data-history-pull]`, 높이 `HISTORY_PULL_HEIGHT_PX = 48`)다. 상태는 공통 `TranscriptViewport`가, 조회는 이력 store가 갖는다.
+
+| # | 상태·사건 | 동작 | 화면 |
+|---|---|---|---|
+| P1 | 최상단 도달 · before = ready | F1로 이전 5턴 1회 요청(당김 없음) | 머리 슬롯 스피너 |
+| P2 | before = loading · `scrollTop = 0` · 상향 휠/트랙패드(`deltaY < 0`) | 당김 열기: 0 → 48px, 200ms ease-out · 그 입력의 기본 스크롤 막음 | 본문이 부드럽게 내려가고 당김 공간에 스피너(머리 스피너는 숨김) |
+| P3 | 열림·유지 중 추가 상향 입력 | 높이 불변 · 요청 0(F5·F6) | 간격 유지 |
+| P4 | 열림·유지 중 입력 멈춤 | 높이 불변 | 간격 유지 |
+| P5 | before = end 또는 error · 상향 입력 | 당김 0 · 요청 0 | 변화 없음(error는 머리 ‘다시 시도’) |
+| P6 | 성공 응답 반영 | 반영 직전 글줄 L 기록 → 같은 commit에서 당김 높이 0(전환 없음) + 앞삽입 + `anchor` 즉시 보정 → 같은 페인트 | 스피너 자리를 이전 대화의 끝부분이 채운다 · L 고정 |
+| P6s | 성공이지만 앞삽입 높이 + 머리 < 48px | 부족분 d만큼 위쪽 여백을 같은 commit에 남겨 L 고정 → 다음 판정(F4)에서 더 읽거나 끝이면 d를 200ms로 닫는다 | 빈 프레임·본문 튐 0 |
+| P7 | 실패(응답 실패·세대 불일치·앞삽입 거절) | 스피너 제거 · 토스트 1회(요청 번호당) · 당김 48 → 0, 200ms ease-out · 삽입 0 · 자동 재요청 0 | 본문이 당기기 전 위치로 돌아오고 머리에 ‘다시 시도’ |
+| P8 | 세션 전환·보기 닫기 | 당김 즉시 0 · 진행 중 응답 폐기(0329 세대) | 새 세션은 당김 없이 시작 |
+| P9 | 축소 모션 | P2·P7·P6s의 200ms 전환 생략 · 같은 최종 상태 | — |
+
+### 21-C. AC 변경·추가
+
+| AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| AC4″ (CHANGED — AC4 대체) | 머리 슬롯은 ready·loading·error·end에서 같은 높이 클래스, 문구 0(‘이전 부분 보기’·‘대화 시작’·당김 문구). 당기지 않은 loading은 머리 스피너 1, 당긴 loading은 당김 공간 스피너 1·머리 스피너 0. error는 ‘다시 시도’ 버튼 | `HistoryEdge.test.ts` 상태 4 × 당김 2 | `useHistoryControls` → `TranscriptViewport` → 당김 영역·`HistoryEdge` |
+| AC5″ (CHANGED — AC5′ 대체) | AC5′(F1~F9)에 더해 당김 P2~P5는 요청을 만들지 않는다(진행 중 요청 1 유지). 추가 상향 입력이 없는 스크롤바·키보드·짧은 화면에서도 F1 자동 조회는 그대로다 | `TranscriptViewport.history.test.ts` F1~F9 + P2~P5(입력별 요청 수) | 스크롤/휠 → `headInView`·당김 → store 관문 |
+| AC6″ (CHANGED — AC6′ 대체) | 측정 시작은 **응답 반영 직전 프레임**이다(당김 중이면 당겨진 위치 — 당김으로 본문이 움직이는 것은 정상). 그 프레임의 글줄 L(메시지·part·글자 위치·뒤 20자)이 정착까지 매 프레임 ① top 변화 ≤ 1 CSS px ② 처음 좌표의 글이 같다. 당김 공간 제거·앞삽입·스크롤바 보정이 같은 페인트 — 공간만 먼저 닫힌 프레임·빈 프레임·한 번 튐 = 실패 | Electron `frames`·`framesWheel`·`framesUnit`·`pullSuccess`(당김 뒤 성공) | 실제 Chromium → `TranscriptView` 3화면 |
+| AC13′ (CHANGED — AC13 대체) | 경로 2 × 경우 3: 관리형 (a) 루트 안 정상 파일 → 열림 · (b) 삭제 → `missing` · (c) 다른 루트의 서비스(dev `.dev`) → `missing` / 일반 산출물 (a) 임시 폴더 안 정상 파일 → 열림 · (b) 삭제 → `missing` · (c) `inputSource` 부모가 현재 임시 폴더와 다름 → `unsafe-path`. (a) 실패는 결함, (c)로만 재현되면 환경 차이. 실패마다 진단 로그 1줄, 화면은 실패 안내·패널 공간 0 | `main/features/artifacts/service.test.ts` 6케이스(임시 루트·임시 폴더 주입) · 로그 싱크 · `artifactViewerStore` 안내 | 카드 → `openArtifactViewer` → `artifactApi.preview` → `ArtifactService.preview` → `own` → `inspect` 분기(`service.ts:268-270`) |
+| AC14′ (CHANGED — AC14 대체) | 입력 B1~B5 각각 렌더러 메인 스레드 `longtask`(> 50ms) 0건이고 끝에 정상 Markdown이 보인다. **B4** 문단 하나에 인라인 노드 25,000개(인라인 코드·링크 교대) · **B5** 40,000,000자 Markdown 문서(등록 분할로 완료 — 영구 대기 0). 구간: B1·B2·B4·B5는 첫 `body` 응답부터 `data-md-block-pending` 0 + 10프레임 무변화까지, **B3은 마지막 delta의 마지막 글자까지 서식이 적용된 시점**까지 | Electron `--perf` `bigBody` B1~B5 × 2화면 × 3회 · `MarkdownHast.test.ts` 인라인 분할 · `markdownSegments.test.ts` 분할 경계 | 자동 본문 → 워커 `historyBody` → 문서 분할 등록 → 워커 `markdown` → 분할 커밋 |
+| AC15′ (CHANGED — AC15 대체) | `anchor`·`virtualizer` 쓰기는 즉시다 — CSS `scroll-behavior: smooth` 주입·AC12 하단 이동 도중·당김 중에도 AC6″ 성립. 적용 구간: 당김 열기(P2)·실패 닫기(P7)·부족분 닫기(P6s)는 **당김 공간 높이 전환**이라 스크롤 쓰기가 아니다. 성공 반영의 당김 제거(P6)는 전환 없이 같은 페인트 | `writeScrollTop` 단위 + Electron `framesSmoothCss`·`pullSuccess` | 공통 뷰포트 |
+| AC16 (NEW) | 실제 상향 휠·지연 응답으로: ① 당김 중간 프레임(높이 0과 48 사이) 존재 ② 스피너가 보인 뒤 입력 중단·연속 입력 모두 간격 48±1 유지·요청 1 ③ 성공: AC6″ + 이전 대화 마지막 메시지 아래 끝이 L이 든 블록 위 간격(머리·gap 규칙)과 맞닿음 ④ 실패: `reportError({ title: 'historyLoadFailed' })` 요청당 1회, 토스트 1, 당김 높이 0까지 중간 프레임 존재, 본문 첫 블록 top = 당기기 전 값 ±1, 삽입 0, 추가 요청 0 ⑤ 이력 끝: 당김·스피너·요청 0 ⑥ Claude Code·Claude Work·OpenCode 같은 결과 | Electron `pullHold`·`pullSuccess`·`pullFailure`·`pullEnd`·`pullShort`(P6s) 3화면 · store 테스트 `AC16 one failure report per request` | 휠 → `TranscriptViewport` → store `readPrevious`/`readSearchEdge` → 앞삽입·`reportError` |
+| AC17 (NEW) | AC12 하단 이동 중 단위 채움 응답이 오면 ① 이동 일시정지(그 사이 `scrollTop` 진행 0) ② 반영 직전 글줄 기준 즉시 보정(AC6″ 성립) ③ 사용자가 취소하지 않았으면 새 하단으로 이동 재개, 하단 오차 ≤ 1px. 이동 중 사용자 상향 입력(휠·당김·스크롤바·위쪽 키)이 오면 하단 추종 취소 · 재개 0 | Electron `entryPrepend`(재개)·`entryCancel`(취소) | 세션 열기 → M2 → 단위 채움 → 공통 뷰포트 |
+
+### 21-D. 큰 본문 분할 보완 (D-025)
+
+| 지점 | 규칙 | 근거 |
+|---|---|---|
+| 문서 등록 | 등록 단위 = 연속 Markdown 블록 묶음 ≤ `MARKDOWN_DOC_SEGMENT_MAX_CHARS = 8,000,000`(신규 — `COMPUTE_DOC_MAX_CHARS` 32,000,000의 ¼, 다른 문서와 함께 상주 가능). 블록 하나가 넘으면 줄 경계로, 줄이 없으면 글자 경계로 자른다 | `client.ts:453-464` — `reserved + text.length <= capacity`가 거짓인 문서는 `available`이 영영 참이 되지 않는다 |
+| 커밋 분할 | `MarkdownHast`가 hast를 커밋당 노드 ≤ 20,000으로 나눈다 — 자식 합이 예산을 넘는 요소는 그 요소의 자식(인라인 포함)으로 내려가 나누고, 앞 조각은 그대로 둔 채 다음 프레임에 이어 붙인다 | 문단 하나의 인라인 2만 개 초과(B4) |
+| 스트리밍 종료 | B3 측정은 마지막 delta가 꼬리에 들어가 그 마지막 글자까지 hast로 렌더된 시점(`data-markdown-tail="parsed"`·파싱 길이 = 꼬리 길이)에 끝난다 | 2차 리뷰 |
+| 선언 경계 | 줄·글자 경계로 자른 블록 조각은 조각마다 따로 파싱된다 — 조각 경계를 걸친 인라인 구문은 조각별로 그린다(블록 하나가 8,000,000자를 넘는 경우만) | 측정 입력 B5 |
+
+### 21-E. V 변경 (ΔV4)
+
+| Node | provenance | 대체/출처 |
+|---|---|---|
+| R-04·R-05·R-06·R-13·R-14·R-15 / 같은 번호 AT | CHANGED (ΔV4) | §21-C |
+| R-16·R-17 / AT-16·AT-17 | NEW (ΔV4) | §21-C |
+| SD-01 | CHANGED — 수명에 당김(P1~P9)과 하단 이동 중 앞삽입(D-024) 추가 | §21-B |
+| AR-05 | CHANGED — 일반 산출물 경로 | EP-14′ |
+| MD-10 | NEW — 당김 상태 기계(viewport) | EP-16 |
+| MD-11 | NEW — 문서 분할 등록 | EP-13′ |
+
+| Pair | left ↔ right | requiredness | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|
+| VP-04″ | R-04 ↔ AT-04 | REQUIRED | `HistoryEdge.test.ts` `AC4″ four states × pulled` | not selected | EP-4 · EP-16 ⑨ |
+| VP-05″ | R-05 ↔ AT-05 | REQUIRED | `TranscriptViewport.history.test.ts` `AC5″ F1-F9 and P2-P5` | required — P3에서 요청을 다시 부르는 변이(요청 2 red) | EP-5′ · EP-16 ①② |
+| VP-06″ | R-06 ↔ AT-06 | REQUIRED | `gate:… check-transcript-history.mjs` `frames`·`framesWheel`·`framesUnit`·`pullSuccess` | required — 당김 제거를 앞삽입 다음 프레임으로 미루는 변이(`pullSuccess` red) | EP-6 · EP-16 ⑤ |
+| VP-28′ | R-13 ↔ AT-13 | REQUIRED | `service.test.ts` `AC13′ managed (a)(b)(c) · output (a)(b)(c)` · 로그 싱크 | required — `inspect` 분기를 관리형으로 고정한 변이(일반 (a) red) | EP-14′ |
+| VP-29′ | R-14 ↔ AT-14 | REQUIRED | `gate:… --perf` `bigBody` B1~B5 · `MarkdownHast.test.ts` `AC14′ splits 25,000 inline nodes` · `markdownSegments.test.ts` `AC14′ 40M chars register in segments ≤ 8M` | required — 분할 없이 통째 등록하는 변이(B5 영구 대기 → red) | EP-13′ |
+| VP-30′ | R-15 ↔ AT-15 | REQUIRED | VP-30 좌표 + `pullSuccess` | VP-30 등록 유지 | EP-15 |
+| VP-33 | R-16 ↔ AT-16 | REQUIRED | `gate:… check-transcript-history.mjs` `pullHold`·`pullSuccess`·`pullFailure`·`pullEnd`·`pullShort` 3화면 · `chatStore` 테스트 `AC16 one failure report per request`(실패 지점 4 × 입력 1) | required — 실패 닫기 전환 제거 변이(`pullFailure` 중간 프레임 red) · 요청당 1회 검사 제거 변이(같은 요청 두 번 보고 red) | EP-16(9) |
+| VP-34 | R-17 ↔ AT-17 | REQUIRED | `gate:… check-transcript-history.mjs` `entryPrepend`·`entryCancel` | required — 일시정지 없이 이동 중 보정하는 변이(`entryPrepend`의 L red) · 취소 무시 변이(`entryCancel` 재개 red) | EP-17(4) |
+| VP-35 | MD-10 ↔ UT-10 | REQUIRED | 신규 `historyPull.test.ts`(순수 상태 기계 P1~P9 — 상태 × 사건 입력 9) | not selected | EP-16 |
+
+### 21-F. §10 추가·대체 행
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 · 제외 줄 | 실패 의미 |
+|---|---|---|---|---|
+| MD-02 / VP-01′ · **EP-2′**(정의 — §20-F가 참조) | 한 화면 턴의 도구 묶음: Claude는 EP-2 규칙, OpenCode는 화면에 안 그리는 reasoning·공백 text로만 갈린 tools 세그먼트를 `groupTools` 전에 합친다(탐색만 묶는 규칙 유지) | 7자리 — EP-2 ①~⑤(5) + ⑥ `openCodeBlocks.ts:473` reasoning 건너뛰기(합침 경계에서 투명) ⑦ `openCodeBlocks.ts:487` `groupTools` 입력(합친 calls) | EP-2 명령 + `rg -n "seg.kind === 'reasoning'\|groupTools\(" src/renderer/src/features/chat/harnesses/opencode/transcript/openCodeBlocks.ts` → 2 | o2(숨은 reasoning)·o1(공백 text)에서 탐색 묶음이 갈린다 |
+| MD-11·MD-08 / VP-29′ · **EP-13′**(EP-13 대체) | EP-13 + 문서 분할 등록 + 인라인 커밋 분할 + 스트리밍 종료 표지 | 12자리 — EP-13 ①~⑩ + ⑪ `client.ts:450` `openDocument`(markdown 레인은 분할된 등록 단위만 받음 — 단위 > 8,000,000자는 등록 전 분할) ⑫ markdown 레인 등록 호출자의 분할: `VirtualMarkdownView.tsx:98`(`useComputeDocument`) · `WorkerMarkdownTail.tsx:41`(꼬리 문서) · 신규 완료 본문 블록 경로 | EP-13 명령 + `rg -n "openDocument\(\|useComputeDocument\(" src/renderer/src --glob '!*.test.*'` → 17 · 운반 3(`client.ts:450`·`VirtualMarkdownView.tsx:98`·`WorkerMarkdownTail.tsx:41`) + 신규 1 · 제외 14: `client.ts:84,147`(선언·레인 위임) · `useComputeDocument.ts:7,22`(공용 훅 — 호출자가 분할) · compute 레인(코드·diff) 10줄 `VirtualCodeView.tsx:149`·`useSmallDiffSyntax.ts:24`·`useDiffAxes.ts:36,44`·`DiffTable.tsx:207,357,366,367,385`·`FileDiffSection.tsx:349`(Markdown 아님 — 선언 경계) | 큰 문서가 영영 파싱되지 않거나 문단 하나가 창을 50ms 넘게 잡는다 |
+| AR-05 / VP-28′ · **EP-14′**(EP-14 대체) | 경로 2 × 경우 3 · 진단 로그 | 10자리 — EP-14 ①~⑦ + ⑧ `service.ts:268-270` `inspect` 분기 ⑨ `files.ts:209-225` `inspectOutputFile`(부모 = 임시 폴더 검사) ⑩ `infra/config/temp-path.ts:8-9` 임시 폴더 | EP-14 명령 + `rg -n "private inspect\(\|export async function inspectOutputFile\|export const getTemporaryFilesPath" src/main` → 3 | 일반 산출물 정상 파일을 못 열거나 불일치를 결함으로 오판한다 |
+| MD-10·SD-01 / VP-33·VP-35 · **EP-16** | P1~P9 · 소유 = viewport(당김·복귀·보정) · store(조회·중복·실패 1회) | 9자리 — ① 휠 `TranscriptViewport.tsx:732,735` ② 제스처 `historyGesture.ts:22,28` ③ 당김 상태 `TranscriptViewport.tsx:220,701,721-726,780`(구 당김 표시 → 상태 기계) ④ 당김 공간 렌더 `:938` 머리 영역 ⑤ 성공 같은 페인트 제거 — 앞삽입 캡처·복원(`:270-302`) ⑥ 실패 1회 통지 `chatStore.ts:2795`(before 방향만)·`:2851`·`:2863`·`:2874` ⑦ 토스트 제목 `shared/app-error.ts:4` `historyLoadFailed` + `ko`·`en` 문구 ⑧ 세션 전환 초기화 `TranscriptViewport.tsx:310` ⑨ 스피너 위치 `HistoryEdge.tsx:21,25,29,51` | `rg -n "pulling\|setPulling\|pullFrame\|consumedPull\|gesture\.wheel\|beforeState: 'error'\|\[stateKey\]: 'error'" src/renderer/src/features/chat --glob '!*.test.*'` → 24 + `rg -n "APP_ERROR_TITLES = \[" src/shared/app-error.ts` → 1 · 운반 24 · 제외 1: `TranscriptViewport.tsx:995`(아래 끝 — 비변경) | 당김이 접히거나 벌어지고, 성공 때 튀거나 실패 토스트가 없거나 겹친다 |
+| SD-01 / VP-34 · **EP-17** | D-024 순서 | 4자리 — ① 하단 이동 드라이버(Claude `useScrollAnchor.ts:138` · OpenCode EP-12 이동 — 같은 공통 이동 함수) 일시정지·재개 ② 고정 앞삽입 분기 `TranscriptViewport.tsx:234,260,282,845,857` — 하단 이동 중이면 즉시 하단 점프가 아니라 L 앵커 ③ 보정 종료 콜백 `:295` → 재개 지점 ④ 취소 입력 `cancel()`(`:680-699`)·휠·키·pointerdown = 하단 추종 취소 | `rg -n "pinnedPrepend\|beginCorrection\(\|'smooth'" src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx src/renderer/src/features/chat/harnesses/claude/transcript/useScrollAnchor.ts src/renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.tsx` → 8 · 운반 7 · 제외 1: `TranscriptViewport.tsx:98`(쓰기 함수 — EP-15 ①) | 하단 이동이 앞삽입을 덮어 읽던 줄이 튀거나 취소한 추종이 되살아난다 |
+
+- **선언 경계(ΔV4 추가)**: compute 레인(코드·diff) 문서의 32,000,000자 초과 등록(기존 `unavailable` 경로 — Markdown 아님) · 8,000,000자를 넘는 단일 블록의 조각 경계 인라인(§21-D) · 아래 끝(after) 당김(요구는 최상단) · 검색 보기 after 방향 실패 토스트(위쪽 실패만 D-022).
+- 규칙 칸 ↔ 입력: P1~P9 → VP-35 입력 9 · AC13′ 6경우 → VP-28′ 입력 6 · B1~B5 → VP-29′ 입력 5 · AC17 재개·취소 → VP-34 입력 2 · 실패 지점 4 → VP-33 store 입력 4.
+
+### 21-G. 0332와 공통 동작 대조 (ΔV4)
+
+| 대상 | 0331 | 0332 | 판정 |
+|---|---|---|---|
+| 당김 중 패널 열기·닫기 | 당김은 transcript 안 상단 영역 — 패널 폭 변화(M4)와 독립, L 유지는 M3 | EP-7 재배치 · 기존 검증 유지 | 일치(서로 다른 축) |
+| 하단 이동 중 패널 폭 변화 | M2는 새 하단으로 목표 갱신 | EP-7 “하단을 보던 사용자는 하단” | 일치 |
+
+## READY self-review (V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4)
+
+- [x] ΔV4: 2차 리뷰 7건(보완 4 + 새 요구 1 + 정정 2) 모두 §21-A에 판정·반영 위치 — 기각 0.
+- [x] ΔV4: D-005 → D-023, D-018 → D-025, D-019 → D-026 SUPERSEDED · D-022~D-026 ↔ AC 대조 충돌 0(§3 갱신 메모).
+- [x] ΔV4: 새 요구의 적용 구간을 D-023·AC4″·AC5″·AC6″·AC15′에 적었다 — 측정 시작은 응답 반영 직전, 당김 움직임은 입력 이동.
+- [x] ΔV4: §6 범위 문구·`EP-2′` 정의·운영 gate `--perf`를 고쳤다.
+- [x] ΔV4: 규칙 칸 ↔ 입력 1:1(§21-F 마지막 줄) · AC 총 17.
+- [x] ΔV4: 0332 공통 동작 대조(§21-G) 일치 · AC12·0332 AC11·AC12는 기존 검증 유지.
 
 ## READY self-review (V1 + ΔV1 + ΔV2 + ΔV3)
 
