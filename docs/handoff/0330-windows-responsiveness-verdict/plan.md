@@ -14,7 +14,7 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **plan/READY — ΔV5(§24) · H1 잠금 `61fe6398`.** ΔV3·ΔV4는 verify 4 PASS. WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
+| 상태 | **plan/READY — ΔV5(§24) + ΔV6(§25) · H1 잠금 `61fe6398`.** ΔV3·ΔV4는 verify 4 PASS. WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
 | V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · revision **ΔV2**(§21, 설계 `d77d3f3c` · 구현 r3 `515ff58d`·`07377db7` · verify 3 `18b5d5fe`) · revision **ΔV3**(§22, 설계 `7d4e6b60` · 구현 r4 `ebb69702`) · 이번 revision **ΔV4**(§23) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2 + ΔV3 + ΔV4`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
@@ -170,6 +170,7 @@ WU-M이 끝나면 테스터는 같은 명령으로 빌드·입력·측정 도구
 | W-044 (ΔV3) | **H1 셀 생성기.** `evidence/wu-w/cells.mjs`가 W-041·W-042와 소유 §19 표에서 `plan.cells`를 만든다. 셀 `target` 키는 `<시나리오>/<하네스>/<부하 또는 입력>`이다. 생성기 출력과 `targets.json`·Node 행 원본의 SHA-256을 합의 기록(`decision.json`)과 함께 잠근다 | W-013 · H1 “필수 셀 분모를 먼저 만든다” | ACTIVE |
 | W-045 (ΔV4) | `table-row` 관측은 선택 칸 `range.label`(둘째 열)로 같은 ID의 행을 가른다 — 있으면 `\| id \| label \|` 행 1개·관측 `interval = label`, 없으면 현행(ID 행 1개). 상세 §23 | 사용자 “판독기가 ID+이름 열로 식별” · r4 K1 | ACTIVE |
 | W-046~W-049 (ΔV5) | 추출기 · 측정 프로필 env · 파일럿 · 에이전트 앱 실행. 상세 §24-B | 사용자 “모두 허용” | ACTIVE |
+| W-050~W-052 (ΔV6) | 주 스레드를 측정 표식 pid로 · 프레임 상태 키·상태·pid 정정 · 진단 DevTools 자동 열기 끔. 상세 §25-A | 현재 결함(파일럿 사전 실측) | ACTIVE |
 
 **갱신 메모(rev 3).** 추가 W-014~W-019, 대체 W-009 → W-019. rev 2의 추가 W-007~W-013·대체 W-003 → W-007은 유지한다. `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — W-014 ↔ AC8·AC9(기준선 모델), W-015 ↔ AC7(P1 ①②④·P2), W-016 ↔ AC7(P4 ④), W-017 ↔ AC10, W-018 ↔ §7-A 세 구분·AC1~AC6(WU-W), W-019 ↔ AC4(T09 행)를 나란히 읽었다. rev 2 대조(W-008 ↔ AC4 · W-010 ↔ AC7 · W-011 ↔ AC6·AC7 · W-012 ↔ AC8·AC9 · W-013 ↔ AC1·AC6)는 그대로다. W-004의 빈 값으로 통과할 수 있는 셀은 없다(P1 ①④ · P4 ⑥⑦).
 
@@ -851,7 +852,43 @@ Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어
 
 **운영 gate(ΔV5 구현 턴).** §19 H6 “WU-M 구현 턴” 목록 + `node --test scripts/windows-observe.test.mjs` + 자리 검색 분류 + VP-25 사전 실행 기록.
 
+## 25. ΔV6 — 파일럿 사전 실측의 trace 형식 정정 (현재 결함)
+
+**판정: READY.** W-048 파일럿 준비 중 진단 빌드 `515ff58d`에서 CDP로 실제 trace 2개(`C:\orca-W\pilot\raw\probe.json`·`probe2.json`)를 기록했다. §24-D 규칙 셋이 실제 형식과 어긋난다 — 출처는 현재 결함(실제 입력으로 재현)이다. §24-B 선언 경계 “DevTools 내보내기 형식이 실제로 다르면 … 새 ΔV”에 따른다.
+
+| 관측(probe2 — 26만 이벤트) | 어긋난 규칙 | 영향 |
+|---|---|---|
+| `PipelineReporter` 1,412건의 상태가 `args.frame_reporter.state`에 있다(`chrome_frame_reporter` 0건) | E3 | 프레임 지표 전부 0 — 누락이 숨는다 |
+| 상태에 `STATE_NO_UPDATE_DESIRED` 10건 | E3 | 규칙이 정하지 않은 상태 |
+| `CrRendererMain` 둘 — pid 225568(RunTask 7,028, DevTools 창) · 324780(1,322, 앱 창 — rAF 변경을 준 쪽, PipelineReporter도 이 pid) | E1 | “RunTask 최다” 규칙이 DevTools 렌더러를 고른다 |
+| `process_labels` 0건 · `TracingStartedInBrowser.args` 빈 객체 | E1 | trace만으로 앱 창 렌더러를 가를 표지가 없다 |
+
+### 25-A. 결정
+
+| ID | 결정 | 출처 | 상태 |
+|---|---|---|---|
+| W-050 (ΔV6) | **E1 대체.** 주 스레드 = `oo-measure-start` user timing 표식(`blink.user_timing`)이 찍힌 pid의 `CrRendererMain`. 표식이 없거나 그 pid에 주 스레드가 없으면 그 run의 trace 지표를 만들지 않는다. `cdp.mjs record`는 `Tracing.start` 직후 앱 창(`app://`)에 그 표식을 찍는다 | 현재 결함(probe2) | ACTIVE — §24-D E1 SUPERSEDED |
+| W-051 (ΔV6) | **E3 대체.** 상태 = `args.frame_reporter ?? args.chrome_frame_reporter`. 주 스레드 pid의 이벤트만 센다. `STATE_DROPPED`·`STATE_PRESENTED_PARTIAL` = 누락, `STATE_PRESENTED_ALL` = 표시, 그 밖(`STATE_NO_UPDATE_DESIRED` 등)은 세지 않는다. 같은 `frame_sequence`가 여럿이면 하나로 센다 | 현재 결함(probe2) | ACTIVE — §24-D E3 SUPERSEDED |
+| W-052 (ΔV6) | **진단 빌드 DevTools 자동 열기를 `OO_DIAG_DEVTOOLS=1`일 때만** 한다. 측정은 CDP(`--remote-debugging-port`)로 하고 DevTools 창은 측정 중 렌더러 부하를 더한다(probe2 RunTask 7,028 vs 앱 1,322) | 현재 결함(probe2) | ACTIVE — W-047 diff 보완 |
+
+### 25-B. Delta V
+
+| 노드 · pair | provenance | requiredness | 변경 |
+|---|---|---|---|
+| MD-07 ↔ UT-07 / VP-23 | CHANGED(ΔV6) | REQUIRED | E1·E3 입력(아래) + 실제 trace 축소본 fixture 1개(`scripts/windows-observe/fixtures/probe-min.json` — probe2에서 두 렌더러·`frame_reporter`·`NO_UPDATE_DESIRED`·표식을 담은 발췌) |
+| AR-06 ↔ IT-06 / VP-24 | INHERITED(ΔV5) | REGRESSION | 같은 시험 — 합성 trace에 표식 추가 |
+| SD-03 ↔ ST-03 / VP-25 | INHERITED(ΔV5) | REGRESSION | 재빌드 뒤 사전 실행 기록 다시 |
+
+| 자리 | 규칙 칸 | 입력 칸 |
+|---|---|---|
+| E1′ | 표식 pid의 주 스레드 · 표식 없음 → 미생성 · 표식 pid에 주 스레드 없음 → 미생성 | 렌더러 둘(RunTask 많은 쪽에 표식 없음) → 표식 쪽 · 표식 없음 · 표식이 주 스레드 없는 pid |
+| E3′ | 키 둘 다 읽음 · 주 스레드 pid만 · 상태 셋만 셈 · `frame_sequence` 중복 1개 | `frame_reporter` 입력 · 다른 pid 프레임 섞음 · `NO_UPDATE_DESIRED` 섞음 · 같은 seq 두 번 |
+
+선택 적대 증거(ΔV6): A-E1′ 표식 pid 대신 RunTask 최다로 되돌림 · A-E3′ pid 필터 제거.
+
 ## READY self-review
+
+- **ΔV6(현재 결함 — 파일럿 사전 실측)**: W-050~W-052가 §24-D E1·E3를 대체(SUPERSEDED)하고 W-047 diff를 보완. CHANGED MD-07 REQUIRED(VP-23), VP-24·25 REGRESSION. E1′·E3′ 분기마다 입력 칸. `ACTIVE 결정 ↔ AC` 대조: W-050·051 ↔ AC5(원자료에서 재계산 가능한 지표) 충돌 0.
 
 - **ΔV5(사용자 결정 “모두 허용”)**: W-046~W-049 추가. NEW MD-07·AR-06·SD-03에 REQUIRED pair(VP-23·24·25). 분모·판정 규칙 무변경(잠금 유지). E1~E8 분기마다 입력 칸. 모르는 지표는 관측 미생성(fail-closed). `ACTIVE 결정 ↔ AC` 대조: W-046 ↔ AC5(원자료 재계산) · W-047 ↔ AC1(격리 프로필) · W-048 ↔ AC1·AC5 — 충돌 0.
 
