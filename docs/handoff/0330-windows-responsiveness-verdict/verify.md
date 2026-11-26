@@ -1,3 +1,28 @@
+# verify 4 — ΔV3(r4) + ΔV4(r4.2)
+
+**판정: PASS.** 막는 발견 0. REQUIRED VP-10·20·21·22 PASS, REGRESSION VP-08·09 PASS. 확장 창: verify 4회째(창 밖)지만 ΔV3·ΔV4는 사용자 결정 ΔV라 그 NEW·CHANGED 노드는 창 안 — 확장 후보 0.
+
+| 항목 | 관측 |
+|---|---|
+| 기준선 | 설계 `7d4e6b60`(ΔV3)·`65239f79`(ΔV4)와 구현 `ebb69702`(r4)·`4e5f2453`(r4.2)가 분리됨. 새 열거 출처 = 사용자 결정 W-041~043·045, 정합 W-044 |
+| VP-20 UT | `history-seed.test.mjs` 9/9 · S1~S7 변이 전부 red |
+| VP-21 IT | `history-seed.db.test.ts` 2/2(실제 SQLite → `applyMigrations` → `loadSession`) |
+| VP-22 ST | `vp22.sh` green(시드 → cells 836·Node 107 → 판독기 exit ≠ 2) |
+| VP-10·08·09 | `windows-verdict.test.mjs` 28/28(U41 + U34·U37 + CLI 예제) |
+| ⑦ 열거 sweep | 44 실행 · 기대 일치 44(대조 green 4, 중복 가드 동치 green 1, 나머지 red). lint 서식 변경으로 원문을 잃은 3건(S4-e1-msg·S4-e1-text·W-snapshot)은 같은 자리에 재앵커해 red |
+| ⑥ 독립 축 | (A) 실제 Windows Node 출력 `node-head.txt`의 `K13 \| 5MiB codeView` 행을 CLI로: label → 충족 · 형제 값 308.12 → 원본 값 불일치 · label 없음 → 지표 없음. (B) 5개 빌드의 마이그레이션 ≤0035가 35파일·같은 blob → 시드 하나가 모든 빌드에 맞음 |
+| gate | 마지막 수정 뒤 트리: 가드 5 · lint 0 오류 · typecheck · vitest 1,152파일 실패 0 · build · smoke 2 통과. `node --test` 5 실패 = `ERR_UNKNOWN_FILE_EXTENSION ".ts"`(Node 22.15 환경), r4 전과 이름 차집합 ∅ |
+| H1 메모 | manifest `tools`가 비면 `도구 출처 불명`. 시드 세션 cwd(`<userData>/seed-work`)는 없는 폴더 — S-E 열기 경로는 cwd를 검사하지 않음(`rg` 0), 사전 실행에서 확인 |
+
+### 발견 원장 — verify 4
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| K1(Node 행 ID 중복) | PLAN_GAP | 열림(r4 구현자) | 닫힘 | — | 새 실행 |
+| K4(제품 이름 가드) | BLOCKING | 열림(r4.2 구현자) | 닫힘 | — | 새 실행 |
+
+F(4) = 0. **리뷰 필요 여부: 권고** — `mutate.py`가 Windows에서 oracle을 cmd.exe로 돌려 거짓 red를 내고 출력 디코딩에서 멈춘다(r4 Review Signals). 검증 하네스의 Windows 실행 규약을 지침에 둘지 검토.
+
 # Verify — 0330-windows-responsiveness-verdict
 
 ## 판정 — verify 3회째: **PASS** (WU-M 기계 범위)
