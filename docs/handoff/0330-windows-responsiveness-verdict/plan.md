@@ -14,7 +14,7 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **plan/READY — ΔV5(§24) + ΔV6(§25) · H1 잠금 `61fe6398`.** ΔV3·ΔV4는 verify 4 PASS. WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
+| 상태 | **impl/IN_PROGRESS — ΔV5+ΔV6 r5(VP-25 v3 재확인·파일럿 남음) · H1 잠금 `61fe6398`.** ΔV3·ΔV4는 verify 4 PASS. WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
 | V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · revision **ΔV2**(§21, 설계 `d77d3f3c` · 구현 r3 `515ff58d`·`07377db7` · verify 3 `18b5d5fe`) · revision **ΔV3**(§22, 설계 `7d4e6b60` · 구현 r4 `ebb69702`) · 이번 revision **ΔV4**(§23) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2 + ΔV3 + ΔV4`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
@@ -1343,6 +1343,67 @@ W-039·W-040의 구현은 §21-C와 일치한다. 별도 캐시·비동기 처�
 
 - 새 파일을 커밋하기 전에 돌린 gate는 추적 파일만 보는 가드(`check-product-naming`)에서 그 파일을 빠뜨린다 — r4가 그렇게 위반을 통과시켰다(K4).
 - 라벨 r4.2(같은 라운드 두 번째 impl 턴).
+
+## [구현자 기입] 설계 리뷰 (r5 — ΔV5 + ΔV6 rev 2)
+
+- **동의.** §24·§25대로 추출기(`app/scripts/windows-observe.mjs`)·진단 diff(`evidence/wu-w/diag-build.mjs` — W-047·W-052)·CDP 도구(`evidence/wu-w/cdp.mjs` — 사전 점검·기록·W-050 표식)를 만들었다. 판독기·분모(`lock/plan.json`) 무변경.
+- **이견 / 현실성.** 파일럿 준비 중 실제 trace가 §24-D E1·E3와 어긋나 ΔV6(§25)로 설계를 먼저 정정했다(설계 커밋 분리). DevTools 성능 패널 대신 CDP `Tracing`으로 기록한다 — 범주는 성능 패널과 같은 묶음이고 형식은 `traceEvents`다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r5)
+
+| pair | §10이 적은 지점 | 닫은 수 | 좌표 | 남긴 곳 |
+|---|---|---|---|---|
+| VP-23 MD-07↔UT-07 | E1′ · E2 · E3′ · E4 · E5 · E6 · E7 · E8 | 8/8 | `windows-observe.test.mjs` 9건 — E1′(표식 pid·표식 없음·주 스레드 없는 pid·다른 범주) · 실제 발췌(`fixtures/probe-min.json`, 앱 pid 324780 · 프레임 34 · 누락 4 · 최장 2 — 추출기와 독립으로 센 값) · E2(49.9/50/50.1/160/170) · E3′(같은 seq Draw+Dropped · 다른 pid · 순서 뒤집기) · E4(고아 끝 이벤트) · E5 · E6 · E7/E8 | 0 |
+| VP-24 AR-06↔IT-06 | 추출기 CLI → 판독기 CLI | 1/1 | `'observe output passes the verdict reader (AR-06)'` — 반복 3 · 잠긴 plan의 W1 셀 · 정지 120ms → `충족` · 170ms → `위반` · 원본 SHA-256 일치 | 0 |
+| VP-25 SD-03↔ST-03 | 측정 프로필 env | 1/1 | `gate:` 사전 실행(v2 빌드) — `OO_MEASURE_USER_DATA=C:\orca-W\work\prerun-515`로 기동 → 그 폴더에 `orcinus-orca.db` 생성, 실제 DB SHA-256·수정 시각 불변. v3 빌드(W-052) 재확인은 파일럿 기록에 남긴다 | v3 재확인 |
+
+| pair | requiredness | 자기 상태 | 근거 |
+|---|---|---|---|
+| VP-23 | REQUIRED | SELF_PASS | 9/9 · sweep 20/20 기대 일치 |
+| VP-24 | REQUIRED | SELF_PASS | 같은 파일 |
+| VP-25 | REQUIRED | SELF_BLOCKED | v3 빌드 재확인 전 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r5)
+
+| ID | 자리 | 결과 |
+|---|---|---|
+| A-E1′(재) | E1′ — 옛 “RunTask 최다” 규칙으로 되돌림 | 잡음 — 실제 발췌·E1′ 시험 |
+| E1′-pid · E1′-cat · E1′-none | 표식 pid 조건 · 범주 · 표식 없음 | 잡음 |
+| A-E3′ · A-E3″ · E3′-sort | pid 필터 · 같은 seq 우선순위 뒤집기 · 정렬 | 잡음 |
+| E3′-name | 허용 이름에 PipelineReporter 추가 | 동치 — PipelineReporter에 `args.frameSeqId` 없음(발췌 53건 중 0) → `Number.isFinite`에서 빠진다 |
+| A-E2 · E2-over · E2-empty · E3-run · A-E4 · E4-pair · A-E7 · E7-diff · E7-kind · E8-span | E2·E3·E4·E7·E8 | 잡음 |
+| (ΔV5 1차) E1-filter · E4-pair · E6-num | — | 첫 실행 `못 잡음` 2(E1-filter·E4-pair) → 입력 추가 뒤 잡음 |
+
+검산: 선택 증거 6(A-E1′·A-E2·A-E3′·A-E3″·A-E4·A-E7) · 새 oracle 2(UT 파일·AR 시험) · sweep 20 · 대조 1.
+
+## [구현자 기입] Product/UX 파생 검토 (r5)
+
+해당 없음 — 측정 도구. 진단 빌드는 DevTools를 자동으로 열지 않는다(W-052) — 측정자가 콘솔이 필요하면 `OO_DIAG_DEVTOOLS=1`로 띄운다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r5)
+
+| # | 발견 | 관측 | 처리 |
+|---|---|---|---|
+| K6 | 실제 trace 형식이 §24-D와 달랐다(`frame_reporter` 키 · 한 seq 보고자 둘 · DevTools 렌더러가 주 스레드로 뽑힘 · 프로세스 이름표 없음) | `probe2.json`·`probe3.json`(진단 `515ff58d`) | PLAN_GAP → ΔV6 rev 2로 설계 정정 뒤 구현 |
+| K7 | 시험 fixture의 원본 경로 메타데이터가 제품 이름 가드에 걸렸다 | `check-product-naming` 위반 1 | 선조치 — 설명 문구로 교체, OK 2,809파일 |
+| K8 | `mutate.py`가 Windows에서 여러 줄 앵커를 CRLF로 놓치고, 비ASCII 출력에서 cp949 인코딩 오류로 멈춘다 | SKIP·`UnicodeEncodeError` | 우회 — LF 복원 · `PYTHONIOENCODING=utf-8` |
+
+## [구현자 기입] 구현 보고 (r5)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 `app/scripts/windows-observe.mjs` · `windows-observe.test.mjs` · `windows-observe/fixtures/probe-min.json` · `evidence/wu-w/cdp.mjs` · `evidence/wu-w/diag-build.mjs` |
+| 관측한 게이트 산출 | 마지막 수정(K7) 앞 트리에서 가드 4 exit 0 · lint 오류 0·경고 12 · typecheck 0 · vitest 1,152파일 실패 0 · `node --test` 1,169 통과·5 실패(Node 22.15 `.ts` — r4와 이름 차집합 ∅) · build·smoke 2 exit 0. K7 뒤 `check-product-naming` OK · 추출기 9/9 재실행 |
+| 진단 빌드 v3 | diff SHA-256 `d8684684`·`7c241d19` = `d1d61e66…`, `515ff58d` = `b66ed092…` · exe SHA-256 `5b157ac5…`·`81327dd6…`·`8eee1b46…`(`C:\orca-W\run1\diag-log.txt`) |
+| V-pair 자기확인 | SELF_PASS 2 · SELF_BLOCKED 1(VP-25 v3 재확인) |
+| 합계 검산 | pair ✅ 2 · ⚠️ 1 · ❌ 0 = 총 3 |
+| 대상 커밋 | (r5 구현 — 좌표는 INDEX) |
+
+## [구현자 기입] Review Signals — 사실만 (r5)
+
+- 계약 fixture를 합성 이벤트로만 만들면 실제 형식 차이(K6)를 못 본다 — 실제 발췌 fixture를 넣은 뒤에야 잠겼다.
+- `mutate.py` Windows 결함 두 번째(K8) — verify 4의 리뷰 권고와 같은 축.
+- 라벨 r5.
 
 ---
 
