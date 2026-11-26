@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/explicit-function-return-type -- This script is pasted directly into DevTools as JavaScript. */
 // Paste into the diagnostic window before recording a selection in DevTools.
 ;(() => {
   function visible(row, bounds) {

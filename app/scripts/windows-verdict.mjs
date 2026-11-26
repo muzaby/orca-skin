@@ -620,7 +620,7 @@ export function evaluate({
     textValue(agreement.by)
   if (!agreed) report.holds.push('합의 불일치')
   const lastRun = index.runs
-    .filter((run) => run.sample === 'w')
+    .filter((run) => run.sample === 'w' && finite(Date.parse(run.endedAt)))
     .reduce((last, run) => Math.max(last, Date.parse(run.endedAt)), Date.parse(plan.lockedAt))
   let user = '확정'
   if (!confirmation || !textValue(confirmation.by) || !finite(Date.parse(confirmation.confirmedAt)))

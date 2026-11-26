@@ -321,6 +321,9 @@ test('U12/U14/U18 agreement precedes samples and confirmation follows the last r
   }
   assert.equal(f.report().overall, '합격')
   assert.equal(f.result().revision, f.plan.revision)
+  f.decision.confirmation.confirmedAt = f.plan.lockedAt
+  f.runs.push({ ...f.runs[0], runId: 'incomplete-attempt', endedAt: undefined })
+  assert.equal(f.report().overallReason, '확정이 실행보다 앞섬')
 })
 test('U13 checks owner pair and W side identities independently', () => {
   const f = fixture()
