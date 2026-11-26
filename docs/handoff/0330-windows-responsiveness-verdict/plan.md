@@ -14,7 +14,7 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **plan/READY — WU-M 기계 범위 (V1 rev 7 + ΔV1 + ΔV2).** verify 2회째 RETURN_TO_PLAN의 D4·D5를 §21에서 채택했다. 다음은 구현 r3(Codex). WU-W(판정용 Windows 실측)는 W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). |
+| 상태 | **impl/IMPL_DONE — WU-M 기계 범위 (V1 rev 7 + ΔV1 + ΔV2 · r3).** D4·D5를 구현했다. 다음은 Claude의 독립 검증이다. WU-W(판정용 Windows 실측)는 W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
 | V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · 이번 revision **ΔV2**(§21) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
@@ -915,6 +915,91 @@ W-037·W-038과 다른 구현 없음.
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r3)
+
+- **동의 / 그대로 진행.** W-039에 따라 계획과 소유자 행을 대조한다. 잘못된 입력은 셀을 판독하기 전에 CLI 오류로 돌려준다. W-040의 근거 판독은 두 소유자 열에서 기존 동작을 시험으로 고정했다.
+- **이견 / 현실성 문제.** 해당 없음. 축소 fixture가 소유자 행도 같은 task·owner 범위로 줄이도록 고쳤다.
+- **ACTIVE Decision과 충돌하는 설계 발견.** 해당 없음. 유효한 대상의 무근거 FAIL은 W-038에 따라 여전히 전체 불합격과 근거 누락을 함께 기록한다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r3)
+
+아래 시험 이름은 모두 `app/scripts/windows-verdict.test.mjs`에 있다. §10-A의 고유 분기는 59개다. VP-14가 공유하는 분기는 그 수에 한 번만 넣었다. [자리 검색 출력과 실행값](evidence/H1-0-linux.md#r3-사전-실행)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-08 | CLI 입력·출력·종료 | C1~C4 | 4/4 | `cli rejects missing arguments…`, `cli rejects owner rows outside the plan`, `report CLI…` | 누락 인자·깨진 JSONL·잘못된 소유자 행은 2. 소유 파일 생략은 미기록. 유효한 입력은 판정 JSON과 0/1 | — |
+| VP-09 | 원본·집계 | P2 ①~⑩, P3 ①~⑯ 및 ⑨′ | 27/27 | U1~5·U10~11·U15~16·U19~23·U25~26·U28~38 및 선택 입력 재생 시험 | 리비전·하네스·해시·범위·단위·반복별 자료와 집계 결과를 대조. 중앙값/최댓값 교환 검출 | — |
+| VP-10 | 결정·전체 판정·소유 열 | P1 5, P4 9, P5 14 | 28/28 | U6~9·U12~14·U17~18·U24·U27·U33·U39·U40. ⑧ c는 U39 양쪽 열, ⑨ a·b·c와 호출 순서는 U40 | 공백·null 근거 FAIL은 실패와 hold, 숫자·빈 근거 PASS는 미기록. task·owner·key·열 값별 오류와 유효 대조, 원본 읽기 전 중단을 관측 | — |
+| VP-14 | AC7의 최종 CLI 판정 | C4·P4 ⑤~⑧·P5 ⑧ a/b/c·⑨ a/b/c 공유 | 11/11 | `report CLI…`의 예제 네 출력·무근거 FAIL, `cli rejects owner rows outside the plan`. 공유 UT는 U39(근거), U40(형제 셀) | 확정 예제에 scrol·T71·fail을 주면 각각 stdout 0바이트·stderr 식별자·2. scroll로 고치면 해당 셀만 FAIL, 소유 실패 T17/0326·불합격·1 | — |
+
+§21-C 검색 5줄은 ⑨의 진단 세 곳, 호출 한 곳, 함수 선언 한 곳이다. §10-A와 §21-C 각각에서 검색 결과와 기록한 좌표의 양방향 차집합은 공집합이었다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-10 | REQUIRED | SELF_PASS | U39·U40, 기존 결정·판정 UT | A-⑧c·A-⑨a/b/c·A-call과 기존 소유자 처리 변이 검출 |
+| VP-14 | REQUIRED | SELF_PASS | 위 CLI 시험의 잘못된 입력 3건과 수정한 대조, 기존 예제 | A-⑨a/c·A-call을 CLI에서 검출. 다른 소유자와 키만 같은 A-⑨b는 U40에서 검출 |
+| VP-08 | REGRESSION | SELF_PASS | 두 `cli rejects…` 시험과 실제 예제 CLI | 종료값 변이 및 입력 검증 호출 제거 검출 |
+| VP-09 | REGRESSION | SELF_PASS | 공용 fixture를 쓰는 판독기 시험 파일 전체 | P2.8a/b·P2.9a·P2.10 및 집계 교환 검출 |
+
+VP-11·13·15는 §21-B의 NOT_REQUIRED이며 [verify 2 §5](verify.md#5-v-pair-closeout-verify-2)에 이전 좌표가 있다. VP-12·16·17·18·19·R1의 좌표는 [verify 1 §5](verify.md#5-v-pair-closeout)에 있다. VP-01~07은 WU-W에 남는다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| A-⑧c와 A-⑨a/b/c·A-call | §21-C 선택 증거 5개 | truthy 근거 판독은 verify 2에서 green. 행 검증은 r3에서 도입 | A-⑧c는 U39, A-⑨b는 U40, 나머지 세 개는 U40과 실제 CLI | 5/5 검출 |
+| 소유자 FAIL/근거 누락·판정 우선순위·원본 대조 | §10·§20에서 상속한 판독기 선택 증거 | 8개 모두 red | 행별 테스트명과 실패 개수는 원장에 기록 | 8/8 검출 |
+| §10 자리·경로·규칙의 항 제거 및 형제 교환 | 열거 sweep | r2 판독기 91개 red. r3에서 행·대상·열·허용 값·진단 및 검사 순서 22개 추가 | U40의 교차 task·owner, 빈 키·null, 열 구분, 셀 판독 전 검사 등 | 113/113 검출 |
+| verify 2의 판독기 V2.* 재현 10건 | 덮개 회귀·인용 변이·대조 | 8 red, truthy와 hold 순서 교환은 green | 판독기 시험 파일 전체. truthy는 U39에서 red로 바뀌고, hold 순서 대조는 green | 9 red·1 green, 기대 10/10 |
+
+주장의 분모는 선택 증거 13개와 sweep 113개다. 누락된 실행은 0개였다. 이전 검증 10건을 다시 실행한 결과는 원장에 따로 표시했다. [원문·대체·실패한 시험·재현 명령](evidence/r3-mutations.tsv)
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 사용자 대면 문구·상태의 소비자 | CLI의 stderr가 대상 경로 또는 판정 열과 값을 알려준다. | AT-07이 stdout·stderr·종료 코드를 함께 확인 |
+| 정리 코드의 스코프 | 소유자 검사는 입력을 읽기만 한다. 시험이 복사한 예제 파일은 종료 시 제거한다. | CLI 임시 디렉터리는 `t.after`에서 정리 |
+| 실패 경로와 Part I 상태 전이 | W-039 입력 오류는 셀 판정 전 중단된다. 유효한 소유자 FAIL은 AC7 불합격이다. | 동일한 행의 key만 고쳐 두 경로 대조 |
+| 사용자가 실패를 식별할 수 있는가 | 오타 scrol과 잘못된 machine 값 fail이 각각 stderr에 그대로 보인다. | 진단 전체 문자열과 결과표가 비었는지 검사 |
+| 늦게 도착한 응답 | 각 호출이 현재 입력 한 벌을 동기 평가한다. 앞선 오류가 다음 실행의 결과에 남지 않는다. | 같은 파일에서 입력을 고친 뒤 CLI 재실행 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 키가 형제 task나 owner에만 있어도 해당 행의 FAIL을 버릴 수 있다. | task·owner 쌍을 확인하고 키가 있으면 세 필드를 같은 셀에서 대조한다. | U40의 owner2·other-task, A-⑨b |
+| 2 | 행 검사를 셀 처리 뒤에 호출해도 최종 오류만 보는 시험은 통과할 수 있다. | 잘못된 행에서는 원본 읽기 전에 오류가 나고, 깨진 계획에서는 plan 오류가 먼저 나도록 단언했다. | U40, call-late·call-order |
+| 3 | 값이 falsy이면 미기록 처리하거나 반대편 열의 근거를 사용할 수 있다. | 숫자 0·빈 셀 키와 null을 구별하고 두 열의 근거를 따로 검사했다. | U39·U40, c-empty·b-empty·V2.ref-swap |
+
+### 설계 대비 명시적 차이 (r3)
+
+W-039·W-040의 구현은 §21-C와 일치한다. 별도 캐시·비동기 처리·지속 상태는 추가하지 않았다. U39가 소유자 열 간 근거 공유를 검사하고, U40과 CLI 수정 대조가 행 검사 순서와 재진입을 검사한다.
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/scripts/windows-verdict.mjs`와 `app/scripts/windows-verdict.test.mjs`. 인계 문서는 이 계획, INDEX, H1-0 기록, 변이 원장이다. |
+| 실행 명령 | §19 H6 전체, 판독기·도구 스크립트 4파일, P10 렌더러, §21-C 자리 검색, H1-0 1~5. [실행 결과](evidence/H1-0-linux.md#r3-사전-실행) |
+| 관측한 게이트 산출 | 가드 5개·타입 검사·일반/진단 빌드·host/preload smoke 통과. lint 오류 0·경고 12. Node 1,155건, 직접 시험 58건, 렌더러 3건 통과. 전체 Vitest의 Linux 기준선 대조는 H1-0에 기록했다. |
+| 추가·수정 테스트의 subtree 규칙 | Node 내장 시험 1파일. 임시 사본은 자동 정리하고 CLI는 자식 Node로 실행한다. 시간 예산·실제 Git·Vitest 풀 규칙 위반 0건. |
+| V-pair 자기확인 | REQUIRED 2·REGRESSION 2 모두 SELF_PASS. SELF_BLOCKED 0. |
+| 강제 지점 전수 | §10-A 고유 분기 59/59, §21-C ⑨의 진단·호출 4/4. |
+| AC 자기보고 | AC7 입력 오류 3건과 유효한 FAIL 대조를 CLI에서 확인했다. AC8~11은 이전 독립 검증을 상속하며 이번에도 D/E 출처·비교, 진단/일반 빌드와 렌더러 시험을 재실행했다. |
+| 합계 검산 | ✅ 5 · ⚠️ 6 · ❌ 0 = 총 11. |
+| 블로커 / 역질문 | AC1~6은 WU-W의 W-004 사전 합의와 H1 필수 셀 고정 뒤 Windows에서 측정한다. |
+| 대상 커밋 | (r3 구현 — 좌표는 INDEX) |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- verify 2의 예제 변형 11건 중 계획 밖 FAIL 두 건이 합격·0에서 입력 오류·2로 바뀌었다. 나머지 9건과 verify 1에서 이어온 19건의 출력은 직전 실행과 같았다.
+- W-040은 근거 좌표의 기존 동작을 U39 두 열에 고정했다. verify 2에서 통과한 truthy 변이가 이제 이 시험에서 실패한다.
+- Linux 사전 실행과 AC1~6의 Windows 실측은 서로 다른 입력·장비를 사용한다. H1-0에 재생 조건과 통합 테스트의 플랫폼별 실패를 기록했다.
+- 현재 라운드는 WU-M r3이며 다음 주체는 독립 검증자다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.
@@ -925,5 +1010,5 @@ W-037·W-038과 다른 구현 없음.
 | D1 | §10-C “VP-08~17 좌표 = `node --test`”와 P6 S4(`stage-d-host/electron-main.mjs:87`)·S5(`stage-d-shell/probe.ts:282`)의 실제 잠금이 어긋난다 — 두 변이가 `node --test`에서 green이고 커밋 안 된 Electron 하네스로만 red(S5 재현, S4는 이 환경에서 미실행) | verify r1 · VP-11·VP-15 · AC8 / §10-B P6 S4·S5 · §10-C | 생산자 하네스를 커밋된 `gate:` 명령으로 등록하거나 `node --test` seam을 두고 §10-C를 정정 | 이행(plan 내부 불일치 — oracle 없는 자리) | PLAN_GAP | **closed**(verify 2) · W-037 — P6-child·property·import ×2·S6 red, P6′ 28줄 일치 |
 | D2 | 근거 좌표(`machineRef`·`windowsRef`) 없는 소유자 `FAIL` 행이 `미기록`으로 읽혀 `ownerFailures`·`불합격`에서 빠지고 `판정 보류`가 된다(`evidence/verify1-axes.txt` `ownerFailNoRef`) | verify r1 · VP-10 · AC7 / §10-A P4 ⑤·P5 ⑤ | 근거 없는 `FAIL`을 `불합격`(+ 근거 없음 표시)으로 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | **closed**(verify 2) · W-038 — `ownerFailNoRef` → `불합격`, P5.8a/b red |
 | D3 | 관측 `values`를 `trace-marker` 표시 시각 차와 다르게 적어도 통과(`valueMismatchMarker`) | verify r1 · VP-09 / §10-C 선언 경계 | — | 경계 | — | 기록만 |
-| D4 | 근거 좌표가 공백·비문자열이면 “없음”으로 읽지만(`textValue`, `windows-verdict.mjs:642`) 잠금이 없다 — truthy 판정으로 바꾼 `V2.textValue-truthy`가 `windows-verdict.test.mjs` 전체에서 green | verify r2 · VP-10 / §10-A P5 ⑧ · W-038 | U39에 공백·비문자열 근거 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | ΔV2 채택(§21 — W-040 · P5 ⑧ c · U39 · A-⑧c) — r3 구현 대기 |
-| D5 | owners 행의 `task`·`owner`·`key`가 plan 셀과 맞지 않으면 무시되어 그 행의 `FAIL`이 버려지고 `합격`·exit 0(`evidence/verify2-axes.txt` `keyedUnknownCellFailNoRef`·`unknownTaskFailNoRef`) | verify r2 · VP-10·VP-14 / §10-A P5 · W-038 · R-05 | 맞지 않는 owners 행을 fail-closed(exit 2 또는 `unexpected`+보류)로 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | ΔV2 채택(§21 — 사용자 선택 ① · W-039 · P5 ⑨ · U40 · CLI 시험) — r3 구현 대기 |
+| D4 | 근거 좌표가 공백·비문자열이면 “없음”으로 읽지만(`textValue`, `windows-verdict.mjs:642`) 잠금이 없다 — truthy 판정으로 바꾼 `V2.textValue-truthy`가 `windows-verdict.test.mjs` 전체에서 green | verify r2 · VP-10 / §10-A P5 ⑧ · W-038 | U39에 공백·비문자열 근거 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | r3 해결 · W-040 · U39 두 열에서 공백·비문자열 근거 확인, A-⑧c와 V2.textValue-truthy 검출 |
+| D5 | owners 행의 `task`·`owner`·`key`가 plan 셀과 맞지 않으면 무시되어 그 행의 `FAIL`이 버려지고 `합격`·exit 0(`evidence/verify2-axes.txt` `keyedUnknownCellFailNoRef`·`unknownTaskFailNoRef`) | verify r2 · VP-10·VP-14 / §10-A P5 · W-038 · R-05 | 맞지 않는 owners 행을 fail-closed(exit 2 또는 `unexpected`+보류)로 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | r3 해결 · W-039 · U40과 CLI가 대상·값 오류의 진단·exit 2 및 유효한 FAIL 대조를 확인 |
