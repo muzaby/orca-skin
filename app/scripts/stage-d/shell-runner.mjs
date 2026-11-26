@@ -1,4 +1,4 @@
-import { execFile, execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -23,10 +23,8 @@ function listener(source, statements, target, name) {
   })
 }
 
-export async function runShellMeasurements(electron, baseline) {
+export async function runShellMeasurements(electron, baseline, { sha }) {
   const root = resolve(import.meta.dirname, '../..')
-  const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
-  if (baseline && !sha.startsWith('c7d2adf2')) throw Error('Baseline requires source c7d2adf2')
   const index = await readFile(join(root, 'src/main/index.ts'), 'utf8')
   const source = ts.createSourceFile('index.ts', index, ts.ScriptTarget.Latest, true)
   const declarations = source.statements.filter(ts.isFunctionDeclaration)

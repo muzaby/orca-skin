@@ -1,41 +1,13 @@
-import { execFileSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import { readFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { build } from 'esbuild'
 import { runElectron, serveProbe } from '../check-transcript-selection.mjs'
 import { hostDecision, rendererDecision, summarize } from './measurement.mjs'
 
-export async function runHostMeasurements(electron, baseline, flows = false) {
+export async function runHostMeasurements(electron, baseline, stamp, flows = false) {
   const root = resolve(import.meta.dirname, '../..')
-  const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
-  if (baseline && !sha.startsWith('c7d2adf2')) throw Error('Baseline requires source c7d2adf2')
-  const changes = execFileSync(
-    'git',
-    ['status', '--porcelain', '--untracked-files=all', '--', 'src'],
-    {
-      cwd: root,
-      encoding: 'utf8'
-    }
-  )
-  if (baseline && changes) throw Error('Baseline application sources must be clean')
-  const sourceHash = createHash('sha256')
-  if (changes) {
-    sourceHash.update(execFileSync('git', ['diff', 'HEAD', '--binary', '--', 'src'], { cwd: root }))
-    const untracked = execFileSync(
-      'git',
-      ['ls-files', '--others', '--exclude-standard', '-z', 'src'],
-      {
-        cwd: root,
-        encoding: 'utf8'
-      }
-    )
-    for (const file of untracked.split('\0').filter(Boolean)) {
-      const content = await readFile(join(root, file))
-      sourceHash.update(`\0${file}\0${content.length}\0`).update(content)
-    }
-  }
-  const sourceDiff = changes ? sourceHash.digest('hex') : null
+  const { sha, appSource } = stamp
+  const sourceDiff = appSource.diffSha256 ?? null
   const cache = join(root, 'node_modules', '.cache')
   await mkdir(cache, { recursive: true })
   const scratch = await mkdtemp(join(cache, 'stage-d-'))

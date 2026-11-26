@@ -33,6 +33,7 @@ export interface AgentPresentation {
 }
 
 export interface TranscriptViewProps {
+  sessionId?: string | null
   search?: {
     seq: number
     target: string

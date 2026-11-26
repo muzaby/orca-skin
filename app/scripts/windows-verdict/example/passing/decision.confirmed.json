@@ -1,0 +1,12 @@
+{
+  "agreement": {
+    "revision": "example-v1",
+    "lockedAt": "2026-11-20T00:00:00Z",
+    "by": "fixture"
+  },
+  "confirmation": {
+    "revision": "example-v1",
+    "confirmedAt": "2026-11-22T00:00:00Z",
+    "by": "fixture"
+  }
+}
