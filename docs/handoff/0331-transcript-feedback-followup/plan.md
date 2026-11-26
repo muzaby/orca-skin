@@ -8,22 +8,22 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0331-transcript-feedback-followup` |
-| 작성자 | Claude Code |
+| 작성자 | Claude Code (V1) · Codex (ΔV1 추가 요구) |
 | 일자 | 2026-11-26 |
 | 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0332 |
-| 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` — 0326·0327·0329의 결정·테스트는 노드 출처로만 인용한다 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
-| 기준 트리 | `18b5d5f`(이 브랜치 HEAD — 0330 verify 3, `main` 미병합) |
+| 상태 | DRAFT — 추가 요구와 직전 계획 리뷰 보완을 합친 뒤 READY 재판정 |
+| V mode | `Delta V` |
+| 기준 V | 0331 V1 (직전 설계) |
+| 이번 V revision | `ΔV1` — 기존 세션 열기의 첫 표시 |
+| 유효 V | `V1 + ΔV1` |
+| 기준 트리 | `18b5d5f`(0330 verify 3의 앱 코드) |
 
 # Part I — Product & UX Contract
 
 ## 1. Context / 목표
 
 - 해결하려는 문제: 실제 사용에서 transcript가 도구를 묶지 못하고, 큰 응답을 버튼 뒤에 숨기며, 이전 대화를 버튼·제스처로만 불러오고 그때 화면이 깜빡인다. 간격·줄 수 표시·크기별 원문 표시도 어긋난다.
-- 완료 후 달라지는 것: 도구는 한 묶음으로, 큰 응답은 자동으로 정상 렌더된다. 세션은 최신 5턴으로 열리고 최상단에 닿으면 이전 5턴이 자동으로 깜빡임 없이 붙는다. 마크다운은 크기와 무관하게 마크다운이다.
+- 완료 후 달라지는 것: 도구는 한 묶음으로, 큰 응답은 자동으로 정상 렌더된다. 기존 세션의 첫 본문 프레임은 최신 5턴의 하단을 곧바로 보여 주고 최상단에 닿으면 이전 5턴이 자동으로 깜빡임 없이 붙는다. 마크다운은 크기와 무관하게 마크다운이다.
 - 성공을 사용자 관점에서 한 문장으로: 스크롤만 하면 대화 전체를 끊김·깜빡임·버튼 없이 읽을 수 있고, 도구·간격·줄 수가 일관되게 보인다.
 
 ## 2. 사용자 의도 / 요구 출처
@@ -41,6 +41,7 @@
 | 명시 요구 | “'업데이트됨' 도구에서 몇 라인이 추가/삭제 됐는지 표시 안되고 있음. E.g., '업데이트됨 <파일명> +654'” | 같음 |
 | 명시 요구 | “세션 열기 시 로드(렌더링)하는 본문 단위를 한 턴이 아닌 5개 턴으로 변경. 웹워커 5000라인? 이내만 마크다운 표시 정책 제거.” | 같음 |
 | 명시 요구 | 질의 답 — 5턴: “열기와 상단 로드 모두” · 마크다운: “셋 모두 제거”(선택지 설명 “크기와 무관하게 항상 마크다운으로 그린다”) | 이번 턴 AskUserQuestion |
+| 추가 명시 요구 | “기존 세션을 열때 메시지 로드 후 메시지 오프셋으로 화면을 고정하는데 플리커처럼 동작함. 이것도 제거.” | 사용자 추가 피드백 2026-11-26 |
 | 추론 의도 | 점 아이콘은 **공백뿐인 text가 만든 빈 메모 행**의 점이다. 공백 아닌 메모의 점·아이콘 없는 도구의 점은 유지한다 — 추론 | §8 R5: 빈 메모 행 높이 16px에 점 20px(`top-2.5`)이 다음 행 위로 겹친다 |
 | 추론 의도 | 상단 머리의 오류 상태 ‘다시 시도’와 아래 끝(다음 부분·대화 끝·최신 대화로)은 피드백 대상이 아니라 유지한다 — 추론 | 피드백이 명시한 문구가 ‘이전 부분 보기’·‘대화 시작’뿐 |
 
@@ -61,13 +62,14 @@
 | D-011 | Claude 투영의 도구 간격 — Code 도구 블록의 위·아래 간격을 같게(12px), 그룹 안 카드 사이를 4px로, Work 도구 행 사이를 8px로 줄인다 | “도구 간 상하 간격이 넓음 … 위쪽 마진이 아래쪽보다 좁음.” 수치는 설계자 기본값 | 사용자 피드백 | ACTIVE | — |
 | D-012 | 수정 도구 카드 머리의 +N/−M은 크기와 무관하게 표시한다 — Write는 내용 줄 수, Edit·MultiEdit·OpenCode patch는 창 동기 한도 안이면 창, 넘으면 워커가 같은 규칙으로 센다 | “+라인수 표시가 안 된 것을 발견. 수정할 것.” 원인 R11 | 사용자 피드백 | ACTIVE | — |
 | D-013 | 아티팩트 카드 ‘파일 없음’은 코드 결함이 아니다 — dev 실행은 산출물 루트가 `artifacts/.dev`로 갈라져 운영 DB의 파일을 찾지 않는다. 코드 변경 없음 | “검토 필요.” 근거 R12 | 사용자 피드백 + 조사 | ACTIVE | — |
+| D-014 | 이력 목록에서 기존 세션을 열면 본문이 처음 보이는 프레임부터 최신 대화 하단이다. 임시 위치에서 하단으로 점프하거나 스크롤되는 프레임은 0개다 | 메시지 로드 후 오프셋 보정이 눈에 보인다는 제보 | 사용자 추가 피드백 | ACTIVE | 0326 D-057의 명시적 열기와 D-008을 강화. 앞삽입은 D-007 |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-013(신규 handoff).
 - 변경된 결정(앞선 handoff): 0329 D-002·D-003·D-016(당김 표시)·0329 §10 ‘본문 열기’ · 0327 D-033·D-035·D-045·D-054의 원문 표시 · 0325 EP-2 ① — 대체 근거는 각 행 `대체 관계`.
 - 유지되는 앞선 결정: 0329 D-007(응답 한도) · D-019(고정 머리) · D-021(앵커 함수) · D-015(검색 보기 양방향, 위 끝만 D-006 적용) · 0327 D-019(4,000자 파싱 위치) · 0326 VP-16(증분 = 전체 재구성).
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-002↔AC1 · D-003↔AC1·AC2 · D-004↔AC3 · D-005↔AC4 · D-006↔AC5 · D-007↔AC6 · D-008↔AC7 · D-009↔AC8 · D-010↔AC9 · D-011↔AC10 · D-012↔AC11 · D-013↔§4(AC 없음 — 코드 변경 0) · D-001↔§6.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-002↔AC1 · D-003↔AC1·AC2 · D-004↔AC3 · D-005↔AC4 · D-006↔AC5 · D-007↔AC6 · D-008↔AC7 · D-009↔AC8 · D-010↔AC9 · D-011↔AC10 · D-012↔AC11 · D-013↔§4(AC 없음 — 코드 변경 0) · D-001↔§6. ΔV1에서 D-014↔AC12 추가.
 
 ## 4. 요구 비판적 검토
 
@@ -103,7 +105,7 @@
 
 | 시작 상태/이벤트 | 시스템 동작 | 사용자에게 보이는 결과 |
 |---|---|---|
-| 세션 열기 | `latest` 1회 — 최신 5턴 | 최신 5턴 하단 고정 |
+| 기존 세션 열기 | 캐시 또는 `latest`로 최신 5턴 진입 | 첫 본문 프레임부터 하단. 로드 후 중간 위치에서 하단으로 이동하는 장면 0회(AC12) |
 | 첫 응답이 5턴을 다 담지 못함 | 유휴마다 `withinUnit` 1회 | 위쪽에 같은 단위 메시지가 깜빡임 없이 붙는다 |
 | 머리 슬롯이 뷰포트 안 · before = ready | `earlierTurn` 1회(이전 5턴) | 머리 스피너 → 앞삽입, 읽던 글줄 고정 |
 | 머리 슬롯 안 · before = loading | 요청 0 | 스피너 유지 |
@@ -123,7 +125,7 @@
 
 ## 6. 범위 / 비범위
 
-- **범위**: §2 명시 요구 중 transcript 10건(아티팩트는 조사 결론만 — D-013).
+- **범위**: §2 명시 요구 중 기존 transcript 피드백과 추가 요구 D-014(아티팩트는 조사 결론만 — D-013).
 - **비범위**: 우측 패널 5건(0332) · 아래 끝(다음 부분·대화 끝·최신 대화로) · OpenCode 도구 간격(D-011은 Claude 투영) · 완료 본문의 창 동기 `<Markdown>` 파싱(후보 표 0327 D-026 행 — 표시 정책이 아니라 파싱 위치) · 아티팩트 dev/prod 공유.
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
@@ -146,17 +148,18 @@
 | R-09 | AT-09 / AC9 | 연속 오류 턴 6개(Code·Work · 저장된 error part · 응답 중단 status · 열기 후와 실시간 전송 후)에서 인접 오류 버블 사이 세로 거리가 모두 같다(±1px) | Electron 실기 DOM 거리 | production `TranscriptView` |
 | R-10 | AT-10 / AC10 | Code: 도구 블록 위 간격(앞 블록 끝→도구 위) = 아래 간격(도구 끝→다음 블록 위) = 12px(±1). 그룹 안 카드 사이 4px. Work: 도구 행 사이 8px | Electron 실기 DOM 거리 + 블록 gap 값 | production `TranscriptView` |
 | R-11 | AT-11 / AC11 | Write 654줄 → 머리 “+654”. 400줄·64,000자를 넘는 Edit·MultiEdit·OpenCode patch도 워커 결과로 +N/−M 표시(계산 중 빈 칸 → 도착 후 표시). 수치는 동기 경로와 같은 규칙(`diffLines` 줄 수) | 카드 머리 텍스트 · 동기/워커 결과 대조 | `ToolCard`/OpenCode 파일 카드 → `toolDiffStat` → (초과) `computeClient` → 워커 |
+| R-12 | AT-12 / AC12 | 기존 세션 열기에서 첫 대상 본문 프레임부터 하단과의 오차 ≤ 1 CSS px. 사용자 조작 전까지 중간 메시지·저장된 과거 위치의 선노출, 이미 보인 본문이 통째로 비는 프레임, 눈에 보이는 하단 보정 이동이 각각 0회 | Claude Code·Claude Work·OpenCode의 캐시 없음/있음 진입과 지연 응답을 Electron으로 측정. 첫 표시와 사용자 스크롤 후 기준은 §10-A | 이력 목록 → `chatActions.loadSession` → 실제 하네스 스크롤 제어기 → `TranscriptViewport` |
 
 ### AC 검증 주의사항
 
 - 기존 테스트 재사용: `HistoryEdge.test.ts`·`TranscriptViewport.body.test.ts`·`scripts/transcript-history/scenarios.mjs` `states`는 지금 문구·버튼을 단언하므로 **새 기대로 고친다**(구 기대 유지는 이행 결함).
-- 사람 실기 항목: 없음. AC6·AC9·AC10은 레이아웃이라 jsdom이 아니라 Electron 실기 스크립트로 잰다 — 에이전트가 띄울 수 있는 목표 런타임이다(Electron 바이너리 없으면 exit 3 → 그 AC는 미판정, 환경 서명으로 분리).
+- 사람 실기 항목: 없음. AC6·AC9·AC10·AC12는 레이아웃이라 jsdom이 아니라 Electron 실기 스크립트로 잰다 — 에이전트가 띄울 수 있는 목표 런타임이다(Electron 바이너리 없으면 exit 3 → 그 AC는 미판정, 환경 서명으로 분리).
 - N회 기준: AC5 “요청 1회”의 sink는 `controls.request` — 호출부 `TranscriptViewport.tsx` 안 휠·키·상단 판정 셋(§10 EP-5). AC7 응답 수 sink는 `sessionApi.page` — 창 호출부 `readPrevious`·`readSearchEdge`·`loadSession`·`openSearchHit`(§10 EP-7).
 - 0건 기준: AC4 문구 0은 렌더 텍스트를 상태별로 단언한다(키 존재 검색이 아니다). AC8 `raw` 0은 입력 7종 각각의 양성(hast 렌더) 단언과 짝짓는다.
 
 ## 7-A. V / Trace Matrix
 
-- V mode 판정: 상속할 명시 V 없음 → Baseline V.
+- V1은 Baseline V다. ΔV1은 R-12·AT-12와 VP-27을 추가하고 SD-01·ST-01의 열기 구간(VP-12)을 확장한다. 나머지 V1 행은 같은 좌표를 쓴다.
 - 기준 V 상속 근거: 없음. 회귀 노드는 앞선 plan·테스트를 출처로 `INHERITED` 표기한다.
 - `SUPERSEDED` 이관: 해당 없음(Baseline).
 - 변경이 시작되는 수준: Baseline이라 해당 없음.
@@ -166,10 +169,11 @@
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
 |---|---|---|---|---|
 | R-01~R-11 | R | §7 각 행 | NEW | — |
+| R-12 · AT-12 | R · AT | 기존 세션 열기의 첫 가시 프레임 | NEW (ΔV1) | 0326 D-057·D-074 |
 | AT-01~AT-11 | AT | §7 각 행 | NEW | — |
 | R-R1 | R | 검색 보기 양방향 읽기·최신 합류·아래 끝 버튼 | INHERITED | 0329 D-015 · `history-search.test.ts` |
 | R-R2 | R | 4,000자 이하는 창 파싱, 초과는 워커 | INHERITED | 0327 D-019 · `StreamingMarkdown`·`ArtifactPreviewContent` |
-| SD-01 | SD | 이력 수명: 열기 5턴 → 단위 채움 → 최상단 자동 → 앞삽입(무깜빡임) → 시작 | NEW | §5 |
+| SD-01 | SD | 첫 본문 프레임부터 최신 5턴 하단 → 단위 채움 → 최상단 자동 → 앞삽입 → 시작 | CHANGED (ΔV1) | §5 · §10-A |
 | SD-02 | SD | 큰 본문 수명: 페이지 반영 → 자동 요청 → 스피너 → 교체/오류·재시도 → 세대 폐기 | NEW | §5 |
 | AR-01 | AR | data `session/page` 5턴 단위 — `latest`·`earlierTurn`·`withinUnit` 조회 범위·경계·커서 | NEW | §9·§10 EP-7 |
 | AR-02 | AR | 창 store ↔ history port — 단위 유휴 채움 판정·자동 본문 요청 | NEW | §9·§10 EP-3·EP-7 |
@@ -198,7 +202,7 @@
 | VP-09 | R-09 ↔ AT-09 | REQUIRED | Chromium → `TranscriptView` | `gate:xvfb-run -a node scripts/check-transcript-history.mjs --layout` 신규 시나리오 `errorRun`(Code·Work × 저장·실시간 · 6턴) — 인접 거리 최대−최소 ≤ 1px | required — 구현이 찾은 원인 자리를 되돌린 변이가 `errorRun`을 red로 만드는지 | EP-9(21) |
 | VP-10 | R-10 ↔ AT-10 | REQUIRED | Chromium → `TranscriptView` | 같은 스크립트 `--layout` 신규 `toolSpacing` — Code 위·아래 12±1 · 그룹 카드 사이 4±1 · Work 행 사이 8±1 | not selected | EP-10(5) |
 | VP-11 | R-11 ↔ AT-11 | REQUIRED | `ToolCard` → `toolDiffStat` → 워커 | `toolMeta.test.ts` 신규 `AC11 counts a 654-line Write as +654` · 신규 `ToolCard.interaction.test.ts` `AC11 shows a worker stat for an oversized Edit`(계산 중 빈 칸 → 도착 후 `+N −M`) · `filePresentation` 신규 `AC11 oversized OpenCode patch` | required — Write 분기 제거 변이(+654 red) | EP-11(5) |
-| VP-12 | SD-01 ↔ ST-01 | REQUIRED | 열기 → 단위 채움 → 최상단 자동 → 앞삽입 → 시작 | `gate:… check-transcript-history.mjs` 신규 `unitOpen`(열기 첫 화면 메시지 = 최신 5턴 · 자동 요청 연쇄가 단위에서 멈춤 · 최상단 자동 앞삽입 · 시작 도달 뒤 요청 0) | not selected | EP-5 · EP-7 |
+| VP-12 | SD-01 ↔ ST-01 | REQUIRED | 열기 → 단위 채움 → 최상단 자동 → 앞삽입 → 시작 | `gate:… check-transcript-history.mjs` 신규 `unitOpen`(열기 첫 화면 메시지 = 최신 5턴 · 자동 요청 연쇄가 단위에서 멈춤 · 최상단 자동 앞삽입 · 시작 도달 뒤 요청 0) | not selected | EP-5 · EP-7 · EP-12(열기부터 단위 채움까지 `openFrames`로 관측) |
 | VP-13 | SD-02 ↔ ST-02 | REQUIRED | 페이지 → 자동 본문 → 교체 | `history-port.integration.test.ts` 고침 `AC3 resolves a deferred body without user action`(data 포트 실제 조각 · 창 store) | not selected | EP-3 |
 | VP-14 | AR-01 ↔ IT-01 | REQUIRED | 창 transport → data handler → 색인 | `history-port.integration.test.ts` 신규 `AC7 five-turn unit over the history port`(zod 왕복 · `withinUnit` 커서 왕복 · 위조 커서 `invalid`) | required — `readCursor`의 하한 검사 제거 변이(위조 하한 입력 red) | EP-7 |
 | VP-15 | AR-02 ↔ IT-02 | REQUIRED | store ↔ port | `history-search.test.ts` 신규 `AC7 search view top reads a five-turn unit` · VP-13 좌표 | not selected | EP-3 · EP-7 |
@@ -213,13 +217,14 @@
 | VP-24 | R-R1 ↔ AT-R1 | REGRESSION | 검색 보기 | `history-search.test.ts` 기존 전부 green · 아래 끝 버튼 렌더(`HistoryEdge.test.ts` after) | not selected | 0 — 아래 끝 비변경 |
 | VP-25 | R-R2 ↔ AT-R2 | REGRESSION | 파싱 위치 | `StreamingMarkdown`·`ArtifactPreviewContent.virtual.test.ts` 기존 4,000자 경계 green | not selected | 0 — 임계 비변경 |
 | VP-26 | AR-R1 ↔ IT-R1 | REGRESSION | 증분 = 전체 | `blockModelCatchup.test.ts` `VP-16 * matches every full block after 500 sequences` | not selected | EP-2 |
+| VP-27 | R-12 ↔ AT-12 | REQUIRED | 실제 `loadSession` → 하네스 진입 → 공통 뷰포트 → 가시 본문 | `check-transcript-history.mjs` 기본 실행에 `openFrames` 추가. §10-A 시나리오별 프레임·본문 표지·하단 거리 기록 | 준비된 본문을 이전 오프셋에 한 프레임 실제로 그린 뒤 하단으로 이동시키는 변이가 실패해야 한다 | EP-12 |
 
 ### 현재 변경의 운영 gate
 
 | Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
 |---|---|---|---|
 | app subtree | `app/**` 변경 | `app/AGENTS.md` 로컬 확인 목록 전부(가드 6종·lint·typecheck·필터 없는 vitest·`node --test scripts/*.test.mjs`·build+smoke 2종) | 이번 변경이 유발한 실패 · 변경 파일의 가드 위반 |
-| Electron 실기 스크립트 | AC6·AC9·AC10·ST-01 | `xvfb-run -a node scripts/check-transcript-history.mjs` · `--layout` | exit 1만 blocking · exit 3(바이너리 없음)은 환경 |
+| Electron 실기 스크립트 | AC6·AC9·AC10·AC12·ST-01 | `xvfb-run -a node scripts/check-transcript-history.mjs` · `--layout` | exit 1만 blocking · exit 3(바이너리 없음)은 환경 |
 | 문서 인벤토리 | IPC·요청 종류 변경 | `node scripts/check-doc-inventory.mjs --check` | 재생성 누락 |
 | repository | handoff 산출물 | INDEX 행·trailer 파싱 | 현재 변경만 |
 
@@ -335,11 +340,26 @@ part 순회 → 공백 text 투명 → Code 턴 단위 도구 병합 → ClaudeT
 | MD-07 / VP-11·VP-23 · **EP-11** | 증감 수: Write = 내용 줄 수(동기 한도 밖이면 워커) · 그 밖 한도 밖은 워커 `diffView` 모델의 `added`·`removed` | `shared/compute/inline.ts` | 창·워커 | 5자리 — ① `toolMeta.ts:188-191` Write ② `:192-196` Edit ③ `:197-207` MultiEdit ④ `opencode/transcript/filePresentation.ts:23` ⑤ `ToolCard.tsx:160,201-206` 표시(비동기 결과) | `rg -n "diffStatsWithinBudget\|toolDiffStat" src/renderer/src --glob '!*.test.*'` → 11 · 운반 5(`toolMeta.ts:190,195,207`·`filePresentation.ts:23`·`ToolCard.tsx:160`) · 제외 6: import 3(`toolMeta.ts:10`·`ToolCard.tsx:11`·`filePresentation.ts:1`) · 선언·내부(`toolMeta.ts:184`·`inline.ts:32,76`) | 큰 수정 카드에 줄 수가 없다 |
 
 - 자리 목록은 위 검색 출력과 차집합 0이어야 한다 — 구현자·검증자는 `site_census.mjs`로 미분류를 센다.
-- **선언 경계**: OpenCode 도구 간격(EP-10 비대상 — D-011) · 아래 끝(after) 머리 · 완료 본문의 창 동기 `<Markdown>` 파싱 시간(D-009는 표시 정책 — 파싱 위치 비변경) · Electron 바이너리 없는 환경의 AC6·AC9·AC10(exit 3).
+- **선언 경계**: OpenCode 도구 간격(EP-10 비대상 — D-011) · 아래 끝(after) 머리 · 완료 본문의 창 동기 `<Markdown>` 파싱 시간(D-009는 표시 정책 — 파싱 위치 비변경) · Electron 바이너리 없는 환경의 AC6·AC9·AC10·AC12(exit 3, 미판정).
 - 열린 입력 집합: 해당 없음 — 마크다운 블록 분류는 폴백을 없애는 쪽이라 새 판정 형태를 만들지 않는다.
 - 같은 규칙 여러 레이어: 공백 판정은 `parts.ts` 하나를 Claude·OpenCode·store가 import한다(EP-1). 5턴 수치는 `shared/history-page.ts` 하나를 data·창이 import한다.
 - `실패 의미`에 “다른 게이트가 막는다”: 해당 없음.
 - 선택적 필드: `HistoryEdge.kind`에 `withinUnit` 추가 — 구 창이 받으면 zod 실패(같은 빌드 안이라 혼용 없음). 커서 8번째 값은 `withinUnit` 커서에만 있다.
+
+## 10-A. EP-12 — 기존 세션 열기의 첫 화면 (ΔV1)
+
+**관측 구간.** 이력 목록에서 대상 세션을 누르기 전에 프레임 기록을 시작한다. 캐시나 첫 페이지가 준비되어 본문을 처음 표시할 수 있는 페인트부터 하단을 보여 준다. 정상 로딩 중에는 로딩 표시를 허용한다. 준비된 대화를 숨겨 둔 채 이력 전체·워커·유휴 채움을 기다리는 방식은 실패다. 개별 큰 메시지는 AC3의 제자리 스피너를 쓸 수 있다.
+
+| 소유자 | 구현 시 지켜야 할 계약 |
+|---|---|
+| `chatStore.loadSession` · `entryPolicy` | 명시적으로 다른 기존 세션을 여는 `open`은 캐시 유무에 관계없이 하단을 선택한다. 활성 세션 재선택, 화면 재마운트(`resume`), 재검증(`sync`), 검색 결과의 원문 이동은 각각 기존 정책을 따른다. |
+| 공통 `TranscriptViewport` · 각 하네스 제어기 | `open`의 가상 행 범위와 실제 스크롤 위치를 본문이 보일 같은 페인트에 맞춘다. Claude는 `useScrollAnchor`의 첫 이력 commit, OpenCode는 `Timeline.initialOffset`의 저장된 top과 `ScrollController`의 하단 쓰기를 함께 확인한다. 측정이나 늦은 본문으로 높이가 변하면 pin 중에만 하단을 유지한다. 사용자가 위로 읽기 시작하거나 세션을 바꾸면 이전 진입의 지연 보정을 적용하지 않는다. |
+
+**검증.** 기존 `transcript-history/probe.tsx`는 `loadSession`을 먼저 기다린 뒤 화면을 마운트한다. `openFrames`는 이미 마운트된 화면에서 실제 열기 동작을 실행하고, 첫 페이지·잔여 조각·참조 본문 응답을 따로 풀어 준다. 추정 높이와 실측 높이가 다른 행, 스크롤 가능한 마지막 답변, 화면보다 짧은 대화를 사용한다.
+
+- 세 화면 각각에서 캐시 없는 열기와 과거 중간까지 읽었던 캐시 세션 다시 열기를 검사한다. 대상 세션·마지막 메시지·끝 글줄에 서로 다른 표지를 둔다. 각 표시 프레임에 실제로 보이는 내용과 `max(0, scrollHeight − clientHeight) − scrollTop`의 절댓값을 함께 기록한다. 스크롤 가능한 본문은 그 시점의 끝 글줄 또는 해당 메시지의 로딩 자리가 보여야 하고, 짧은 본문은 오프셋 0에서 정상 표시돼야 한다.
+- 캐시 재검증, 같은 5턴의 유휴 채움, 큰 본문 교체와 재측정까지 각 응답 **전후**를 포함한다. 대상 본문 첫 표시 후 빈 프레임 또는 중간 위치가 한 번이라도 보이면 실패다. 사용자가 먼저 위로 스크롤한 경우에는 읽던 글줄을 유지하고, A를 여는 중 B로 전환하면 A의 늦은 응답으로 B의 본문이나 위치가 바뀌면 실패다.
+- 원인 판정은 WU-0에서 프레임과 스크롤 쓰기 기록을 비교한다. AC6은 앞삽입 시 읽던 글줄을, AC12는 명시적 열기 시 최신 하단의 첫 표시를 판정한다. 실기 미실행이나 대상 본문 프레임 0개는 AC12 미판정이다.
 
 ## 11. 구현 설계
 
@@ -360,7 +380,7 @@ part 순회 → 공백 text 투명 → Code 턴 단위 도구 병합 → ClaudeT
 | `…/shared/compute/worker/markdown.ts`·`protocol.ts`·`limits.ts` | 폴백 제거 | 상한 검사·`tooLarge` 삭제 · 상수 삭제 | 워커 단위 |
 | `…/features/chat/lib/markdownDocumentBlocks.ts`·`components/markdown/{WorkerMarkdownTail,VirtualMarkdownView}.tsx` | 폴백 제거 | `raw` 분기·꼬리 `final` 삭제(`raw` 필드는 열린 펜스 등 다른 용도 없으면 삭제) | 단위 |
 | `…/lib/toolMeta.ts`·`shared/compute/inline.ts`·`…/opencode/transcript/filePresentation.ts`·`ToolCard.tsx` | 증감 수 | Write 줄 수 · 초과는 워커 결과 훅(신규 `useDiffStat`) | 단위 + 렌더 |
-| `app/scripts/transcript-history/scenarios.mjs`·`probe.tsx`·`check-transcript-history.mjs` | 실기 | `frames`·`framesWheel`·`unitOpen`·`--layout`(`errorRun`·`toolSpacing`) · `states` 기대 갱신 | Electron |
+| `app/scripts/transcript-history/scenarios.mjs`·`probe.tsx`·`check-transcript-history.mjs` | 실기 | `frames`·`framesWheel`·`unitOpen`·`openFrames`·`--layout`(`errorRun`·`toolSpacing`) · `states` 기대 갱신 | Electron |
 | `docs/IPC_CONTRACT.md`·`docs/arch/frontend/rendering.md`·`state.md`·`design-components.md` | 문서 | 5턴 단위·`withinUnit` · 머리·본문 표시 · 원문 폴백 삭제 | 인벤토리 가드 |
 
 ### 테스트 가능성
@@ -450,7 +470,7 @@ data 색인 → history-page(5턴·withinUnit) → zod → transport → chatSto
 - IMPL_DONE 전: `app/AGENTS.md` 로컬 확인 목록 전부 + `xvfb-run -a node scripts/check-transcript-history.mjs`(기본·`--layout`).
 - 사람 실기: 없음.
 
-## READY self-review
+## V1 READY self-review (ΔV1 종합 판정 대기)
 
 - [x] Decision Ledger가 이번 턴 결정·질의 답과 앞선 결정의 대체를 보존한다 — D-001~D-013 · 대체 관계 열.
 - [x] Part I만으로 완료 상태가 보인다 — §1·§5·§7.
@@ -479,7 +499,7 @@ data 색인 → history-page(5턴·withinUnit) → zod → transport → chatSto
 ---
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
-> **구현 첫 단계(WU-0)**: EP-6 H1/H2와 EP-9 원인 자리를 Electron 프레임·DOM 기록으로 먼저 가르고 결과를 아래 `설계 리뷰`에 적는다 — 원인이 §10 자리 목록 밖이면 `PLAN_GAP`이다.
+> **구현 첫 단계(WU-0)**: EP-6 H1/H2와 EP-9 원인 자리, EP-12의 최초 본문 노출 시점을 Electron 프레임·DOM 기록으로 먼저 가르고 결과를 아래 `설계 리뷰`에 적는다 — 원인이 §10 자리 목록 밖이면 `PLAN_GAP`이다.
 
 ## [구현자 기입] 설계 리뷰
 
