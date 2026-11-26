@@ -42,11 +42,7 @@ const append = (all, items) => {
 }
 
 /** 세션 정의와 H1 대상을 만든다. `sizes`는 IT가 줄여 쓴다. */
-export function seedSpec({
-  turns = [1, 100, 10000],
-  large = true,
-  cwd = 'C:/orca-W/seed-work'
-} = {}) {
+export function seedSpec({ turns = [1, 100, 10000], large = true, cwd = 'seed-work' } = {}) {
   const sessions = []
   const targets = {}
   let clock = 1_700_000_000_000

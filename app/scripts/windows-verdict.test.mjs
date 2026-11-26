@@ -629,6 +629,47 @@ test('U34/U37 read numeric Node table cells, N/A reasons, and only the matching 
   g.obs[1].rawRef = structuredClone(g.obs[0].rawRef)
   assert.equal(g.result().reason, '다른 실행의 원본')
 })
+test('U41 a repeated Node row ID is read by its label column only (ΔV4 P2 ⑨″)', () => {
+  // 실제 measure-ui-inputs 출력처럼 같은 ID(K13)가 여러 행이고, 접두가 같은 형제 행도 있다.
+  const rows =
+    'Node v22.12.0 · win32/x64\n' +
+    '| K13 | 50000 pair diff rows | 308.12ms / 402.45ms (시도 10) |\n' +
+    '| K13 | 5MiB codeView | 12.34ms / 15.00ms (시도 10) |\n' +
+    '| K13 | 5MiB codeView extra | 111.00ms / 112.00ms |\n' +
+    '| K13 | 32000-char highlight | 445.97ms / 579.25ms (시도 10) |\n'
+  const label = '5MiB codeView'
+  for (const [rangeLabel, interval, values, expected] of [
+    [label, label, [12.34], ok], // (a) 형제 값 308.12·111·445.97과 구별
+    ['없는 행', label, [12.34], '지표 없음'], // (b)
+    [label, '32000-char highlight', [12.34], '지표 없음'], // (c)
+    [undefined, label, [12.34], '지표 없음'], // (d) ID 행 4개
+    ['', label, [12.34], '구간 형식 지원 안 함'], // (e)
+    [5, label, [12.34], '구간 형식 지원 안 함'] // (e)
+  ]) {
+    const f = fixture('function')
+    f.cell.metric = 'K13'
+    f.cell.interval = interval
+    for (const o of f.obs) {
+      o.metric = 'K13'
+      o.interval = interval
+    }
+    for (let i = 0; i < f.obs.length; i++) {
+      f.raw(i, rows)
+      f.obs[i].values = [12.34]
+      f.obs[i].rawRef.range = {
+        ...f.obs[i].rawRef.range,
+        id: 'K13',
+        column: 'median',
+        label: label
+      }
+    }
+    f.obs[0].values = values
+    if (rangeLabel === undefined) delete f.obs[0].rawRef.range.label
+    else f.obs[0].rawRef.range.label = rangeLabel
+    const r = f.result()
+    assert.equal(r.status === ok ? ok : r.reason, expected, String(rangeLabel) + ' / ' + interval)
+  }
+})
 test('U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row', () => {
   const f = fixture('search'),
     o = f.obs[0]
