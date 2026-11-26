@@ -868,7 +868,7 @@ Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어
 | ID | 결정 | 출처 | 상태 |
 |---|---|---|---|
 | W-050 (ΔV6) | **E1 대체.** 주 스레드 = `oo-measure-start` user timing 표식(`blink.user_timing`)이 찍힌 pid의 `CrRendererMain`. 표식이 없거나 그 pid에 주 스레드가 없으면 그 run의 trace 지표를 만들지 않는다. `cdp.mjs record`는 `Tracing.start` 직후 앱 창(`app://`)에 그 표식을 찍는다 | 현재 결함(probe2) | ACTIVE — §24-D E1 SUPERSEDED |
-| W-051 (ΔV6) | **E3 대체.** 상태 = `args.frame_reporter ?? args.chrome_frame_reporter`. 주 스레드 pid의 이벤트만 센다. `STATE_DROPPED`·`STATE_PRESENTED_PARTIAL` = 누락, `STATE_PRESENTED_ALL` = 표시, 그 밖(`STATE_NO_UPDATE_DESIRED` 등)은 세지 않는다. 같은 `frame_sequence`가 여럿이면 하나로 센다 | 현재 결함(probe2) | ACTIVE — §24-D E3 SUPERSEDED |
+| W-051 (ΔV6 rev 2) | **E3 대체 — DevTools Frames 트랙 모형.** 프레임 = 주 스레드 pid의 `DrawFrame`(표시)·`DroppedFrame`(누락 — `args.hasPartialUpdate`면 부분 표시, 둘 다 §14 “dropped + partially presented” 누락) 이벤트를 `args.frameSeqId`로 묶은 것. 같은 seq에 둘 다 있으면 누락. `PipelineReporter`는 쓰지 않는다 — 한 seq에 보고자가 둘(probe3 pid 324780: 95 seq 중 90이 `ALL`+`PARTIAL`·`ALL`+`DROPPED` 쌍)이라 상태가 정해지지 않는다. probe3 앱 pid: DrawFrame 90 · DroppedFrame 4(부분 4) · 겹침 0 | 현재 결함(probe2·probe3) | ACTIVE — §24-D E3 SUPERSEDED |
 | W-052 (ΔV6) | **진단 빌드 DevTools 자동 열기를 `OO_DIAG_DEVTOOLS=1`일 때만** 한다. 측정은 CDP(`--remote-debugging-port`)로 하고 DevTools 창은 측정 중 렌더러 부하를 더한다(probe2 RunTask 7,028 vs 앱 1,322) | 현재 결함(probe2) | ACTIVE — W-047 diff 보완 |
 
 ### 25-B. Delta V
@@ -882,9 +882,9 @@ Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어
 | 자리 | 규칙 칸 | 입력 칸 |
 |---|---|---|
 | E1′ | 표식 pid의 주 스레드 · 표식 없음 → 미생성 · 표식 pid에 주 스레드 없음 → 미생성 | 렌더러 둘(RunTask 많은 쪽에 표식 없음) → 표식 쪽 · 표식 없음 · 표식이 주 스레드 없는 pid |
-| E3′ | 키 둘 다 읽음 · 주 스레드 pid만 · 상태 셋만 셈 · `frame_sequence` 중복 1개 | `frame_reporter` 입력 · 다른 pid 프레임 섞음 · `NO_UPDATE_DESIRED` 섞음 · 같은 seq 두 번 |
+| E3′ | `DrawFrame`·`DroppedFrame` · `frameSeqId`로 묶음 · 주 스레드 pid만 · 같은 seq 둘 다 → 누락 · `PipelineReporter` 무시 | 실제 발췌 fixture(`probe-min.json` — 두 렌더러의 DrawFrame·DroppedFrame·PipelineReporter·표식) → 앱 pid 값 · 다른 pid 프레임 섞음 · 같은 seq에 Draw+Dropped · PipelineReporter만 있는 입력 → 프레임 0 |
 
-선택 적대 증거(ΔV6): A-E1′ 표식 pid 대신 RunTask 최다로 되돌림 · A-E3′ pid 필터 제거.
+선택 적대 증거(ΔV6): A-E1′ 표식 pid 대신 RunTask 최다로 되돌림 · A-E3′ pid 필터 제거 · A-E3″ 같은 seq 우선순위를 표시로 뒤집기.
 
 ## READY self-review
 
