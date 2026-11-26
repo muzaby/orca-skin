@@ -14,9 +14,9 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **verify/PASS — WU-M 기계 범위 (V1 rev 7 + ΔV1 + ΔV2 · r3 · verify 3).** 남은 것은 WU-W(판정용 Windows 실측)다. W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). |
+| 상태 | **plan/READY — ΔV3(§22).** WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
-| V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · 이번 revision **ΔV2**(§21) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
+| V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · revision **ΔV2**(§21, 설계 `d77d3f3c` · 구현 r3 `515ff58d`·`07377db7` · verify 3 `18b5d5fe`) · 이번 revision **ΔV3**(§22) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2 + ΔV3`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
 
 ## 0. PR #640 피드백 대조 — 지적 9건 모두 재현, 수용
@@ -127,7 +127,7 @@ WU-M이 끝나면 테스터는 같은 명령으로 빌드·입력·측정 도구
 | W-001 | W가 원본 측정을 조합하고 사용자가 목표 장비의 허용치 판정을 확정한다. | 0325 D-003·D-021·D-025, 분할 승인 | ACTIVE |
 | W-002 | AC19 소유자는 A 이전·이후 기준선을 모은다. 같은 실창 세션에서 0324 AC22·AC23·AC52′도 수행하고 원래 verify에 좌표를 남긴다. | 0325 D-024·D-028·D-042 | ACTIVE |
 | W-003 | 0326 AC33의 D-095 기준과 0327 AC30의 기록 완료 기준을 유지한다. | V1. D-095는 0326에서 D-106 → D-109로 대체됐다(0326 plan:165·:622) | SUPERSEDED → W-007 |
-| W-004 | 목표 프로필(Windows 버전·CPU/GPU·RAM·디스플레이 Hz·배율·전원 모드)과 **한국어 IME·정밀 터치패드 사용 가능 여부**, 시나리오별 **지표·단위·집계·연산자·허용값·필수/기록 전용**을 판정 실측 전에 사용자가 확정한다. 구 빌드에 없던 동작은 이전 셀의 사유와 신 빌드의 기능·절대 기준을 미리 정한다. 0326 자체 50/160ms와 0329 기계 기준선 3,729ms는 해당 소유 행에서만 쓴다. | 0325 D-025 OPEN · PR #640 코멘트 §3. 서식은 §14 | **OPEN** |
+| W-004 | 목표 프로필(Windows 버전·CPU/GPU·RAM·디스플레이 Hz·배율·전원 모드)과 **한국어 IME·정밀 터치패드 사용 가능 여부**, 시나리오별 **지표·단위·집계·연산자·허용값·필수/기록 전용**을 판정 실측 전에 사용자가 확정한다. 구 빌드에 없던 동작은 이전 셀의 사유와 신 빌드의 기능·절대 기준을 미리 정한다. 0326 자체 50/160ms와 0329 기계 기준선 3,729ms는 해당 소유 행에서만 쓴다. | 0325 D-025 OPEN · PR #640 코멘트 §3. 서식은 §14 | ACTIVE (ΔV3 — 합의값 W-041) |
 | W-005 | 비교 단위는 같은 프로필·빌드 종류·하네스·입력·동작의 교차 실행 세 쌍이다. 기존 소유자 표본·집계 규칙이 다르면 해당 행은 그 규칙으로 읽는다. | 0325 D-042, 0326 D-063·D-090, 0327 D-025 | ACTIVE |
 | W-006 | 진단 경로는 로컬 계측 빌드로 한정한다. 설치본에서 production의 DevTools 차단·정상 preload와 저장 동작을 유지하고 진단 기능이 노출되지 않음을 따로 확인한다. | 앱 빌드·보안 계약, 0325 §19, 0326 §7-A “개발 메뉴 제외” | ACTIVE |
 | W-007 | 소유 유효 계약과 PASS 커밋을 아래로 고정하고 모든 절·INDEX가 이 표를 가리킨다: 0325 `V1 rev 4 + ΔV1 + ΔV2` @ `d8684684` · 0326 `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3`(실기 판정 D-109) @ `7c241d19` · 0327 `V1 rev 3 + ΔV1~ΔV8` @ `c7d2adf2`(원 브랜치 `d3033986`) · 0328 `V1 rev 5 + ΔV1` @ `7db1c7ce` · 0329 `V1 rev 5 + ΔV1~ΔV7` @ `eae9081b`(원 브랜치 `421d2393`). 0326 S8/T17·S9/T18은 W의 별도 관측 행이다. | PR #640 코멘트 §1 · F1 | ACTIVE |
@@ -164,6 +164,10 @@ WU-M이 끝나면 테스터는 같은 명령으로 빌드·입력·측정 도구
 | W-038 (ΔV1) | 소유자 판정 값의 근거 규칙: **`FAIL`은 근거 좌표(`machineRef`·`windowsRef`)가 없어도 소유자 FAIL로 센다** — `ownerFailures`에 넣어 전체를 `불합격`으로 만들고 hold `소유 판정 근거 없음`을 더한다. `PASS`·`미완`은 근거 좌표가 있어야 그 값으로 읽고, 없으면 `미기록`이다. FAIL을 근거 결손 때문에 버리면 Part I R-05 “원소유자의 FAIL이 보존된다”를 어긴다 — 부정 정보는 근거가 약해도 합격 쪽으로 기울지 않게 남긴다. | verify 1 D2(확장 후보 채택) · 설계 판단 | ACTIVE |
 | W-039 (ΔV2) | owners 행은 **plan 안의 대상과 정해진 값만** 받는다 — 행의 `task`·`owner` 쌍이 `plan.tasks[].owners`에 없거나, `key`가 있는데 그 task·owner 셀의 `key`가 아니거나, `machine`·`windows` 값이 있는데(`undefined`·`null` 아님) `PASS`·`FAIL`·`미완`이 아니면 판독기는 판정을 내지 않고 **exit 2**(입력 오류)와 그 행 식별자를 낸다. 오타 난 소유자 FAIL 행이 조용히 버려져 `합격`이 되는 것을 막는다. 사용자 설명(2026-11-26): ① exit 2 — 틀린 파일로는 결과표를 주지 않는다 / ② 보고 후 판정 보류 중 ①을 고름 | verify 2 D5 · 사용자 결정 “너가 제안하는대로 handoff-plan 진행할것”(2026-11-26) | ACTIVE |
 | W-040 (ΔV2) | W-038의 근거 좌표가 **있다**는 것은 `machineRef`·`windowsRef`가 공백 아닌 문자열(`textValue`)이라는 뜻이다 — 빈 문자열·공백·비문자열·`null`은 없음이다. W-038을 보완하며 대체하지 않는다 | verify 2 D4(확장 후보 채택) · 설계 판단(r2 코드의 현재 동작을 잠금) | ACTIVE |
+| W-041 (ΔV3) | **W-004 합의값.** 프로필 `win-4ejndg` = Windows 11 Home 22631 · Intel Core i7-6500U · Intel HD Graphics 520(드라이버 21.20.16.4565) · RAM 15.9GB · 1920×1080 60Hz · 배율 125% · 전원 `균형 조정`(381b4222…) · 한국어 IME 있음 · 정밀 터치패드 있음. 필수 = 각 소유 행의 기존 규칙(0326 D-109 ①~⑤ · 0327 AC30 기록 완결과 S-C8 문자열 일치 · 0328 0330 인계 기록 · 0329 E 행동·크기 경계). W 최소지표(입력→paint p95·최대 · 누락 · >50ms 작업)와 T17·T18은 기록 전용. 기준 revision `0330-W004-r1` | 사용자 AskUserQuestion 답(2026-11-26): “이 PC로 고정” · “소유 기준만 필수, W 최소지표는 기록 전용” · T17·T18 “기록 전용” | ACTIVE |
+| W-042 (ΔV3) | **실측 순서 2단계.** 1단계 = W 통합 셀(H4 W1~W4p)과 0326 D-109 필수 셀, 2단계 = 나머지 소유 셀. 분모(`plan.cells`)는 두 단계 모두 같은 하나이며 최종 `합격`은 전체 필수 셀이 필요하다(H6 · P4 ④ 불변) | 사용자 “추천대로 하라”(규모 선택 ②) | ACTIVE |
+| W-043 (ΔV3) | **S-E1·S-E5·S-E4 대상 시드.** 측정 전용 도구 `app/scripts/seed-history-fixture.mjs`가 격리 프로필 DB에 세 하네스 세션을 쓰고, H1이 셀 `target`으로 고정할 `sessionId`·`messageId`·`expectText`를 `targets.json`으로 낸다. 제품 코드·IPC·스키마는 바꾸지 않는다 | 사용자 “추천대로 하라”(대상 선택 ⓐ) | ACTIVE |
+| W-044 (ΔV3) | **H1 셀 생성기.** `evidence/wu-w/cells.mjs`가 W-041·W-042와 소유 §19 표에서 `plan.cells`를 만든다. 셀 `target` 키는 `<시나리오>/<하네스>/<부하 또는 입력>`이다. 생성기 출력과 `targets.json`·Node 행 원본의 SHA-256을 합의 기록(`decision.json`)과 함께 잠근다 | W-013 · H1 “필수 셀 분모를 먼저 만든다” | ACTIVE |
 
 **갱신 메모(rev 3).** 추가 W-014~W-019, 대체 W-009 → W-019. rev 2의 추가 W-007~W-013·대체 W-003 → W-007은 유지한다. `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — W-014 ↔ AC8·AC9(기준선 모델), W-015 ↔ AC7(P1 ①②④·P2), W-016 ↔ AC7(P4 ④), W-017 ↔ AC10, W-018 ↔ §7-A 세 구분·AC1~AC6(WU-W), W-019 ↔ AC4(T09 행)를 나란히 읽었다. rev 2 대조(W-008 ↔ AC4 · W-010 ↔ AC7 · W-011 ↔ AC6·AC7 · W-012 ↔ AC8·AC9 · W-013 ↔ AC1·AC6)는 그대로다. W-004의 빈 값으로 통과할 수 있는 셀은 없다(P1 ①④ · P4 ⑥⑦).
 
@@ -178,6 +182,8 @@ WU-M이 끝나면 테스터는 같은 명령으로 빌드·입력·측정 도구
 **갱신 메모(ΔV1).** 추가 W-037·W-038, 대체 없음(W-012의 “생성 시점 출처”는 W-037이 부모 스탬프로 구체화). `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — W-037 ↔ AC8(모든 시나리오 출력의 `environment`는 부모 스탬프에서 온다 — 출력 계약 불변), W-038 ↔ AC7(근거 없는 소유자 FAIL → `불합격`) · AC6(위반·결측 동시 보고)을 나란히 읽었다.
 
 **갱신 메모(ΔV2).** 추가 W-039·W-040, 대체 없음(W-040은 W-038의 “근거 좌표 없음”을 구체화). `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — W-039 ↔ AC7(plan 밖 owners 행·모르는 값 → exit 2, C 칸의 exit 2 = 입력 오류와 같은 뜻) · W-038 ↔ AC7(근거 없는 FAIL → `불합격` — W-039는 행이 plan 안일 때만 W-038로 간다) · W-040 ↔ AC7(공백 근거 = 없음)을 나란히 읽었다.
+
+**갱신 메모(ΔV3).** 추가 W-041~W-044, 대체 없음(W-004는 절차, W-041이 그 값). 출처는 사용자 결정 둘(plan 동결 뒤 허용 출처). `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — W-041 ↔ AC1·AC6(프로필 1개·필수/기록 전용), W-042 ↔ AC6(단일 통합 SHA·전체 필수 셀 — 순서만 정함), W-043 ↔ AC3·AC4(S-E5 첫 가시 셀의 대상), W-044 ↔ AC3(예정 셀 분모)을 나란히 읽었다. W-013 “합의 전 실행은 W 최종 표본으로 승격하지 않는다”는 `lockedAt`을 생성기 실행 시각으로 두어 지킨다.
 
 ## 4. 요구 비판적 검토
 
@@ -690,7 +696,68 @@ Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어
 
 **r3 운영 gate.** §19 H6 “WU-M 구현 턴” 목록 전부 + `node --test scripts/windows-verdict.test.mjs scripts/measure-stage-d.test.mjs scripts/measure-stage-e.test.mjs scripts/diagnostic-overlay.test.mjs` + ⑨ 자리 검색 재실행(출력 분류표).
 
+## 22. ΔV3 — W-004 합의 · 실측 순서 · S-E 대상 시드 (사용자 결정)
+
+**판정: READY.** WU-W 착수 조건 W-004가 합의됐다(W-041). H1이 첫 가시 셀의 대상을 측정 전에 고정하려면 세 하네스의 저장 세션이 필요한데 저장소에 그 도구가 없다 — 사용자가 측정 전용 시드 도구(W-043)를 골랐다. 제품 코드·IPC·스키마는 바뀌지 않는다. plan 동결 뒤 턴이므로 새 열거는 모두 출처가 사용자 결정(W-041~W-043)이거나 그 결정의 정합(W-044)이다.
+
+### 22-A. 조사
+
+| 대상 | 검색 · 관측 | N · 의미 |
+|---|---|---|
+| 기존 DB 합성 | `app/scripts/stage-e/host.ts:16-56` — 마이그레이션 `< 0037`을 적용한 DB에 `sessions`·`native_history_snapshots`·`native_history_messages`를 raw SQL로 쓴다. backend `claude` 한 종류 | 세 하네스·대상 ID·63턴 검색어가 없다. 재사용할 수 있는 것은 표 구조와 마이그레이션 적용 방식 |
+| 빌드별 마지막 마이그레이션 | `git ls-tree` — `ee8ac817`·`d8684684` `0035_scheduled_tasks` · `7db1c7ce` `0036_message_key` · `515ff58d` `0039_history_fork_prefix` | 시드 스키마는 가장 오래된 빌드(≤0035)에 맞춘다. 뒤 빌드는 부팅 시 앞으로 마이그레이션한다(0329 구 DB 경로) |
+| 하네스 식별 | `migrations/0001`(`backend TEXT NOT NULL`) · `0022`·이름 바꿈 뒤 `agent_kind IN ('code','work')` | Claude Code = `claude`/`code` · Claude Work = `claude`/`work` · OpenCode = `opencode`/`code` |
+| 표시 메시지 ID | `src/shared/message-id.ts:38` `nativeOnlyMessageId(id) = 'n:' + encodeURIComponent(id)` · `native-projection.ts:50`(로컬 행 없는 원본 메시지) | 시드는 로컬 행을 쓰지 않으므로 대상 `messageId`는 이 규칙으로 정해진다 |
+| 열기 경로 | `features/history/reader.ts:38-95` `readHistorySource` — 저장 snapshot을 투영한다. 원본 갱신은 에이전트 호스트 훅(`session-load.ts` `refreshHistory`) | DB만으로 첫 본문이 그려진다. 원본 파일이 없으면 갱신 결과만 다르다(선언 경계) |
+| 셀 대상 키 | `evidence/wu-w/cells.mjs` 초안 — `targets['S-E1/<부하>']` | 대상이 하네스마다 다르므로 키에 하네스가 들어가야 한다(W-044) |
+
+### 22-B. Delta V
+
+| 노드 · pair | provenance | requiredness | 변경 · 좌표 |
+|---|---|---|---|
+| MD-06 ↔ UT-06 / VP-20 | NEW(ΔV3) | REQUIRED | `scripts/history-seed.mjs`의 순수 `seedSpec(options)`와 `writeSeed(db, spec)`. 신규 `scripts/history-seed.test.mjs`(§22-C S1~S7 입력) |
+| AR-05 ↔ IT-05 / VP-21 | NEW(ΔV3) | REQUIRED | 시드 DB → 현재 트리 마이그레이션 → production `loadSession` → 대상 메시지. 신규 `src/main/features/history/history-seed.db.test.ts` |
+| SD-02 ↔ ST-02 / VP-22 | NEW(ΔV3) | REQUIRED | CLI `--user-data`·`--migrations`·`--out` → DB 파일 + `targets.json` → `cells.mjs --targets` → 판독기 `planCheck` 통과. 신규 `history-seed.test.mjs:'cli writes db and targets …'`(자식 프로세스, better-sqlite3를 못 열면 `skip` 아닌 exit 3 `환경 없음` 기록) + `gate:node evidence/wu-w/cells.mjs --targets … | windows-verdict --plan`(exit 2 `target 필요` 없음) |
+| VP-01~07 | INHERITED(V1 rev 7) | — | WU-W. ΔV3 구현·verify 4 뒤 H1 잠금으로 착수 |
+| VP-08~19 · VP-R1 | INHERITED(ΔV2) | NOT_REQUIRED | ΔV3은 판독기·stage-d·stage-e·진단 스크립트·렌더러를 건드리지 않는다. 기존 증거 = verify 3 PASS 좌표 |
+
+### 22-C. §10 정정 — 시드 도구
+
+자리 검색: `rg -n "backend|agent_kind|nativeOnly|encodeURIComponent|센서 A|targets|turns|until|migrations|INSERT" app/scripts/history-seed.mjs app/scripts/seed-history-fixture.mjs` — 구현 뒤 출력의 각 줄을 아래 S1~S7 중 하나로 분류하고 운반하지 않는 줄은 사유와 함께 제외 줄로 적는다(`site_census.mjs`).
+
+| 자리 | 규칙 칸 — 분기마다 결과 | 입력 칸 — 분기마다 입력(구별 값) |
+|---|---|---|
+| S1 하네스 대응 | `claude-code` → `backend='claude'`·`agent_kind='code'` · `claude-work` → `'claude'`·`'work'` · `opencode` → `'opencode'`·`'code'` | 세 하네스 각각의 세션 행 두 칸을 단언(셋이 서로 다름) |
+| S2 세션 구성 | ① `turns-N`(N ∈ 1·100·10000): 과거 N턴 + 같은 최신 1턴 = 메시지 2(N+1) ② `search-100`: 100턴, 63턴 assistant 본문에만 `센서 A` ③ `large-4mib`: 최신 턴 assistant part 하나가 4·1024·1024 bytes ④ `msg-600`: 최신 턴 메시지 600 ⑤ `empty-200k`: 최신 턴 메시지 200,000, 그중 user 1을 뺀 전부 `parts: []` | ① 1·100·10000 각각 메시지 수 4·202·20002 ② `센서 A` 포함 메시지 수 = 하네스마다 1, 그 턴 번호 63 ③ 바이트 길이 ④ 600 ⑤ 200,000과 빈 parts 199,999 |
+| S3 대상 ID | `messageId = 'n:' + encodeURIComponent(nativeId)` — nativeId에 인코딩되는 문자(`:`)를 넣어 규칙을 운반한다 | `encodeURIComponent` 없는 값(`n:seed:…`)과 다름을 단언 |
+| S4 대상 선택 | S-E1 `first-body` = 최신 턴 assistant · `expectText` = 그 본문 앞부분 · S-E5 `search-target` = 63턴 assistant · `expectText` = `센서 A` 문장 · S-E5 `click`·`enter`는 같은 대상 | 최신 턴 user·62턴·64턴 assistant ID와 각각 다름을 단언 |
+| S5 마이그레이션 상한 | `--until <NNNN>`(기본 `0035`) 이하의 `NNNN_*.sql`만 이름순 적용 · 상한 밖 파일 무시 · 숫자 아닌 이름 무시 | `0035`·`0036`·`0039`와 `README.sql`이 있는 폴더 → 적용 목록 단언 |
+| S6 대상 키 | `<시나리오>/<하네스>/<부하 또는 입력>` — `S-E1/<h>/turns-{1,100,10000}` · `S-E5/<h>/{click,enter}` · 하네스 3 → 키 15 | 키 집합 전수 단언 · `cells.mjs`가 같은 키로 읽는다(VP-22) |
+| S7 기존 프로필 보호 | `--user-data`에 `orcinus-orca.db`가 이미 있으면 쓰지 않고 exit 2 | 빈 폴더 → 0 · DB 있는 폴더 → 2 + 파일 불변 |
+
+**AR-05 경로(VP-21).** 임시 폴더 → 현재 트리 `migrations`의 ≤0035로 `writeSeed` → 나머지 마이그레이션 적용 → `loadSession(db, id, cwdOf)`. 단언: (a) S-E1 `turns-1`·`turns-100` 세 하네스 — 마지막 메시지 `id` = 대상 `messageId`, 본문에 `expectText` (b) S-E5 세 하네스 — `id` = 대상인 메시지가 있고 본문에 `센서 A` (c) 세션 `backend`·`agentKind`가 S1과 같다. 큰 세션(10000·4MiB·200k)은 S2 순수 시험이 크기를 잠그고 IT는 작은 크기 옵션(`sizes`)으로 같은 함수를 지난다.
+
+**선택 적대 증거(ΔV3).**
+
+| ID | 자리 | 변이 | 잡아야 할 좌표 |
+|---|---|---|---|
+| A-S1 | S1 | `claude-work`와 `opencode`의 backend 맞바꿈 | UT S1 · IT (c) |
+| A-S3 | S3 | `encodeURIComponent` 제거 | UT S3 · IT (a) |
+| A-S4 | S4 | S-E5 대상을 64턴 assistant로 | UT S4 · IT (b) |
+| A-S6 | S6 | 키에서 하네스 마디 제거 | UT S6 · VP-22 gate |
+
+**선언 경계(ΔV3).**
+- 시드는 DB 사본만 쓰고 하네스 원본(Claude JSONL·OpenCode 저장소)은 만들지 않는다. 열기 뒤 원본 갱신은 원본 없음으로 끝날 수 있고, 그 결과는 시드 세션으로 판정하지 않는다(복구 경로는 0329 AC11 구 DB 도구 소관).
+- 시드 DB는 ≤0035 스키마다. 0036 이후 빌드는 부팅 마이그레이션과 0037 색인 준비를 거친다 — S-E1 “준비 전/중/후”는 이 경로를 그대로 쓴다.
+- 대상 ID 규칙은 `n:` 원본 전용 ID다. `7db1c7ce` 이전 빌드는 표식이 `oo-unobservable:…:no-message-id`로 남고(W-035) 판독기가 사유를 보존한다.
+
+**WU-W 운반(W-042·W-044).** `cells.mjs`의 대상 조회를 `targets['<시나리오>/<하네스>/<부하 또는 입력>']`로 바꾸고, 대상 없는 첫 가시 셀은 만들지 않는 대신 exit 1로 멈춘다(빈 대상으로 분모를 줄이지 않는다). 잠금 묶음 = `plan.json`·`decision.json`(`agreement.revision = 0330-W004-r1`, `lockedAt` = 생성기 실행 시각)·`targets.json`·Node 행 원본, 각 SHA-256을 `evidence/wu-w/lock.txt`에 적는다.
+
+**운영 gate(ΔV3 구현 턴).** §19 H6 “WU-M 구현 턴” 목록 전부(`app/AGENTS.md` IMPL_DONE 전 로컬 확인) + `node --test scripts/history-seed.test.mjs` + `./node_modules/.bin/vitest run src/main/features/history/history-seed.db.test.ts` + 자리 검색 분류표 + VP-22 gate.
+
 ## READY self-review
+
+- **ΔV3(사용자 결정)**: W-041~W-044 추가(출처 = 사용자 결정 · 그 정합). NEW MD-06·AR-05·SD-02에 같은 레벨 REQUIRED pair(VP-20·21·22), 판독기 계열 VP-08~19·R1은 비영향 NOT_REQUIRED(§22-B). 규칙 칸 S1~S7의 분기마다 입력 칸이 있다(S2 ①~⑤ 5 · S5 3 · S7 2). 열린 입력(기존 프로필 폴더)은 exit 2로 막는다(S7). `ACTIVE 결정 ↔ AC` 대조는 갱신 메모(ΔV3) — 충돌 0.
 
 - **ΔV2(verify 2 정정)**: D4 → W-040 채택(P5 ⑧ c, U39 입력 8개), D5 → W-039 채택(P5 ⑨ a·b·c, U40, 신규 AT 1 — 사용자가 처리안 ①을 고름). CHANGED 노드 R-07·MD-02에 같은 레벨 REQUIRED pair(VP-14·VP-10), 영향 상위 VP-08(exit 2 경로)·VP-09(공용 fixture) REGRESSION, 나머지 NOT_REQUIRED(근거 §21-B). 분기 59. 규칙 칸 ⑧ c·⑨ a~c마다 U39·U40 입력이 있다. `ACTIVE 결정 ↔ AC` 대조는 갱신 메모(ΔV2) — 충돌 0. 열린 입력(owners 행)은 fail-closed(exit 2)로 막는다. plan 동결: 이 턴 뒤 새 열거는 출처가 필요하다.
 - **ΔV1(verify 1 정정)**: D1 → W-037(자식 Electron 기록의 출처 사본 제거, P6′ 목록 32줄 재고정 — 운반 24·제외 6·SUPERSEDED 2), D2 → W-038 채택(P5 ⑧ a·b, U39, 신규 AT 1). CHANGED 노드 R-07·MD-02·MD-03에 같은 레벨 REQUIRED pair(VP-14·VP-10·VP-11), 영향 상위 VP-08·09·13·15 REGRESSION, 나머지 NOT_REQUIRED(근거 §20-B). 분기 55. `ACTIVE 결정 ↔ AC` 대조는 갱신 메모(ΔV1) — 충돌 0. 확장 창: verify 1 뒤라 창 안이며, 이번 ΔV1은 verify 2회째 뒤 설계 턴이 아니므로 열거 원문을 늘릴 수 있다.
