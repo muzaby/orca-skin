@@ -14,7 +14,7 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **impl/IMPL_DONE — ΔV3 r4 · ΔV4 r4.2.** WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
+| 상태 | **plan/READY — ΔV5(§24) · H1 잠금 `61fe6398`.** ΔV3·ΔV4는 verify 4 PASS. WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
 | V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · revision **ΔV2**(§21, 설계 `d77d3f3c` · 구현 r3 `515ff58d`·`07377db7` · verify 3 `18b5d5fe`) · revision **ΔV3**(§22, 설계 `7d4e6b60` · 구현 r4 `ebb69702`) · 이번 revision **ΔV4**(§23) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2 + ΔV3 + ΔV4`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
@@ -169,6 +169,7 @@ WU-M이 끝나면 테스터는 같은 명령으로 빌드·입력·측정 도구
 | W-043 (ΔV3) | **S-E1·S-E5·S-E4 대상 시드.** 측정 전용 도구 `app/scripts/seed-history-fixture.mjs`가 격리 프로필 DB에 세 하네스 세션을 쓰고, H1이 셀 `target`으로 고정할 `sessionId`·`messageId`·`expectText`를 `targets.json`으로 낸다. 제품 코드·IPC·스키마는 바꾸지 않는다 | 사용자 “추천대로 하라”(대상 선택 ⓐ) | ACTIVE |
 | W-044 (ΔV3) | **H1 셀 생성기.** `evidence/wu-w/cells.mjs`가 W-041·W-042와 소유 §19 표에서 `plan.cells`를 만든다. 셀 `target` 키는 `<시나리오>/<하네스>/<부하 또는 입력>`이다. 생성기 출력과 `targets.json`·Node 행 원본의 SHA-256을 합의 기록(`decision.json`)과 함께 잠근다 | W-013 · H1 “필수 셀 분모를 먼저 만든다” | ACTIVE |
 | W-045 (ΔV4) | `table-row` 관측은 선택 칸 `range.label`(둘째 열)로 같은 ID의 행을 가른다 — 있으면 `\| id \| label \|` 행 1개·관측 `interval = label`, 없으면 현행(ID 행 1개). 상세 §23 | 사용자 “판독기가 ID+이름 열로 식별” · r4 K1 | ACTIVE |
+| W-046~W-049 (ΔV5) | 추출기 · 측정 프로필 env · 파일럿 · 에이전트 앱 실행. 상세 §24-B | 사용자 “모두 허용” | ACTIVE |
 
 **갱신 메모(rev 3).** 추가 W-014~W-019, 대체 W-009 → W-019. rev 2의 추가 W-007~W-013·대체 W-003 → W-007은 유지한다. `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — W-014 ↔ AC8·AC9(기준선 모델), W-015 ↔ AC7(P1 ①②④·P2), W-016 ↔ AC7(P4 ④), W-017 ↔ AC10, W-018 ↔ §7-A 세 구분·AC1~AC6(WU-W), W-019 ↔ AC4(T09 행)를 나란히 읽었다. rev 2 대조(W-008 ↔ AC4 · W-010 ↔ AC7 · W-011 ↔ AC6·AC7 · W-012 ↔ AC8·AC9 · W-013 ↔ AC1·AC6)는 그대로다. W-004의 빈 값으로 통과할 수 있는 셀은 없다(P1 ①④ · P4 ⑥⑦).
 
@@ -798,7 +799,61 @@ Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어
 
 **운영 gate(ΔV4 구현 턴).** §19 H6 “WU-M 구현 턴” 목록 + `node --test scripts/windows-verdict.test.mjs` + 자리 검색 분류 + VP-22 gate(`--node-rows` 포함).
 
+## 24. ΔV5 — 측정값 추출기 · 측정 프로필 · 파일럿 (사용자 결정)
+
+**판정: READY.** H1 잠금(`61fe6398`) 뒤 1단계 429회를 사람이 trace에서 수치를 옮겨 manifest·관측을 쓰면 원본 대조(W-015)·H5가 오류를 낸다. 사용자가 추출기(W-046)·진단 빌드 측정 프로필(W-047)·1슬롯 파일럿(W-048)·에이전트 앱 실행(W-049)을 모두 허용했다(“모두 허용”). 분모(`lock/plan.json`)·판정 규칙·판독기는 바뀌지 않는다 — 잠금은 유지된다.
+
+### 24-A. 조사
+
+| 대상 | 검색 · 관측 | N · 의미 |
+|---|---|---|
+| 측정값 생산자 | `rg -l "traceEvents\|EventTiming\|PipelineReporter" app/scripts` | 판독기(`windows-verdict.mjs` — `trace-ts`·`trace-marker` 실재 검사만)뿐. trace → 관측 값 추출기 0 |
+| 1단계 지표 | `lock/plan.json` owner 0330 · 0326(node 제외) 셀의 `metric` 고유값 | trace 유도 13종(아래 표) + 측정자 확인 값(행동 `ok`·px·글자 수 등) |
+| userData | 세 빌드 `src/main/index.ts:58-60` — `import.meta.env.DEV`일 때만 `setPath('userData')` | 설치·진단 빌드는 `%APPDATA%\orcinus-orca`(실제 DB·secret-store) 고정. 측정이 실제 프로필을 쓰게 된다 |
+| 진단 빌드 | `C:\orca-W\diag-build.mjs` — 세 빌드 diff(minify·profiling alias·DevTools) 적용, diff SHA-256 기록 | env 분기 한 줄을 같은 diff에 더하면 실제 프로필을 건드리지 않는다 |
+
+### 24-B. 결정
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| W-046 (ΔV5) | **추출기** `app/scripts/windows-observe.mjs`(측정 전용). 잠긴 plan · 측정자 실행표(TSV) · 원본 폴더를 읽어 판독기 입력 `manifest.json`·`observations.jsonl`을 쓴다. trace 유도 지표는 §24-D 표만, 측정자 확인 값은 실행표 `checks` 칸만에서 만들고, 그 밖 지표는 관측을 만들지 않는다(fail-closed — 판독기가 `missing`으로 보인다) | 사용자 “모두 허용”(추천 ①) | ACTIVE |
+| W-047 (ΔV5) | **측정 프로필.** 진단 diff에 `OO_MEASURE_USER_DATA`가 있으면 `app.setPath('userData', 그 값)`을 더한다(진단 빌드만 — 설치본 무변경). 프로필은 `seed`(S-E — `C:\orca-W\profiles\seed`) · `real-copy`(실제 프로필 사본) · `fixture`(빈 폴더) 셋이고 실행마다 템플릿에서 복원한다. 실제 `%APPDATA%\orcinus-orca`는 읽기(사본)만 한다 | 사용자 “모두 허용”(추천 ②) | ACTIVE |
+| W-048 (ΔV5) | **파일럿.** 1단계 대량 실측 전에 W1 · `515ff58d` · claude-code · `history-1` · 반복 1을 저장 → 추출 → 판독기로 한 번 끝까지 돌린다. 파일럿 run도 `lockedAt` 뒤라 정식 표본이다 | 사용자 “모두 허용”(추천 ③) | ACTIVE |
+| W-049 (ΔV5) | 에이전트가 진단·설치 빌드를 실행·종료하고 사전 실행(H1 ③④)·프로필 준비·로그 수집을 한다. IME·터치패드·드래그·실제 전송은 사람이 한다 | 사용자 “모두 허용”(추천 ④) | ACTIVE |
+
+### 24-C. Delta V
+
+| 노드 · pair | provenance | requiredness | 변경 · 좌표 |
+|---|---|---|---|
+| MD-07 ↔ UT-07 / VP-23 | NEW(ΔV5) | REQUIRED | `windows-observe.mjs`의 순수 유도 함수 — 신규 `scripts/windows-observe.test.mjs`(§24-D 입력) |
+| AR-06 ↔ IT-06 / VP-24 | NEW(ΔV5) | REQUIRED | 추출기 CLI 출력 → 판독기 CLI. 신규 `windows-observe.test.mjs:'observe output passes the verdict reader …'` — 합성 trace·profile 원본으로 셀이 `충족`/`위반`이 되고 원본 해시·런타임(P2 ①②④)이 통과 |
+| SD-03 ↔ ST-03 / VP-25 | NEW(ΔV5) | REQUIRED | 진단 빌드 + `OO_MEASURE_USER_DATA` → 앱 기동 → DB가 측정 프로필에 생기고 실제 프로필 DB의 수정 시각·SHA-256 불변. `gate:` 사전 실행 기록(`evidence/wu-w/pilot/prerun.txt`) |
+| 판독기·시드·셀 생성기 VP | INHERITED | NOT_REQUIRED | 무변경 |
+
+### 24-D. §10 — 추출기 자리
+
+| 자리 | 규칙 칸 — 분기마다 결과 | 입력 칸(UT-07) |
+|---|---|---|
+| E1 렌더러 주 스레드 | `thread_name = CrRendererMain`인 스레드 중 `RunTask`가 가장 많은 하나 · 없으면 그 run의 trace 지표 전부 미생성 | 두 렌더러(이벤트 수 3·1)에서 3 쪽 선택 · 주 스레드 없음 |
+| E2 작업 시간 | `RunTask` `dur`(µs)/1000 = ms. `longest-stall-ms` = 50ms 이상 작업 길이 목록(없으면 `[0]`) · `tasks-over-50ms` = `[50ms 초과 수]`(건) | 49.9·50.0·50.1·160·170ms → 목록 `[50,50.1,160,170]`·초과 수 3 |
+| E3 프레임 | `PipelineReporter` `args.chrome_frame_reporter.state` — `STATE_DROPPED`·`STATE_PRESENTED_PARTIAL` = 누락, `STATE_PRESENTED_ALL` = 표시, `frame_sequence` 순. `dropped-frames`·`*-dropped-frames` = 누락마다 `1`, `*-presented-frames` = `[표시 수]`, `longest-consecutive-dropped` = `[최장 연속 누락]`, `drag-frame-interval` = 표시 프레임 사이 간격(ms) | 순서 `ALL·DROP·DROP·PARTIAL·ALL·DROP` → 누락 4·표시 2·최장 연속 3 · 순서를 뒤섞은 입력도 같은 결과 |
+| E4 입력 지연 | `EventTiming` 비동기 시작·끝 쌍(같은 `id`) 길이(ms), `args.data.type`으로 분류 — `key-to-paint`·`input-to-paint`·`input-to-paint-max` = `keydown`·`keypress`·`keyup` · `click-to-paint`·`collapse-click-to-paint` = `click`·`pointerup`·`pointerdown`. 끝 없는 시작은 버린다 | keydown 3·click 2·끝 없는 keydown 1 → 키 3값·클릭 2값 |
+| E5 layout | `layout-sum-ms` = 주 스레드 `Layout` `dur` 합(ms) | 2·3ms → `[5]` |
+| E6 측정자 확인 | 실행표 `checks` 칸 `지표=값;…`. 값이 `ok`·`fail`이면 문자열, 수치면 수, 단위는 셀 `rule.inputUnit`. 원본은 추출기가 쓰는 `<runId>.checks.txt`(한 줄 한 지표), `rawRef.range = lines` | `paste-matches-selection=ok;pin-bottom-distance=0.5` → `['ok']`·`[0.5]` px · 칸 없는 지표 → 관측 없음 |
+| E7 run 속성 | 실행표 행 + 잠긴 셀에서 `sample`(owner 0330 → `w`, 그 밖 → `owner`) · `pairId`·`side`·`sha`·`buildKind`·`profile`·`scenario`·`operation`·`load`·`harness`·`repeat`을 채우고, `runRef`(trace, `kind: trace`)·`profileRef`(장비 기록 — `Caption` 줄)·`binarySha256`(실행 파일)·`appSource{commit, tree: null, dirty: true, diffSha256}`·`tools.chrome-trace{version, environment: win32-electron}`을 쓴다. 실행표의 `runId`·`startedAt`·`endedAt`·`traceFile`이 비면 그 행은 건너뛴다 | 빈 행 1 · 진단 행 1 → run 1 · 필드 전수 단언 |
+| E8 구간 | trace 유도 관측의 `rawRef.range = { kind: trace-ts, start, end }` = 쓴 이벤트 ts 최소·최대 | 쓴 이벤트 ts 100·900 → 100–900 |
+
+자리 검색: `rg -n "CrRendererMain|RunTask|PipelineReporter|EventTiming|Layout|checks|trace-ts|sample|binarySha256|diffSha256" app/scripts/windows-observe.mjs` — 구현 뒤 E1~E8·제외로 분류(`site_census.mjs`).
+
+**선택 적대 증거(ΔV5).** A-E3: `STATE_PRESENTED_PARTIAL`을 표시로 · A-E2: 경계 `≥ 50`을 `> 50`으로(목록) · A-E4: 키·클릭 분류 맞바꿈 · A-E7: `sample`을 항상 `w`로.
+
+**선언 경계(ΔV5).** `trace-marker`(S-E 첫 가시 셀)·설치본 로그(`app-log`)·Node 출력은 이번 추출기 범위 밖이다 — 2단계 전 별도 ΔV. trace 안의 시나리오 구간 분할은 하지 않는다 — 한 run = 한 조작 trace다. DevTools 내보내기 형식이 실제로 다르면 파일럿(W-048)이 드러내고 그 정정은 새 ΔV다. 설정·로그 폴더(`~/.config/orcinus-orca`)는 측정 프로필과 공유된다(W-047은 userData만 가른다).
+
+**운영 gate(ΔV5 구현 턴).** §19 H6 “WU-M 구현 턴” 목록 + `node --test scripts/windows-observe.test.mjs` + 자리 검색 분류 + VP-25 사전 실행 기록.
+
 ## READY self-review
+
+- **ΔV5(사용자 결정 “모두 허용”)**: W-046~W-049 추가. NEW MD-07·AR-06·SD-03에 REQUIRED pair(VP-23·24·25). 분모·판정 규칙 무변경(잠금 유지). E1~E8 분기마다 입력 칸. 모르는 지표는 관측 미생성(fail-closed). `ACTIVE 결정 ↔ AC` 대조: W-046 ↔ AC5(원자료 재계산) · W-047 ↔ AC1(격리 프로필) · W-048 ↔ AC1·AC5 — 충돌 0.
 
 - **ΔV4(r4 PLAN_GAP K1 · 사용자 결정)**: W-045 추가. CHANGED MD-02·SD-02에 REQUIRED pair(VP-10 · VP-22), 영향 상위 VP-08·09 REGRESSION. P2 ⑨″ 분기 (a)~(e) 5개마다 U41 입력. 열린 입력(label 형식)은 (e)로 막는다. `ACTIVE 결정 ↔ AC` 대조: W-045 ↔ AC7(모르는 구간 형식은 충족 불가 — (e)) · AC3(예정 셀 분모 = Node 107행) 충돌 0.
 
