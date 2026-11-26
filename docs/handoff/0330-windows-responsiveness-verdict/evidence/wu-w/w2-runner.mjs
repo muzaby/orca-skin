@@ -70,7 +70,7 @@ async function click(p, x, y) { await p.c.send('Input.dispatchMouseEvent', { typ
 const rectOf = (sel) => `(()=>{const e=${sel};if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,top:r.top,h:r.height}})()`
 async function enter(c) { await c.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' }); await c.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }) }
 async function waitDone(p, timeoutMs) {
-  const len = "(document.querySelector('[data-transcript-session]')||document.querySelector('main')).innerText.length"
+  const len = "(document.querySelector('[data-transcript-session],.app-frame-transcript')||document.querySelector('main')).innerText.length"
   const t0 = Date.now(); const base = await p.evaluate(len); let stable = 0, last = base, changed = false
   while (Date.now() - t0 < timeoutMs) { await sleep(1000); const n = await p.evaluate(len); if (n !== base) changed = true; stable = changed && n === last ? stable + 1 : 0; last = n; if (stable >= 4) return true }
   return false
@@ -83,8 +83,8 @@ async function makeH1(p) {
     btn(b=>b.getAttribute('aria-label')==='작업 폴더 선택')?.click();await w(500);[...document.querySelectorAll('[role=menuitemradio]')].find(e=>e.innerText.includes('measure-scratch'))?.click();await w(500);
     const m=[...document.querySelectorAll('main button')].find(b=>b.offsetParent&&/\\//.test(b.innerText)&&!b.getAttribute('aria-label'));m?.click();await w(600);
     [...document.querySelectorAll('[role=menuitemradio]')].find(e=>${h.model}.test(e.innerText.trim()))?.click();await w(600);return document.querySelector('[data-harness]')?.dataset.harness})()`)
-  // history-1 = 과거 1턴 + 최신 1턴 — 두 번 보낸다.
-  for (const text of ['안녕', '확인 2 — 한 단어로만 답하라']) {
+  // history-1 = 과거 1턴 + 최신 1턴 — 두 번 보낸다. 최신 턴은 화면보다 길게(80줄) — 본문이 넘쳐야 읽던 위치(D-016)를 잰다.
+  for (const text of ['안녕', '코드 블록 하나 안에 1부터 80까지 한 줄에 하나씩 숫자만 출력하라']) {
     const t = await p.evaluate(rectOf(TEXTAREA)); await click(p, t.x, t.y)
     await p.c.send('Input.insertText', { text }); await enter(p.c)
     if (!(await waitDone(p, 180000))) throw Error('h1 준비: 답 시간 초과')
@@ -96,7 +96,7 @@ async function makeH1(p) {
 // 가상화로 DOM 행은 일부뿐이라 모델 블록 수(`__ooDev.blockCount`)로 센다. 이전 빌드(d8684684)는 `__ooDev`가 없어 -1.
 const COUNT = "window.__ooDev?.blockCount?.() ?? -1"
 const EDGE = "document.querySelector('[data-history-edge=before]')?.dataset.historyState ?? 'none'"
-const ANCHOR = `(()=>{const sc=document.querySelector('[data-transcript-session]');if(!sc)return null;const top=sc.getBoundingClientRect().top;const el=[...sc.querySelectorAll('[data-message-id]')].find(e=>e.getBoundingClientRect().bottom>top+4);return el?{id:el.dataset.messageId,top:el.getBoundingClientRect().top,scrollTop:sc.scrollTop}:{id:null,top:0,scrollTop:sc.scrollTop}})()`
+const ANCHOR = `(()=>{const sc=document.querySelector('[data-transcript-session],.app-frame-transcript');if(!sc)return null;const top=sc.getBoundingClientRect().top;const el=[...sc.querySelectorAll('[data-message-id]')].find(e=>e.getBoundingClientRect().bottom>top+4);return el?{id:el.dataset.messageId,top:el.getBoundingClientRect().top,scrollTop:sc.scrollTop}:{id:null,top:0,scrollTop:sc.scrollTop}})()`
 
 async function record(p, sessionId) {
   const b = client((await json('/json/version')).webSocketDebuggerUrl); await b.open
@@ -109,21 +109,24 @@ async function record(p, sessionId) {
   const row = await p.evaluate(rectOf(`document.querySelector('.app-frame-session-row[data-session-id=${JSON.stringify(sessionId)}]')`))
   if (!row) throw Error('세션 행 없음: ' + sessionId)
   await click(p, row.x, row.y); at('open-click')
-  for (let i = 0; i < 40 && !(await p.evaluate(`(document.querySelector('[data-transcript-session]')?.innerText.length??0)>0`)); i++) await sleep(100)
+  for (let i = 0; i < 40 && !(await p.evaluate(`(document.querySelector('[data-transcript-session],.app-frame-transcript')?.innerText.length??0)>0`)); i++) await sleep(100)
   await sleep(1500); at('opened')
-  const sc = await p.evaluate(rectOf("document.querySelector('[data-transcript-session]')"))
+  const sc = await p.evaluate(rectOf("document.querySelector('[data-transcript-session],.app-frame-transcript')"))
   const gestures = []
   // 제스처 = 상단 도달까지 20ms 간격 휠 ↑ + 도달 뒤 300ms. 끝난 뒤 페이지 안에서 rAF 로 블록 수 변화를 기다리며
   // 변화 직전·직후 프레임의 첫 가시 메시지 top 을 잰다(앞삽입 순간의 읽던 위치 차). 변화 없으면 1.5초 뒤 끝.
   // 제스처 시작 전에 페이지 안 관찰자를 건다 — rAF 마다 첫 가시 메시지 top 을 기억하다가 블록 수가 바뀐 첫 프레임에
   // 같은 요소의 top 과 비교한다(앞삽입 순간 읽던 위치 차 px). 휠 이동 자체는 같은 프레임 안에서 빼지 못하므로,
   // 변화 직전 프레임과 변화 프레임 사이에 휠 tick 이 들어가면 그만큼 섞인다 — 20ms 간격 tick 이라 섞임은 ≤ 1 tick 분량.
-  const ARM = `(()=>{const sc=document.querySelector('[data-transcript-session]');const n0=window.__ooDev?.blockCount?.()??-1;const w={n0,result:null,lastWheel:0};window.__w2=w;sc.addEventListener('wheel',()=>{w.lastWheel=performance.now()},{passive:true,capture:true});
-    const anchor=()=>{const top=sc.getBoundingClientRect().top;const el=[...sc.querySelectorAll('[data-message-id]')].find(e=>e.getBoundingClientRect().bottom>top+4);return el?{el,top:el.getBoundingClientRect().top,st:sc.scrollTop}:null};
+  const ARM = `(()=>{const sc=document.querySelector('[data-transcript-session],.app-frame-transcript');const n0=window.__ooDev?.blockCount?.()??-1;const w={n0,result:null,lastWheel:0};window.__w2=w;sc.addEventListener('wheel',()=>{w.lastWheel=performance.now()},{passive:true,capture:true});
+    // 읽던 글줄(D-016) = 화면 가운데 줄의 글자(caretRangeFromPoint) — 앱의 앵커도 글자 단위다(anchor.ts).
+    // 첫 가시 메시지 요소 top 은 앞삽입 뒤 그 메시지에 시각 행이 붙어 함께 움직여 읽던 위치를 나타내지 않는다(probe-glyph).
+    const anchor=()=>{const R=sc.getBoundingClientRect();for(const fy of [0.5,0.25,0.75])for(const x of [R.left+40,R.left+R.width*0.3,R.left+R.width*0.5,R.right-80]){const c=document.caretRangeFromPoint(x,R.top+R.height*fy);if(c&&c.startContainer.nodeType===3&&sc.contains(c.startContainer)){const node=c.startContainer,off=c.startOffset;const g={node,off,get el(){return node},top:0};const rg=document.createRange();rg.setStart(node,off);rg.setEnd(node,Math.min(off+1,node.length));g.top=rg.getBoundingClientRect().top;return g}}return null};
+    const glyphTop=(g)=>{if(!g||!g.node.isConnected)return null;const rg=document.createRange();rg.setStart(g.node,g.off);rg.setEnd(g.node,Math.min(g.off+1,g.node.length));return rg.getBoundingClientRect().top};
     let a=anchor();let prev=performance.now();const t0=prev;let scrollable=sc.scrollHeight>sc.clientHeight+1;
     const tick=(now)=>{const n=window.__ooDev?.blockCount?.()??-1;
-      if(n!==n0){const t1=a&&a.el.isConnected?a.el.getBoundingClientRect().top:null;const wheelMixed=w.lastWheel>=prev;const el=a?.el,top0=a?.top,ms=performance.now()-t0;
-        const tops=[t1];let k=0;const settle=()=>{tops.push(el&&el.isConnected?el.getBoundingClientRect().top:null);if(++k<10)requestAnimationFrame(settle);else{const last=tops.at(-1);
+      if(n!==n0){const t1=glyphTop(a);const wheelMixed=w.lastWheel>=prev;const top0=a?.top,ms=performance.now()-t0;
+        const g0=a;const tops=[t1];let k=0;const settle=()=>{tops.push(glyphTop(g0));if(++k<10)requestAnimationFrame(settle);else{const last=tops.at(-1);
           w.result={n,ms,scrollable,wheelMixed:wheelMixed||w.lastWheel>=prev,firstFrame:t1!=null&&!wheelMixed?Math.abs(t1-top0):null,offset:last!=null&&!(w.lastWheel>=prev)?Math.abs(last-top0):null,tops:tops.map(x=>x==null?null:Math.round((x-top0)*10)/10)}}};requestAnimationFrame(settle);return}
       prev=performance.now();scrollable=sc.scrollHeight>sc.clientHeight+1;
       if(performance.now()-t0>6000){w.result={n,offset:null,ms:null};return}
@@ -137,7 +140,7 @@ async function record(p, sessionId) {
     while (Date.now() - t0 < 4000) {
       await p.c.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: sc.x, y: sc.y, deltaX: 0, deltaY: -120 })
       await sleep(150)
-      const st = await p.evaluate(`({top:document.querySelector('[data-transcript-session]').scrollTop,n:${COUNT},edge:${EDGE}})`)
+      const st = await p.evaluate(`({top:document.querySelector('[data-transcript-session],.app-frame-transcript').scrollTop,n:${COUNT},edge:${EDGE}})`)
       if (st.n !== nStart || ['pull', 'loading'].includes(st.edge)) break
       if (reachedAt) break
       if (st.top <= 0) reachedAt = Date.now()
