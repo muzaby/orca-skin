@@ -1065,6 +1065,81 @@ W-039·W-040의 구현은 §21-C와 일치한다. 별도 캐시·비동기 처�
 - Linux 사전 실행과 AC1~6의 Windows 실측은 서로 다른 입력·장비를 사용한다. H1-0에 재생 조건과 통합 테스트의 플랫폼별 실패를 기록했다.
 - 현재 라운드는 WU-M r3이며 다음 주체는 독립 검증자다.
 
+## [구현자 기입] 설계 리뷰 (r4 — ΔV3)
+
+- **동의.** §22 경로대로 순수 모듈(`scripts/history-seed.mjs`)·CLI(`scripts/seed-history-fixture.mjs`)·타입 선언(`history-seed.d.mts`)으로 나눴다. 제품 코드·IPC·스키마 변경 0(`git status` — 신규 파일 5개만, 수정 0).
+- **이견 / 현실성.** ΔV3 범위 밖에서 H1 잠금을 막는 결함 하나를 발견했다(아래 “놓친 잠재 문제” K1). §22 계약은 그대로 구현했다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r4)
+
+자리 검색(§22-C) 출력 35줄 — 운반 22 · 제외 13(주석 5 · 사용법·변수 선언 4 · 반환 1 · 메타 DDL 1 · 로그 1 · 머리 1) · 미분류 0.
+
+| pair | §10이 적은 지점 | 닫은 수 | 좌표(실행 구간 안 · 구별 입력) | 남긴 곳 |
+|---|---|---|---|---|
+| VP-20 MD-06↔UT-06 | S1~S7 | 7/7 | `history-seed.test.mjs` — S1(세 하네스 리터럴 쌍) · S2(4·202·20002 / 63턴 1건 / 4,194,304 bytes / 600 / 200,000·빈 199,999) · S3(인코딩 없는 값과 다름) · S4(최신 직전·62·64턴과 다름) · S5(`0002_draft.txt`·`0003-bad.sql`·`README.sql` 포함 상한 3종) · S6(키 15개 전수) · S7(기존 DB 폴더 exit 2·파일 불변) + `writeSeed` 표별 행 수 | 0 |
+| VP-21 AR-05↔IT-05 | 경로 (a)(b)(c) | 3/3 | `src/main/features/history/history-seed.db.test.ts` 두 케이스 — 실제 SQLite에 ≤0035 시드 → `applyMigrations` → production `loadSession`. 기대 backend·agentKind는 리터럴 | 0 |
+| VP-22 SD-02↔ST-02 | CLI → targets → cells → 판독기 | 1/1 | `history-seed.test.mjs:'cli writes db and targets …'`(Node ABI에서 exit 0·대상 파일 = spec) + `gate:sh vp22.sh`(시드 CLI → `cells.mjs --targets` → `windows-verdict` exit ≠ 2) | 0 |
+
+| pair | requiredness | 자기 상태 | 근거 |
+|---|---|---|---|
+| VP-20 | REQUIRED | SELF_PASS | 9/9 · sweep S2·S3·S4·S5·S7·W 행 red |
+| VP-21 | REQUIRED | SELF_PASS | 2/2 · A-S1·A-S3·A-S4·S2-1-latest·S2-2-place·W-snapshot IT red |
+| VP-22 | REQUIRED | SELF_PASS | gate green · A-S6·S4-e5-enter VP red |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4)
+
+하네스 `mutate.py`, oracle은 `sh -c "<명령> > /dev/null 2>&1"`(아래 Review Signals — Windows 대응). 대조 3건(무해 append) green으로 oracle 실행을 먼저 확인했다.
+
+| ID | 자리 | 변이 | 결과 · 좌표 |
+|---|---|---|---|
+| A-S1 | S1 | Work·OpenCode backend 맞바꿈 | 잡음 — UT S1 · IT(리터럴 기대로 고친 뒤 재실행) |
+| S1-kind | S1 | Work agentKind `work`→`code` | 잡음 — UT S1 · IT(같음) |
+| S2-1-past · S2-1-latest | S2 ① | 과거 턴 하나 덜 · 최신 턴 제거 | 잡음 — UT S2(·S3·S4) · IT |
+| S2-2-place | S2 ② | 검색어를 64턴에 | 잡음 — UT S2 · IT |
+| S2-3-bytes · S2-4-600 · S2-5-count · S2-5-empty | S2 ③~⑤ | 크기 상수 · 빈 parts → 빈 text | 잡음 — UT S2 |
+| A-S3 | S3 | `encodeURIComponent` 제거 | 잡음 — UT S3 · IT |
+| S4-e1-msg · S4-e1-text · A-S4 · S4-e5-enter | S4 | 최신 직전 · expectText 축소 · 64턴 · enter 제거 | 잡음 — UT S4 · IT(msg·A-S4) · VP(enter) |
+| S5-cutoff · S5-regex | S5 | `<`로 · 이름 형식 검사 제거 | 잡음 — UT S5(regex는 입력 2개를 더한 뒤) |
+| A-S6 | S6 | 키에서 하네스 마디 제거 | 잡음 — UT S6 · VP |
+| S7-exists | S7 | 기존 DB 검사 무력화 | 잡음 — UT S7 |
+| W-search · W-snapshot · W-migrations | writeSeed 표 쓰기 | 각 insert 제거 | 잡음 — UT `writeSeed` · IT(snapshot) |
+
+검산: 선택 증거 4(A-S1·A-S3·A-S4·A-S6) · 인용 변이 0 · 새 oracle 3(UT·IT·VP gate) · sweep 21/21(§10 S1~S7 분기·writeSeed 표) = 변이 21 · 실행 31 · 대조 3. 첫 실행에서 `못 잡음` 3건(A-S1/IT·S1-kind/IT — IT가 시드 표 자체와 비교하던 동어반복, S5-regex/UT — 입력 칸에 형식만 틀린 이름 없음)을 시험 보강 뒤 재실행해 red로 닫았다.
+
+## [구현자 기입] Product/UX 파생 검토 (r4)
+
+- 사용자 대면 표면 없음(측정 도구). 측정자가 보는 문구는 CLI 사용법·`이미 DB 가 있다`·`환경 없음` 셋이고 모두 exit code와 함께 stderr로 나간다.
+- 시드 세션 제목 `시드 <하네스> <변형>`이 세션 목록에 보인다 — 측정 프로필 전용이라 실제 사용자 프로필에는 쓰지 않는다(S7이 기존 DB를 덮어쓰지 않는다).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4)
+
+| # | 발견 | 관측 | 분류 · 처리 |
+|---|---|---|---|
+| K1 | **Node 함수 행 ID 중복으로 0327 K 셀을 판독할 수 없다.** `measure-ui-inputs.mjs --src` 실제 출력에서 `K1`(3)·`K2`(2)·`K4`(3)·`K8`(2)·`K9`(4)·`K10`(7)·`K11`(7)·`K13`(7) = 8개 ID가 35행이다. 판독기 `tableSample`은 `\| <id> \|` 행이 정확히 1개여야 읽는다(`windows-verdict.mjs:114-115`) → 그 셀은 영구 `미판정(지표 없음)` | `C:\orca-W\precheck\node-head.txt`(HEAD 사전 점검, 표본 아님) · `cells.mjs` stderr `node 행 보류(ID 중복 …)` 8줄 | **현재 결함**(트리의 실제 출력 형태) · 계약 결정(판독기 행 식별 vs 도구 ID 고유화)이 필요 → **PLAN_GAP(ΔV4)**. `cells.mjs`는 그 8개 ID 셀을 만들지 않고 stderr에 보류를 적는다 — H1 잠금 전 ΔV4로 닫아야 분모가 완전하다 |
+| K2 | 판독기의 Node 관측 지표는 행 ID 자체다(`range.id !== obs.metric` → 지표 없음, `:115`). 초안 `cells.mjs`의 `fn-median` 지표는 어떤 관측도 받지 못했다 | 같은 줄 | 선조치 — `cells.mjs`가 지표 = 행 ID, 구간 `fn`으로 만든다 |
+| K3 | 시드가 20만 원소를 `push(...)`로 펼치면 `RangeError: Maximum call stack size exceeded`(0325 T01과 같은 원인) | 첫 `node --test` 실행 | 선조치 — `append` 루프 |
+
+## [구현자 기입] 구현 보고 (r4)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 `app/scripts/history-seed.mjs` · `history-seed.d.mts` · `history-seed.test.mjs` · `seed-history-fixture.mjs` · `app/src/main/features/history/history-seed.db.test.ts` · `evidence/wu-w/cells.mjs`(W-044). 수정 0 |
+| 실행 명령 | §22-C 운영 gate 전부 — 가드 5 · lint · typecheck · 필터 없는 `vitest run` · `node --test scripts/*.test.mjs` · `npx electron-vite build` · `smoke-hosts` · `smoke-preload` · 두 신규 시험 · 자리 검색 · VP-22 gate. Windows 11(DESKTOP-4EJ0NDG), Node v22.15.1, better-sqlite3 Node ABI |
+| 관측한 게이트 산출 | 가드 5 exit 0 · lint 오류 0·경고 12 · typecheck 0 · build 0 · smoke-hosts 0 · smoke-preload 0. vitest 1,151파일 통과·1 실패(`shell-runner.process.test.ts` 시간 단언 6391>6000ms — 병렬 빌드 부하, 단독 재실행 1 통과). `node --test` 1,159 통과·5 실패 — 전부 `ERR_UNKNOWN_FILE_EXTENSION ".ts"`(Node 22.15가 `.ts` import를 못 함: `test-pools`·`test-time` 시험, 신규 파일 import 0 — `rg` 0건) |
+| 추가·수정 테스트의 subtree 규칙 | 신규 시험 2파일. `check-test-budgets` 통과(`.mjs`·실-git 없음 — 대상 아님) · DB 시험은 SQLite 신호로 io 풀 · 임시 루트 `afterEach`에서 DB 닫고 삭제 · 호스트 설정 읽기 0 · 위반 0 |
+| V-pair 자기확인 | REQUIRED 3 SELF_PASS(VP-20·21·22) · SELF_BLOCKED 0 |
+| 강제 지점 전수 | 자리 검색 35줄 · 운반 22 · 미분류 0 · §10 S1~S7 7/7 |
+| AC 자기보고 | ΔV3은 AC를 더하지 않는다. Criteria = ΔV3 pair 3 |
+| 합계 검산 | pair ✅ 3 · ⚠️ 0 · ❌ 0 = 총 3 |
+| 블로커 / 역질문 | K1(PLAN_GAP ΔV4) — H1 잠금 전에 닫아야 한다 |
+| 대상 커밋 | (r4 구현 — 좌표는 INDEX) |
+
+## [구현자 기입] Review Signals — 사실만 (r4)
+
+- **mutate.py가 Windows에서 거짓 red를 낸다.** oracle을 `shell=True`(cmd.exe)로 돌려 `./node_modules/.bin/vitest`·`/dev/null`이 경로 오류로 exit 1이 된다. 또 출력 디코딩(cp949·UTF-8 혼재)에서 스레드 예외로 하네스가 멈춘다. 대조 3건을 넣고 `sh -c "… > /dev/null 2>&1"`로 감싸 우회했다 — 대조 없이 돌렸으면 IT 행 전부가 거짓 `잡음`이었다.
+- 첫 sweep의 `못 잡음` 3건 중 2건은 시험이 기대값을 시드 표(`HARNESSES`)에서 가져온 동어반복이었다.
+- 라벨 r4(verify 3 PASS 뒤 사용자 결정 ΔV3 턴).
+
 ---
 
 ## [검증자 기입] 파생 이슈
