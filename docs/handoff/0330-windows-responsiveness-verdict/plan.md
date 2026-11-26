@@ -12,7 +12,7 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **impl/IMPL_DONE — WU-M 기계 범위(V1 rev 7 · r1), Claude 검증 대기.** WU-W(판정용 Windows 실측)는 W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). 0325 AC19 참고 기준선 수집과 시나리오·fixture 준비는 지금도 가능하다. |
+| 상태 | **verify/RETURN_TO_PLAN — WU-M 기계 범위(V1 rev 7 · r1 · verify 1).** [verify.md](verify.md) PLAN_GAP D1·D2 → 설계자. WU-W(판정용 Windows 실측)는 W-004 사전 합의와 H1 필수 셀 목록 고정 뒤 착수한다(W-013). 0325 AC19 참고 기준선 수집과 시나리오·fixture 준비는 지금도 가능하다. |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
 | V mode · 기준 V · revision | Baseline V · none · **V1 rev 7**. 구현·verify 0회라 Delta V가 아니다. rev 1 = `a680ee0`에 포함된 V1 초안 · rev 2 = `ff5c6b02` · rev 3 = `4eb44249` · rev 4 = `cda149e3` · rev 5 = `13c41374` · rev 6 = `33760ca6`(모두 PR #655 head — `main` 미병합). 노드 ID는 V1을 잇고 rev 2~7이 더한 노드는 §7-A에 표시한다. |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
@@ -713,4 +713,6 @@ stage-d S1~S3·S7·S10은 진입 시 한 번 구한 출처를 하위 측정에 �
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| D1 | … | verify r<N> · VP-… · AC<N> / §10 <N>행 / gate | … | 이행 / 현재 / 확장 / 경계 / 비귀속 | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | open / 구현중 / 해결 / 후보 표 |
+| D1 | §10-C “VP-08~17 좌표 = `node --test`”와 P6 S4(`stage-d-host/electron-main.mjs:87`)·S5(`stage-d-shell/probe.ts:282`)의 실제 잠금이 어긋난다 — 두 변이가 `node --test`에서 green이고 커밋 안 된 Electron 하네스로만 red(S5 재현, S4는 이 환경에서 미실행) | verify r1 · VP-11·VP-15 · AC8 / §10-B P6 S4·S5 · §10-C | 생산자 하네스를 커밋된 `gate:` 명령으로 등록하거나 `node --test` seam을 두고 §10-C를 정정 | 이행(plan 내부 불일치 — oracle 없는 자리) | PLAN_GAP | open |
+| D2 | 근거 좌표(`machineRef`·`windowsRef`) 없는 소유자 `FAIL` 행이 `미기록`으로 읽혀 `ownerFailures`·`불합격`에서 빠지고 `판정 보류`가 된다(`evidence/verify1-axes.txt` `ownerFailNoRef`) | verify r1 · VP-10 · AC7 / §10-A P4 ⑤·P5 ⑤ | 근거 없는 `FAIL`을 `불합격`(+ 근거 없음 표시)으로 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | open |
+| D3 | 관측 `values`를 `trace-marker` 표시 시각 차와 다르게 적어도 통과(`valueMismatchMarker`) | verify r1 · VP-09 / §10-C 선언 경계 | — | 경계 | — | 기록만 |
