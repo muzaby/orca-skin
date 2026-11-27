@@ -135,7 +135,13 @@ const invalid = {
   'native search miss': { nativeFind: false },
   'missing find result': { nativeMatches: 0 },
   'duplicate native target': { nativeMatches: 2 },
-  'offscreen marker': { markerRect: { x: 10, y: 55, width: 22, height: 12 } },
+  'marker does not overlap the native result': {
+    markerRect: { x: 10, y: 55, width: 22, height: 12 }
+  },
+  'coincident marker and native result beyond the viewport': {
+    findRect: { x: 10, y: 650, width: 22, height: 12 },
+    markerRect: { x: 10, y: 650, width: 22, height: 12 }
+  },
   'empty native target': { findRect: { x: 10, y: 20, width: 0, height: 12 } },
   'unmeasured marker geometry': { markerRect: null },
   'wrong frame dimensions': { viewport: [1000, 0] },

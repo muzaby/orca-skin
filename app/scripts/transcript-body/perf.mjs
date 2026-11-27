@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { resolveElectron, runElectron, serveProbe } from '../check-transcript-selection.mjs'
 import { bodyCorpora, inputs, screens } from './fixtures.mjs'
 
+const viewport = { x: 0, y: 0, width: 1000, height: 600 }
 const coordinates = (row) => JSON.stringify([row?.screen, row?.input, row?.run])
 const plans = Array.from({ length: 3 }, (_, run) =>
   screens.flatMap((screen) => inputs.map((input) => ({ screen, input, run })))
@@ -24,19 +25,17 @@ function validCounts(input, counts) {
   return counts.paragraphs === 1
 }
 
-function rectanglesOverlap(a, b) {
+function rectanglesOverlap(...rectangles) {
   return (
-    [a, b].every(
+    rectangles.every(
       (r) =>
         r &&
         ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(r[k])) &&
         r.width > 0 &&
         r.height > 0
     ) &&
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
+    Math.max(...rectangles.map((r) => r.x)) < Math.min(...rectangles.map((r) => r.x + r.width)) &&
+    Math.max(...rectangles.map((r) => r.y)) < Math.min(...rectangles.map((r) => r.y + r.height))
   )
 }
 
@@ -103,7 +102,7 @@ export function judgeBodyMatrix(records, calibration) {
       row.searchTarget !== true ||
       row.nativeFind !== true ||
       row.nativeMatches !== 1 ||
-      !rectanglesOverlap(row.findRect, row.markerRect) ||
+      !rectanglesOverlap(row.findRect, row.markerRect, viewport) ||
       !validCounts(row.input, row.bodyCounts) ||
       !Array.isArray(row.phases) ||
       ![
@@ -130,8 +129,8 @@ export function judgeBodyMatrix(records, calibration) {
       !row.sha ||
       !Array.isArray(row.viewport) ||
       row.viewport.length !== 2 ||
-      row.viewport[0] !== 1000 ||
-      row.viewport[1] !== 600 ||
+      row.viewport[0] !== viewport.width ||
+      row.viewport[1] !== viewport.height ||
       !Number.isFinite(row.dpr) ||
       row.dpr <= 0
     )
