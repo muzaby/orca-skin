@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../shared/compute/useWorkerRetry'
 import { useComputePaint } from '../../../shared/compute/diagnostics'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { computeClient, type ComputeHandle, type Priority } from '../../../shared/compute/client'
@@ -24,6 +25,7 @@ function useDiffWindow(
     () => (model ? diffViewRows(model, options, start, end) : undefined),
     [model, options, start, end]
   )
+  const retryWorker = useWorkerRetry('compute', request)
   const [state, setState] = useState<{
     key: string
     source: DiffSourceRef
@@ -39,7 +41,9 @@ function useDiffWindow(
   }, [priority])
   useEffect(() => {
     if (model || !ready || start === end) return
-    const task = computeClient().request<'diffView'>(request, { priority: currentPriority.current })
+    const task = retryWorker(() =>
+      computeClient().request<'diffView'>(request, { priority: currentPriority.current })
+    )
     handle.current = task
     let active = true
     void task.promise.then(
@@ -55,7 +59,7 @@ function useDiffWindow(
       handle.current = null
       task.cancel()
     }
-  }, [request, model, ready, key, start, end, source, options])
+  }, [request, model, ready, key, start, end, source, options, retryWorker])
   useComputePaint(!local && state?.key === key && state.result ? key : null)
   const data = local ?? (state?.key === key ? state.result : undefined)
   // Rows present in both ranges retain their DOM endpoints until the worker replies.

@@ -307,3 +307,42 @@ it('AC11 displays the worker stat on closed oversized Write, Edit and MultiEdit 
     setComputeClient(null)
   }
 })
+
+it('AC20 restores header stats on an existing closed card after worker recovery', async () => {
+  const { fakeComputeClient } = await import('../../../../../shared/compute/fakeClient.testfixture')
+  const { setComputeClient } = await import('../../../../../shared/compute/client')
+  const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+  const fake = fakeComputeClient()
+  setComputeClient(fake.client)
+  const content = Array.from({ length: 654 }, (_, i) => 'line ' + i).join('\n')
+  try {
+    dom.render(
+      createElement(ToolCard, {
+        call: { toolUseId: 'write', name: 'Write', input: { content } },
+        transcriptPolicy: agentUiPolicy('code').transcript
+      })
+    )
+    const toggle = (): FakeNode => dom.query('[data-focus-id="toggle"]')!
+    expect(fake.requests.map((request) => request.kind)).toEqual(['diffStat'])
+    fake.rejectNext()
+    await Promise.resolve()
+    expect(toggle().textContent).not.toContain('+654')
+    expect(fake.requests).toHaveLength(1)
+    fake.recover('compute')
+    await Promise.resolve()
+    dom.act(() => {})
+    expect(fake.requests).toHaveLength(2)
+    fake.resolveNext({ added: 654, removed: 0 })
+    await Promise.resolve()
+    dom.act(() => {})
+    expect(toggle().textContent).toContain('+654')
+    expect(toggle().props['aria-expanded']).toBe(false)
+    fake.recover('compute')
+    await Promise.resolve()
+    dom.act(() => {})
+    expect(fake.requests).toHaveLength(2)
+  } finally {
+    dom.unmount()
+    setComputeClient(null)
+  }
+})
