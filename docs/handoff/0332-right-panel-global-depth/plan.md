@@ -8,10 +8,10 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0332-right-panel-global-depth` |
-| 작성자 | Claude Code (V1·ΔV2·ΔV3) · Codex (ΔV1 추가 요구) |
-| 일자 | 2026-11-26 |
+| 작성자 | Claude Code (V1·ΔV2·ΔV3) · Codex (ΔV1 추가 요구·§22 기술 보완) |
+| 일자 | 2026-11-26 · §22 재계획 2026-11-27 |
 | 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
-| 상태 | impl/IMPL_DONE · r1 · 독립 검증 대기. AC 13/14. Chromium 일반·축소 실측 128/130이며 §10-A의 50ms 예산이 남았다. |
+| 상태 | plan/READY · r1 · 다음 Codex(구현). §22는 AC13/§10-A의 미충족 예산을 고치는 기술 계획이다. 직전 자기보고 13/14, 실기 128/130. 독립 검증 횟수 변동 없음. |
 | V mode | `Delta V` |
 | 기준 V | 0332 V1 + ΔV1 + ΔV2 (`09d8b2ae`) |
 | 이번 V revision | `ΔV3` — 2차 리뷰 보완: VP-01 누락 기본값(Work 360·Code 520) · 닫힌 패널의 산출물 성공은 `navigate` 일반 규칙의 예외 |
@@ -544,6 +544,63 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | MD-01 / VP-03′·VP-06·VP-20′ · **EP-4″**(EP-4′ 대체) | EP-4′ 8분기 + ⑨ **산출물 성공 예외**: 패널이 닫혀 있고 대상이 산출물 층이면 `navigate(artifact)` = [기억 타일 ∨ 기본 타일, 산출물]로 연다(①의 [X] 규칙 대신). 패널이 열려 있으면 ③·④(pop-to·push) 그대로. 기억 갱신(⑧)은 하지 않는다 — 산출물 층은 기억 대상이 아니다 | 9자리 — EP-4′ ①~⑧ + ⑨ 산출물 예외 분기 | 신규 파일 — 구현자가 분기 대응표 고정(EP-4와 같은 방식, 분기 수 9) | 닫힌 패널에서 산출물을 열고 뒤로 가면 빈 패널이 되거나 산출물이 기억을 덮는다 |
 
 - 규칙 칸 ↔ 입력: EP-4″ ⑨(닫힘·열림 2갈래) → VP-20′ 입력 3(닫힘+기억 · 닫힘+기억 없음 · 일반 타일 대조) · VP-01′ 기본값 3갈래 → 입력 3.
+
+## 22. AC13 재구현 계획 — 긴 대화에서 패널 조작의 50ms 예산
+
+**기존 계약의 이행 결함이다.** D-009·010 및 §10-A가 요구하는 일반·축소 모션의 동시 재배치와 렌더러 장기 작업 0건을 그대로 적용한다. 새 제품 결정·AC·V pair는 0개이며 유효 V는 V1 + ΔV1~ΔV3, AC 분모는 14다. 아래 행 높이 처리와 검증 순서는 남은 §10-A를 닫기 위한 기술 보완이다. 직전 구현 보고와 검증 횟수를 보존한다.
+
+### 22-A. 최신 실패와 원인 범위
+
+| 근거 | 관측 | 이번 구현에서 판별할 것 |
+|---|---|---|
+| `98381394` 기준 r1 통합 실기 | 일반·축소 각 64/65. 130건 중 128건, 표면 66/66. 일반 폭 저장 113ms, Work 전환 86ms, 세션 교체 93·172·67·127ms. 축소 읽기 위치 변경 74ms, Code→Work 82ms | 두 `long-task-observation`만 실패. `operations`에는 시작 조작, `phases`에는 한 작업과 겹친 조작 전부가 들어간다 |
+| `769f74be` 일반 모션 CDP 1회 | 장기 작업 6건 총 384ms. React ref → TanStack `measureElement` → `TranscriptViewport.measureElement` → 행 DOMRect의 자기 시간 표본 합 97.8ms. 79ms 교체 중 이 경로 32ms, 같은 작업의 Chromium Layout 26ms가 겹쳤다 | 여섯 작업 안에서 계측기 자체 DOMRect의 V8 표본은 0. 이 프로파일의 읽기 구간에서는 장기 작업이 없었다. 74ms 읽기 작업 및 나머지 렌더 비용은 별도 귀속 대상이다 |
+| 현재 제품 경로 | `ChatTile` → Claude/OpenCode `Timeline` → `TranscriptViewport` → 행 ref. TanStack은 observer 등록 뒤 최초 ref에서 entry 없이 동기 측정을 호출할 수 있다. RO 통지는 같은 콜백에 entry를 준다 | 이미 등록된 같은 DOM의 warm 높이를 재사용하고, 한 계산 안에서 읽은 행 rect도 재사용한다. 남은 cold 읽기·보정 중 읽기·cache/observer 불일치를 나눠 센다 |
+
+0332는 긴 대화가 열린 상태의 패널·세션·읽기 조작을 판정한다. 0331 AC14′는 본문 열기부터 워커·최종 서식·선택 복사까지 B1~B5 × 두 하네스 × 3회, 총 30회의 별도 게이트다. 공유 뷰포트 변경은 0331의 글줄·이력·선택 회귀로 확인하고 각 게이트 결과는 해당 handoff에 기록한다.
+
+### 22-B. 변경할 제품 경로와 자리 검산
+
+| 단계 | 동기 레이아웃을 줄이는 방법 | 보존·복구 경로 |
+|---|---|---|
+| 1. 실제 ref의 비용 분류 | 계측용 실행에서 동기 ref와 RO entry, cold/warm, 같은 노드 등록 여부, 보정 여부, 가시 범위 안/밖별 호출 수를 기록한다. 행 높이 읽기·행/스크롤러 top 읽기·앵커 restore를 구별한다. 동일한 세션 교체에서 레이아웃 읽기와 TanStack `resizeItem` 쓰기가 교차하는지 trace로 대조한다 | 계측 전용 카운터를 끈 제품 번들로 최종 판정한다. 현재 프로파일은 콜백을 식별하며 그 안의 cold 분기 비율까지 확정하지 않는다 |
+| 2. 등록된 행부터 처리 | 기존 warm 경로를 유지한다. cold 행 중 observer 등록과 현재 key/DOM·가시 범위가 확인된 **화면 아래 overscan 행**부터 최초 실측을 RO의 `borderBoxSize`로 모을 수 있는지 검증한다. 이 경우에만 기존 `estimateSize`를 잠시 반환하고 첫 실제 높이가 오면 해당 key와 virtualizer에 반영한다 | 잠정 크기를 실제 높이 캐시에 쓰지 않는다. 가시 행·범위 미확정·읽기 앵커·검색 이동·하단 고정·복원 보정 중인 행과 관찰 불가/노드 교체는 정확한 현행 측정 경로를 사용한다. 등록 확인에는 public `range`·기존 observer 소유 관계를 사용한다 |
+| 3. 필요한 실제 측정 모으기 | 2단계 뒤에도 가시 cold/보정 ref의 강제 Layout이 지배하면, 같은 레이아웃에서 읽을 수 있는 **현재 마운트된** 행의 실제 border-box를 먼저 모으고 좌표·스크롤 쓰기를 그 뒤에 적용하는 방안을 비교한다. 같은 패스에서는 이미 읽은 행 rect와 공유 스크롤러 rect를 재사용한다 | 폭·DOM/key·세션·스크롤 위치나 행 내용이 변한 뒤 오래된 rect를 재사용하지 않는다. 형제 행 측정 전후에 앵커 이동·재렌더가 발생하면 무효화한다. 읽던 글줄이나 하단이 한 프레임이라도 밀리면 해당 최적화를 폐기한다 |
+| 4. 남은 비용 | 조작별 longtask가 남으면 다음 캡처에서 같은 작업의 스택을 귀속시킨 뒤 해당 제품 소유자를 수정한다. 행 측정이 줄어든 비율과 실제 50ms 초과 개수는 따로 기록한다 | 긴 작업을 측정 창 밖으로 보내거나 읽기/폭/세션 시나리오를 줄여 종료하지 않는다. 전체 대화·과거 세션을 미리 마운트하거나 측정치를 영구 저장하지 않는다 |
+
+제품 경계는 공통 행 높이 콜백·가상 목록 반영·앵커 보정과 두 Timeline의 기존 소비처다. Claude는 뷰포트 내부 크기 캐시, OpenCode는 세션별 `state.sizes`를 공급한다. 패널 스택·설정/IPC·서피스 CSS·TanStack 패키지 수정과 INDEX의 0326 네이티브 선택 후보는 이번 기술 변경의 대상 밖이다.
+
+**자리 검색.** 아래 명령은 저장소 루트에서 실행한다. `98381394` 기준 검색 16줄, 운반 후보 15, 목록 14, 제외 2, 미분류 0, 목록에만 있는 범위 0이다. 153은 prop 타입, 914는 별도 헤더 observer라 제외한다. 이를 §10-A의 행 높이 경로에 대한 기술 census로 사용한다.
+
+```sh
+vp=app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx
+oc=app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx
+pattern='sizeCache|elementsCache|borderBoxSize|rect = element\.getBoundingClientRect|rect \?\? element\.getBoundingClientRect|scrollRef\.current\.getBoundingClientRect|ref=\{virtualizer\.measureElement\}'
+node .agents/skills/handoff-verify/scripts/site_census.mjs \
+  --search "rg -n -H '$pattern' $vp $oc" \
+  --sites "$vp:210-232,$vp:397-399,$vp:578-588,$vp:592-598,$vp:615-616,$vp:642,$vp:1106,$oc:144" \
+  --excluded "$vp:153,$vp:914"
+```
+
+설치된 `@tanstack/virtual-core/src/index.ts`에서 ref 등록→동기 호출은 1512~1523, RO entry 전달은 495다. 제품 구현의 새 분기가 생기면 위 검색과 개별 변이 목록을 구현 보고에서 실제 자리로 다시 맞춘다.
+
+### 22-C. 기존 pair의 증거와 회귀 입력
+
+| 기존 pair | 직접 oracle와 입력 | 소거·치환 시 기대하는 실패 |
+|---|---|---|
+| VP-19 / AC13·EP-9·§10-A | `check-right-panel.mjs`의 두 `long-task-observation` 모두 durations 빈 배열. `check-right-panel.test.mjs`는 예산 실패, 브라우저 오류, 한 모드에서 빠진 측정을 거부한다. 20개 소유자·33개 표면의 기존 단독 변이 기록 유지 | 한 모드의 관측 창에 장기 작업을 한 번 발생시키면 해당 행 `ok:false`와 전체 exit 1이 나온다. 기존 probe의 각 조작·윈도·프레임 표본 삭제를 허용하지 않는다 |
+| VP-17 / AC11·EP-7, VP-18 / AC12·EP-8 | `pairedWidth-*`, `depth-*`: 같은 프레임의 공통 경계/host 오차 ≤1px, 같은 글·블록의 읽기 이동 및 하단 ≤2px. 일반 중간값·실측 중 반전, 축소 즉시 도달, 도착 층 단독 조작, native drag와 세션 교체 | 기존 host 폭 고정·스냅 변이에서 경계 또는 중간 프레임 검사 red. Chrome 실기에서 읽는 위치, 하단, 역전 중 출발·도착 상태를 따로 확인 |
+| VP-17·19의 제품 하위 경로 | `TranscriptViewport.prepend.test.ts`의 실제 TanStack ref→observer에서 warm 52→RO 69, DOMRect 0회. 가시 cold(pin) 실측 71, 호출 1회를 유지한다. 새 경로는 cold overscan에서 추정값과 다른 RO 실측값, 가변 폭, 동일 key 재마운트 및 늦은 이전 노드 통지를 입력한다 | cold 잠정값을 캐시에 실제값처럼 쓰기, 첫 RO 갱신 누락, 등록/노드 검사 제거를 각각 검출한다. observer 부재·누락 border-box, active anchor/복원, pin과 읽는 위치에서 강제 추정값을 쓰는 변이가 정확한 치수·초점·글줄 검사에서 실패해야 한다 |
+
+### 22-D. 측정 창·순서·READY
+
+1. **기준선과 수정 전후**에 동일 fixture·viewport·배율·일반/축소 설정의 Electron을 사용한다. `long-history-selection`의 Claude 대화는 60쌍(120개 메시지)이다. 매 모드는 새 페이지를 로드해 폰트 준비와 12 rAF 후 관측을 시작한다. cold는 해당 key의 실측 높이가 없는 첫 부착, warm은 같은 key 높이가 남아 있는 재부착으로 재현한다.
+2. **제품 경로를 먼저 검증**한다. cold/warm·fallback·RO 갱신 단위 테스트, 기존 `TranscriptViewport.prepend/reopen/harness`의 선택·앵커·가상 범위, Code/Work 및 Claude/OpenCode 실제 화면을 대조한다. 폭 전환 중 줄바꿈, 읽는 도중 세션 교체, 다시 열기, 뒤로·Escape·원점 초점과 키보드/포인터 폭 조절을 확인한다.
+3. **50ms 관측 창**은 `scripts/right-panel/probe.tsx`의 `position-bottom`부터 시작한다. 열기/깊이/닫기/폭 반전, 키보드 폭 저장, Work↔Code, 읽기 위치·대상 선택·닫기·검산·diff 재열기, 다섯 방향의 실제 세션 교체와 setup 이후에 `takeRecords()`하고 종료한다. 원래 포함된 setup 또는 조작과 겹치는 장기 작업도 계수한다. A1~A9·표면 측정, CDP 실제 drag·폭 clamp/동일 폭·창 재기동은 이어지는 고유 동작 검증이다.
+4. **최종 판정**은 `app/`에서 `xvfb-run -a node scripts/check-right-panel.mjs`를 실행한다. 모드당 65 = 패널 기능 22 + 산출물 9 + 표면 33 + 예산 1, 총 130개를 모두 확인한다. 33개 표면 × 두 모드 = 66/66은 그 130건에 포함된다. 일반·축소 각각 50ms 이상 renderer 작업 0건, 130/130, exit 0이 완료 조건이다. 한 모드나 한 표면 실패도 기록하고 exit 3이면 실기 미판정으로 남긴다.
+5. **운영 게이트**는 §19와 `app/AGENTS.md`를 따른다. 테스트·lint·typecheck·가드 5종·빌드·호스트/preload smoke를 통과시킨 뒤 통합 Chromium 실행의 SHA, 머신/동시 부하, 모드별 counts·최대·구간을 함께 기록한다. CDP 프로파일·부분 재실행·Node micro 측정은 원인 분석 자료다.
+
+재검토 결과 D-001~015와 기존 AC·pair·검증자 기록의 변경은 0건이다. 기준선의 128개 기능 관측을 보존하고 예산 2건을 닫을 다음 주체는 Codex다.
 
 ## READY self-review (V1 + ΔV1 + ΔV2 + ΔV3)
 
