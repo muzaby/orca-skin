@@ -676,6 +676,37 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 알림·개발 패널 | 오류 도착 및 만료, 디버그 접기 | ErrorToastHost 기존 4.6초 키프레임, FloatingPanel의 두 표면 | surface-toast-open/floating-close |
 | 대화 전환·스트리밍 | 열기·신규 토큰·스크롤·깊이 이동 | 0331 history/streaming 및 0332 RightPanelFrame | transcript 스트리밍은 메시지 갱신마다 재생하지 않는다. 읽던 글줄과 긴 작업은 통합 실측에 연결 |
 
+### EP-9 소유자별 단일 소거
+
+통합 게이트와 별도로 `93843155`에서 UI 표면만 검사했다. 격리 복사본의 제품 소스 20곳에 조건부 결함을 넣어 번들 하나를 만들었다. Electron에서 매번 새 페이지를 열고 한 소유자만 바꿨다. 기존 `scripts/right-panel/surfaces.tsx`의 `measureSurfaces()`가 조작 전후의 실제 opacity, 너비, 높이, 스위치 thumb 위치를 읽었다. 일반 모션의 대상 33건 모두 끝값은 도달했지만 중간 표본이 0개여서 실패했다. 아홉 경로가 공유하는 RouteSurface는 한 자리로 셌다.
+
+| 제품 소유자와 바꾼 자리 | 대상 관측 | 원복한 일반 모션 중간 표본 수 | 해당 소거의 중간 표본 수 |
+|---|---|---:|---:|
+| `RouteSurface.tsx:16` 진입 속성 제거 | route 9종 | 모두 3 | 모두 0 |
+| `ProjectsScreen.tsx:121` 탭 진입 제거 | projects-tab | 2~8 | 0 |
+| `SchedulesScreen.tsx:186` 탭 진입 제거 | schedules-tab | 2~8 | 0 |
+| `ArtifactsView.tsx:158` 탭 진입 제거 | artifacts-tab | 2~8 | 0 |
+| `ExtensionsCatalogView.tsx:142` 탭 진입 제거 | extensions-tab | 2~8 | 0 |
+| `SettingsModal.tsx:94` 설정 본문의 진입 제거 | settings-open / settings-tab | 1~2 | 0 / 0 |
+| `BootScreen.tsx:51` 부팅 화면 진입 제거 | boot-open | 3 | 0 |
+| `FullFrameShell.tsx:67` 게이트 셸 진입 제거 | gate-open | 3 | 0 |
+| `GateLogin.tsx:57` 로그인 본문 진입 제거 | login-open | 3 | 0 |
+| `DetailSidePane.tsx:52` 상세 진입 제거 | detail-open | 3 | 0 |
+| `FloatingPanel.tsx:56` 접힌 버튼의 진입 제거 | floating-close | 2~8 | 0 |
+| `AuthExpiredModal.tsx:26` 열림·닫힘 속성값 고정 | auth-open / auth-close | 1~3 | 0 / 0 |
+| `InstallerDialog.tsx:107` 열림·닫힘 속성값 고정 | installer-open / installer-close | 1~3 | 0 / 0 |
+| `Modal.tsx:61` 열림·닫힘 속성값 고정 | modal-open / modal-close | 1~3 | 0 / 0 |
+| `Popover.tsx:127` 열림·닫힘 속성값 고정 | popover-open / popover-close | 1~3 | 0 / 0 |
+| `SearchModal.tsx:122` 검색 레이어의 열림 속성값 고정 | search-open | 3 | 0 |
+| `ErrorToastHost.tsx:21` 알림 애니메이션 클래스 제거 | toast-open | 3 | 0 |
+| `Toggle.tsx:64` thumb 전환 시간 0ms | toggle | 3 | 0 |
+| `Sidebar.tsx:79` 접힌 너비 전환 시간 0ms | sidebar-collapse | 5~10 | 0 |
+| `SidebarSection.tsx:43` 섹션 높이 전환 시간 0ms | disclosure-close | 8 | 0 |
+
+- 진입 속성은 해당 JSX의 `data-surface-entry` 값만 `undefined`로 바꿨다. 열림·닫힘 속성은 `data-surface-presence`를 고정값으로 바꿔 원래 DOM 질의가 같은 노드를 계속 찾게 했다. 표본을 읽는 CSS나 측정 함수는 바꾸지 않았다.
+- 변이 번들의 일반 대조는 시작 시 28/33, 종료 시 33/33이었다. 처음에는 네 레이어의 닫기와 설정 탭에서 중간 표본을 놓쳤다. 축소 대조는 33/33이었다. 변이 20회 중 13회에서는 대상 밖 표본도 일부 누락됐다(627건 중 47건). 그 결과는 단일 소거 검출 수에서 제외했다. 매 실행에서 대상 밖 양성 대조 23건 이상이 통과했다.
+- 복사본의 제품 파일 20개를 전부 원복해 작업 트리와 바이트가 일치하는지 확인한 뒤 새로 빌드했다. 같은 표면-only 페이지에서 정해 둔 일반 모션 세 번은 각각 33/33, 축소 모션 한 번도 33/33 통과했다. 위 일반 표본의 범위는 이 세 실행의 최솟값과 최댓값이다. 이 검사는 긴 transcript 부하를 제외했으므로 통합 130개 게이트와 50ms 예산 판정은 아래에 따로 기록한다.
+
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
@@ -703,7 +734,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | transcript의 flex-basis를 100%로 고정 | VP-17 | 첫 구현 | 경계만 재면 0px, host 폭 보존 오차는 양 모드 520px | 검출 |
 | 숨은 점프 컨트롤에도 매번 새 상태 객체 게시 | §10-A 긴 세션 전환 | 첫 구현 | ChatTile.composerLifetime의 새 세션 transcript 렌더 수 1→2로 1 red | 검출 |
 
-- **분모 검산**. 선택 증거 12개, 인용 이슈 0개, 음성 oracle 1개, 범위 검사 1개와 추가 스택 분기 7개로 21실행이다. EP-4″ 분기 대표는 9/9이며 site별 전체 소거와 구별한다. 하나의 실행을 여러 pair가 공유할 때 한 번만 셌다. EP-2의 17개 단일 소거를 추가해 38개이며, 숨은 점프 버튼의 중복 상태 변이 1건을 더해 고유 실행은 39개다. EP-9 개별 화면의 자리별 소거는 남았다.
+- **분모 검산**. 선택 증거 12개, 인용 이슈 0개, 음성 oracle 1개, 범위 검사 1개와 추가 스택 분기 7개로 21실행이다. EP-4″ 분기 대표는 9/9이며 site별 전체 소거와 구별한다. 하나의 실행을 여러 pair가 공유할 때 한 번만 셌다. EP-2의 17개 단일 소거를 추가해 38개이며, 숨은 점프 버튼의 중복 상태 변이 1건을 더해 고유 실행은 39개다. EP-9에서는 회귀 대상 33개 표면을 연결하는 제품 소유자 20곳을 각각 검출했다. 소거 실행 합계는 59개다.
 - **덮개 회귀**. 구 열/행 전용 단언을 폐기하고, 기존 상세 생애·subagent/process 선택·원점 초점·스크롤 위치를 실제 공통 프레임 테스트로 옮겼다. 직전 verify에서 재실행할 고장 이력은 없다.
 
 ## [구현자 기입] Product/UX 파생 검토
@@ -754,7 +785,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 강제 지점 전수 | EP-1′~10 및 EP-4″ 9분기·EP-5 4지점을 위 표에 고정 |
 | **AC 자기보고**(`Criteria-Met`) | 13/14. AC1~12·14 통과. AC8은 17개 진입점에서 개별 소거를 검출하고 원복 후 8개 스위트 57개가 통과했다. AC11·12의 경계·깊이·스크롤은 통과했으나 §10-A의 장기 작업 운영 예산이 실패해 AC13 전체 적용을 닫지 않았다. AC14 산출물은 A1~A9가 양 모드 통과 |
 | **합계 검산** | ✅ 13 · ❌ 1(AC13/§10-A 예산) = 14 |
-| 블로커 / 역질문 | 설계 결정 요청 없음. §10-A 장기 작업, 일반 설정 창의 실측과 EP-9 소거 검증이 남았다 |
+| 블로커 / 역질문 | 설계 결정 요청 없음. §10-A 장기 작업과 통합 게이트의 일반 설정 창 진입 실측이 남았다 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
