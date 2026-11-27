@@ -739,14 +739,18 @@ export function installFakeDom(options: {
       listeners.get(type)?.delete(fn)
     }
   })
+  const requestFrame = (fn: (time: number) => void): ReturnType<typeof setTimeout> =>
+    setTimeout(() => fn(performance.now()), FRAME_MS)
+  const cancelFrame = (id: ReturnType<typeof setTimeout>): void => clearTimeout(id)
+  vi.stubGlobal('requestAnimationFrame', requestFrame)
+  vi.stubGlobal('cancelAnimationFrame', cancelFrame)
   vi.stubGlobal('window', {
     innerWidth: options.innerWidth,
     innerHeight: options.innerHeight,
     setTimeout: (fn: () => void, ms?: number) => setTimeout(fn, ms),
     clearTimeout: (id: ReturnType<typeof setTimeout>) => clearTimeout(id),
-    requestAnimationFrame: (fn: (time: number) => void) =>
-      setTimeout(() => fn(Date.now()), FRAME_MS),
-    cancelAnimationFrame: (id: ReturnType<typeof setTimeout>) => clearTimeout(id),
+    requestAnimationFrame: requestFrame,
+    cancelAnimationFrame: cancelFrame,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn()
   })
