@@ -224,7 +224,7 @@ r1은 D1–D7을 적용했다. 영속 선호의 식별자는 하네스·종류·
 | SD1 ↔ ST1 | 응답 연속성과 새 입력 | E2·E3·E4·E5 | 잔여 작업, directory 활동, cold/warm 입장 | `post-turn.schedules.test.ts`의 background/mcp 두 경우. OpenCode `session-context.test.ts`의 A/A/B | B 후속 입력이 A 해제 전 진행, A 응답 결과 뒤 다음 UUID | Windows 설치본의 셸에서 재시작 |
 | AR1 ↔ IT1 | 영속 저장과 통지 | E1·E2·E5 | 창 IPC·agent/data 실제 peer·디스크 재개방 | `extension-control.test.ts`가 파일에 형제 하네스와 외부 편집을 남기고 revision 3 확인. 쓰기 실패 후에도 3 유지 | 같은 이름의 native/builtin/user 키, 세션별 actual·pending | Windows 두 실제 창 + 재접속, 세부 분기 변이 |
 | AR2 ↔ IT2 | 배포와 SDK root | E3·E6 | 원본 재조회, dist 게시와 복구, 구 사본 정리 | `adapter.native-plugins.test.ts`의 current installation, `plugin-installation.test.ts`, `deployer.test.ts`의 EBUSY | V1→V2 설치 메타데이터, 원본/링크 보존, 유효 dist 유지 | Windows 설치본 파일 이벤트·첫 배포/재배포의 사용자 스킬 실행 |
-| MD1 ↔ UT1 | 유효 선호와 제출 허가 | E2·E3·E4·E5 | 부모·인증·출처 판정, 취소·실패·재시도 | `mcp-control.test.ts`, `mcp-connection.test.ts`, `managed-mcp-projection.test.ts`, `adapter.native-plugins.test.ts` | SDK status와 실제 전송 횟수. 연결 실패·취소 중 0, 성공 후 1 | 규칙 칸의 모든 조기 반환·합성 항에 대한 개별 제거 변이 |
+| MD1 ↔ UT1 | 유효 선호와 제출 허가 | E2·E3·E4·E5 | 부모·인증·출처 판정, 취소·실패·재시도 | `mcp-control.test.ts`, `mcp-connection.test.ts`, `managed-connections.test.ts`, `managed-mcp-projection.test.ts`, `adapter.native-plugins.test.ts` | SDK status와 실제 전송 횟수. 연결 실패·취소 중 0, 성공 후 1 | 규칙 칸의 모든 조기 반환·합성 항에 대한 개별 제거 변이 |
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 | --- | --- | --- | --- | --- |
