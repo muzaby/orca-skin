@@ -6,6 +6,7 @@ import { execSync, spawn } from 'node:child_process'
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
+import { cardGuard, cardsTaken, writeTrace } from './cdp-lib.mjs'
 
 const SHAS = { d8684684: 'd86846844dc9ea092f394f942621b78dc3d50e02', '515ff58d': '515ff58d60eb5d76744cc34aaad20bc7f186d928' }
 const SIDE = { d8684684: 'before', '515ff58d': 'after' }
@@ -92,6 +93,7 @@ async function page() {
           if (await evaluate(`!!${TEXTAREA}`).catch(() => false)) break
           await sleep(1000)
         }
+        await evaluate(cardGuard(process.env.OO_CARD_POLICY || 'deny')).catch(() => {})
         await sleep(1500)
         return { c, evaluate }
       }
@@ -259,9 +261,10 @@ try {
   const r = await record(p)
   mkdirSync(rawDir, { recursive: true })
   const file = runId + '.json'
-  writeFileSync(join(rawDir, file), JSON.stringify({ traceEvents: r.kept, metadata: { startedAt: r.startedAt, endedAt: r.endedAt, steps: r.steps, setup: s, totalEvents: r.total, kept: 'measure-mark pid + metadata', source: 'w1-runner.mjs CDP Tracing + CDP synthetic input' } }))
+  const cards = await p.evaluate(cardsTaken).catch(() => [])
+  writeTrace(join(rawDir, file), r.kept, { cards, startedAt: r.startedAt, endedAt: r.endedAt, steps: r.steps, setup: s, totalEvents: r.total, kept: 'measure-mark pid + metadata', source: 'w1-runner.mjs CDP Tracing + CDP synthetic input' })
   if (!existsSync(runsheet)) writeFileSync(runsheet, ['owner', 'scenario', 'operation', 'load', 'harness', 'build', 'side', 'sha', 'repeat', 'runId', 'startedAt', 'endedAt', 'traceFile', 'checks', 'note'].join('\t') + '\n')
-  appendFileSync(runsheet, ['0330', 'W1', 'long-chat-type-wheel-drag', H100 ? 'history-100' : 'history-1', harness, 'diagnostic', SIDE[sha8], SHAS[sha8], repeat, runId, r.startedAt, r.endedAt, file, '', 'CDP 합성 입력 · ' + (H100 ? '100턴 세션(실행마다 1턴 누적) · ' : '') + r.steps.map((x) => x.step).join('>')].join('\t') + '\n')
+  appendFileSync(runsheet, ['0330', 'W1', 'long-chat-type-wheel-drag', H100 ? 'history-100' : 'history-1', harness, 'diagnostic', SIDE[sha8], SHAS[sha8], repeat, runId, r.startedAt, r.endedAt, file, '', 'CDP 합성 입력 · ' + (H100 ? '100턴 세션(실행마다 1턴 누적) · ' : '') + r.steps.map((x) => x.step).join('>') + ' · 카드 ' + cards.length + (cards.length ? ' ' + JSON.stringify(cards.map((c) => c.kind + '→' + c.action)) : '')].join('\t') + '\n')
   log('ok', r.kept.length, '/', r.total, 'events', r.steps.at(-1).step)
   p.c.close()
 } catch (e) {
