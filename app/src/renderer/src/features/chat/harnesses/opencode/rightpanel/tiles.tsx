@@ -1,6 +1,6 @@
 import { basenameForDisplay } from '../../../../../../../shared/path-basename'
 import { useI18n } from '../../../../../shared/i18n'
-import { Button } from '../../../../../shared/ui/Button'
+import { useDismissMissingSubagent } from '../../common/rightpanel/panelNavigation'
 import { useBackgroundStore } from '../../../store/backgroundStore'
 import {
   chatActions,
@@ -24,24 +24,16 @@ function usePanelModel(): SessionPanelModel {
 
 function useSelectedOpenCodeAgent(): {
   model: SessionPanelModel
-  navigation: ReturnType<typeof useOpenCodePanelNavigation>
-  detail:
-    | Extract<
-        NonNullable<ReturnType<typeof useOpenCodePanelNavigation>>['selection'],
-        { id: 'subagent' | 'process' }
-      >
-    | undefined
   selected: string | null
   agent: SessionPanelModel['agents'][number] | undefined
 } {
   const model = usePanelModel()
-  const baseSelected = useChatSession((state) => state.selectedSubagentTaskId)
   const navigation = useOpenCodePanelNavigation()
   const detail = navigation?.selection?.id === 'subagent' ? navigation.selection : undefined
-  const selected = detail ? detail.selectedId : baseSelected
+  const selected = detail?.selectedId ?? null
   useSelectedPanelDetail('agents', selected)
   const agent = model.agents.find((item) => item.toolUseId === selected)
-  return { model, navigation, detail, selected, agent }
+  return { model, selected, agent }
 }
 
 export function OpenCodeTaskContent(): React.JSX.Element {
@@ -113,7 +105,8 @@ export function OpenCodeTaskContent(): React.JSX.Element {
 
 export function OpenCodeAgentContent(): React.JSX.Element {
   const { tr } = useI18n()
-  const { model, navigation, detail, selected, agent } = useSelectedOpenCodeAgent()
+  const { model, selected, agent } = useSelectedOpenCodeAgent()
+  useDismissMissingSubagent(!!agent)
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       {agent ? (
@@ -123,36 +116,18 @@ export function OpenCodeAgentContent(): React.JSX.Element {
       ) : (
         <AgentList
           agents={model.agents}
-          onSelect={(selectedId) =>
-            detail
-              ? navigation?.select?.({ id: 'subagent', selectedId })
-              : chatActions.openSubagentTask(selectedId)
-          }
+          onSelect={(selectedId, origin) => chatActions.openSubagentTask(selectedId, origin)}
         />
       )}
     </div>
   )
 }
 
-// The existing subagent tile owns list/detail navigation inside its single native header.
 export function OpenCodeAgentHeader(): React.JSX.Element {
   const { tr } = useI18n()
-  const { navigation, detail, selected, agent } = useSelectedOpenCodeAgent()
+  const { agent } = useSelectedOpenCodeAgent()
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
-      {selected && (
-        <Button
-          iconOnly
-          size="small"
-          leadingIcon="arrowL"
-          onClick={() =>
-            detail
-              ? navigation?.select?.({ id: 'subagent', selectedId: null })
-              : chatActions.selectSubagentTask(null)
-          }
-          aria-label={tr('chat.subagentTile.backToList')}
-        />
-      )}
       <span
         className="min-w-0 flex-1 truncate text-footnote font-medium"
         title={agent?.description}

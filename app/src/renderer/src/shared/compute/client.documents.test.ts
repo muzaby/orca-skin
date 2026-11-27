@@ -4,7 +4,7 @@ import * as protocol from './protocol'
 import { readWireText } from './chunkedText'
 import { createCreditWire, WIRE_FRAME_CHARS } from './creditWire'
 import { revisionOf } from './documents'
-import type { MarkdownRequest, DocRef } from './protocol'
+import type { MarkdownRequest, DocRef, WireResponse } from './protocol'
 
 const ref = (id: string): DocRef => ({ id, revision: 1 })
 const markdown = (doc: DocRef, end = 3): MarkdownRequest => ({
@@ -118,8 +118,10 @@ it('opens both sides once, replaces cancelled pair computation and reopens on th
     'doc.open',
     'diffView'
   ])
+  expect(client.workerEpoch('compute')).toBe(0)
   running.cancel()
   await reject
+  expect(client.workerEpoch('compute')).toBe(1)
   const second = ports.get('compute')!
   expect(first.terminate).toHaveBeenCalledTimes(1)
   expect(second.messages.map((m) => ('type' in m ? m.type : m.kind))).toEqual([
@@ -129,6 +131,7 @@ it('opens both sides once, replaces cancelled pair computation and reopens on th
   ])
   second.reply()
   await queued.promise
+  expect(client.recoveryEpoch('compute')).toBe(0)
   left.release()
   right.release()
 })
@@ -208,7 +211,7 @@ it('d4 routes real worker token continuations through the client and preserves t
   let tick = 0
   const run = createWorkerState(() => (tick += 51))
   const port = ports.get('compute')!
-  const replies: (boolean | 'continue')[] = []
+  const replies: WireResponse['ok'][] = []
   for (let i = 0; i < port.messages.length; i++) {
     const result = await run(structuredClone(port.messages[i]))
     if (result) {

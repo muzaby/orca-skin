@@ -166,6 +166,8 @@ export const HistoryPageReplySchema = z.discriminatedUnion('status', [
   request.extend({ status: z.literal('useCached'), generation: key, messageKey: key }),
   request.extend({
     status: z.literal('body'),
+    generation: key,
+    bytes: z.number().int().positive(),
     offset: z.number().int().nonnegative(),
     nextOffset: z.number().int().positive(),
     done: z.boolean(),
@@ -228,6 +230,14 @@ export type HistoryPageReply = Pick<
         done: boolean
         base64: string
       }
-    | { status: 'body'; base64: string; offset: number; nextOffset: number; done: boolean }
+    | {
+        status: 'body'
+        generation: string
+        bytes: number
+        base64: string
+        offset: number
+        nextOffset: number
+        done: boolean
+      }
     | { status: 'missing' | 'stale' | 'invalid' | 'unavailable' | 'cancelled' }
   )

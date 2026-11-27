@@ -16,7 +16,8 @@ import {
 } from '../../claude/rightpanel/CanonicalBackgroundContent'
 
 import { chatActions, useChatStore } from '../../../store/chatStore'
-import { selectBackgroundItem, useBackgroundStore } from '../../../store/backgroundStore'
+import { panelActions } from '../../../store/rightPanelStore'
+import { useBackgroundStore } from '../../../store/backgroundStore'
 import {
   applyBackgroundEvent,
   backgroundKey,
@@ -52,11 +53,6 @@ vi.mock('react/jsx-dev-runtime', async (original) => {
     }
   }
 })
-vi.mock('../../../store/backgroundStore', async (original) => ({
-  ...(await original<typeof import('../../../store/backgroundStore')>()),
-  selectBackgroundItem: vi.fn()
-}))
-
 function cards(render: () => void): Props[] {
   recorded.props = []
   render()
@@ -130,11 +126,35 @@ function canonicalCards(state = canonicalState()): Props[] {
 }
 
 const OPENED_CANONICAL = [
-  ['s', { kind: 'task', key: backgroundKey('gen-keys', 'task-keys') }],
-  ['s', { kind: 'call', key: backgroundKey('gen-keys', 'call-keys') }]
+  [
+    {
+      kind: 'detail',
+      selection: {
+        id: 'subagent',
+        backgroundKind: 'task',
+        selectedId: backgroundKey('gen-keys', 'task-keys')
+      },
+      origin: expect.any(Object)
+    }
+  ],
+  [
+    {
+      kind: 'detail',
+      selection: {
+        id: 'subagent',
+        backgroundKind: 'call',
+        selectedId: backgroundKey('gen-keys', 'call-keys')
+      },
+      origin: expect.any(Object)
+    }
+  ]
 ]
 
-function press(card: Props, key: string, fromCard: boolean): { preventDefault: () => void } {
+function press(
+  card: Props,
+  key: string,
+  fromCard: boolean
+): { preventDefault: () => void; currentTarget: object } {
   const self = {}
   const event = { key, target: fromCard ? self : {}, currentTarget: self, preventDefault: vi.fn() }
   ;(card.onKeyDown as (event: unknown) => void)(event)
@@ -143,7 +163,6 @@ function press(card: Props, key: string, fromCard: boolean): { preventDefault: (
 
 afterEach(() => {
   vi.restoreAllMocks()
-  vi.mocked(selectBackgroundItem).mockClear()
 })
 
 // 키 규칙: 카드 자신 + Enter·Space → 열고 1회 막음 / 안쪽 요소 + Enter·Space · 다른 키 → 아무것도 안 함.
@@ -157,30 +176,34 @@ const KEYS = [
 
 describe('0319 W1 — background card keyboard and click', () => {
   it.each(KEYS)('legacy card: key %j from card=%s opens=%s', (key, fromCard, opens) => {
-    const select = vi.spyOn(chatActions, 'selectSubagentTask').mockImplementation(() => {})
+    const select = vi.spyOn(chatActions, 'openSubagentTask').mockImplementation(() => {})
     const found = legacyCards()
     expect(found).toHaveLength(1)
     const event = press(found[0], key, fromCard)
-    expect(select.mock.calls).toEqual(opens ? [['legacy-run']] : [])
+    expect(select.mock.calls).toEqual(opens ? [['legacy-run', event.currentTarget]] : [])
     expect(event.preventDefault).toHaveBeenCalledTimes(opens ? 1 : 0)
   })
 
   it.each(KEYS)('canonical cards: key %j from card=%s opens=%s', (key, fromCard, opens) => {
+    const open = vi.spyOn(panelActions, 'navigate').mockImplementation(() => {})
     const found = canonicalCards()
     expect(found).toHaveLength(2)
     for (const card of found) {
       const event = press(card, key, fromCard)
       expect(event.preventDefault).toHaveBeenCalledTimes(opens ? 1 : 0)
     }
-    expect(vi.mocked(selectBackgroundItem).mock.calls).toEqual(opens ? OPENED_CANONICAL : [])
+    expect(open.mock.calls).toEqual(opens ? OPENED_CANONICAL : [])
   })
 
   it('opens each card by click', () => {
-    const select = vi.spyOn(chatActions, 'selectSubagentTask').mockImplementation(() => {})
-    ;(legacyCards()[0].onClick as () => void)()
-    expect(select.mock.calls).toEqual([['legacy-run']])
-    for (const card of canonicalCards()) (card.onClick as () => void)()
-    expect(vi.mocked(selectBackgroundItem).mock.calls).toEqual(OPENED_CANONICAL)
+    const select = vi.spyOn(chatActions, 'openSubagentTask').mockImplementation(() => {})
+    const open = vi.spyOn(panelActions, 'navigate').mockImplementation(() => {})
+    const origin = {}
+    ;(legacyCards()[0].onClick as (event: Props) => void)({ currentTarget: origin })
+    expect(select.mock.calls).toEqual([['legacy-run', origin]])
+    for (const card of canonicalCards())
+      (card.onClick as (event: Props) => void)({ currentTarget: origin })
+    expect(open.mock.calls).toEqual(OPENED_CANONICAL)
   })
 
   // 세대 속성은 카드가 그리는 레코드의 세대다 — 세션의 현재 세대와 다른 입력이어야 둘을 가른다.
@@ -203,6 +226,7 @@ describe('0319 W1 — background card keyboard and click', () => {
   })
 
   it('a task card rendered without onOpen only prevents its own Enter', () => {
+    const open = vi.spyOn(panelActions, 'navigate').mockImplementation(() => {})
     const state = canonicalState()
     const task = state.tasks[backgroundKey('gen-keys', 'task-keys')]
     const [card] = cards(() =>
@@ -211,6 +235,6 @@ describe('0319 W1 — background card keyboard and click', () => {
     expect(card.onClick).toBeUndefined()
     expect(press(card, 'Enter', true).preventDefault).toHaveBeenCalledTimes(1)
     expect(press(card, 'Enter', false).preventDefault).not.toHaveBeenCalled()
-    expect(selectBackgroundItem).not.toHaveBeenCalled()
+    expect(open).not.toHaveBeenCalled()
   })
 })

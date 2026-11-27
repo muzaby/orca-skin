@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../../shared/compute/useWorkerRetry'
 import { useActiveSessionKey } from '../../store/chatStore'
 import { useEffect, useState, useRef, useId, useMemo } from 'react'
 import {
@@ -65,6 +66,7 @@ function SegmentedTail(props: TailProps): React.JSX.Element {
 }
 function SessionTail({ tail, className, parts, definitions }: TailProps): React.JSX.Element {
   const id = useId()
+  const retryWorker = useWorkerRetry('markdown', id)
   const [parsed, setParsed] = useState<{ text: string; result: Result } | null>(null)
   const submit = useRef<((text: string) => void) | undefined>(undefined)
   useEffect(() => {
@@ -89,15 +91,17 @@ function SessionTail({ tail, className, parts, definitions }: TailProps): React.
       }
       function start(): void {
         stopWaiting = undefined
-        running = client.request(
-          {
-            kind: 'markdown',
-            doc,
-            start: 0,
-            end: text.length,
-            ...(definitions && { definitions })
-          },
-          { cacheable: false }
+        running = retryWorker(() =>
+          client.request(
+            {
+              kind: 'markdown',
+              doc,
+              start: 0,
+              end: text.length,
+              ...(definitions && { definitions })
+            },
+            { cacheable: false }
+          )
         )
         void running.promise
           .then(
@@ -132,10 +136,10 @@ function SessionTail({ tail, className, parts, definitions }: TailProps): React.
       stopWaiting?.()
       running?.cancel()
     }
-  }, [id, definitions])
+  }, [id, definitions, retryWorker])
   useEffect(() => {
     submit.current?.(tail)
-  }, [tail, definitions])
+  }, [tail, definitions, retryWorker])
 
   const covered = parsed && tail.startsWith(parsed.text) ? parsed : null
   const [painted, setPainted] = useState<typeof parsed>(null)

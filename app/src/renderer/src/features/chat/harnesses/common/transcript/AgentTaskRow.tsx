@@ -86,9 +86,9 @@ export function AgentTaskRow({
     detail = `${model} ${title}${duration}`
   }
 
-  const activate = (): void => {
+  const activate = (origin: HTMLElement): void => {
     if (transcriptPolicy.inlineSubagentDetail) setExpanded(!expanded)
-    else chatActions.openSubagentTask(call.toolUseId)
+    else chatActions.openSubagentTask(call.toolUseId, origin)
   }
 
   const row = (

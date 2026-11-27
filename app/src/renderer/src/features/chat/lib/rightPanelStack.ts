@@ -4,7 +4,9 @@ import type { ArtifactViewerSelection } from '../store/artifactViewerStore'
 import { isRightPanelTileVisible, rightPanelPolicy, type RightPanelTileId } from './panelTiles'
 
 export type PanelDetailSelection =
-  { id: 'diff' | 'source' } | { id: 'subagent' | 'process'; selectedId: string | null }
+  | { id: 'diff' | 'source' }
+  | { id: 'process'; selectedId: string | null }
+  | { id: 'subagent'; selectedId: string | null; backgroundKind?: 'call' | 'task' }
 
 export type PanelLayer =
   | { kind: 'tile'; id: RightPanelTileId }
@@ -25,7 +27,9 @@ export function layerKey(layer: PanelLayer): string {
     case 'tile':
       return layer.id
     case 'detail':
-      return 'detail:' + layer.selection.id
+      return layer.selection.id === 'subagent' && layer.selection.selectedId === null
+        ? 'detail:subagent-list'
+        : 'detail:' + layer.selection.id
     case 'taskDetail':
       return 'task:' + layer.task
     case 'artifact':
@@ -58,6 +62,13 @@ export function navigateStack(
     }
     return [...stack.slice(0, index), entry]
   }
-  if (!stack.length && entry.kind === 'artifact') return [root, entry]
+  if (
+    !stack.length &&
+    (entry.kind === 'artifact' ||
+      (entry.kind === 'detail' &&
+        entry.selection.id === 'subagent' &&
+        entry.selection.selectedId !== null))
+  )
+    return [root, entry]
   return [...stack, entry]
 }

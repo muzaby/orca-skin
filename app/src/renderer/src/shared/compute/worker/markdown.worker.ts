@@ -11,6 +11,10 @@ import { markdownBlock, type MarkdownDocument } from './markdown'
 const documents = new Map<string, MarkdownDocument>()
 function processMessage(data: WireRequest | WireControl): void {
   if ('type' in data) {
+    if (data.type === 'health') {
+      wire.send({ id: data.id, ok: 'ready' }, false)
+      return
+    }
     const key = docKey(data.ref)
     if (data.type === 'doc.open') documents.set(key, { text: data.text })
     else if (data.type === 'doc.extend') {

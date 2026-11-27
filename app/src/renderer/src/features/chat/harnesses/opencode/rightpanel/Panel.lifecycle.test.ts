@@ -60,10 +60,12 @@ const initialArtifacts = useArtifactViewerStore.getState()
 const all = (node: FakeNode): FakeNode[] => [node, ...node.children.flatMap(all)]
 const buttons = (root: FakeNode): FakeNode[] => all(root).filter((node) => node.tag === 'button')
 const overview = (): FakeNode => dom.query('[data-component="opencode-session-panel"]')!
-const detail = (): FakeNode | null =>
-  all(dom.body).find((node) =>
+const detail = (): FakeNode | null => {
+  const layers = all(dom.body).filter((node) =>
     String(node.props['data-right-panel-layer'] ?? '').startsWith('detail:')
-  ) ?? null
+  )
+  return layers.find((node) => node.props.inert === false) ?? layers.at(-1) ?? null
+}
 const session = (): ChatState => {
   const state = useChatStore.getState()
   return state.sessions[state.activeKey].session
@@ -267,7 +269,7 @@ describe('OpenCode summary lifecycle', () => {
     expect(detail()!.textContent).toContain('Inspect fixture')
     expect(detail()!.textContent).toContain('응답')
     expect(session().selectedSubagentTaskId).toBe('base-agent')
-    dom.click(buttons(detail()!).find((node) => node.props['aria-label'] === '목록으로')!)
+    dom.click(detail()!.querySelector('[data-panel-back]')!)
     expect(detail()!.textContent).toContain('Inspect fixture')
     expect(buttons(detail()!).some((node) => node.props['aria-label'] === '목록으로')).toBe(false)
     expect(buttons(detail()!).some((node) => node.textContent.includes('Inspect fixture'))).toBe(

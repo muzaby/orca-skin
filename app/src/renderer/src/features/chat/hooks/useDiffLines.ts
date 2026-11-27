@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../shared/compute/useWorkerRetry'
 import { useEffect, useMemo, useState } from 'react'
 import { computeClient } from '../../../shared/compute/client'
 import { diffLinesWithinCap } from '../../../shared/compute/inline'
@@ -13,6 +14,7 @@ const LOADING: DiffLinesState = { status: 'loading' }
 // 대신 계산하지 않는다.
 export function useDiffLines(oldValue: string, newValue: string): DiffLinesState {
   const inline = useMemo(() => diffLinesWithinCap(oldValue, newValue), [oldValue, newValue])
+  const retryWorker = useWorkerRetry('compute', inline)
   const [remote, setRemote] = useState<{
     oldValue: string
     newValue: string
@@ -21,18 +23,23 @@ export function useDiffLines(oldValue: string, newValue: string): DiffLinesState
 
   useEffect(() => {
     if (inline) return
-    const handle = computeClient().request({ kind: 'diffLines', oldValue, newValue })
+    const handle = retryWorker(() =>
+      computeClient().request({ kind: 'diffLines', oldValue, newValue })
+    )
     let cancelled = false
-    handle.promise
-      .then(({ lines }) => setRemote({ oldValue, newValue, state: { status: 'ready', lines } }))
-      .catch(() => {
+    void handle.promise.then(
+      ({ lines }) => {
+        if (!cancelled) setRemote({ oldValue, newValue, state: { status: 'ready', lines } })
+      },
+      () => {
         if (!cancelled) setRemote({ oldValue, newValue, state: { status: 'failed' } })
-      })
+      }
+    )
     return () => {
       cancelled = true
       handle.cancel()
     }
-  }, [inline, oldValue, newValue])
+  }, [inline, oldValue, newValue, retryWorker])
 
   return useMemo<DiffLinesState>(() => {
     if (inline) return { status: 'ready', lines: inline }

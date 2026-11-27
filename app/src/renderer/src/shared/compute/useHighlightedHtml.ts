@@ -1,3 +1,4 @@
+import { useWorkerRetry } from './useWorkerRetry'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { computeClient } from './client'
 import type { ComputeTheme } from './protocol'
@@ -19,16 +20,19 @@ export function useHighlightedHtml(
   )
 
   const cachedOnly = useContext(CachedHighlightOnly)
+  const retryWorker = useWorkerRetry('compute', enabled && !cachedOnly)
   useEffect(() => {
     if (cachedOnly || !enabled) return
-    const handle = computeClient().request({ kind: 'highlight', code, lang, theme })
+    const handle = retryWorker(() =>
+      computeClient().request({ kind: 'highlight', code, lang, theme })
+    )
     handle.promise
       .then(({ html }) => setHl({ code, lang, theme, html }))
       .catch(() => {
         // 취소·워커 실패에도 원문은 읽을 수 있다.
       })
     return () => handle.cancel()
-  }, [code, lang, theme, enabled, cachedOnly])
+  }, [code, lang, theme, enabled, cachedOnly, retryWorker])
 
   if (!enabled) return null
   if (hl && hl.code === code && hl.lang === lang && hl.theme === theme) return hl.html

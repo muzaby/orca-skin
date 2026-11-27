@@ -45,7 +45,10 @@ export function AgentTaskBody({
       )}
       {transcriptPolicy.showTaskAgentLabel && (
         <div>
-          <Button size="small" onClick={() => chatActions.openSubagentTask(call.toolUseId)}>
+          <Button
+            size="small"
+            onClick={(event) => chatActions.openSubagentTask(call.toolUseId, event.currentTarget)}
+          >
             {tr('chat.toolMeta.openSubagentPanel')}
           </Button>
         </div>

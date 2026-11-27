@@ -143,9 +143,9 @@ afterEach(() => {
 it('selects the clicked agent from the native subagent tile', () => {
   dom.act(() => panelActions.tile('subagent'))
   clickNamedButton(layer('subagent'), 'Inspect licenses')
-  expect(session().selectedSubagentTaskId).toBe('agent-b')
   expect(useRightPanelStore.getState().stack).toMatchObject([
     { kind: 'tile', id: 'task' },
+    { kind: 'tile', id: 'subagent' },
     { kind: 'detail', selection: { id: 'subagent', selectedId: 'agent-b' } }
   ])
   expect(layer('detail:subagent').textContent).toContain('Check license text')

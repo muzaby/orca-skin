@@ -1,4 +1,7 @@
+import { fakeComputeClient } from '../../../../shared/compute/fakeClient.testfixture'
 import { createElement } from 'react'
+import { SegmentedFence } from './SegmentedFence'
+import type { MarkdownRow } from './useMarkdownRows'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { ComputeClient } from '../../../../shared/compute/client'
 import { setComputeClient } from '../../../../shared/compute/client'
@@ -55,6 +58,7 @@ beforeEach(() => {
       : compute(input)
   }
   const client: ComputeClient = {
+    ...fakeComputeClient().client,
     openDocument(ref, { text }) {
       registered.push(text.length)
       if (text.length > SIZE) throw Error('individual registration exceeded')
@@ -197,4 +201,85 @@ it('VP-41 resolves footnotes on both sides of 8M in reference order with one foo
     foot.querySelectorAll('[data-part-key="last"]').some((n) => n.textContent === 'Beta')
   ).toBe(true)
   expect(dom.query('[data-markdown-document="complete"]')).toBeTruthy()
+})
+
+async function flushRecovery(): Promise<void> {
+  for (let turn = 0; turn < 16; turn++) await Promise.resolve()
+  dom.frame()
+  for (let turn = 0; turn < 16; turn++) await Promise.resolve()
+  dom.frame()
+}
+
+it('AC20 replaces a raw block with hast after recovery', async () => {
+  const fake = fakeComputeClient()
+  setComputeClient(fake.client)
+  const source = '## ' + 'x'.repeat(4500)
+  dom.render(createElement(TranscriptMarkdown, { source }))
+  fake.rejectNext()
+  await flushRecovery()
+  expect(dom.query('[data-md-block-error]')?.textContent).toBe(source)
+  expect(dom.query('[data-markdown-document="error"]')).not.toBeNull()
+  expect(fake.requests).toHaveLength(1)
+  fake.recover('markdown')
+  await flushRecovery()
+  expect(fake.requests).toHaveLength(2)
+  fake.resolveNext({
+    hast: {
+      type: 'root',
+      children: [
+        {
+          type: 'element',
+          tagName: 'h2',
+          properties: {},
+          children: [{ type: 'text', value: 'restored' }]
+        }
+      ]
+    }
+  })
+  await flushRecovery()
+  expect(tags('h2')[0]?.textContent).toBe('restored')
+  expect(dom.query('[data-markdown-document="complete"]')).not.toBeNull()
+  fake.recover('markdown')
+  await flushRecovery()
+  expect(fake.requests).toHaveLength(2)
+})
+
+it('AC20 retries the failed segmented fence piece after recovery', async () => {
+  const fake = fakeComputeClient()
+  setComputeClient(fake.client)
+  const source = '~~~js\nabcd\n~~~'
+  const fence = { start: 0, end: source.length, bodyStart: 6, bodyEnd: 10, lang: 'js', indent: 0 }
+  const pieces = [
+    { start: 0, end: 8 },
+    { start: 8, end: source.length }
+  ].map(({ start, end }) => {
+    const block = { start: 0, end: end - start, fence }
+    return {
+      block,
+      segment: { start, end, text: source.slice(start, end), blocks: [block] },
+      doc: { id: 'p' + start, revision: 1 }
+    }
+  })
+  const row: MarkdownRow = {
+    ...pieces[0],
+    fencePieces: pieces,
+    readSource: (a, b) => source.slice(a, b)
+  }
+  dom.render(createElement(SegmentedFence, { row, priority: 'visible' }))
+  fake.resolveNext({ hast: { type: 'root', children: [{ type: 'text', value: 'ab' }] } })
+  await flushRecovery()
+  fake.rejectNext()
+  await flushRecovery()
+  expect(dom.query('[data-md-block-error]')?.textContent).toBe(source)
+  expect(fake.requests).toHaveLength(2)
+  fake.recover('markdown')
+  await flushRecovery()
+  expect(fake.requests).toHaveLength(3)
+  expect(fake.requests[2]).toEqual(fake.requests[1])
+  fake.resolveNext({ hast: { type: 'root', children: [{ type: 'text', value: 'cd' }] } })
+  await flushRecovery()
+  expect(tags('code')[0]?.textContent).toBe('abcd')
+  fake.recover('markdown')
+  await flushRecovery()
+  expect(fake.requests.filter((r) => r.kind === 'markdown')).toHaveLength(3)
 })

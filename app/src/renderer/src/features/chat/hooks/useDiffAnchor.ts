@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../shared/compute/useWorkerRetry'
 import { useMemo, useEffect, useState } from 'react'
 import { computeClient } from '../../../shared/compute/client'
 import { diffViewLocate, diffViewContext, type DiffModel } from '../../../shared/compute/diffView'
@@ -14,12 +15,13 @@ function useAnchorRequest<K extends AnchorKind>(
   request: Extract<ComputeRequest, { kind: K }> | null,
   ready: boolean
 ): ComputeResults[K] | undefined {
+  const retryWorker = useWorkerRetry('compute', request)
   const [state, setState] = useState<{ key: string; value: ComputeResults[K] } | null>(null)
   const key = request && requestKey(request)
   useEffect(() => {
     if (!request || !ready || !key) return
     let active = true
-    const task = computeClient().request<K>(request)
+    const task = retryWorker(() => computeClient().request<K>(request))
     void task.promise.then(
       (value) => {
         if (active) setState({ key, value })
@@ -30,7 +32,7 @@ function useAnchorRequest<K extends AnchorKind>(
       active = false
       task.cancel()
     }
-  }, [request, ready, key])
+  }, [request, ready, key, retryWorker])
   return state?.key === key ? state?.value : undefined
 }
 export function useDiffAnchor(

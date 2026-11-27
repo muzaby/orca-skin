@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../shared/compute/useWorkerRetry'
 import { useEffect, useMemo, useState } from 'react'
 import { computeClient } from '../../../shared/compute/client'
 import { diffStatsWithinBudget } from '../../../shared/compute/inline'
@@ -24,13 +25,16 @@ function inlineHeaderStat(sources: readonly DiffStatSource[] | null): DiffStat |
 
 export function useDiffStat(sources: readonly DiffStatSource[] | null): DiffStat | null {
   const inline = useMemo(() => inlineHeaderStat(sources), [sources])
+  const retryWorker = useWorkerRetry('compute', sources)
   const [computed, setComputed] = useState<{ sources: readonly DiffStatSource[]; stat: DiffStat }>()
   useEffect(() => {
     if (!sources || inline) return
     let active = true
-    const handle = computeClient().request(
-      { kind: 'diffStat', sources, sequence: ++sequence },
-      { cacheable: false }
+    const handle = retryWorker(() =>
+      computeClient().request(
+        { kind: 'diffStat', sources, sequence: ++sequence },
+        { cacheable: false }
+      )
     )
     void handle.promise.then(
       (stat) => {
@@ -42,6 +46,6 @@ export function useDiffStat(sources: readonly DiffStatSource[] | null): DiffStat
       active = false
       handle.cancel()
     }
-  }, [sources, inline])
+  }, [sources, inline, retryWorker])
   return inline ?? (computed?.sources === sources ? computed.stat : null)
 }

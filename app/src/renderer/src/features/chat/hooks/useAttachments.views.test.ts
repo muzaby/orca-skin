@@ -49,6 +49,40 @@ function mount() {
 }
 
 describe('composer attachment preview lifecycle', () => {
+  it('AC20 restores each surviving image preview once without reading its source again', async () => {
+    const { dom, compute, readAttachment } = mount()
+    const flush = async (): Promise<void> => {
+      for (let i = 0; i < 4; i++) await Promise.resolve()
+    }
+    try {
+      await hook.value.pickAttachments()
+      expect(compute.requests).toHaveLength(2)
+      const [removed, surviving] = hook.value.snapshot().views
+      compute.rejectNext()
+      compute.rejectNext()
+      await flush()
+      expect(hook.value.snapshot().views.every((view) => !view.previewDataUrl)).toBe(true)
+      expect(compute.requests).toHaveLength(2)
+      hook.value.removeAttachment(removed.id)
+      compute.recover('compute')
+      await flush()
+      expect(compute.requests).toHaveLength(2)
+      compute.recover('image')
+      await flush()
+      expect(compute.requests).toHaveLength(3)
+      expect(compute.requests[2]).toMatchObject({ attachmentId: surviving.id })
+      expect(readAttachment).toHaveBeenCalledTimes(3)
+      compute.resolveNext({ thumbnail: 'data:image/jpeg;base64,RECOVERED' })
+      await flush()
+      expect(hook.value.snapshot().views[0].previewDataUrl).toBe('data:image/jpeg;base64,RECOVERED')
+      compute.recover('image')
+      await flush()
+      expect(compute.requests).toHaveLength(3)
+    } finally {
+      dom.unmount()
+    }
+  })
+
   it('discards an older clipboard read even when the next draft has its own pictures', async () => {
     const { dom } = mount()
     let finish!: () => void

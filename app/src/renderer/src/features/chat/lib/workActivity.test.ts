@@ -20,6 +20,32 @@ const message = (...parts: AppMessagePart[]): Message => ({
   parts
 })
 describe('Work response projection', () => {
+  // 0331 AC2″ — 보이는 글이 없는 메모는 메모 행·점을 만들지 않는다.
+  it.each([
+    '[ref]: https://example.com',
+    '\u200b',
+    '\u2060\ufeff',
+    '\u00ad',
+    '&nbsp;',
+    '&#160; &#xA0;',
+    '&ZeroWidthSpace;'
+  ])('AC2″ invisible note %j forms no note between tools', (note) => {
+    const result = createWorkProjector()([
+      message(begin('r'), tool, text(note), { ...tool, toolRunId: 't2' }, text('final'), end('r'))
+    ])!
+    const activity = result.find((node) => node.kind === 'activity')!
+    expect(activity.noteCount).toBe(0)
+    expect(activity.items.map((item) => item.segment.kind)).toEqual(['tools'])
+  })
+  it.each(['visible note', '`&nbsp;`', '&amp;', '[ref]: https://example.com\ntext', '👍'])(
+    'AC2″ visible note %j stays a note',
+    (note) => {
+      const result = createWorkProjector()([
+        message(begin('r'), tool, text(note), { ...tool, toolRunId: 't2' }, text('final'), end('r'))
+      ])!
+      expect(result.find((node) => node.kind === 'activity')).toMatchObject({ noteCount: 1 })
+    }
+  )
   it('uses the indexed result for this call without iterating other turns', () => {
     const results = new Map([['t', { output: 'indexed', isError: false }]])
     const iteration = vi.spyOn(results, Symbol.iterator)

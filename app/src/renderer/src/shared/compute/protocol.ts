@@ -93,6 +93,7 @@ export type TokensRequest = TokenSource & {
   end: number
 }
 export type WireControl =
+  | { type: 'health'; id: number }
   | { type: 'doc.open'; ref: DocRef; text: string; lines?: LineNumbers }
   | { type: 'doc.extend'; ref: DocRef; from: DocRef; offset: number; suffix: string }
   | { type: 'doc.close'; ref: DocRef }
@@ -195,6 +196,7 @@ export type WireRequest = ComputeRequest & { id: number; resumeFrom?: number; di
 // 성공 응답의 `size` 는 워커가 센 결과 크기(`resultSize`)다 — UI 스레드는 결과를 순회해 크기를 세지 않는다
 // (0325 D-011 · EP-5 ①). 숫자가 아니면 캐시에 넣지 않는다(결과는 전달).
 export type WireResponse =
+  | { id: number; ok: 'ready' }
   | { id: number; ok: true; result: ComputeResult; size: number }
   | { id: number; ok: 'continue' }
   | { id: number; ok: false; error: string }
@@ -369,6 +371,7 @@ export function parseResponse(raw: unknown): WireResponse | null {
       size: typeof message.size === 'number' ? message.size : Number.NaN
     }
   }
+  if (message.ok === 'ready') return { id: message.id, ok: 'ready' }
   if (message.ok === 'continue') return { id: message.id, ok: 'continue' }
   if (message.ok === false && typeof message.error === 'string') {
     return { id: message.id, ok: false, error: message.error }

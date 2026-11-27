@@ -82,6 +82,8 @@ app.whenReady().then(async () => {
       const nextOffset = Math.min(offset + chunkBytes, bytes.length)
       return {
         status: 'body',
+        generation: 'g',
+        bytes: bytes.length,
         requestId,
         sessionId,
         openGeneration,

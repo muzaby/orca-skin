@@ -37,7 +37,7 @@ it.each([
   ).toThrow()
 })
 
-it('discards an interrupted stream and rejects a packet from a different generation or offset', () => {
+it('AC3″ distinguishes a replaced worker from an invalid range', () => {
   const head = {
     kind: 'historyBody' as const,
     bytes: 2,
@@ -46,9 +46,13 @@ it('discards an interrupted stream and rejects a packet from a different generat
   }
   expect(decodeHistoryBody(head).nextOffset).toBe(1)
   const tail = { ...head, packet: { offset: 1, base64: 'XQ==' } }
-  expect(() => decodeHistoryBody({ ...tail, sequence: 10 })).toThrow('range')
+  expect(() => decodeHistoryBody({ ...tail, sequence: 10 })).toThrow('worker-replaced')
+  expect(() => decodeHistoryBody({ ...tail, packet: { ...tail.packet, offset: 2 } })).toThrow(
+    'Invalid history body range'
+  )
+  decodeHistoryBody(head)
   decodeHistoryBody({ ...head, packet: null })
-  expect(() => decodeHistoryBody(tail)).toThrow('range')
+  expect(() => decodeHistoryBody(tail)).toThrow('worker-replaced')
 })
 
 it('rejects an invalid UTF-8 byte inside otherwise valid JSON text', () => {

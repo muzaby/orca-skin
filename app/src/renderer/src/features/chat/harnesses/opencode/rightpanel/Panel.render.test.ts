@@ -315,16 +315,18 @@ describe('OpenCode panel rendering', () => {
   describe.each(['subagent', 'process'] as const)('%s selection contexts', (id) => {
     const label = id === 'subagent' ? 'agent' : 'process'
 
-    it('renders the local detail selection and preserves the base tile selection', () => {
+    const baseText = id === 'subagent' ? 'base agent' : 'base process result'
+    it('renders the local detail selection and preserves the base tile view', () => {
       const $ = renderSelectionLayers({ id, selectedId: `detail-${id}` })
       const base = $('[data-test-layer="base"]')
       const detail = $('[data-test-layer="detail"]')
-      expect(base.text()).toContain(`base ${label} result`)
+      expect(base.text()).toContain(baseText)
       expect(base.text()).not.toContain(`detail ${label} result`)
       expect(detail.text()).toContain(`detail ${label} result`)
       expect(detail.text()).not.toContain(`base ${label} result`)
       if (id === 'subagent') {
-        expect(base.find('[title="base agent"]')).toHaveLength(1)
+        expect(base.find('button').text()).toContain('base agent')
+        expect(base.text()).not.toContain('base agent result')
         expect(detail.find('[title="detail agent"]')).toHaveLength(1)
       }
       expect(entry.session.selectedSubagentTaskId).toBe('base-subagent')
@@ -333,16 +335,16 @@ describe('OpenCode panel rendering', () => {
 
     it('renders a missing local record as unavailable without falling back to the base selection', () => {
       const $ = renderSelectionLayers({ id, selectedId: 'missing-record' })
-      expect($('[data-test-layer="base"]').text()).toContain(`base ${label} result`)
+      expect($('[data-test-layer="base"]').text()).toContain(baseText)
       expect($('[data-test-layer="detail"]').text()).toContain('이 항목의 기록을 찾을 수 없습니다.')
       expect($('[data-test-layer="detail"]').text()).not.toContain(`base ${label} result`)
       expect($('[data-test-layer="detail"]').text()).not.toContain(`detail ${label} result`)
     })
 
-    it('renders the local list for null selection while the base stays on its selected record', () => {
+    it('renders the local list for null selection and preserves the base tile view', () => {
       const $ = renderSelectionLayers({ id, selectedId: null })
       const detail = $('[data-test-layer="detail"]')
-      expect($('[data-test-layer="base"]').text()).toContain(`base ${label} result`)
+      expect($('[data-test-layer="base"]').text()).toContain(baseText)
       expect(detail.find('button').text()).toContain(`base ${label}`)
       expect(detail.find('button').text()).toContain(`detail ${label}`)
       expect(detail.text()).not.toContain(`${label} result`)

@@ -16,12 +16,15 @@ export const ClaudeAssistantSegment = memo(function ClaudeAssistantSegment({
   segment: seg,
   transcriptPolicy,
   partKeys,
-  sourceParts
+  sourceParts,
+  pendingText
 }: {
   partKeys?: readonly string[]
   sourceParts?: readonly MarkdownSourcePart[]
   segment: MessageSegment
   transcriptPolicy: AgentTranscriptPresentation
+  // Work 메모만 켠다 — 워커 응답 전에도 메모 글이 보이게 한다(0331 D-034 ③).
+  pendingText?: boolean
 }): React.JSX.Element {
   switch (seg.kind) {
     case 'reasoning':
@@ -43,6 +46,7 @@ export const ClaudeAssistantSegment = memo(function ClaudeAssistantSegment({
         <TranscriptMarkdown
           source={seg.text}
           sourceParts={(sourceParts?.length ?? 0) > 1 ? sourceParts : undefined}
+          pendingText={pendingText}
         />
       )
     case 'error':

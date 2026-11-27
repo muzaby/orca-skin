@@ -3,6 +3,7 @@ import { reportError } from '../../../shared/errors'
 import { fileApi } from '../../../shared/api/ipc'
 import { computeClient } from '../../../shared/compute/client'
 import { imagePixelCount } from '../../../shared/compute/imageHeader'
+import { afterWorkerRecovery } from '../../../shared/compute/useWorkerRetry'
 import { attachmentView, type DraftAttachment } from '../lib/attachmentThumbs'
 import type { AttachmentView, ComposerAttachment } from '../../../../../shared/ipc'
 
@@ -59,40 +60,57 @@ export function useAttachments(): UseAttachments {
 
   async function prepareThumbnail({ id, source }: DraftAttachment): Promise<void> {
     const alive = (): boolean => drafts.current.some((item) => item.id === id)
-    let thumbnail: string | null = null
+    function showThumbnail(thumbnail: string | null): void {
+      if (!alive()) return
+      const next = drafts.current.map<DraftAttachment>((item) =>
+        item.id === id
+          ? {
+              ...item,
+              thumbnail: thumbnail
+                ? { state: 'ready', dataUrl: thumbnail }
+                : { state: 'unavailable' }
+            }
+          : item
+      )
+      drafts.current = next
+      setChips(next)
+    }
     try {
       const input = source.kind === 'inline' ? source : await fileApi.readAttachment(source.path)
       if (!alive()) return
-      const handle = computeClient().request(
-        {
-          kind: 'imageThumb',
-          attachmentId: id,
-          mimeType: input.mimeType,
-          data: input.data,
-          // Only a bounded header sample is read for queue ordering. The worker checks
-          // the header again before it decodes the image.
-          pixels: imagePixelCount(input.mimeType, input.data) ?? 0
-        },
-        { priority: 'background', cacheable: false }
-      )
-      jobs.current.set(id, handle)
-      thumbnail = (await handle.promise).thumbnail
+      const request = {
+        kind: 'imageThumb' as const,
+        attachmentId: id,
+        mimeType: input.mimeType,
+        data: input.data,
+        // Only a bounded header sample is read for queue ordering. The worker checks
+        // the header again before it decodes the image.
+        pixels: imagePixelCount(input.mimeType, input.data) ?? 0
+      }
+      const client = computeClient()
+      async function generateThumbnail(): Promise<void> {
+        if (!alive()) return
+        const epoch = client.recoveryEpoch('image')
+        const handle = client.request(request, { priority: 'background', cacheable: false })
+        jobs.current.set(id, handle)
+        try {
+          const { thumbnail } = await handle.promise
+          jobs.current.delete(id)
+          showThumbnail(thumbnail)
+        } catch (error) {
+          jobs.current.delete(id)
+          if (!alive()) return
+          const cancel = afterWorkerRecovery(client, 'image', epoch, error, () => {
+            void generateThumbnail()
+          })
+          if (cancel) jobs.current.set(id, { cancel })
+          showThumbnail(null)
+        }
+      }
+      await generateThumbnail()
     } catch {
-      // Reads, decoding, and worker cancellation may leave the attachment without a preview.
-    } finally {
-      jobs.current.delete(id)
+      showThumbnail(null)
     }
-    if (!alive()) return
-    const next = drafts.current.map<DraftAttachment>((item) =>
-      item.id === id
-        ? {
-            ...item,
-            thumbnail: thumbnail ? { state: 'ready', dataUrl: thumbnail } : { state: 'unavailable' }
-          }
-        : item
-    )
-    drafts.current = next
-    setChips(next)
   }
 
   function addAttachments(sources: ComposerAttachment[]): void {
@@ -129,6 +147,7 @@ export function useAttachments(): UseAttachments {
     if (!drafts.current.some((item) => item.id === id)) return
     commit(drafts.current.filter((item) => item.id !== id))
     jobs.current.get(id)?.cancel()
+    jobs.current.delete(id)
   }
 
   function addDroppedFiles(files: FileList): void {
@@ -177,7 +196,10 @@ export function useAttachments(): UseAttachments {
     lifetime.current.generation++
     const previous = drafts.current
     commit([])
-    for (const { id } of previous) jobs.current.get(id)?.cancel()
+    for (const { id } of previous) {
+      jobs.current.get(id)?.cancel()
+      jobs.current.delete(id)
+    }
     return true
   }
 

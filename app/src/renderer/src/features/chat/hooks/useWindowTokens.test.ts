@@ -2,16 +2,14 @@ import { createElement } from 'react'
 import { afterEach, it, expect, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../shared/ui/renderHarness.testfixture'
 import type { TokenRows, TokensRequest } from '../../../shared/compute/protocol'
-import type { Priority } from '../../../shared/compute/client'
+import { setComputeClient, type Priority } from '../../../shared/compute/client'
+import { fakeComputeClient } from '../../../shared/compute/fakeClient.testfixture'
 import { useWindowTokens } from './useWindowTokens'
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   ...(await import('../../../shared/ui/renderHarness.testfixture')).fakeHooks
 }))
 const env = vi.hoisted(() => ({ request: vi.fn(), theme: 'github-light' }))
-vi.mock('../../../shared/compute/client', () => ({
-  computeClient: () => ({ request: env.request })
-}))
 vi.mock('../../../shared/ui/markdown/themeStore', () => ({
   getThemeSnapshot: () => env.theme,
   subscribeTheme: () => () => {}
@@ -19,12 +17,14 @@ vi.mock('../../../shared/ui/markdown/themeStore', () => ({
 let dom: FakeDom
 afterEach(() => {
   dom.unmount()
+  setComputeClient(null)
   vi.unstubAllGlobals()
   env.request.mockReset()
   env.theme = 'github-light'
 })
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- 테스트 하네스의 반환형은 조립한 fixture에서 추론한다.
 function fixture() {
+  setComputeClient({ ...fakeComputeClient().client, request: env.request })
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
   const tasks: {
     resolve: (r: { rows: TokenRows }) => void

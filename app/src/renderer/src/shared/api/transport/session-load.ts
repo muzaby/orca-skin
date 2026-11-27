@@ -158,10 +158,15 @@ export function createSessionLoadClient(deps: SessionLoadClientDeps): SessionLoa
             query.cached.generation !== result.generation)) ||
         (result.status === 'body' &&
           (query.kind !== 'body' ||
-            query.offset !== result.offset ||
+            (query.offset !== result.offset &&
+              !(
+                result.generation !== query.ref.generation &&
+                query.offset >= result.bytes &&
+                result.offset === 0
+              )) ||
             result.nextOffset <= result.offset ||
-            result.nextOffset > query.ref.bytes ||
-            result.done !== (result.nextOffset === query.ref.bytes)))
+            result.nextOffset > result.bytes ||
+            result.done !== (result.nextOffset === result.bytes)))
       )
         throw Error('Mismatched history reply')
       if (

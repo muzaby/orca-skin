@@ -13,11 +13,12 @@ import type { LineNumbers } from './diffSource'
 //   · 대기 중 취소는 대기열에서 뺀다(워커에 보내지 않는다). 실행 중 취소는 대기 요청이 있으면
 //     워커를 끝내고 새 워커로 대기열을 잇는다. 대기 요청이 없으면 끝나길 기다려 캐시에만 넣는다.
 //   · 워커 생성 실패·`error`·`messageerror` 는 실행 중 요청을 실패시키고 워커를 버린다.
-//     연속 `COMPUTE_FAILURE_LIMIT` 회면 이후 요청을 즉시 실패시킨다. 성공 응답이 오면 0 이 된다.
+//     연속 실패 한도에 닿으면 2·10·60초를 기다린다. 실패 뒤 첫 성공은 회복 구독자에게 알린다.
 //
 // `new Worker(` 는 이 파일에서만 부른다(가드 `check-ui-thread` 규칙 (i)).
 
-import { rendererLog } from '../logging'
+import { ComputeWorkerFailure, LaneRecovery, workerFailureReason } from './laneRecovery'
+export { isComputeWorkerFailure } from './laneRecovery'
 import {
   COMPUTE_DOC_MAX_CHARS,
   COMPUTE_SIZE_SAMPLE_CHARS,
@@ -90,6 +91,9 @@ interface DocumentPayload {
 }
 
 export interface ComputeClient {
+  recoveryEpoch(lane: Lane): number
+  workerEpoch(lane: Lane): number
+  subscribeRecovery(lane: Lane, listener: () => void): () => void
   openDocument(ref: DocRef, payload: DocumentPayload, lane: Lane): DocumentLease
   request<K extends ComputeRequest['kind']>(
     request: Extract<ComputeRequest, { kind: K }>,
@@ -143,12 +147,15 @@ interface ClientDeps {
 }
 
 export function createComputeClient(deps: ClientDeps): ComputeClient {
-  const lanes: Record<Lane, ComputeClient> = {
+  const lanes: Record<Lane, LaneClient> = {
     compute: createLane(deps, 'compute'),
     markdown: createLane(deps, 'markdown'),
     image: createLane(deps, 'image')
   }
   return {
+    recoveryEpoch: (lane) => lanes[lane].lifecycle.recoveryEpoch,
+    workerEpoch: (lane) => lanes[lane].lifecycle.workerEpoch,
+    subscribeRecovery: (lane, listener) => lanes[lane].lifecycle.subscribe(listener),
     openDocument: (ref, payload, lane) => lanes[lane].openDocument(ref, payload, lane),
     request: (request, options) => lanes[laneOf(request.kind)].request(request, options),
     peek: (request) => lanes[laneOf(request.kind)].peek(request)
@@ -164,7 +171,11 @@ function sampleDocument(text: string): DocumentSample {
   return { chars, lines }
 }
 
-function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
+type LaneClient = Pick<ComputeClient, 'openDocument' | 'peek' | 'request'> & {
+  lifecycle: LaneRecovery
+}
+
+function createLane(deps: ClientDeps, lane: Lane): LaneClient {
   const documents = new Map<
     string,
     {
@@ -185,8 +196,6 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
   const cacheMax = deps.cacheMaxChars ?? COMPUTE_CACHE_MAX_CHARS
   const cacheMaxEntries = deps.cacheMaxEntries ?? COMPUTE_CACHE_MAX_ENTRIES
   const failureLimit = deps.failureLimit ?? COMPUTE_FAILURE_LIMIT
-  const onError =
-    deps.onError ?? ((error) => rendererLog.error('compute.worker.failed', 'compute', error))
 
   // Map 의 삽입 순서가 곧 최근 사용 순서다 — 읽을 때 다시 넣어 맨 뒤로 보낸다.
   const cache = new Map<string, { result: ComputeResult; size: number }>()
@@ -195,13 +204,14 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
   const jobs = new Map<string, Job>()
   let running: Job | null = null
   let worker: WorkerLike | null = null
-  let failures = 0
   const now = deps.now ?? (() => performance.now())
+  const lifecycle = new LaneRecovery(lane, failureLimit, now, probe)
+  let slowJob: ReturnType<typeof setTimeout> | undefined
+  let slowProbe: ReturnType<typeof setTimeout> | undefined
+  let probeId: number | null = null
   let nextId = 1
   // 취소된 커서는 다음 전송에 함께 정리한다. 문서가 먼저 닫히면 워커가 즉시 해제한다.
   const discard: number[] = []
-
-  const blocked = (): boolean => failures >= failureLimit
 
   function readCache(key: string): ComputeResult | undefined {
     const hit = cache.get(key)
@@ -272,6 +282,9 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     worker.onmessageerror = null
     worker.terminate()
     worker = null
+    lifecycle.workerEpoch++
+    clearTimeout(slowProbe)
+    probeId = null
     for (const doc of documents.values()) {
       doc.sent = false
       doc.handoff = undefined
@@ -279,16 +292,29 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
   }
 
   // 워커 수준 실패 — 실행 중 요청을 실패시키고, 한도에 닿았으면 대기열도 비운다.
-  function fail(error: unknown): void {
-    failures += 1
-    onError(error)
-    dropWorker()
+  function fail(error: unknown, fallback = 'worker-error'): void {
     const failed = running
+    const replacedBody = worker !== null && failed?.request.kind === 'historyBody'
+    lifecycle.failure()
+    deps.onError?.(error)
+    lifecycle.report(
+      'compute.worker.failed',
+      failed?.request.kind ?? 'health',
+      workerFailureReason(error, fallback),
+      error
+    )
+    clearTimeout(slowJob)
+    dropWorker()
     running = null
-    const reason = new Error('compute worker failed')
-    if (failed) settle(failed, { error: reason })
-    if (blocked()) {
-      for (const job of queue.splice(0)) settle(job, { error: reason })
+    if (failed)
+      settle(failed, {
+        error: new ComputeWorkerFailure(replacedBody ? 'worker-replaced' : undefined)
+      })
+    if (lifecycle.blocked) {
+      for (const job of queue.splice(0)) {
+        lifecycle.report('compute.request.failed', job.request.kind, 'cooldown')
+        settle(job, { error: new ComputeWorkerFailure() })
+      }
       return
     }
     pump()
@@ -298,9 +324,15 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     if (worker) return worker
     try {
       const created = deps.createWorker(lane)
-      created.onmessage = (event) => receive(event.data)
-      created.onerror = (event) => fail(event)
-      created.onmessageerror = (event) => fail(event)
+      created.onmessage = (event) => {
+        if (created === worker) receive(event.data)
+      }
+      created.onerror = (event) => {
+        if (created === worker) fail(event)
+      }
+      created.onmessageerror = (event) => {
+        if (created === worker) fail(event, 'messageerror')
+      }
       worker = created
       return created
     } catch (error) {
@@ -309,8 +341,21 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     }
   }
 
+  function probe(): void {
+    if (running || probeId !== null || lifecycle.blocked) return
+    const target = ensureWorker()
+    if (!target) return
+    probeId = nextId++
+    slowProbe = lifecycle.watch('health')
+    try {
+      target.postMessage({ type: 'health', id: probeId })
+    } catch (error) {
+      fail(error)
+    }
+  }
+
   function pump(): void {
-    if (running || queue.length === 0 || blocked()) return
+    if (running || queue.length === 0 || lifecycle.blocked) return
     const job = queue.shift()!
     running = job
     const target = ensureWorker()
@@ -347,6 +392,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
         job.startedPriority = job.priority
         job.startedAt = now()
       }
+      slowJob = lifecycle.watch(job.request.kind)
       target.postMessage({
         ...job.request,
         id: job.id,
@@ -362,7 +408,16 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
   function receive(raw: unknown): void {
     const response = parseResponse(raw)
     // 끝낸 워커의 늦은 응답·다른 요청 번호는 버린다.
-    if (!response || !running || response.id !== running.id) return
+    if (!response) return
+    if (response.ok === 'ready') {
+      if (response.id !== probeId) return
+      clearTimeout(slowProbe)
+      probeId = null
+      lifecycle.success()
+      return
+    }
+    if (!running || response.id !== running.id) return
+    clearTimeout(slowJob)
     const job = running
     running = null
     deps.timings?.({
@@ -376,16 +431,17 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       endedAt: now()
     })
     if (response.ok === true) {
-      failures = 0
+      clearTimeout(slowProbe)
+      probeId = null
       if (job.cacheable) writeCache(job.key, response.result, response.size)
       settle(job, { result: response.result })
+      lifecycle.success()
     } else if (response.ok === 'continue') {
       if (job.request.kind !== 'tokens') {
         running = job
         fail(new Error('unexpected continuation'))
         return
       }
-      failures = 0
       if (job.waiters.size) {
         job.resumeFrom = job.id
         job.id = nextId++
@@ -405,9 +461,11 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       enqueue(job)
     } else {
       // 요청 하나의 계산 오류(문법 미지원 등)는 워커 실패가 아니다.
+      lifecycle.report('compute.request.failed', job.request.kind, response.error)
       settle(job, { error: new Error(response.error) })
     }
     pump()
+    lifecycle.scheduleProbe()
   }
 
   function enqueue(job: Job): void {
@@ -467,8 +525,10 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     // 실행 중이고 뒤에 기다리는 요청이 있다 — 워커를 바꿔 대기열을 잇는다.
     jobs.delete(job.key)
     running = null
+    clearTimeout(slowJob)
     dropWorker()
     pump()
+    lifecycle.scheduleProbe()
   }
 
   function openDocument(ref: DocRef, payload: DocumentPayload): DocumentLease {
@@ -542,7 +602,17 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     }
   }
 
+  function rejected(
+    kind: ComputeRequest['kind'],
+    reason: string,
+    error = new Error(reason)
+  ): ComputeHandle<never> {
+    lifecycle.report('compute.request.failed', kind, reason)
+    return settledHandle(Promise.reject(error))
+  }
+
   return {
+    lifecycle,
     openDocument,
     peek(request) {
       return readCache(requestKey(request)) as never
@@ -552,7 +622,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       if (input.kind === 'tokens' || input.kind === 'codeView' || input.kind === 'diffView') {
         const { start, end } = input
         if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start)
-          return settledHandle(Promise.reject(Error('range-invalid')))
+          return rejected(input.kind, 'range-invalid')
         if (
           end - start >
           (input.kind === 'tokens'
@@ -561,17 +631,15 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
               ? DIFF_VIEW_WINDOW_MAX_ROWS
               : CODE_VIEW_WINDOW_MAX_LINES)
         )
-          return settledHandle(Promise.reject(Error('range-too-large')))
+          return rejected(input.kind, 'range-too-large')
       }
       if (requestDocs(input).some((ref) => !documents.get(docKey(ref))?.available))
-        return settledHandle(Promise.reject(new Error('doc-unavailable')))
+        return rejected(input.kind, 'doc-unavailable')
 
       const key = requestKey(request)
       const cached = options?.cacheable === false ? undefined : readCache(key)
       if (cached) return settledHandle(Promise.resolve(cached as never))
-      if (blocked()) {
-        return settledHandle(Promise.reject(new Error('compute worker failed')))
-      }
+      if (lifecycle.blocked) return rejected(input.kind, 'cooldown', new ComputeWorkerFailure())
       let job = jobs.get(key)
       const isNew = !job
       if (!job) {

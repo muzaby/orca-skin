@@ -1,3 +1,4 @@
+import type { PanelDetailSelection } from './rightPanelStack'
 import { chatApi } from '../../../shared/api/ipc'
 import {
   backgroundKey,
@@ -186,6 +187,16 @@ export function backgroundCallKeyForToolUse(
   return Object.entries(state.calls)
     .filter(([, call]) => call.toolUseId === toolUseId)
     .sort(([, a], [, b]) => b.lastSeenAt - a.lastSeenAt)[0]?.[0]
+}
+
+export function backgroundPanelSelection(
+  state: BackgroundSessionState,
+  detail: Extract<PanelDetailSelection, { id: 'subagent' }> | undefined
+): BackgroundSelection | undefined {
+  if (!detail?.selectedId) return undefined
+  if (detail.backgroundKind) return { kind: detail.backgroundKind, key: detail.selectedId }
+  const key = backgroundCallKeyForToolUse(state, detail.selectedId)
+  return key ? { kind: 'call', key } : undefined
 }
 
 export function projectBackgroundPanel(

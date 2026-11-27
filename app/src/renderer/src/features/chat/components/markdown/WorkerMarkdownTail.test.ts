@@ -312,3 +312,22 @@ it.each(['OpenCode text', 'Claude reasoning'])(
     expect(dom.query('[data-md-block-pending]')).toBeNull()
   }
 )
+
+it('AC20 retries the worker markdown tail after recovery', async () => {
+  const source = 'a'.repeat(4100)
+  render(source)
+  fake.rejectNext()
+  await settle()
+  expect(element()?.textContent).toBe(source)
+  expect(fake.requests).toHaveLength(1)
+  fake.recover('markdown')
+  await settle()
+  expect(fake.requests).toHaveLength(2)
+  fake.resolveNext(parsed('restored tail'))
+  await settle()
+  expect(element()?.textContent).toBe('restored tail')
+  expect(element()?.props['data-markdown-tail']).toBe('parsed')
+  fake.recover('markdown')
+  await settle()
+  expect(fake.requests).toHaveLength(2)
+})

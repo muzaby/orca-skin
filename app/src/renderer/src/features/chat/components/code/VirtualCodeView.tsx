@@ -1,5 +1,6 @@
+import { afterWorkerRecovery, useWorkerRetry } from '../../../../shared/compute/useWorkerRetry'
 import { useComputePaint } from '../../../../shared/compute/diagnostics'
-import { useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react'
 import { buildCodeIndex, codeWindow, type CodeIndex } from '../../../../shared/compute/codeView'
 import { stripLineNumberGutter } from '../../../../shared/compute/gutter'
 import { computeClient } from '../../../../shared/compute/client'
@@ -18,18 +19,21 @@ import {
 import { useVirtualRows } from '../../../../shared/ui/virtual/useVirtualRows'
 import { useWindowTokens } from '../../hooks/useWindowTokens'
 
+type WindowFailure = (error: unknown, epoch: number) => void
 type WindowResult = ComputeResults['codeView']
 function useCodeWindow(
   source: CodeSource,
   index: CodeIndex | null,
   start: number,
-  enabled: boolean
+  enabled: boolean,
+  onFailure?: WindowFailure
 ): WindowResult | null | undefined {
   const request = useMemo(
     () => ({ kind: 'codeView' as const, source, start, end: start + TOKENS_RANGE_MAX_LINES }),
     [source, start]
   )
   const key = requestKey(request)
+  const retryWorker = useWorkerRetry('compute', request)
   const [state, setState] = useState<{ key: string; result: WindowResult | null } | null>(null)
   const local = useMemo(
     () => (index ? codeWindow(index, start, request.end) : undefined),
@@ -37,21 +41,26 @@ function useCodeWindow(
   )
   useEffect(() => {
     if (index || !enabled) return
-    const task = computeClient().request(request)
+    const client = computeClient()
+    const epoch = client.recoveryEpoch('compute')
+    const task = retryWorker(() => client.request(request))
     let current = true
     void task.promise.then(
       (result) => {
         if (current) setState({ key, result })
       },
-      () => {
-        if (current) setState({ key, result: null })
+      (error: unknown) => {
+        if (current) {
+          setState({ key, result: null })
+          onFailure?.(error, epoch)
+        }
       }
     )
     return () => {
       current = false
       task.cancel()
     }
-  }, [index, enabled, request, key])
+  }, [index, enabled, request, key, retryWorker, onFailure])
   useComputePaint(!local && state?.key === key && state.result ? key : null)
   return local ?? (enabled && state?.key === key ? state.result : undefined)
 }
@@ -67,7 +76,7 @@ interface WindowProps {
   lang?: string
   numbered?: boolean
   initial?: WindowResult
-  onFailure: () => void
+  onFailure: WindowFailure
 }
 function CodeRows({
   source,
@@ -82,11 +91,8 @@ function CodeRows({
   initial,
   onFailure
 }: WindowProps): React.JSX.Element {
-  const fetched = useCodeWindow(source, initial ? null : index, start, ready && !initial)
+  const fetched = useCodeWindow(source, initial ? null : index, start, ready && !initial, onFailure)
   const lines = initial ?? fetched
-  useEffect(() => {
-    if (lines === null) onFailure()
-  }, [lines, onFailure])
   const tokens = useWindowTokens(source, lang, start, visible ? 'visible' : 'background', ready)
   return (
     <>
@@ -164,7 +170,23 @@ export function VirtualCodeView({
     [code, stripGutter]
   )
   const initial = useCodeWindow(source, index, 0, ready)
-  const [failed, setFailed] = useState<CodeSource | null>(null)
+  const [failed, setFailed] = useState<{
+    source: CodeSource
+    epoch: number
+    error: unknown
+  } | null>(null)
+  const onWindowFailure = useCallback<WindowFailure>(
+    (error, epoch) => setFailed({ source, epoch, error }),
+    [source]
+  )
+  // A failed non-initial window unmounts the virtual rows to show the whole source.
+  // The view therefore owns that window's recovery until the rows can mount again.
+  useEffect(() => {
+    if (failed?.source !== source) return
+    return afterWorkerRecovery(computeClient(), 'compute', failed.epoch, failed.error, () =>
+      setFailed(null)
+    )
+  }, [source, failed])
   const root = useRef<HTMLDivElement>(null)
   const own = useRef<HTMLDivElement>(null)
   const list = useVirtualRows(initial?.lineCount ?? 0, root, scrollElement ?? own)
@@ -196,11 +218,11 @@ export function VirtualCodeView({
           numbered={showLineNumbers}
           lang={lang}
           initial={start === 0 ? initial : undefined}
-          onFailure={() => setFailed(source)}
+          onFailure={onWindowFailure}
         />
       )
     }
-  if (initial === null || failed === source || (!index && unavailable))
+  if (initial === null || failed?.source === source || (!index && unavailable))
     return (
       <CodeBlock
         code={stripGutter ? stripLineNumberGutter(code) : code}

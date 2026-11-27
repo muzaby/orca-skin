@@ -3,7 +3,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BackgroundTaskCard, CanonicalBackgroundContent } from './CanonicalBackgroundContent'
 import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
-import { selectBackgroundItem, useBackgroundStore } from '../../../store/backgroundStore'
+import { useBackgroundStore } from '../../../store/backgroundStore'
+import { panelActions, useRightPanelStore } from '../../../store/rightPanelStore'
+import { PanelNavigationContext } from '../../common/rightpanel/panelNavigation'
+import { PanelBackButton } from '../../common/rightpanel/PanelBackButton'
 import { useChatStore } from '../../../store/chatStore'
 import { chatApi } from '../../../../../shared/api/ipc'
 import { TranscriptRuntimeProvider } from '../../common/transcript/TranscriptRuntime'
@@ -92,13 +95,28 @@ function render(header = false, legacy = false): string {
   backgroundInitial.panels = useBackgroundStore.getState().panels
   chatInitial.sessions = useChatStore.getState().sessions
   chatInitial.activeKey = useChatStore.getState().activeKey
+  const stack = useRightPanelStore.getState().stack
+  const layer = stack.at(-1)!
   // production 조립(`RightPanel`)과 같은 runtime 을 준다 — 구 모델 상세가 child 대화를 그릴 때 읽는다.
   return renderToStaticMarkup(
     createElement(
       TranscriptRuntimeProvider,
       { value: assistantRuntime('claude') },
       createElement(
-        header ? SubAgentTileHeader : legacy ? SubAgentTileContent : CanonicalBackgroundContent
+        PanelNavigationContext.Provider,
+        {
+          value: {
+            layer,
+            active: true,
+            canGoBack: stack.length > 1,
+            back: panelActions.back,
+            close: panelActions.close
+          }
+        },
+        header && createElement(PanelBackButton),
+        createElement(
+          header ? SubAgentTileHeader : legacy ? SubAgentTileContent : CanonicalBackgroundContent
+        )
       )
     )
   )
@@ -168,7 +186,15 @@ function withTask(state = callState()): BackgroundSessionState {
   })
 }
 
+function selection(): ReturnType<typeof useRightPanelStore.getState>['stack'][number] | undefined {
+  const top = useRightPanelStore.getState().stack.at(-1)
+  return top?.kind === 'detail' ? top : undefined
+}
+
 beforeEach(() => {
+  useRightPanelStore.setState(useRightPanelStore.getInitialState())
+  panelActions.switchSession({ kind: 'code', key: sessionId, backend: 'claude' }, false)
+  panelActions.tile('subagent')
   harness.nodes = []
 })
 afterEach(() => {
@@ -177,6 +203,7 @@ afterEach(() => {
   backgroundInitial.sessions = savedBackgrounds
   backgroundInitial.panels = savedPanels
   useBackgroundStore.setState({ sessions: savedBackgrounds, panels: savedPanels })
+  useRightPanelStore.setState(useRightPanelStore.getInitialState())
   vi.restoreAllMocks()
 })
 
@@ -264,7 +291,14 @@ describe('canonical background production callbacks', () => {
     useChatStore.setState({ activeKey: sessionId })
     expect(render()).not.toContain('data-background-call="done-call"')
     expect(node('button', 'data-background-group-toggle', 'running')['aria-expanded']).toBe(false)
-    selectBackgroundItem(sessionId, { kind: 'call', key: backgroundKey(generation, 'done-call') })
+    panelActions.navigate({
+      kind: 'detail',
+      selection: {
+        id: 'subagent',
+        backgroundKind: 'call',
+        selectedId: backgroundKey(generation, 'done-call')
+      }
+    })
     expect(render()).not.toContain('data-background-call-detail=')
     expect(render(true)).not.toContain('aria-label="목록으로"')
   })
@@ -331,17 +365,23 @@ describe('canonical background production callbacks', () => {
   it('구 모델 선택은 상세와 child 대화를 그린다', () => {
     seed(emptyBackgroundState())
     seedLegacy(legacyDetail, 'legacy-detail-id')
+    panelActions.navigate({
+      kind: 'detail',
+      selection: { id: 'subagent', selectedId: 'legacy-detail-id' }
+    })
     const body = render(false, true)
     expect(body).toContain('child body')
     expect(body).not.toContain('data-background-group=')
     const header = render(true)
-    expect(header).toContain('aria-label="목록으로"')
+    expect(header).toContain('data-panel-back')
+    expect(header).not.toContain('aria-label="목록으로"')
     expect(header).toContain('legacy detail')
     // 정본 view 자체가 없는 세션도 같은 구 모델 화면이다(view 가 비어 있는 것과 다른 입력).
     useBackgroundStore.setState({ sessions: {} })
     expect(render(false, true)).toBe(body)
     expect(render(true)).toBe(header)
     // 선택이 없으면 같은 메시지로 목록과 기본 제목이 뜬다 — 상세 분기와 구별되는 입력.
+    panelActions.back()
     seedLegacy(legacyDetail, null)
     const list = render(false, true)
     expect(list).toContain('data-background-group="running"')
@@ -407,10 +447,14 @@ describe('canonical background production callbacks', () => {
     seed(withTask())
     render()
     const card = node('div', 'data-background-task', taskId)
-    ;(card.onClick as () => void)()
-    expect(useBackgroundStore.getState().sessions[sessionId].selection).toEqual({
-      kind: 'task',
-      key: backgroundKey(generation, taskId)
+    ;(card.onClick as (event: Props) => void)({ currentTarget: {} })
+    expect(selection()).toMatchObject({
+      kind: 'detail',
+      selection: {
+        id: 'subagent',
+        backgroundKind: 'task',
+        selectedId: backgroundKey(generation, taskId)
+      }
     })
     expect(render()).toContain(`data-subagent-inline="${toolUseId}"`)
     expect(render()).not.toContain('data-background-tool-call=')
@@ -420,7 +464,7 @@ describe('canonical background production callbacks', () => {
     )!
     expect(back).toBeDefined()
     ;(back.props.onClick as () => void)()
-    expect(useBackgroundStore.getState().sessions[sessionId].selection).toBeUndefined()
+    expect(selection()).toBeUndefined()
     expect(render()).toContain(`data-background-task="${taskId}"`)
   })
 
@@ -434,7 +478,7 @@ describe('canonical background production callbacks', () => {
     await Promise.resolve()
     expect(stopPropagation).toHaveBeenCalledOnce()
     expect(stop).toHaveBeenCalledExactlyOnceWith({ sessionId, generation, taskId })
-    expect(useBackgroundStore.getState().sessions[sessionId].selection).toBeUndefined()
+    expect(selection()).toBeUndefined()
   })
 
   it.each(['Enter', ' '])(
@@ -449,12 +493,16 @@ describe('canonical background production callbacks', () => {
       const preventDefault = vi.fn()
       onKeyDown({ key, target: stopElement, currentTarget: cardElement, preventDefault })
       expect(preventDefault).not.toHaveBeenCalled()
-      expect(useBackgroundStore.getState().sessions[sessionId].selection).toBeUndefined()
+      expect(selection()).toBeUndefined()
       onKeyDown({ key, target: cardElement, currentTarget: cardElement, preventDefault })
       expect(preventDefault).toHaveBeenCalledOnce()
-      expect(useBackgroundStore.getState().sessions[sessionId].selection).toEqual({
-        kind: 'task',
-        key: backgroundKey(generation, taskId)
+      expect(selection()).toMatchObject({
+        kind: 'detail',
+        selection: {
+          id: 'subagent',
+          backgroundKind: 'task',
+          selectedId: backgroundKey(generation, taskId)
+        }
       })
     }
   )
@@ -464,7 +512,7 @@ describe('canonical background production callbacks', () => {
     seed(state)
     render()
     const card = node('div', 'data-background-call', toolUseId)
-    ;(card.onClick as () => void)()
+    ;(card.onClick as (event: Props) => void)({ currentTarget: {} })
     expect(render()).toContain(`data-subagent-inline="${toolUseId}"`)
     useBackgroundStore.setState((store) => ({
       sessions: {
@@ -487,7 +535,9 @@ describe('canonical background production callbacks', () => {
     const state = callState('Bash')
     seed(state)
     render()
-    ;(node('div', 'data-background-call', toolUseId).onClick as () => void)()
+    ;(node('div', 'data-background-call', toolUseId).onClick as (event: Props) => void)({
+      currentTarget: {}
+    })
     useBackgroundStore.setState((store) => ({
       sessions: {
         ...store.sessions,

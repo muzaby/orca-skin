@@ -2,11 +2,12 @@ import { CanonicalBackgroundContent } from './CanonicalBackgroundContent'
 import { LegacySubAgentContent, LegacySubAgentHeader } from './LegacySubAgentTile'
 import {
   backgroundCallTitle,
+  backgroundPanelSelection,
   hasCanonicalBackground,
   projectBackgroundPanel
 } from '../../../lib/canonicalBackground'
-import { selectBackgroundItem, useBackgroundStore } from '../../../store/backgroundStore'
-import { Button } from '../../../../../shared/ui/Button'
+import { useBackgroundStore } from '../../../store/backgroundStore'
+import { useSubagentDetail } from '../../common/rightpanel/panelNavigation'
 import { useI18n } from '../../../../../shared/i18n'
 import { useChatSession, useChatStore } from '../../../store/chatStore'
 
@@ -17,15 +18,23 @@ import { useChatSession, useChatStore } from '../../../store/chatStore'
 
 // 타일 헤더 콘텐츠 — RightPanelTile 의 기본 라벨 span 을 대체한다(tileRegistry 주입).
 export function SubAgentTileHeader(): React.JSX.Element {
-  const sessionId = useChatSession((s) => s.sessionId)
-  const canonical = useBackgroundStore((s) => {
-    const view = sessionId ? s.sessions[sessionId] : undefined
-    return view !== undefined && hasCanonicalBackground(view.state)
-  })
-  return canonical ? <CanonicalSubAgentHeader /> : <LegacySubAgentHeader />
+  return useCanonicalBackgroundLayer() ? <CanonicalSubAgentHeader /> : <LegacySubAgentHeader />
 }
 
-// 정본 헤더 — 선택한 작업·호출이 있으면 뒤로가기 + 제목, 없으면 '백그라운드 작업'.
+function useCanonicalBackgroundLayer(): boolean {
+  const sessionId = useChatSession((s) => s.sessionId)
+  const detail = useSubagentDetail()
+  return useBackgroundStore((s) => {
+    if (detail?.backgroundKind) return true
+    const view = sessionId ? s.sessions[sessionId] : undefined
+    if (!view) return false
+    return detail?.selectedId
+      ? !!backgroundPanelSelection(view.state, detail)
+      : hasCanonicalBackground(view.state)
+  })
+}
+
+// 정본 헤더 — 선택한 작업·호출이 있으면 제목, 없으면 '백그라운드 작업'.
 // 제목 폰트/톤은 기본 라벨과 일치.
 function CanonicalSubAgentHeader(): React.JSX.Element {
   const { tr } = useI18n()
@@ -34,8 +43,13 @@ function CanonicalSubAgentHeader(): React.JSX.Element {
   const panel = useBackgroundStore((s) => s.panels[sessionId ?? activeKey])
   const canonical = useBackgroundStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   // 선택 컴포넌트가 정본일 때만 올린다. view 가 사라진 한 프레임에는 기본 제목으로 떨어진다.
+  const detail = useSubagentDetail()
   const { selectedTask, selectedCall } = canonical
-    ? projectBackgroundPanel(canonical.state, canonical.selection, panel)
+    ? projectBackgroundPanel(
+        canonical.state,
+        backgroundPanelSelection(canonical.state, detail),
+        panel
+      )
     : {}
   if (selectedTask || selectedCall) {
     const title = selectedTask
@@ -43,13 +57,6 @@ function CanonicalSubAgentHeader(): React.JSX.Element {
       : backgroundCallTitle(selectedCall!)
     return (
       <div className="flex min-w-0 flex-1 items-center gap-g1">
-        <Button
-          iconOnly
-          size="small"
-          leadingIcon="arrowL"
-          onClick={() => selectBackgroundItem(sessionId!, undefined)}
-          aria-label={tr('chat.subagentTile.backToList')}
-        />
         <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
           {title}
         </span>
@@ -64,10 +71,5 @@ function CanonicalSubAgentHeader(): React.JSX.Element {
 }
 
 export function SubAgentTileContent(): React.JSX.Element {
-  const sessionId = useChatSession((s) => s.sessionId)
-  const canonical = useBackgroundStore((s) => {
-    const view = sessionId ? s.sessions[sessionId] : undefined
-    return view !== undefined && hasCanonicalBackground(view.state)
-  })
-  return canonical ? <CanonicalBackgroundContent /> : <LegacySubAgentContent />
+  return useCanonicalBackgroundLayer() ? <CanonicalBackgroundContent /> : <LegacySubAgentContent />
 }

@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../shared/compute/useWorkerRetry'
 import { useComputePaint } from '../../../shared/compute/diagnostics'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { computeClient, type ComputeHandle, type Priority } from '../../../shared/compute/client'
@@ -37,6 +38,7 @@ export function useWindowTokens(
         : null,
     [source, lang, theme, start, enabled]
   )
+  const retryWorker = useWorkerRetry('compute', request)
   const [result, setResult] = useState<{ key: string; rows: TokenRows } | null>(null)
   const handle = useRef<ComputeHandle<ComputeResults['tokens']> | null>(null)
   const currentPriority = useRef(priority)
@@ -47,7 +49,9 @@ export function useWindowTokens(
   useEffect(() => {
     if (!request) return
     const key = requestKey(request)
-    const task = computeClient().request(request, { priority: currentPriority.current })
+    const task = retryWorker(() =>
+      computeClient().request(request, { priority: currentPriority.current })
+    )
     handle.current = task
     let current = true
     void task.promise.then(
@@ -61,7 +65,7 @@ export function useWindowTokens(
       handle.current = null
       task.cancel()
     }
-  }, [request])
+  }, [request, retryWorker])
   useComputePaint(request && result?.key === requestKey(request) ? result.key : null)
   return request && result?.key === requestKey(request) ? result.rows : undefined
 }

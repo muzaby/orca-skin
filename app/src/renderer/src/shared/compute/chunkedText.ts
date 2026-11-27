@@ -1,5 +1,8 @@
+import { hasVisibleChar } from '../markdown/visibleText'
+
 // Keep the public string intact. Consumers of a hydrated part can read a small range
 // without flattening the string that represents the entire message in V8.
+// `hasContent` uses the shared visible-character rule (0331 D-034 ②).
 export class ChunkedText {
   private readonly pieces: { start: number; text: string }[] = []
   length = 0
@@ -9,7 +12,7 @@ export class ChunkedText {
     if (!text.length) return
     this.pieces.push({ start: this.length, text })
     this.length += text.length
-    this.hasContent ||= /\S/u.test(text)
+    this.hasContent ||= hasVisibleChar(text)
   }
 
   slice(start: number, end: number): string {
