@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { computeClient } from '../../../../shared/compute/client'
+import { findHistoryLayout } from '../../../../shared/markdown/historyLayout'
 import { revisionOf } from '../../../../shared/compute/documents'
 import {
   markdownSegments,
@@ -21,7 +22,11 @@ export function useMarkdownRows(
   id: string,
   revisionSource?: object
 ): MarkdownRow[] | undefined {
-  const needsWorker = source.length > 65536
+  const hydrated = useMemo(
+    () => (source.length > 65536 ? findHistoryLayout(source) : undefined),
+    [source]
+  )
+  const needsWorker = source.length > 65536 && !hydrated
   const [indexed, setIndexed] = useState<{ source: string; layout: MarkdownSegmentRange[] }>()
   useEffect(() => {
     if (!needsWorker) return
@@ -46,11 +51,13 @@ export function useMarkdownRows(
   return useMemo(() => {
     if (needsWorker && indexed?.source !== source) return undefined
     const revision = revisionOf(revisionSource ?? {})
-    return markdownSegments(source, needsWorker ? indexed?.layout : undefined).flatMap(
-      (segment, i) => {
-        const doc = { id: i ? id + ':' + segment.start : id, revision }
-        return segment.blocks.map((block) => ({ doc, block, segment }))
-      }
-    )
-  }, [source, id, revisionSource, needsWorker, indexed])
+    return markdownSegments(
+      source,
+      hydrated?.layout ?? (needsWorker ? indexed?.layout : undefined),
+      hydrated?.pieces
+    ).flatMap((segment, i) => {
+      const doc = { id: i ? id + ':' + segment.start : id, revision }
+      return segment.blocks.map((block) => ({ doc, block, segment }))
+    })
+  }, [source, id, revisionSource, needsWorker, indexed, hydrated])
 }

@@ -50,7 +50,8 @@ export interface MarkdownSegment extends MarkdownSegmentRange {
 
 export function markdownSegments(
   source: string,
-  layout = markdownLayout(source)
+  layout = markdownLayout(source),
+  ranges: Pick<string, 'slice'> = source
 ): MarkdownSegment[] {
-  return layout.map((range) => ({ ...range, text: source.slice(range.start, range.end) }))
+  return layout.map((range) => ({ ...range, text: ranges.slice(range.start, range.end) }))
 }

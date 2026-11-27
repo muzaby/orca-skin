@@ -1,3 +1,4 @@
+import { findHistoryLayout } from '../../../shared/markdown/historyLayout'
 // AppMessagePart(provider-runtime.md §7) 셀렉터 — 순서 보존 parts 를 transcript 렌더가 쓰는
 // view 로 투영한다(순수). text/reasoning 추출, tool_call↔tool_result 페어링, error 추출.
 
@@ -46,7 +47,7 @@ export function isMainTextPart(
 }
 
 export function hasPartsText(parts: AppMessagePart[]): boolean {
-  return parts.some((part) => isMainTextPart(part) && part.text.trim() !== '')
+  return parts.some((part) => isMainTextPart(part) && hasSegmentText(part.text))
 }
 
 export function partsText(parts: AppMessagePart[]): string {
@@ -112,11 +113,15 @@ export type MessageSegment =
 // (`useHasLiveText` · `LiveTurnState.reasoningVisible`)가 같은 함수를 쓴다 — 두 곳에 두면 공백
 // reasoning 에서 행 key 가 갈린다.
 export function hasSegmentText(text: string): boolean {
+  if (text.length > 65536) {
+    const pieces = findHistoryLayout(text)?.pieces
+    if (pieces) return pieces.hasContent
+  }
   return text.trim() !== ''
 }
 
 export function hasSegmentReasoning(text: string): boolean {
-  return text.trim() !== ''
+  return hasSegmentText(text)
 }
 
 // parts 를 순회하며 순서 보존 세그먼트 배열로 투영한다(순수). tool_result 는 toolRunId 로

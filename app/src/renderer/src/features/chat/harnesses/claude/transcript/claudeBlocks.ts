@@ -13,6 +13,7 @@ import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourc
 import type { AppMessagePart } from '../../../../../../../shared/ipc'
 import type { Message, ToolCall } from '../../../reducer/chatReducer'
 import {
+  hasSegmentText,
   isMainTextPart,
   partsArtifacts,
   partsAttachments,
@@ -200,7 +201,8 @@ function scanMessage(message: Message, previous?: Message, partsFrom = 0): Messa
     const part = parts[index]
     if (part.type === 'response_boundary') firstBoundary = Math.min(firstBoundary, index)
     else if (part.type === 'artifact') artifactParts.push({ index, part })
-    else if (firstText === Infinity && isMainTextPart(part) && part.text.trim()) firstText = index
+    else if (firstText === Infinity && isMainTextPart(part) && hasSegmentText(part.text))
+      firstText = index
   }
   const entry = { firstBoundary, firstText, artifactParts }
   messageScanCache.set(message, entry)

@@ -1,3 +1,4 @@
+import { creditWorkerPort } from './creditWorkerPort'
 import { computeDiagnostics } from './diagnostics'
 import type { LineNumbers } from './diffSource'
 // 계산 클라이언트 (0324 MD-01 · SD-01). UI 스레드에서 계산을 하지 않고 워커에 요청한다 —
@@ -577,20 +578,24 @@ export function computeClient(): ComputeClient {
     createWorker: (lane) => {
       switch (lane) {
         case 'markdown':
-          return new Worker(new URL('./worker/markdown.worker.ts', import.meta.url), {
-            type: 'module',
-            name: lane
-          }) as unknown as WorkerLike
+          return creditWorkerPort(
+            new Worker(new URL('./worker/markdown.worker.ts', import.meta.url), {
+              type: 'module',
+              name: lane
+            }) as unknown as WorkerLike
+          )
         case 'image':
           return new Worker(new URL('./worker/image.worker.ts', import.meta.url), {
             type: 'module',
             name: lane
           }) as unknown as WorkerLike
         case 'compute':
-          return new Worker(new URL('./worker/compute.worker.ts', import.meta.url), {
-            type: 'module',
-            name: lane
-          }) as unknown as WorkerLike
+          return creditWorkerPort(
+            new Worker(new URL('./worker/compute.worker.ts', import.meta.url), {
+              type: 'module',
+              name: lane
+            }) as unknown as WorkerLike
+          )
       }
     }
   })

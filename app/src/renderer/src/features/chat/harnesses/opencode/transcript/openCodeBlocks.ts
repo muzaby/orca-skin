@@ -295,7 +295,7 @@ export function createOpenCodeBlockModel(
       if (p.type === 'artifact') artifacts.push({ index: from + i, part: p })
       if (p.type === 'text' && p.parentToolRunId === undefined && hasSegmentText(p.text)) {
         firstText = Math.min(firstText, from + i)
-        if (firstCopyable === Infinity && p.text.trim()) firstCopyable = from + i
+        if (firstCopyable === Infinity && hasSegmentText(p.text)) firstCopyable = from + i
       }
     }
     const cache = previous?.cache ?? createSegmentCache()

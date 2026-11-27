@@ -1,3 +1,4 @@
+import { createCreditWire, WIRE_FRAME_CHARS } from '../creditWire'
 import {
   docKey,
   resultSize,
@@ -8,7 +9,7 @@ import {
 import { markdownBlock, type MarkdownDocument } from './markdown'
 
 const documents = new Map<string, MarkdownDocument>()
-self.onmessage = ({ data }: MessageEvent<WireRequest | WireControl>) => {
+function processMessage(data: WireRequest | WireControl): void {
   if ('type' in data) {
     const key = docKey(data.ref)
     if (data.type === 'doc.open') documents.set(key, { text: data.text })
@@ -29,5 +30,11 @@ self.onmessage = ({ data }: MessageEvent<WireRequest | WireControl>) => {
       error: error instanceof Error ? error.message : String(error)
     }
   }
-  self.postMessage(response)
+  wire.send(response, response.ok === true && response.size > WIRE_FRAME_CHARS)
 }
+
+const wire = createCreditWire(
+  (frame) => self.postMessage(frame),
+  (decoded) => processMessage(decoded as WireRequest | WireControl)
+)
+self.onmessage = ({ data }: MessageEvent<unknown>) => wire.receive(data)

@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { TranscriptMarkdown } from '../../../components/markdown/MarkdownDocument'
 import { StreamingMarkdown } from '../../../components/markdown/StreamingMarkdown'
 import { useI18n } from '../../../../../shared/i18n'
-import type { ReasoningItem } from '../../../lib/parts'
+import { hasSegmentReasoning, type ReasoningItem } from '../../../lib/parts'
 
 interface ReasoningBlockProps {
   items: ReasoningItem[]
@@ -25,7 +25,7 @@ export const ReasoningBlock = memo(function ReasoningBlock({
   const { tr } = useI18n()
   if (items.length === 0) return null
   const source = items.map((i) => i.text).join('\n\n')
-  if (source.trim() === '') return null // 내용이 비면 빈 카드를 그리지 않는다(방어)
+  if (!hasSegmentReasoning(source)) return null // 내용이 비면 빈 카드를 그리지 않는다(방어)
   return (
     <details
       open={defaultOpen}
