@@ -16,6 +16,7 @@ import { createClaudeDeploymentService } from './harnesses/claude/extensions'
 it('retains resolved Claude MCP publication through the actual deployment service and plugin writer', async () => {
   fixture.root = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-claude-'))
   const source = join(fixture.root, 'sources', 'mcp', 'mcp.json')
+  const deployed = join(fixture.root, 'dist', 'claude', 'plugins', PRODUCT_SLUG, '.mcp.json')
   const config: OoMcpConfig = {
     stdio: { command: 'distinct-command', args: ['two words', ''], env: { TOKEN: '${TOKEN}' } },
     http: { type: 'http', url: 'https://http.test', headers: { Authorization: '${TOKEN}' } },
@@ -23,9 +24,20 @@ it('retains resolved Claude MCP publication through the actual deployment servic
     unresolved: { command: 'unresolved-command', env: { TOKEN: '${MISSING}' } }
   }
   const raw = JSON.stringify({ mcpServers: config })
-  const publish = vi.fn(async (roots: readonly string[]) => {
-    expect(roots[0]).toBe(join(fixture.root, 'dist', 'claude', 'plugins', PRODUCT_SLUG))
-    expect(JSON.parse(await readFile(join(roots[0], '.mcp.json'), 'utf8'))).toEqual({
+  const service = createClaudeDeploymentService(
+    {
+      enabledConfig: () => config,
+      resolver: () => (key) =>
+        ({ TOKEN: 'secret-claude', USER: 'distinct-user' })[key as 'TOKEN' | 'USER']
+    },
+    () => []
+  )
+  try {
+    await mkdir(join(fixture.root, 'sources', 'mcp'), { recursive: true })
+    await writeFile(source, raw)
+    await service.deployNow({ throwOnFailure: true })
+    expect(service.revision).toBe(1)
+    expect(JSON.parse(await readFile(deployed, 'utf8'))).toEqual({
       mcpServers: {
         stdio: {
           command: 'distinct-command',
@@ -40,21 +52,6 @@ it('retains resolved Claude MCP publication through the actual deployment servic
         sse: { type: 'sse', url: 'https://sse.test', headers: { 'X-User': 'distinct-user' } }
       }
     })
-  })
-  const service = createClaudeDeploymentService(
-    {
-      enabledConfig: () => config,
-      resolver: () => (key) =>
-        ({ TOKEN: 'secret-claude', USER: 'distinct-user' })[key as 'TOKEN' | 'USER']
-    },
-    () => [],
-    publish
-  )
-  try {
-    await mkdir(join(fixture.root, 'sources', 'mcp'), { recursive: true })
-    await writeFile(source, raw)
-    await service.deployNow({ throwOnFailure: true })
-    expect(publish).toHaveBeenCalledOnce()
     expect(await readFile(source, 'utf8')).toBe(raw)
     expect(raw).not.toContain('secret-claude')
   } finally {

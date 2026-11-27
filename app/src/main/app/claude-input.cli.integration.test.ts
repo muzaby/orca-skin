@@ -60,7 +60,7 @@ function streamMessage(response: ServerResponse, tool: string | undefined, argum
   response.end()
 }
 
-function localClaudeEnvironment(nativeRoot: string, port: number): NodeJS.ProcessEnv {
+function localClaudeEnvironment(nativeRoot: string, port: number): Record<string, string> {
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
       (entry): entry is [string, string] =>
