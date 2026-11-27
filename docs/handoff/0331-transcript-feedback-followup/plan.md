@@ -8,14 +8,14 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0331-transcript-feedback-followup` |
-| 작성자 | Claude Code (V1·ΔV3·ΔV4·ΔV6) · Codex (ΔV1·ΔV2·ΔV5) |
+| 작성자 | Claude Code (V1·ΔV3·ΔV4·ΔV6·ΔV7) · Codex (ΔV1·ΔV2·ΔV5) |
 | 일자 | 2026-11-26 · ΔV5·ΔV6 2026-11-27 |
 | 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0332 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) · 0331~0333 사용자 실측(2026-11-27 — 기준 `c052c301`, §23) |
-| 상태 | plan/READY (ΔV6) · 다음 Codex(r1.5) · 라운드 1 — 사용자 실측 4건을 사용자 요구 변경 ΔV로 받는다(§23). r1.4 자기보고 16/17은 이력으로 남고 독립 검증 횟수는 0이다. |
+| 상태 | plan/READY (ΔV6·ΔV7) · ΔV7은 Claude가 r1.5로 바로 구현(사용자 지시) · 이어서 ΔV6 Codex r1.6 · 라운드 1. r1.4 자기보고 16/17은 이력으로 남고 독립 검증 횟수는 0이다. |
 | V mode | `Delta V` |
 | 기준 V | 0331 V1 + ΔV1~ΔV4 · ΔV4 설계 `4fbe492c` · 구현 근거 `98381394` |
-| 이번 V revision | `ΔV6` · 빈 가상 행 · 본문·커서의 세대 재합류 · 워커 교체 중 조립 재시작 · 워커 실패 회복·진단 · 도구 간격 0324 이전 값 (§23). 직전 `ΔV5`(§22) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
+| 이번 V revision | `ΔV7` · Work 메모 점 — 보이는 글 판정과 메모 대기 원문 (§24). 직전 `ΔV6`(§23) · `ΔV5`(§22) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7` |
 | 기준 트리 | ΔV6: `c052c301`(r1.4 통합 결과). ΔV5: `98381394`. V1의 기준은 `18b5d5f`이다. |
 
 # Part I — Product & UX Contract
@@ -87,6 +87,7 @@
 | D-031 | 계산 워커 교체(워커 실패 처리·실행 중 diff 취소 교체)는 그 워커에 걸린 다조각 본문 조립을 사용자 실패로 만들지 않는다. 워커는 조립 상태가 없는 조각을 `worker-replaced`로 구별해 답하고, 창은 첫 조각부터 새 워커로 다시 읽는다. 재시작은 조립 1회당 D-030과 합쳐 2회까지, 넘으면 실패 | 실행 중 diff(pair) 취소가 워커를 교체하면 다음 조각이 `Invalid history body range`로 실패한다(§23-A 2b) | 조사(Chromium 재현) | ACTIVE | D-004·D-028 보완 |
 | D-032 | 계산·Markdown·이미지 워커 실패는 창 수명 동안 영구 상태가 아니다. ① 연속 실패 한도(3)에 닿은 레인은 대기(2초 → 10초 → 60초 상한) 동안만 요청을 거부하고, 대기 뒤 첫 요청에서 새 워커를 만든다 ② 실패 상태에서 첫 성공이 오면 레인 회복 회차를 올리고, 워커 원인으로 원문에 머문 화면은 각 1회 자동 재요청한다 ③ 요청 단위 실패(계산 오류 포함)와 큰 본문 실패를 레인·종류·사유로 기록한다(같은 사유 연속은 1분에 1줄) ④ 10초 넘게 응답이 없는 요청은 진단 1줄(작업은 유지) ⑤ 원문 폴백은 실패가 지속되는 동안만이다 | “모든 도구 카드에서 … pretty format이 사라짐”(질의 답 “색만 없는 고정폭 코드”) · “마크다운 원문으로만 출력” — 최초 계기는 미재현, 영구 폴백 경로는 확정(§23-A 3a·5) | 사용자 실측 + 조사 | ACTIVE | 0324 상태표 “연속 3회 실패하면 창이 닫힐 때까지 요청하지 않음” 대체 |
 | D-033 | 도구 간격은 0324 이전 값이다 — Code 도구 블록 위·아래 8px, 그룹 안 카드 사이 8px(`--chat-item-gap`), Work 도구 행 `py-2`(행 사이 16px) | “도구 상하 간 간격이 너무 좁아짐. 324 이전을 참고할 것.” · 질의 답 “0324 이전 값 전부” | 사용자 실측 + 질의 | ACTIVE | D-011 대체 |
+| D-034 | Work 펼침 목록의 메모 점은 보이는 메모 글이 있을 때만 있다 — 보이는 글 판정은 공백·보이지 않는 서식 문자·공백 엔티티·링크 참조 정의만의 글을 빼고(정본 `shared/markdown/visibleText.ts`, 65,536자 초과 판정도 같은 글자 규칙), 워커를 기다리는 4,000자 초과 메모는 원문을 보인다. 상세 §24-B | “dot 아이콘이 섞여 출력 … 노트 출력이 실패한 케이스일 수 있으니 … 수정하라” — 공백 아닌 보이지 않는 메모 3형태 실측(§24-A) | 사용자 추가 요청 2026-11-27 + 조사 | ACTIVE | D-003 보완 |
 
 ### 갱신 메모
 
@@ -102,6 +103,7 @@
 - ΔV5의 ACTIVE 결정 대조는 D-010·D-027 ↔ AC9″, D-004·D-009·D-025·D-028 ↔ AC3′·AC8·AC14′다. 기존 결정의 폐기는 0건이다. §22의 두 재현 경로로 판정하며 AC 분모는 17이다.
 - ΔV6 추가 결정: D-029~D-033 · 대체: D-011 → D-033(사용자 결정 변경). 0324 상태표의 워커 영구 차단 규칙은 D-032가 대체한다.
 - **ΔV6 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-029↔AC18 · D-030↔AC3″·AC19 · D-031↔AC3″ · D-032↔AC20·AC3″(g) · D-033↔AC10″ · D-010↔AC18(연속 ‘응답 중단’ 간격)·AC9″(회귀). D-011은 SUPERSEDED라 대조 대상 아님. AC 분모 17 → 20.
+- ΔV7 추가 결정: D-034. **ΔV7 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-034↔AC2″ · D-003↔AC2″(공백 입력 유지) · D-002↔VP-63(묶음 회귀) · D-009↔AC2″ ③. AC 분모 20 그대로.
 
 ## 4. 요구 비판적 검토
 
@@ -170,7 +172,7 @@
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 → **AC1′(ΔV3 §20-B)** | Code 투영에서 한 화면 턴 안 도구 A·B·C가 (a) 사이에 공백뿐 text, (b) assistant 메시지 경계(자동 연속 응답), (c) 중복 제거로 빈 도구 세그먼트를 두고 이어지면 **그룹 1개(헤더 “… 3개”)**다. 사이에 공백 아닌 text·보이는 reasoning·질문·오류·경계가 있으면 나뉜다 | 블록 모델: tools 블록 1개·`calls` = [A,B,C] / 분리 입력 5종은 블록 2개 · 렌더: `ClaudeToolGroup` 헤더 수 1 | 메시지 → `createClaudeBlockModel.advance` → `Timeline` → `ClaudeAssistantSegment` → `ClaudeToolGroup` |
-| R-02 | AT-02 / AC2 → **AC2′(ΔV3 §20-B 표시 위치)** | Work 펼침 목록에서 공백뿐 text는 메모 행·점을 만들지 않고 `noteCount`에 들지 않는다. 공백 아닌 메모는 점과 함께 남는다 | `[data-work-note]` 0 · 셸 행 위 점 0 / 메모 입력은 1 | 메시지 → `createWorkProjector` → `ActivityDisclosure` |
+| R-02 | AT-02 / AC2 → AC2′(ΔV3 §20-B 표시 위치) → **AC2″(ΔV7 §24-B)** | Work 펼침 목록에서 공백뿐 text는 메모 행·점을 만들지 않고 `noteCount`에 들지 않는다. 공백 아닌 메모는 점과 함께 남는다 | `[data-work-note]` 0 · 셸 행 위 점 0 / 메모 입력은 1 | 메시지 → `createWorkProjector` → `ActivityDisclosure` |
 | R-03 | AT-03 / AC3 → AC3′(ΔV3 §20-B) → **AC3″(ΔV6 §23-C)** | 본문 참조 메시지가 든 페이지를 열면 버튼 없이 자동으로 본문을 받아 원래 자리에 정상 렌더한다. 받는 동안 그 자리에 스피너(`button` 0), 실패하면 오류 문구 + ‘다시 시도’, 성공 뒤 이웃 메시지 순서 불변. 세션 전환 뒤 도착한 본문은 버린다 | 요청 1회·버튼 0·성공 본문 텍스트 / 실패 재시도 1회 / 전환 뒤 화면 불변 | 페이지 commit → `chatStore` 자동 본문 → `sessionApi.page(body)` → `RESOLVE_HISTORY_BODY` → 블록 → 렌더 |
 | R-04 | AT-04 / AC4 → **AC4″(ΔV4 §21-C)** | 부분 이력 머리에 ‘이전 부분 보기’·‘대화 시작’·‘이전 부분 불러오기’ 문구·버튼이 없다(ready·end·당김 상태 텍스트 0·`button` 0). loading은 스피너만, error는 ‘다시 시도’ 버튼. 슬롯 높이는 네 상태 모두 같다 | 상태별 렌더 텍스트·버튼 수·클래스 | `useHistoryControls` → `TranscriptViewport` → `HistoryEdge` |
 | R-05 | AT-05 / AC5 → AC5′(ΔV3 §20-B) → **AC5″(ΔV4 §21-C)** | 머리 슬롯이 뷰포트 안이면(`scrollTop ≤ 머리 높이` 또는 스크롤 불가) before = ready일 때 요청 1회. loading 중 0, end 0, error 0(버튼만), 슬롯 밖 0. 스크롤바 드래그로 닿아도 같다. 검색 보기 위 끝도 같다 | 스크롤 위치별 `request('before')` 호출 수 | 스크롤/commit → `TranscriptViewport` 상단 판정 → `controls.request` → `readPrevious`/`readSearchEdge` |
@@ -1112,7 +1114,75 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 | WU-6 | 회귀 — VP-57~59 · 기존 이력 390·검색 6 · 선택·복사(`check-transcript-selection.mjs`) · 0332 모드별 패널 검사 | 같은 통합 SHA |
 
 - 운영 gate: §7-A "현재 변경의 운영 gate" 전부 + `--layout`의 `errorRunMixed`·`pendingAsk`·`workerRecovery`·`toolSpacing`(새 기대) + `node scripts/check-doc-inventory.mjs --check`(IPC 계약). exit 3(Electron 없음)은 환경, exit 1만 blocking.
-- 다음 주체는 Codex(r1.5)다. 이 설계 턴은 독립 검증 횟수(0)와 라운드(1)를 바꾸지 않는다. r1.4의 AC14′ 4/30 미충족은 VP-58로 계속 추적한다.
+- 다음 주체는 Codex다(ΔV7을 Claude가 r1.5로 먼저 구현하므로 ΔV6은 r1.6). 이 설계 턴은 독립 검증 횟수(0)와 라운드(1)를 바꾸지 않는다. r1.4의 AC14′ 4/30 미충족은 VP-58로 계속 추적한다.
+
+## 24. ΔV7 — Work 메모 점: 보이는 글이 없는 메모 (사용자 추가 요청)
+
+**판정: 현재 결함이다 — D-003·AC2′는 공백뿐인 text만 막았고, 공백이 아닌데 화면에 보이는 글이 없는 메모 세 형태가 여전히 점만 남긴다.** 기준 트리 `c052c301`. 이 ΔV는 사용자 요청 “수정하라”에 따라 Claude가 바로 구현한다(r1.5 · ΔV7 범위만). ΔV6은 그대로 Codex 몫이며 다음 impl 턴은 r1.6이다.
+
+### 24-A. 요구 원문 ↔ 관측
+
+| 사용자 원문 (2026-11-27) | 형태 | 관측 | 원인 |
+|---|---|---|---|
+| “추가적으로 이전 요청에서 work 모드에서 도구 호출 시 dot 아이콘이 섞여 출력되고 있다고 보고했었다. 도구 카드에서 노트 출력이 실패한 케이스일 수 있으니 관련하여 버그가 있으면 수정하라” | 링크 참조 정의만 있는 메모(`[ref]: https://…`) | Chromium(`evidence/dv6` 프로브 `workNotes`): 메모 행 7.3px · 본문 높이 0 · 점 20px이 다음 셸 행 위로 겹침 — 원래 보고와 같은 모양 | `parts.ts:120` `trim() !== ''`가 참이라 메모가 되지만 Markdown 출력은 비어 있다 |
+| 같음 | 보이지 않는 문자만 있는 메모(`​` · `⁠﻿` · `&nbsp;`) | 같은 프로브: 점 + 빈 줄(본문 22.3px, 보이는 글자 0) | `trim()`이 `​`·`⁠`을 지우지 않고 `&nbsp;`는 문자열로 남는다 |
+| 같음 | 4,000자 초과 메모의 워커 대기 | 코드: 레이아웃 대기 중 `MarkdownDocument.tsx:273` `<span data-md-block-pending />`(높이 0) · 블록 대기 중 `:173` 빈 `<pre>`. 워커가 느리거나 멈추면 점만 남는다(ΔV6 D-032가 다루는 멈춤과 겹침) | 메모 경로가 `showPendingText`를 넘기지 않는다 |
+
+- 65,536자를 넘는 글은 `parts.ts:117`이 `ChunkedText.hasContent`(`chunkedText.ts:12` `/\S/u`)로 판정한다 — 같은 규칙이 두 곳에 갈라져 있다.
+
+### 24-B. 결정과 AC
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-034 | Work 펼침 목록의 메모 점은 보이는 메모 글이 있을 때만 있다. ① 보이는 글 판정(D-003의 정본 `hasSegmentText`)은 공백과 보이지 않는 서식 문자(Unicode `Cf` — `​`·`⁠`·`﻿`·`­` 등)를 글자로 세지 않는다. 글 전체가 공백 엔티티(`&nbsp;`·`&#160;`·`&#xA0;`·`&ensp;`·`&emsp;`·`&thinsp;`·`&ZeroWidthSpace;`·`&zwnj;`·`&zwj;`·`&lrm;`·`&rlm;`·`&#8203;`·`&#x200B;`)와 링크 참조 정의 줄로만 되어 있어도 보이지 않는 글이다 ② 65,536자를 넘는 글의 판정도 같은 글자 규칙을 쓴다(규칙의 정본은 `shared/markdown/visibleText.ts` 하나) ③ 워커 결과를 기다리는 4,000자 초과 메모는 원문을 보이다가 결과가 오면 서식으로 바꾼다 | 원문 “dot 아이콘이 섞여 출력 … 노트 출력이 실패한 케이스”. ③의 대기 원문은 산출물 보기(`VirtualMarkdownView.tsx:47`)와 같은 표시이며 최종 표시는 D-009대로 Markdown이다 | 사용자 추가 요청 + 조사 | ACTIVE | D-003 보완 |
+
+- 판정은 보수 쪽으로 닫는다: 목록에 없는 엔티티·정의 형태는 보이는 글로 본다(놓치면 지금처럼 점이 남을 뿐 글이 사라지지 않는다).
+- ①은 D-002·D-003과 같은 정본을 바꾸므로 Code 묶음(보이지 않는 글은 도구 묶음을 가르지 않는다)·실시간 표시·OpenCode에도 적용된다. 앞 세그먼트가 text면 원문에 이어 붙는 D-003 규칙은 그대로다.
+
+**AC2″** (CHANGED — AC2′ 대체, 공백뿐 text 입력과 공백 아닌 메모 점 유지는 그대로): Work 펼친 목록에서 다음 입력은 메모 행·점 0이고 `noteCount`에 들지 않는다 — 링크 참조 정의만 · `​` · `⁠﻿` · `­` · `&nbsp;` · `&#160; &#xA0;` · `&ZeroWidthSpace;`. 대조로 `visible note`·`` `&nbsp;` ``(인라인 코드)·`&amp;`·정의 + 본문 한 줄·`👍`은 메모 1이다. 4,000자 초과 메모는 워커 응답 전에도 메모 행에 원문 글자가 보이고(점과 같은 행), 응답 뒤 서식으로 바뀐다. 검증: 판정 단위 + 투영 단위 + 렌더 단위(워커 응답을 붙잡은 상태). AC 분모 20 그대로(CHANGED).
+
+### 24-C. V 변경 (ΔV7)
+
+기준: 0331 V1 + ΔV1~ΔV6 · 트리 `c052c301`. 사용자 요구 변경 ΔV라 이후 verify 2회 동안 아래 NEW·CHANGED 범위에서 확장 창이 다시 열린다.
+
+| Node | 레벨 | 계약 | provenance | 기준선 출처 / 대체 |
+|---|---|---|---|---|
+| R-02 · AT-02″ | R · AT | AC2″ | CHANGED | AT-02′(ΔV3) |
+| MD-01′ | MD | 보이는 글 판정 — 공백·`Cf`·공백 엔티티·링크 정의 | CHANGED | MD-01(V1 공백 투명 규칙) |
+| MD-16 | MD | 메모 본문의 워커 대기 원문 | NEW | — |
+| R-01 · AT-01′ | R · AT | Code 도구 묶음(D-002) | INHERITED | ΔV3 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-60 | R-02 ↔ AT-02″ | REQUIRED (VP-02 대체 — 기존 좌표 유지) | 메시지 → `createWorkProjector` → `ActivityDisclosure` | `workActivity.test.ts` 새 `AC2″ invisible notes form no note between tools`(보이지 않는 입력 7종 각각 `noteCount` 0 · 대조 5종 각각 1) · `WorkActivity.render.test.ts` 새 `AC2″ renders no note dot for invisible text`(`[data-work-note]` 0) | not selected — 입력별 양성·음성 단언 | EP-24 ①② |
+| VP-61 | MD-01′ ↔ UT-01′ | REQUIRED (VP-17 연장) | `hasVisibleText`·`hasVisibleChar` → `hasSegmentText`·`ChunkedText` | 새 `shared/markdown/visibleText.test.ts`(입력 = §24-D EP-24 ①② 규칙 칸 분기 전부) · `parts.test.ts` 새 `D-034 invisible text is transparent like whitespace`(앞 text → 이어붙임 · 앞 tools → 없음) · `chunkedText` 단위 `D-034 hasContent ignores invisible characters` | required — `Cf` 항 제거 변이(`​` 입력 red) · 엔티티 목록 제거 변이(`&nbsp;` red) · 정의 줄 규칙 제거 변이(정의만 입력 red) | EP-24 ①② |
+| VP-62 | MD-16 ↔ UT-16 | REQUIRED | 메모 → `TranscriptMarkdown pendingText` → `WorkerDocumentRows` → `MarkdownRowView` | `WorkActivity.render.test.ts` 새 `AC2″ shows a long note's source while the worker is pending`(레이아웃 대기 · 블록 대기 두 입력에서 메모 행 글자 = 원문 앞부분) · `MarkdownDocument` 단위 `D-034 pendingText reaches every pending branch`(`pendingText` 없음 → 빈 표시 유지 — transcript 본문 회귀) | required — `:273` 분기의 원문 출력 제거 변이(레이아웃 대기 입력 red) | EP-24 ③ |
+| VP-63 | R-01 ↔ AT-01′ | REGRESSION | Code 묶음 | VP-01·VP-17·VP-18 기존 좌표 재실행 + `claudeBlocks.test.ts` 새 `D-034 invisible text does not split a tool group`(대조: 공백 아닌 text는 가른다) | not selected | EP-1(판정 변경) |
+
+### 24-D. §10 EP-24
+
+검색 `rg -nH 'trim\(\) !== |/.S/u|showPendingText|data-work-note=|if \(!rows\) return|<MarkdownRowView|<TranscriptRows' app/src/renderer/src/features/chat/lib/parts.ts app/src/renderer/src/shared/compute/chunkedText.ts app/src/renderer/src/features/chat/components/markdown/MarkdownDocument.tsx app/src/renderer/src/features/chat/harnesses/claude/transcript/WorkActivity.tsx` → 9줄 · 자리 7 · 제외 2(`MarkdownDocument.tsx:75` 타입 · `:98` 행 기본값 — 전달 자리 `:203`이 운반) · `site_census.mjs` 미분류 0.
+
+| # | 자리 | 규칙 (분기) | 분기 입력 → 직접 oracle |
+|---|---|---|---|
+| ① | `parts.ts:120` `hasSegmentText` | 65,536자 이하: `hasVisibleText` — 공백·`Cf`만 → 거짓 · 공백 엔티티·공백만 → 거짓 · 링크 정의 줄·공백만 → 거짓 · 그 밖 → 참 | 입력 4갈래 + 대조 → VP-61 `visibleText.test.ts` · `parts.test.ts` |
+| ② | `chunkedText.ts:12` `hasContent` | 조각 글자 규칙 = `hasVisibleChar`(공백·`Cf` 아닌 글자 하나) | `​`만 · `a​` → VP-61 `chunkedText` 단위 |
+| ③ | `WorkActivity.tsx:126` 메모 행 | 메모 본문에 대기 원문 표시를 켠다(`pendingText`) — Work 메모만 | 메모 4,000자 이하 · 초과 → VP-62 |
+| ④ | `MarkdownDocument.tsx:298` `<TranscriptRows` | `pendingText`를 행 묶음에 전달 | 블록 대기 입력 → VP-62 |
+| ⑤ | `MarkdownDocument.tsx:203` `<MarkdownRowView` | `showPendingText = pendingText` | 블록 대기 입력 → VP-62 |
+| ⑥ | `MarkdownDocument.tsx:173` 대기 `<pre>` | `pendingText`면 원문, 아니면 빈칸(기존) | 켜짐·꺼짐 → VP-62 두 입력 |
+| ⑦ | `MarkdownDocument.tsx:273` 레이아웃 대기 | `pendingText`면 원문 `<pre data-md-block-pending>`, 아니면 기존 빈 `<span>` | 켜짐·꺼짐 → VP-62 두 입력 |
+
+- 규칙 칸 ↔ 입력 1:1: ① 4분기 + 대조 → 입력 12 · ② 2 · ③ 2 · ④⑤ 1씩 · ⑥⑦ 2씩.
+- **선언 경계** — ① 목록 밖 엔티티(`&#x2002;` 등)·참조 정의의 변형(제목이 여러 줄)은 보이는 글로 본다(보수 쪽). ② 65,536자 초과 글은 글자 규칙만 적용하고 엔티티·정의 판정은 하지 않는다. ③ 대기 원문은 Work 메모에만 켜며 transcript 본문·검색 보기의 빈 대기 표시는 바꾸지 않는다(AC14′ 경로 불변).
+
+## READY self-review (ΔV7)
+
+- 원문 1건을 D-034로 보존했고 사용자 가정(“노트 출력이 실패한 케이스”)을 실측 3형태로 확인했다 — 기각 0.
+- `ACTIVE 결정 ↔ AC` 대조 충돌 0: D-034↔AC2″ · D-003↔AC2″(공백 입력 유지) · D-002↔VP-63 · D-009↔AC2″ ③(최종 표시는 Markdown).
+- NEW·CHANGED R-02·MD-01′·MD-16 ↔ VP-60·61·62 REQUIRED, 영향받은 INHERITED R-01 ↔ VP-63 REGRESSION.
+- EP-24 7자리 `site_census.mjs` 미분류 0 · 규칙 칸 분기마다 입력 · 선언 경계 3(측정한 것만).
+- 운영 gate: §7-A app subtree gate 전부. 사람 실기 없음 — 점 위치는 판정·렌더 단위와 `evidence/dv6` Chromium 프로브로 잰다.
 
 ## READY self-review (ΔV6)
 
