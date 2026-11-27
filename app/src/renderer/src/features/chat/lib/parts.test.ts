@@ -755,3 +755,21 @@ it('D-003 whitespace text is transparent except after a visible text contributio
   ])
   expect(messageSegments([tool, text(' '), tool]).map((s) => s.kind)).toEqual(['tools'])
 })
+
+it('D-034 invisible text is transparent like whitespace', () => {
+  const text = (text: string): AppMessagePart => ({ type: 'text', text })
+  const tool: AppMessagePart = { type: 'tool_call', toolRunId: 't', toolName: 'Bash', args: {} }
+  for (const invisible of ['\u200b', '&nbsp;', '[ref]: https://example.com']) {
+    // 앞 세그먼트가 text면 원문에 이어 붙는다(D-003 규칙 유지).
+    expect(messageSegments([text('Hello'), text(invisible)])).toEqual([
+      { kind: 'text', text: 'Hello' + invisible }
+    ])
+    // 앞이 도구면 세그먼트를 만들지 않는다.
+    expect(messageSegments([tool, text(invisible), tool]).map((s) => s.kind)).toEqual(['tools'])
+  }
+  expect(messageSegments([tool, text('visible'), tool]).map((s) => s.kind)).toEqual([
+    'tools',
+    'text',
+    'tools'
+  ])
+})

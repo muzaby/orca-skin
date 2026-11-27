@@ -189,12 +189,14 @@ const TranscriptRows = memo(function TranscriptRows({
   start,
   end,
   parts,
+  pendingText,
   onSettled
 }: {
   rows: MarkdownRow[]
   start: number
   end: number
   parts?: readonly MarkdownSourcePart[]
+  pendingText?: boolean
   onSettled: (index: number, parsed: boolean) => void
 }): React.JSX.Element {
   return (
@@ -205,6 +207,7 @@ const TranscriptRows = memo(function TranscriptRows({
           row={row}
           priority="visible"
           parts={parts}
+          showPendingText={pendingText}
           onSettled={(parsed) => onSettled(start + i, parsed)}
         />
       ))}
@@ -212,7 +215,11 @@ const TranscriptRows = memo(function TranscriptRows({
   )
 })
 
-function WorkerDocument(props: MarkdownProps): React.JSX.Element {
+// `pendingText` shows the source while the worker has not answered yet (0331 D-034 ③). Work notes turn it
+// on so a note marker never stands next to an empty body. Transcript bodies keep the empty pending state.
+type TranscriptMarkdownProps = MarkdownProps & { pendingText?: boolean }
+
+function WorkerDocument(props: TranscriptMarkdownProps): React.JSX.Element {
   const rows = useMarkdownRows(props.source, useId())
   return <WorkerDocumentRows {...props} rows={rows} />
 }
@@ -222,8 +229,9 @@ export function WorkerDocumentRows({
   sourceParts,
   className,
   rows,
-  tail
-}: MarkdownProps & {
+  tail,
+  pendingText
+}: TranscriptMarkdownProps & {
   rows: MarkdownRow[] | undefined
   tail?: boolean
 }): React.JSX.Element {
@@ -270,7 +278,14 @@ export function WorkerDocumentRows({
     },
     [rows, sourceParts]
   )
-  if (!rows) return <span data-md-block-pending="" />
+  if (!rows)
+    return pendingText ? (
+      <pre data-md-block-pending="" className="whitespace-pre-wrap break-words">
+        {source}
+      </pre>
+    ) : (
+      <span data-md-block-pending="" />
+    )
   if (!rows.length)
     return (
       <pre data-md-block-error="" className="whitespace-pre-wrap break-words">
@@ -301,6 +316,7 @@ export function WorkerDocumentRows({
             start={start}
             end={end}
             parts={sourceParts}
+            pendingText={pendingText}
             onSettled={advance}
           />
         )
@@ -309,9 +325,12 @@ export function WorkerDocumentRows({
   )
 }
 
-export function TranscriptMarkdown(props: MarkdownProps): React.JSX.Element {
+export function TranscriptMarkdown({
+  pendingText,
+  ...props
+}: TranscriptMarkdownProps): React.JSX.Element {
   return props.source.length > MARKDOWN_WORKER_MIN_CHARS ? (
-    <WorkerDocument {...props} />
+    <WorkerDocument {...props} pendingText={pendingText} />
   ) : (
     <Markdown {...props} />
   )

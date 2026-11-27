@@ -879,6 +879,48 @@ describe('0331 tool run boundaries', () => {
         expect(project([[a, boundary, b]]).map((block) => block.segment.kind)).toHaveLength(3)
     }
   )
+  it.each(['code', 'work'] as const)(
+    'D-034 invisible text does not split a tool group in %s (full and incremental)',
+    (mode) => {
+      for (const invisible of ['\u200b', '&nbsp;', '[ref]: https://example.com']) {
+        const messages = [assistantMsg('m0', [a, { type: 'text', text: invisible }, b])]
+        const full = buildClaudeBlocksOracle(messages, { mode, sessionKey: 's' })
+        const incremental = snapshotToArray(
+          createClaudeBlockModel({ mode, sessionKey: 's' }).advance(
+            {
+              messages,
+              transcriptChanges: recordChange(newTranscriptChanges(), {
+                kind: 'reset',
+                complete: true
+              })
+            },
+            { forkable: true }
+          )
+        )
+        for (const blocks of [full, incremental]) {
+          const segments = blocks.flatMap((block) =>
+            block.kind === 'segment'
+              ? [block.segment.kind]
+              : block.kind === 'activity'
+                ? block.items.map((item) => item.segment.kind)
+                : []
+          )
+          expect(segments).toEqual(['tools'])
+        }
+      }
+      const visible = buildClaudeBlocksOracle(
+        [assistantMsg('m0', [a, { type: 'text', text: 'visible' }, b])],
+        { mode, sessionKey: 's' }
+      ).flatMap((block) =>
+        block.kind === 'segment'
+          ? [block.segment.kind]
+          : block.kind === 'activity'
+            ? block.items.map((item) => item.segment.kind)
+            : []
+      )
+      expect(visible).toEqual(['tools', 'text', 'tools'])
+    }
+  )
   it('retains the error part key after transparent text inside a tool run', () => {
     const error: AppMessagePart = { type: 'error', error: 'oops' }
     const messages = [assistantMsg('m', [a, ws, b, error])]

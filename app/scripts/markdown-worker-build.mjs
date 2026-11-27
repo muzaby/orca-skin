@@ -12,3 +12,12 @@ export function markdownWorkerBuild() {
     }
   }
 }
+
+// The renderer resolves this package to its DOM-free file everywhere (0331 D-035). `worker.plugins` above
+// only reach production worker bundles; the dev server serves workers through the main pipeline and
+// pre-bundles markdown dependencies with the browser condition, so a worker that imports
+// `remark-parse` evaluates `document.createElement` and dies on every start. An alias applies to the dev
+// pipeline, the dependency pre-bundle and the build alike.
+export function domFreeEntityDecoder() {
+  return createRequire(import.meta.url).resolve('decode-named-character-reference')
+}

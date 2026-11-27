@@ -1294,11 +1294,37 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 
 ## [구현자 기입] 설계 리뷰
 
+### r1.5 · ΔV7·ΔV8 (Claude, 사용자 지시 “수정하라”)
+
+- 판정: ΔV7(§24)·ΔV8(§25)을 계약대로 구현했다. 설계 대비 차이 0 — `pendingText` 이름·전달 경로(메모 → `ClaudeAssistantSegment` → `TranscriptMarkdown` → `WorkerDocumentRows` → `TranscriptRows` → `MarkdownRowView`)는 §24-D ③~⑦ 그대로다. ΔV6(§23)은 범위 밖이며 Codex r1.6 몫이다.
+- 인용 테스트 확인: §24-C가 고칠 대상으로 적은 `workActivity.test.ts`·`WorkActivity.interaction.test.ts`·`parts.test.ts`·`claudeBlocks.test.ts`가 실제로 있다. §25-D가 구현 턴에 맡긴 EP-25 미분류 계수는 아래 강제 지점 표에 적었다.
+
+
 - 이력 페이지, 본문 세대와 워커, 도구 표시, 산출물 경로는 기존 소유자를 유지했다. SQLite에서 5턴을 찾아 이전 턴으로 넘어가는 경우와 Markdown이 정상 파싱되는 경우를 실제 저장·계산 경계에서 검사했다.
 - **PLAN_GAP · AC9′ / EP-9.** 저장된 오류 6개의 이웃 간격은 Claude Code 160.171875px, 중단된 Work 6개는 165.171875px였다. Code에 저장된 오류 3개를 연 뒤 실제 입력과 실패를 3번 보내자 오류 표시 수가 4 → 4 → 4, 마지막 두 표시의 간격은 160.40625 → 208.28125 → 256.15625px였다. 이력이 있는 다른 사용자 입력 사이에 실패 표시가 남지 않는다. `chatReducer.ts`의 `case 'error'`는 `session.error` 한 칸을 갱신하고 `Timeline.tsx`는 footer에 배너 한 개를 그린다. 데이터 호스트의 `writer.ts`는 오류를 저장한다. §10의 gap·예약 여백 21곳을 바꾸어도 사라진 표시가 생기지 않는다. WU-0에 따라 라이브 실패를 어느 입력에 귀속시키고 이력 재수신시 어떻게 중복을 없앨지 설계자에게 돌린다. §3 결정과 승인 기준은 그대로 보존했다.
 - EP-6에서는 같은 페인트의 DOM 글자 위치와 실제 글을 함께 비교했다. EP-12에서는 첫 화면의 하단과 캐시 재검증 뒤의 하단 이동을 따로 관측했다. 세부 측정은 아래 이력 표에 있다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+### r1.5 · EP-24(§24-D) 7자리 · EP-25(§25-D) 3자리
+
+| 자리 (현재 줄) | 규칙 칸 분기 → 입력 | 직접 oracle 좌표 | 고장 |
+|---|---|---|---|
+| ① `features/chat/lib/parts.ts:122` → `shared/markdown/visibleText.ts` | 공백·`Cf` · 공백 엔티티 · 링크 정의 · 그 밖 → 보이지 않는 입력 13 + 보이는 대조 11 | `visibleText.test.ts` `treats %s as invisible`·`treats %s as visible` · `parts.test.ts` `D-034 invisible text is transparent like whitespace` · `workActivity.test.ts` `AC2″ invisible note %j …`·`AC2″ visible note %j …` | S1~S5·S16·S17 red |
+| ② `shared/compute/chunkedText.ts:15` | `\u200b`·`\u2060`·BOM만 / `a\u200b` | `chunkedText.test.ts` `D-034 hasContent ignores invisible characters` | S6 red |
+| ③ `harnesses/claude/transcript/WorkActivity.tsx:138` | 메모 4,000자 이하 / 초과 | `WorkActivity.interaction.test.ts` `AC2″ keeps the dot for a visible note` · `AC2″ shows a long note's source while the worker is pending %s` | S7 red |
+| ④ `components/markdown/MarkdownDocument.tsx:319` `<TranscriptRows` | 블록 대기 | 같은 테스트 `… a parsed block` | S8 red |
+| ⑤ `MarkdownDocument.tsx:210` `<MarkdownRowView` | 켜짐 / 꺼짐(transcript 본문) | 같은 테스트 + `D-034 keeps the empty pending state for a long transcript body waiting for a parsed block` | S9 red · 맞바꿈 S14 red |
+| ⑥ `MarkdownDocument.tsx:173` 대기 `<pre>` | 켜짐 / 꺼짐 | 위 두 테스트 | S10 red |
+| ⑦ `MarkdownDocument.tsx:282` 레이아웃 대기 | 켜짐 / 꺼짐(65,536자 초과) | `… pending the layout` · `… waiting for the layout` | S11 red · 맞바꿈 S15 red |
+| EP-25 `electron.vite.config.ts:55` renderer alias | serve / build × 소스 / 사전 번들 | `scripts/markdown-worker-build.test.mjs` `D-035 resolves the entity decoder without document (serve)`·`(build)` | V8-1 red |
+| EP-25 `scripts/markdown-worker-build.mjs:22` 해석 대상 | 같음 | 같음 | V8-2 red |
+| EP-25 `electron.vite.config.ts:47` `worker.plugins` | 빌드 워커 | 동치 — 워커 번들도 renderer `resolve.alias`를 물려받아 같은 파일로 푼다. V8-3(플러그인 제거) green으로 확인 | V8-3 green(동치) |
+
+- 닫은 수: 10/10(동치 1 포함). 남긴 곳 없음.
+- `site_census.mjs` 재계수: EP-24 검색 9줄 · 자리 7 · 제외 2 · 미분류 0(설계 턴 계수, 이번 턴 줄 이동 뒤에도 같은 술어로 9줄) · EP-25 검색 9줄 · 자리 3 · 제외 6(`electron.vite.config.ts:1` import · `markdown-worker-build.mjs:5`·`:11` 기존 빌드 플러그인 본문 · `:21` 선언 · `check-transcript-selection.mjs:1`·`:174` 실기 스크립트 빌드 설정) · 미분류 0.
+- pair 자기 상태: VP-60 · VP-61 · VP-62 · VP-63(REGRESSION) · VP-64 `SELF_PASS`. VP-65(REGRESSION, VP-45 좌표)는 `SELF_BLOCKED` — VP-45는 ΔV6 구현에서 생긴다. 현재 AC3′ 좌표(`TranscriptViewport.body.test.ts`)는 전체 실행에서 통과했다.
+
 
 | Pair | 계약 / 지점 | 직접 확인한 운반 경로·관측 | 남긴 곳 |
 |---|---|---|---|
@@ -1434,6 +1460,35 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+### r1.5 · sweep 20/20
+
+| ID | 자리·항목 | 변이 | 결과 |
+|---|---|---|---|
+| S1 | ① `Cf` 분기 | `VISIBLE_CHAR`에서 `\p{Cf}` 제거 | red(16) |
+| S2 | ① 공백 엔티티 분기 | 엔티티 치환 제거 | red(14) |
+| S3 | ① 링크 정의 분기 | 정의 판정 제거 | red(8) |
+| S4 | ① 줄 단위 판정 | 첫 줄만 보기 | red(3) |
+| S5 | ① `parts.ts:122` | `trim() !== ''`로 되돌림 | red(17) |
+| S6 | ② `chunkedText.ts:15` | `/\S/u`로 되돌림 | red(1) |
+| S7 | ③ `WorkActivity.tsx:138` | `pendingText` 제거 | red(2) |
+| S8 | ④ `:319` | 전달 제거 | red(1) |
+| S9 | ⑤ `:210` | 전달 제거 | red(1) |
+| S10 | ⑥ `:173` | `showPendingText` 항 제거 | red(1) |
+| S11 | ⑦ `:282` | 원문 분기 끔 | red(1) |
+| S12 | path edge `AssistantSegment.tsx:49` | 전달 제거 | red(2) |
+| S13 | path edge `MarkdownDocument.tsx:333` | 전달 제거 | red(2) |
+| S14 | ⑤ 맞바꿈 | `showPendingText={true}`(본문까지 켬) | red(1) |
+| S15 | ⑦ 맞바꿈 | 레이아웃 대기를 항상 원문 | red(1) |
+| S16 | ① 정의 하위 분기(각주 제외) | `(?!\^)` 제거 | red(1) |
+| S17 | ① 엔티티 하위 분기(대소문자) | `i` 플래그 | red(1) |
+| V8-1 | EP-25 alias | 제거 | red(2) |
+| V8-2 | EP-25 해석 대상 | `index.dom.js`로 | red(2) |
+| V8-3 | EP-25 `worker.plugins` | 제거 | green — 동치(위 표) |
+
+- 검산: 선택 증거 5(VP-61 S1·S2·S3 · VP-62 S11 · VP-64 V8-1 — sweep 행과 겹침) · 인용 변이 0 · 새 구조 oracle 0 · sweep 20 = 표 행 20. sweep N = EP-24 자리 7 + ① 분기 4 + path edge 2 + EP-25 자리 3 + 맞바꿈 2 + 하위 분기 2 = 20, 돌린 수 20, 남긴 항목 0.
+- 하네스: `mutate.py --cwd app` 두 spec, 각 실행 뒤 "원복 확인: 모든 파일 원문 그대로".
+
+
 | 심은 결함 | 기대를 깨뜨린 실행 | 결과 |
 |---|---|---|
 | 공백 원문 제거 / 캐시에서만 공백 제거 | `parts.test.ts`, `segmentCache.test.ts` | 독립 변이 각각 red |
@@ -1447,6 +1502,13 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 
 ## [구현자 기입] Product/UX 파생 검토
 
+### r1.5
+
+- 새 사용자 문구 0. 보이는 변화 셋: ① 보이지 않는 글뿐인 Work 메모의 행·점이 사라진다(Chromium `evidence/dv6/work-notes-before-after.json` 8 → 4행). ② 4,000자를 넘는 Work 메모는 워커 응답 전에 원문(`<pre>`, 고정폭)을 보이다가 서식으로 바뀐다 — 짧은 원문 깜빡임이 생기며 transcript 본문은 지금처럼 빈 대기다. ③ dev 실행에서 계산·Markdown 워커가 살아 큰 본문·구문 강조·장문 Markdown이 돌아온다(`evidence/dv6/dev-worker.mjs` 수정 전 두 워커 `ReferenceError` → 수정 후 생존).
+- Code 투영에서도 보이지 않는 글은 도구 묶음을 가르지 않는다(D-002와 같은 방향, `claudeBlocks.test.ts` `D-034 …`).
+- 창 번들에 `character-entities`(37,342B 원본)가 더해진다 — 창의 Markdown도 표 기반 해석으로 바뀐다(D-035).
+
+
 | 질문 | 관측과 후속 |
 |---|---|
 | 사용자 대면 문구·상태 | 머리 로딩과 당김 로딩은 해당 위치의 스피너 하나로 보인다. 오류 재시도와 이전 이력 실패 토스트에는 실제 호출 경로와 번역이 있다. |
@@ -1455,6 +1517,16 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 | 늦은 응답 | 검색 종료·세션 전환·재진입과 같은 커서 중복 호출을 store 및 IPC로 확인했다. |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+### r1.5
+
+| 발견 | 분류 | 처리 |
+|---|---|---|
+| `hasSegmentText` 정본 변경이 실시간 표시(`chatStore.ts` `useHasLiveText`)·OpenCode(`projection.ts:38`·`openCodeBlocks.ts:297`)·묶음 키(`blockKeys.ts:124·132`)에도 닿는다 | 현재 범위(D-034 ①이 의도) | 전체 vitest에서 회귀 0. 판정은 첫 보이는 줄에서 멈춰 스트리밍 비용이 첫 줄로 묶인다 |
+| 워커 그래프에 다른 DOM 의존 모듈이 새로 들어오면 VP-64가 잡지 않는다 | 확장 후보(§25-D 선언 경계 ①) | 보고만 — dev 워커 생존을 CI에서 보는 장치는 없다 |
+| 계기가 사라져도 레인 영구 차단 규칙(0324 상태표)은 ΔV6 D-032 구현 전까지 그대로다 | 현재 결함(ΔV6 범위) | Codex r1.6 |
+| 메모 대기 원문이 고정폭 `<pre>`라 본문 서식과 다른 글꼴로 잠깐 보인다 | Product/UX 파생 | 보고만 — 최종 표시는 D-009대로 Markdown |
+
 
 | 문제 | 대응·근거 |
 |---|---|
@@ -1468,6 +1540,23 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 
 ## [구현자 기입] 구현 보고
 
+### r1.5 · ΔV7·ΔV8
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 `shared/markdown/visibleText.ts` · `parts.ts`·`chunkedText.ts`(판정 연결) · `MarkdownDocument.tsx`·`AssistantSegment.tsx`·`WorkActivity.tsx`(메모 대기 원문) · `electron.vite.config.ts`·`scripts/markdown-worker-build.mjs`·`.d.mts`(DOM 없는 해석기 alias). 테스트 신규 3·수정 4 |
+| 실행 명령 | `app/`: 가드 5종 · `npm run lint` · `npm run typecheck` · 필터 없는 `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` · `npx electron-vite build && node scripts/smoke-hosts.mjs && node scripts/smoke-preload.mjs out/preload` · `mutate.py` 2 spec |
+| 관측한 게이트 산출 | 가드 5종 exit 0 · lint 0 error·15 warning(전부 이번에 손대지 않은 파일, 자동 수정 0) · typecheck error 0 · vitest 1,171파일 중 1 실패 · 11,105케이스 중 8 실패 + 1 unhandled error · `node --test` 1,229/1,229 · build OK · smoke-hosts OK · smoke-preload OK · 빌드 산출물 `createElement("i")` 0파일 |
+| 기준선 분리 | vitest 실패 8건 + error 1 = 전부 `src/main/app/claude-input.cli.integration.test.ts` — 서명 `--dangerously-skip-permissions cannot be used with root/sudo privileges`(실제 CLI, root 컨테이너). 변경을 stash한 트리에서 같은 파일이 같은 8건 + error 1로 실패 — 차집합 ∅ · 환경 원인 |
+| 추가·수정 테스트의 subtree 규칙 | 7파일 판정 — vitest 6(unit 풀: 자식 프로세스·SQLite·타이머·환경 접근 0, 시간 값 0) · `node --test` 1. `check-test-budgets` OK. 소스의 보이지 않는 문자는 `\u` 이스케이프로만 둔다(0개 리터럴) |
+| V-pair 자기확인 | VP-60~64 `SELF_PASS` · VP-65 `SELF_BLOCKED`(ΔV6 VP-45 대기) |
+| AC 자기보고와 합계 | AC2″ ✅ · AC21 ✅ · 기존 r1.4 충족 유지 AC1·4~9·11~13·15~17 ✅ · ΔV6 CHANGED·NEW 미구현 AC3″·AC10″·AC18·AC19·AC20 ⚠️ · AC14′ ⚠️(r1.4 실기 4/30) |
+| 블로커 / 설계 질문 | 없음 |
+| 대상 커밋 | `(r1.5 구현 — 좌표는 INDEX)` |
+
+- 검산: ✅ 15 · ⚠️ 6 · ❌ 0 = 총 21. 분모 변경: r1.4의 17 → ΔV6(+3)·ΔV8(+1) = 21 — r1.4의 16/17과 직접 비교하지 않는다(ΔV6이 AC3·AC10을 CHANGED로 바꿔 미충족으로 돌렸다).
+
+
 | 항목 | 내용 |
 |---|---|
 | 변경 파일 | SQLite 이력 조회·wire·store, 세 하네스의 렌더·앵커·도구 헤더, 공통 Markdown 워커와 뷰, 산출물 서비스·로거, Electron 측정기, 대응 테스트 및 아키텍처 문서 |
@@ -1480,6 +1569,13 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 | 대상 커밋 | `(r1.3 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
+
+### r1.5
+
+- 라운드 1 · impl 턴 `r1.5`(Claude, 사용자 요구 변경 턴 — ΔV7·ΔV8). verify 0회.
+- ΔV8의 계기(dev에서만 워커가 죽음)는 r1.x의 Electron·Chromium 실측이 모두 빌드 산출물을 써서 드러나지 않았다. dev 실행을 보는 게이트는 저장소에 없다.
+- ΔV6 D-032(워커 레인 회복)와 같은 축이다 — 이번 턴은 계기만 없앴고 회복 규칙은 r1.6 몫이다.
+
 
 - 첫 구현 라운드다. 기존 트리에서 저장 오류와 실시간 오류의 표현이 다르며 실제 실패 전송으로만 4 → 4 → 4가 나타났다.
 - WU-0와 AC9′가 §10 밖 원인의 설계 귀환을 지정했다. Electron 프레임 수와 50ms 예산은 Linux Chromium 실측으로 기록했다.

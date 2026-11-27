@@ -1,4 +1,4 @@
-import { markdownWorkerBuild } from './scripts/markdown-worker-build.mjs'
+import { domFreeEntityDecoder, markdownWorkerBuild } from './scripts/markdown-worker-build.mjs'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
@@ -50,7 +50,9 @@ export default defineConfig({
     },
     resolve: {
       alias: {
-        '@renderer': resolve('src/renderer/src')
+        '@renderer': resolve('src/renderer/src'),
+        // 계산·Markdown 워커에는 document가 없다 — dev·사전 번들·빌드 모두 DOM 없는 판으로(0331 D-035).
+        'decode-named-character-reference': domFreeEntityDecoder()
       }
     },
     plugins: [react(), tailwindcss(), absoluteRendererBase()]

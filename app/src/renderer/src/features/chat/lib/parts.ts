@@ -1,4 +1,5 @@
 import { findHistoryLayout } from '../../../shared/markdown/historyLayout'
+import { hasVisibleText } from '../../../shared/markdown/visibleText'
 // AppMessagePart(provider-runtime.md §7) 셀렉터 — 순서 보존 parts 를 transcript 렌더가 쓰는
 // view 로 투영한다(순수). text/reasoning 추출, tool_call↔tool_result 페어링, error 추출.
 
@@ -111,13 +112,14 @@ export type MessageSegment =
 
 // segment 유무 판정의 정본 (0325 EP-2 ①). `messageSegments` 의 건너뛰기와 store 의 live 유무
 // (`useHasLiveText` · `LiveTurnState.reasoningVisible`)가 같은 함수를 쓴다 — 두 곳에 두면 공백
-// reasoning 에서 행 key 가 갈린다.
+// reasoning 에서 행 key 가 갈린다. 무엇이 "보이는 글"인지는 `shared/markdown/visibleText.ts` 가
+// 정한다(0331 D-034) — 보이지 않는 문자·공백 엔티티·링크 정의만의 text도 공백처럼 투명하다.
 export function hasSegmentText(text: string): boolean {
   if (text.length > 65536) {
     const pieces = findHistoryLayout(text)?.pieces
     if (pieces) return pieces.hasContent
   }
-  return text.trim() !== ''
+  return hasVisibleText(text)
 }
 
 export function hasSegmentReasoning(text: string): boolean {

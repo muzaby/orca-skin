@@ -163,3 +163,74 @@ describe('Work activity disclosure lifecycle', () => {
     expect(renderTool()).not.toContain('exact-result-line')
   })
 })
+
+// 0331 AC2″ (ΔV7) — 메모 점은 보이는 메모 글이 있을 때만 있다.
+describe('Work notes without visible text (0331 D-034)', () => {
+  let sequence = 0
+  const noteMessages = (note: string, final = 'final-answer'): Message[] => [
+    {
+      id: 'm-notes-' + ++sequence,
+      role: 'assistant',
+      createdAt: 1,
+      parts: [
+        { type: 'response_boundary', boundary: { phase: 'begin', id: 'r' } },
+        { type: 'tool_call', toolRunId: 'a', toolName: 'Bash', args: { command: 'echo a' } },
+        { type: 'text', text: note },
+        { type: 'tool_call', toolRunId: 'b', toolName: 'Bash', args: { command: 'echo b' } },
+        { type: 'text', text: final },
+        { type: 'response_boundary', boundary: { phase: 'end', id: 'r', outcome: 'ended' } }
+      ]
+    }
+  ]
+  // 실제 disclosure 토글 콜백으로 펼친다 — 메시지 ID가 테스트마다 달라 store 상태가 섞이지 않는다.
+  const renderOpen = (input: Message[]): ReturnType<typeof load> => {
+    const once = (): string => {
+      harness.calls = 0
+      harness.toggle = undefined
+      return renderToStaticMarkup(
+        createElement(WorkActivity, { messages: input, transcriptPolicy })
+      )
+    }
+    expect(once()).toContain('aria-expanded="false"')
+    harness.toggle!()
+    const opened = once()
+    expect(opened).toContain('aria-expanded="true"')
+    return load(opened)
+  }
+  it.each([
+    '[ref]: https://example.com',
+    '\u200b',
+    '\u2060\ufeff',
+    '\u00ad',
+    '&nbsp;',
+    '&#160; &#xA0;',
+    '&ZeroWidthSpace;'
+  ])('AC2″ renders no note dot for invisible text %j', (note) => {
+    const $ = renderOpen(noteMessages(note))
+    expect($('[data-work-tools]').length).toBeGreaterThan(0)
+    expect($('[data-work-note]')).toHaveLength(0)
+  })
+  it('AC2″ keeps the dot for a visible note', () => {
+    expect(renderOpen(noteMessages('visible note'))('[data-work-note]')).toHaveLength(1)
+  })
+  it.each([
+    ['a parsed block', 'Long note paragraph. '.repeat(250)],
+    ['the layout', 'Long note paragraph. '.repeat(3200)]
+  ])("AC2″ shows a long note's source while the worker is pending %s", (_, note) => {
+    const $ = renderOpen(noteMessages(note))
+    const row = $('[data-work-note]')
+    expect(row).toHaveLength(1)
+    expect(row.find('[data-md-block-pending]').first().text()).toContain('Long note paragraph.')
+  })
+  it.each([
+    ['a parsed block', 'Long final answer. '.repeat(300)],
+    ['the layout', 'Long final answer. '.repeat(3500)]
+  ])(
+    'D-034 keeps the empty pending state for a long transcript body waiting for %s',
+    (_, final) => {
+      const $ = renderOpen(noteMessages('visible note', final))
+      expect($.root().text()).not.toContain('Long final answer.')
+      expect($('[data-md-block-pending]').length).toBeGreaterThan(0)
+    }
+  )
+})

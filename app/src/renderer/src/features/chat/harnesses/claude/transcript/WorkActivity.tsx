@@ -135,6 +135,7 @@ export function ActivityDisclosure({
                   segment={item.segment}
                   transcriptPolicy={transcriptPolicy}
                   sourceParts={item.sourceParts}
+                  pendingText
                 />
               </div>
             ) : null
