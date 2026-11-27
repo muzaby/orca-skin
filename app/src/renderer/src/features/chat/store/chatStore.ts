@@ -1126,7 +1126,6 @@ function receive(ev: NormalizedEvent): void {
             key,
             seq: nextComposerDraftSequence(),
             text: texts.join('\n\n'),
-            mode: 'append',
             ...(attachments.length ? { attachments } : {})
           }
         })
