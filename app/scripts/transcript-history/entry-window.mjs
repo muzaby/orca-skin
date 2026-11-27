@@ -18,8 +18,12 @@ function missedEntryWindow({ firstPaint, moving, unitRequest }) {
 
 export async function completeEntryAttempt(scenario, entry, cancel, settle) {
   // Classify the input before sending a wheel or releasing the pending native page.
-  if (['entryPrepend', 'entryCancel'].includes(scenario) && missedEntryWindow(entry))
-    return { missedEntry: entry }
+  if (['entryPrepend', 'entryCancel'].includes(scenario)) {
+    if (missedEntryWindow(entry)) return { missedEntry: entry }
+    const last = entry.moving.at(-1)
+    if (!last || !movingFrame(last) || !(entry.unitRequest?.time <= last.time))
+      return { ...entry, error: 'No observed within-unit request during bottom movement' }
+  }
   if (scenario === 'entryCancel') await cancel()
   return { ...entry, ...(await settle()) }
 }

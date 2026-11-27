@@ -35,18 +35,31 @@ test('a late native request is classified before either input, with its raw samp
   assert.deepEqual((await attempt('openFrames', late)).events, ['release'])
 })
 
-test('missing prerequisites, broken first paint and genuine measured failures stay visible', async () => {
+test('unproven input or broken first paint remains a failed coordinate with raw data', async () => {
   for (const entry of [
     { ...late, firstPaint: [{ ...first, line: '' }] },
     { ...late, firstPaint: [{ ...first, opacity: 1 }] },
     { ...late, moving: [last] },
-    { ...late, unitRequest: undefined },
+    { ...late, moving: [] },
+    { ...late, moving: [mid], unitRequest: undefined },
     { ...late, unitRequest: { ...late.unitRequest, top: 42 } },
     { ...late, moving: [{ ...mid, time: 36 }, last] },
     { ...late, moving: [mid] }
   ]) {
     const { result, events } = await attempt('entryCancel', entry)
-    assert.deepEqual(events, ['wheel', 'release'])
+    assert.deepEqual(events, [])
+    assert.deepEqual(result, {
+      ...entry,
+      error: 'No observed within-unit request during bottom movement'
+    })
+  }
+})
+
+test('an eligible input keeps the resulting failure and all motion samples', async () => {
+  const entry = { ...late, moving: [mid], unitRequest: { ...late.unitRequest, top: 2, time: 15 } }
+  for (const scenario of ['entryCancel', 'entryPrepend']) {
+    const { result, events } = await attempt(scenario, entry)
+    assert.deepEqual(events, scenario === 'entryCancel' ? ['wheel', 'release'] : ['release'])
     assert.deepEqual(result, { ...entry, writes: [], samples: [] })
   }
 })
