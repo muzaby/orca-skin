@@ -8,6 +8,7 @@ import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claude
 import { createOpenCodeBlockModel } from '../../harnesses/opencode/transcript/openCodeBlocks'
 import * as viewportAnchor from '../../lib/transcript/viewport/anchor'
 import { startEntryMotion } from '../../lib/transcript/viewport/entryMotion'
+import { isCorrecting } from '../../lib/transcript/viewport/scrollCorrection'
 import { messageOrderFor } from '../../lib/transcript/messageOrder'
 import { createBlockList } from '../../lib/transcript/blockList'
 import { chatActions } from '../../store/chatStore'
@@ -441,10 +442,6 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
 
   it('replays latest turn, bottom placement and three single-turn prepends (turns 9, 8, 7) on each screen', () => {
     vi.useFakeTimers()
-    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
-      setTimeout(() => callback(performance.now()), 0)
-    )
-    vi.stubGlobal('cancelAnimationFrame', clearTimeout)
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
     const { select, selection } = installViewportSelection(dom)
 
@@ -554,6 +551,9 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
         'u:fx-10',
         'a:fx-10'
       ])
+      // The next scenario starts pinned, after the previous prepend's two quiet frames.
+      dom.frame()
+      expect(isCorrecting(scroller)).toBe(false)
       pinned = true
       scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight
       const oldBottom = scroller.scrollTop
