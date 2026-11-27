@@ -1,7 +1,10 @@
+import type { MarkdownDefinition } from '../compute/protocol'
+import { leadingFence } from './segmentedFence'
 import { MARKDOWN_DOC_SEGMENT_MAX_CHARS, MARKDOWN_WORKER_MIN_CHARS } from '../compute/limits'
 import { markdownDocumentBlocks, type DocumentBlock } from './markdownDocumentBlocks'
 
 export interface MarkdownSegmentRange {
+  definitions?: MarkdownDefinition[]
   start: number
   end: number
   blocks: DocumentBlock[]
@@ -30,6 +33,25 @@ function* parseRanges(source: string): Generator<DocumentBlock> {
   if (held) yield held
 }
 
+// The streaming scanner can group following prose with a fence when there is no
+// blank line between them. The closing marker alone ends a CommonMark fence.
+function* logicalRanges(source: string): Generator<DocumentBlock> {
+  for (const block of parseRanges(source)) {
+    let start = block.start
+    while (block.end - start > MARKDOWN_DOC_SEGMENT_MAX_CHARS) {
+      const fence = leadingFence(source, start, block.end)
+      if (!fence) break
+      yield {
+        start,
+        end: fence.end,
+        ...(fence.end - start > MARKDOWN_DOC_SEGMENT_MAX_CHARS && { fence })
+      }
+      start = fence.end
+    }
+    if (start < block.end || block.start === block.end) yield { ...block, start }
+  }
+}
+
 // Keep neighbouring blocks in one document so ordinary cross-block references still resolve.
 // For an oversized single block, cut at its last complete line, then at a character boundary.
 export function markdownLayout(source: string): MarkdownSegmentRange[] {
@@ -41,19 +63,25 @@ export function markdownLayout(source: string): MarkdownSegmentRange[] {
     start = end
     blocks = []
   }
-  for (const block of parseRanges(source)) {
+  for (const block of logicalRanges(source)) {
     if (block.end - start > MARKDOWN_DOC_SEGMENT_MAX_CHARS && blocks.length) finish(block.start)
+    const { fence } = block
     while (block.end - start > MARKDOWN_DOC_SEGMENT_MAX_CHARS) {
       let end = start + MARKDOWN_DOC_SEGMENT_MAX_CHARS
       const newline = source.slice(start, end).lastIndexOf('\n')
       if (newline >= 0) end = start + newline + 1
-      else if (/[\uD800-\uDBFF]/.test(source[end - 1]) && /[\uDC00-\uDFFF]/.test(source[end])) end--
-      blocks.push({ start: 0, end: end - start })
+      else if (
+        (source[end - 1] === '\r' && source[end] === '\n') ||
+        (/[\uD800-\uDBFF]/.test(source[end - 1]) && /[\uDC00-\uDFFF]/.test(source[end]))
+      )
+        end--
+      blocks.push({ start: 0, end: end - start, ...(fence && { fence }) })
       finish(end)
     }
     blocks.push({
       start: Math.max(0, block.start - start),
       end: block.end - start,
+      ...(fence && { fence }),
       ...(block.table &&
         block.start >= start && {
           table: block.table.map(({ headerEnd, rows }) => ({

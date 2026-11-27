@@ -51,7 +51,10 @@ export interface TableChunk {
   headerEnd: number
   rows: readonly [number, number]
 }
+export type MarkdownDefinition = [identifier: string, markdown: string]
 export interface MarkdownRequest {
+  definitions?: MarkdownDefinition[]
+  fence?: { indent: number; lineStart: boolean; parts?: readonly { key: string; start: number }[] }
   table?: TableChunk
   kind: 'markdown'
   doc: DocRef
@@ -236,7 +239,8 @@ export function requestKey(request: ComputeRequest): string {
         docKey(request.doc),
         request.start,
         request.end,
-        ...(request.table ? [request.table.headerEnd, ...request.table.rows] : [])
+        ...(request.table ? [request.table.headerEnd, ...request.table.rows] : []),
+        ...(request.fence ? [JSON.stringify(request.fence)] : [])
       ].join(SEP)
     case 'highlight':
       return ['highlight', request.lang, request.theme, request.code].join(SEP)

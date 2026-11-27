@@ -1,3 +1,4 @@
+import type { FenceBounds } from './segmentedFence'
 import { splitStableBlocks } from './markdownBlocks'
 import {
   MARKDOWN_TABLE_CHUNK_MAX_CELLS,
@@ -9,6 +10,7 @@ export interface DocumentBlock {
   start: number
   end: number
   table?: TableChunk[]
+  fence?: FenceBounds
 }
 const list = /^ {0,3}(?:[-+*]|\d{1,9}[.)])\s/m
 const quote = /^ {0,3}>/m

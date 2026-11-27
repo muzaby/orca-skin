@@ -1,6 +1,6 @@
 import { HISTORY_BODY_BYTES } from '../../../../../shared/history-page'
 import type { AppMessagePart } from '../../../../../shared/ipc'
-import { markdownLayout } from '../../markdown/markdownSegments'
+import { workerMarkdownLayout } from './markdownDefinitions'
 import type { ComputeResults, HistoryBodyRequest } from '../protocol'
 
 interface BodyStream {
@@ -54,7 +54,7 @@ export function decodeHistoryBody({
       (part.type === 'text' || part.type === 'reasoning') &&
       typeof part.text === 'string' &&
       part.text.length > HISTORY_BODY_BYTES
-        ? [{ index, segments: markdownLayout(part.text) }]
+        ? [{ index, segments: workerMarkdownLayout(part.text) }]
         : []
     )
     return { parts, nextOffset, ...(layouts.length && { layouts }) }

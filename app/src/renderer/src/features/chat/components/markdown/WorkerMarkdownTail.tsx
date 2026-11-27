@@ -7,7 +7,7 @@ import {
 } from '../../../../shared/compute/client'
 import { revisionOf } from '../../../../shared/compute/documents'
 import { MARKDOWN_DOC_SEGMENT_MAX_CHARS } from '../../../../shared/compute/limits'
-import type { ComputeResults } from '../../../../shared/compute/protocol'
+import type { ComputeResults, MarkdownDefinition } from '../../../../shared/compute/protocol'
 import { MarkdownHast } from '../../../../shared/ui/markdown/MarkdownHast'
 import {
   sliceSourceParts,
@@ -15,12 +15,14 @@ import {
 } from '../../../../shared/ui/markdown/sourceParts'
 import { MARKDOWN_TYPOGRAPHY } from '../../../../shared/ui/markdown/typography'
 
+import { WorkerDocumentRows } from './MarkdownDocument'
 import { useMarkdownRows } from './useMarkdownRows'
 
 type Result = ComputeResults['markdown']
 
 // Keep only the newest waiting snapshot. An in-flight prefix remains useful as the tail grows.
 interface TailProps {
+  definitions?: MarkdownDefinition[]
   tail: string
   className?: string
   parts?: readonly MarkdownSourcePart[]
@@ -36,6 +38,16 @@ function SegmentedTail(props: TailProps): React.JSX.Element {
   const rows = useMarkdownRows(props.tail, id)
   const segments = useMemo(() => [...new Set(rows?.map((row) => row.segment))], [rows])
   if (!rows) return <span data-md-block-pending="" />
+  if (rows.some((row) => row.fencePieces))
+    return (
+      <WorkerDocumentRows
+        rows={rows}
+        source={props.tail}
+        sourceParts={props.parts}
+        className={props.className}
+        tail
+      />
+    )
   if (!segments.length) return <pre data-md-block-error="">{props.tail}</pre>
   return (
     <div className={props.className}>
@@ -44,13 +56,14 @@ function SegmentedTail(props: TailProps): React.JSX.Element {
           key={segment.start}
           {...props}
           tail={segment.text}
+          definitions={segment.definitions}
           parts={sliceSourceParts(props.parts, segment.start, segment.start + segment.text.length)}
         />
       ))}
     </div>
   )
 }
-function SessionTail({ tail, className, parts }: TailProps): React.JSX.Element {
+function SessionTail({ tail, className, parts, definitions }: TailProps): React.JSX.Element {
   const id = useId()
   const [parsed, setParsed] = useState<{ text: string; result: Result } | null>(null)
   const submit = useRef<((text: string) => void) | undefined>(undefined)
@@ -77,7 +90,13 @@ function SessionTail({ tail, className, parts }: TailProps): React.JSX.Element {
       function start(): void {
         stopWaiting = undefined
         running = client.request(
-          { kind: 'markdown', doc, start: 0, end: text.length },
+          {
+            kind: 'markdown',
+            doc,
+            start: 0,
+            end: text.length,
+            ...(definitions && { definitions })
+          },
           { cacheable: false }
         )
         void running.promise
@@ -113,10 +132,10 @@ function SessionTail({ tail, className, parts }: TailProps): React.JSX.Element {
       stopWaiting?.()
       running?.cancel()
     }
-  }, [id])
+  }, [id, definitions])
   useEffect(() => {
     submit.current?.(tail)
-  }, [tail])
+  }, [tail, definitions])
 
   const covered = parsed && tail.startsWith(parsed.text) ? parsed : null
   const [painted, setPainted] = useState<typeof parsed>(null)

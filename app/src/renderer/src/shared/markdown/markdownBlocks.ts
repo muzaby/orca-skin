@@ -80,7 +80,7 @@ function stripCr(line: string): string {
   return line.endsWith('\r') ? line.slice(0, -1) : line
 }
 
-function parseOpeningFence(rawLine: string): {
+export function parseOpeningFence(rawLine: string): {
   char: '`' | '~'
   length: number
   indent: number
@@ -105,7 +105,10 @@ function parseOpeningFence(rawLine: string): {
   }
 }
 
-function isClosingFence(rawLine: string, fence: { char: '`' | '~'; length: number }): boolean {
+export function isClosingFence(
+  rawLine: string,
+  fence: { char: '`' | '~'; length: number }
+): boolean {
   const line = stripCr(rawLine)
   const m = FENCE_CLOSE_RE.exec(line)
   if (!m) return false

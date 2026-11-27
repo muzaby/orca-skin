@@ -13,14 +13,14 @@ import {
   type WireRequest,
   type WireResponse
 } from '../protocol'
-import { markdownLayout } from '../../markdown/markdownSegments'
+import { workerMarkdownLayout } from './markdownDefinitions'
 import { decodeHistoryBody } from './historyBody'
 import { getHighlighter } from './highlighter'
 
 export async function compute(request: ComputeRequest): Promise<ComputeResult> {
   switch (request.kind) {
     case 'markdownLayout':
-      return { segments: markdownLayout(request.source) }
+      return { segments: workerMarkdownLayout(request.source) }
     case 'historyBody':
       return decodeHistoryBody(request)
     case 'imageThumb':

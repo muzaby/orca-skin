@@ -1,3 +1,5 @@
+import { parseFenceRange } from './fenceRange'
+import { collectDefinitions, usedDefinitions } from './markdownDefinitions'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
@@ -24,11 +26,34 @@ function ordinaryPrefix(source: string): number {
   return cut >= 4096 ? cut : 0
 }
 
-export function parseMarkdown(source: string): ComputeResults['markdown'] {
+export function parseMarkdown(
+  source: string,
+  definitionLines: readonly string[] = []
+): ComputeResults['markdown'] {
   const prefix = ordinaryPrefix(source)
   const standIn = prefix && source.slice(prefix).trim() ? 'x ' : 'x'
   const input = prefix ? standIn + source.slice(prefix) : source
-  const hast = parser.runSync(parser.parse(input)) as Root
+  // Definitions are invisible in HTML. Prepending the document's first definitions
+  // preserves CommonMark precedence even when a later registration redefines a label.
+  const header = definitionLines.length ? definitionLines.join('\n') + '\n\n' : ''
+  const headerLines = definitionLines.length ? definitionLines.length + 1 : 0
+  const tree = parser.parse(header + input)
+  if (header) {
+    const positions = new WeakSet<object>()
+    const nodes: import('mdast').Nodes[] = [tree]
+    while (nodes.length) {
+      const node = nodes.pop()!
+      if ('children' in node) for (const child of node.children) nodes.push(child)
+      if (!node.position) continue
+      for (const point of [node.position.start, node.position.end]) {
+        if (positions.has(point)) continue
+        positions.add(point)
+        if (point.offset !== undefined) point.offset = Math.max(0, point.offset - header.length)
+        point.line = Math.max(1, point.line - headerLines)
+      }
+    }
+  }
+  const hast = parser.runSync(tree) as Root
   if (prefix) {
     const paragraph = hast.children[0]
     const lead = paragraph?.type === 'element' ? paragraph.children[0] : undefined
@@ -77,11 +102,22 @@ export function markdownBlock(
   request: import('../protocol').MarkdownRequest
 ): ComputeResults['markdown'] {
   const { start, end, table } = request
+  if (request.fence) return { hast: parseFenceRange(doc.text.slice(start, end), request.fence) }
   const source = table
     ? doc.text.slice(start, table.headerEnd) + doc.text.slice(...table.rows)
     : doc.text.slice(start, end)
   const parseBlock = (text: string): ComputeResults['markdown'] => {
-    const result = parseMarkdown(text)
+    let references: string[] = []
+    if (
+      text.includes('[') &&
+      (request.definitions || start !== 0 || end !== doc.text.length || table)
+    ) {
+      doc.definitions ??= request.definitions
+        ? new Map(request.definitions)
+        : collectDefinitions(doc.text)
+      references = usedDefinitions(text, doc.definitions).map(([, line]) => line)
+    }
+    const result = parseMarkdown(text, references)
     if (!table || table.headerEnd === table.rows[0]) return result
     const header = table.headerEnd - start
     const skipped = table.rows[0] - table.headerEnd
@@ -100,33 +136,5 @@ export function markdownBlock(
     }
     return result
   }
-  if (!source.includes('[') || (start === 0 && end === doc.text.length && !table))
-    return parseBlock(source)
-  if (!doc.definitions) {
-    const defs = new Map<string, string>()
-    let fence: string | undefined
-    for (const line of doc.text.split('\n')) {
-      const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1]
-      if (marker && !fence) {
-        fence = marker
-        continue
-      }
-      if (fence) {
-        if (marker && marker.startsWith(fence) && line.trim() === marker) fence = undefined
-        continue
-      }
-      const match = /^ {0,3}\[([^\]^]+)\]:\s*\S.*$/.exec(line)
-      if (match) {
-        const key = match[1].trim().replace(/\s+/g, ' ').toLowerCase()
-        if (!defs.has(key)) defs.set(key, line)
-      }
-    }
-    doc.definitions = defs
-  }
-  const references = new Set<string>()
-  for (const match of source.matchAll(/\[([^\]\n]+)\]/g)) {
-    const def = doc.definitions.get(match[1].trim().replace(/\s+/g, ' ').toLowerCase())
-    if (def) references.add(def)
-  }
-  return parseBlock(references.size ? source + '\n\n' + [...references].join('\n') : source)
+  return parseBlock(source)
 }

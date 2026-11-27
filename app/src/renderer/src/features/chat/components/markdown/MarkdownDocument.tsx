@@ -10,6 +10,7 @@ import {
   type MarkdownSourcePart
 } from '../../../../shared/ui/markdown/sourceParts'
 import { MARKDOWN_TYPOGRAPHY } from '../../../../shared/ui/markdown/typography'
+import { SegmentedFence } from './SegmentedFence'
 import { useMarkdownRows, type MarkdownRow } from './useMarkdownRows'
 
 const ParsedTableRows = memo(function ParsedTableRows({
@@ -68,19 +69,25 @@ export function ParsedMarkdownBlock({
   )
 }
 
-export const MarkdownRowView = memo(function MarkdownRowView({
-  row,
-  priority,
-  parts,
-  onComplete,
-  showPendingText = false
-}: {
+interface RowProps {
   row: MarkdownRow
   priority: Priority
   showPendingText?: boolean
   parts?: readonly MarkdownSourcePart[]
   onComplete?: () => void
-}): React.JSX.Element {
+}
+
+export const MarkdownRowView = memo(function MarkdownRowView(props: RowProps): React.JSX.Element {
+  return props.row.fencePieces ? <SegmentedFence {...props} /> : <RegularMarkdownRow {...props} />
+})
+
+function RegularMarkdownRow({
+  row,
+  priority,
+  parts,
+  onComplete,
+  showPendingText = false
+}: RowProps): React.JSX.Element {
   const { doc, segment, block } = row
   const [result, setResult] = useState<{ row: MarkdownRow; roots: Root[] | null }>()
   const roots = result?.row === row ? result.roots : undefined
@@ -105,7 +112,14 @@ export const MarkdownRowView = memo(function MarkdownRowView({
     const start = (): void => {
       const table = block.table?.[count]
       const handle = client.request<'markdown'>(
-        { kind: 'markdown', doc, start: block.start, end: block.end, ...(table && { table }) },
+        {
+          kind: 'markdown',
+          doc,
+          start: block.start,
+          end: block.end,
+          ...(segment.definitions && { definitions: segment.definitions }),
+          ...(table && { table })
+        },
         { priority: rank.current }
       )
       task.current = handle
@@ -155,7 +169,7 @@ export const MarkdownRowView = memo(function MarkdownRowView({
       {committed < chunks && <span hidden data-md-block-pending="" />}
     </>
   )
-})
+}
 
 // Finishing a new paragraph must not visit every previously painted paragraph. A
 // completed group keeps its elements and DOM while the last group grows by one row.
@@ -188,9 +202,21 @@ const TranscriptRows = memo(function TranscriptRows({
   )
 })
 
-function WorkerDocument({ source, sourceParts, className }: MarkdownProps): React.JSX.Element {
-  const id = useId()
-  const rows = useMarkdownRows(source, id)
+function WorkerDocument(props: MarkdownProps): React.JSX.Element {
+  const rows = useMarkdownRows(props.source, useId())
+  return <WorkerDocumentRows {...props} rows={rows} />
+}
+
+export function WorkerDocumentRows({
+  source,
+  sourceParts,
+  className,
+  rows,
+  tail
+}: MarkdownProps & {
+  rows: MarkdownRow[] | undefined
+  tail?: boolean
+}): React.JSX.Element {
   const [progress, setProgress] = useState({ rows, prefix: 0, ready: new Set<number>() })
   const prefix = progress.rows === rows ? progress.prefix : 0
   const total = rows?.length ?? 0
@@ -198,7 +224,7 @@ function WorkerDocument({ source, sourceParts, className }: MarkdownProps): Reac
   // with the workers even when a short paragraph finishes between frames.
   const count = Math.min(total, prefix + 6)
   const active = rows?.[Math.min(prefix, total - 1)]
-  const doc = prefix < total ? active?.doc : undefined
+  const doc = prefix < total && !active?.fencePieces ? active?.doc : undefined
   const segment = prefix < total ? active?.segment : undefined
   useEffect(() => {
     if (!doc || !segment) return
@@ -237,6 +263,8 @@ function WorkerDocument({ source, sourceParts, className }: MarkdownProps): Reac
         (className ?? MARKDOWN_TYPOGRAPHY + ' text-ink') +
         ' [&>*]:[content-visibility:auto] [&>*]:[contain-intrinsic-size:auto_1lh]'
       }
+      data-markdown-tail={tail ? (prefix === rows.length ? 'parsed' : 'raw') : undefined}
+      data-markdown-tail-parsed={tail && prefix === rows.length ? source.length : undefined}
       data-markdown-document={prefix === rows.length ? 'complete' : 'pending'}
       data-md-block-pending={prefix < rows.length ? '' : undefined}
     >
