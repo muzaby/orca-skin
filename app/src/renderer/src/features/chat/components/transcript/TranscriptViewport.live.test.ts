@@ -45,7 +45,10 @@ function renderTranscript(backend: 'claude' | 'opencode', agentKind: 'code' | 'w
   const rendered = installFakeDom({
     innerWidth: 1200,
     innerHeight: 900,
-    layout: () => ({ rect: { top: 0, left: 0, width: 600, height: 400 } })
+    // Each assistant line is shorter than the enclosing 400px scrollport.
+    layout: (node) => ({
+      rect: { top: 0, left: 0, width: 600, height: node.closest('[data-index]') ? 60 : 400 }
+    })
   })
 
   vi.stubGlobal(
@@ -192,8 +195,16 @@ describe('TranscriptViewport.live (VP-19 · EP-8 ⑩)', () => {
 
     dom = renderTranscript(backend, agentKind)
     const viewport = dom.query('[data-transcript-viewport]')!
-    const historicalRow = dom.query('[data-index="0"]')
-    expect(historicalRow).not.toBeNull()
+    // A harness may open at the head or the tail. Track an actual mounted historical row.
+    const historicalRow = dom
+      .queryAll('[data-index]')
+      .findLast((row) => row.textContent.includes('historic '))
+    expect(historicalRow).toBeDefined()
+    const historicalIndex = historicalRow!.getAttribute('data-index')
+    const historicalKey = historicalRow!.getAttribute('data-block-key')
+    const historicalText = historicalRow!.textContent
+    expect(historicalIndex).toBeTruthy()
+    expect(historicalKey).toBeTruthy()
     const liveKey = backend === 'claude' ? 'live:s' : 'a:10001:text:0'
     expect(advances.mock.lastCall?.[0].indexOf(liveKey)).toBe(-1)
     advances.mockClear()
@@ -233,7 +244,10 @@ describe('TranscriptViewport.live (VP-19 · EP-8 ⑩)', () => {
     expect(advances).not.toHaveBeenCalled()
     expect(partsReads).toBe(0)
     expect(dom.query('[data-transcript-viewport]')).toBe(viewport)
-    expect(dom.query('[data-index="0"]')).toBe(historicalRow)
+    const stableRow = dom.query('[data-index="' + historicalIndex + '"]')
+    expect(stableRow).toBe(historicalRow)
+    expect(stableRow?.getAttribute('data-block-key')).toBe(historicalKey)
+    expect(stableRow?.textContent).toBe(historicalText)
 
     dom.act(() =>
       ingestChatEvent({
