@@ -9,6 +9,13 @@ import { TweakProvider } from '@renderer/shared/theme/TweakProvider'
 import { installNativeFixture, nativeCalls } from '../fixtures/opencode-ui/native'
 import { resetScenario, swapSession } from '../fixtures/opencode-ui/scenarios'
 import { measureArtifacts } from './artifact'
+import {
+  pairedBounds,
+  layerOffset,
+  firstVisibleParagraph,
+  readingDelta,
+  type PairedBounds
+} from './observations.mjs'
 import { measureSurfaces } from './surfaces'
 import css from '@renderer/styles/app.css?inline'
 
@@ -31,8 +38,8 @@ function renderApp(): void {
 }
 renderApp()
 type Measurement = { name: string; ok: boolean; [field: string]: unknown }
-type FrameSample = { width: number; seam: number; hostError: number; x: number }
-type Reversal = { when: (sample: FrameSample) => boolean; action: () => void }
+type Reversal<T> = { when: (sample: T) => boolean; action: () => void }
+type Step = (name: string) => void
 
 const frame = (): Promise<number> =>
   new Promise<number>((resolve) => requestAnimationFrame(resolve))
@@ -52,62 +59,33 @@ function setKind(agentKind: 'code' | 'work'): void {
     }
   })
 }
-async function geometry(
+async function observeFrames<T = never>(
   action: () => void,
-  reverse?: Reversal
-): Promise<{
-  samples: FrameSample[]
-  reversedAt?: FrameSample
-  first: number
-  last: number
-  seam: number
-  hostError: number
-}> {
-  const f = frameNode(),
-    pane = find('[data-chat-pane-content]'),
-    host = find('[data-side-pane-host]')
-  const samples: FrameSample[] = []
-  const read = (): void => {
-    const a = pane.getBoundingClientRect(),
-      b = f.getBoundingClientRect(),
-      outer = host.getBoundingClientRect()
-    const target = active()
-    samples.push({
-      width: b.width,
-      seam: b.left - a.right,
-      hostError: Math.max(
-        Math.abs(outer.left - a.left),
-        Math.abs(outer.right - b.right),
-        Math.abs(outer.width - a.width - b.width)
-      ),
-      x: target
-        ? target.getBoundingClientRect().x - (target.parentElement?.getBoundingClientRect().x ?? 0)
-        : 0
-    })
+  read?: () => T,
+  reverse?: Reversal<T>
+): Promise<{ samples: T[]; reversedAt?: T; count: number }> {
+  const samples: T[] = []
+  let count = 0
+  const sample = (): void => {
+    count++
+    if (read) samples.push(read())
   }
-  read()
+  sample()
   flushSync(action)
   let start = performance.now()
-  let reversedAt: FrameSample | undefined
+  let reversedAt: T | undefined
   do {
-    read()
-    const current = samples[samples.length - 1]
-    if (reverse && !reversedAt && reverse.when(current)) {
+    sample()
+    const current = samples.at(-1)
+    if (reverse && reversedAt === undefined && current !== undefined && reverse.when(current)) {
       reversedAt = current
       flushSync(reverse.action)
       start = performance.now()
     }
     await frame()
-  } while (samples.length < 20 || performance.now() - start < 380)
-  read()
-  return {
-    samples,
-    reversedAt,
-    first: samples[0].width,
-    last: samples.at(-1)!.width,
-    seam: Math.max(...samples.map((row) => Math.abs(row.seam))),
-    hostError: Math.max(...samples.map((row) => row.hostError))
-  }
+  } while (count < 20 || performance.now() - start < 380)
+  sample()
+  return { samples, reversedAt, count }
 }
 function scroller(): HTMLElement {
   let node = find('[data-transcript-viewport]').parentElement
@@ -117,38 +95,29 @@ function scroller(): HTMLElement {
   return node
 }
 
-async function measureReading(): Promise<Measurement> {
+async function measureReading(step: Step): Promise<Measurement> {
+  step('reading-position')
   const element = scroller()
   element.dispatchEvent(new WheelEvent('wheel', { deltaY: -500, bubbles: true }))
   element.scrollTop = Math.round((element.scrollHeight - element.clientHeight) * 0.6)
   await waitFrames(5)
-  const rect = element.getBoundingClientRect()
-  const visible = Array.from(element.querySelectorAll<HTMLElement>('p')).filter((p) => {
-    const y = p.getBoundingClientRect().top - rect.top
-    return y >= 0 && y < element.clientHeight - 20 && !!p.textContent?.trim()
-  })
-  const anchor = visible[0]
+  step('reading-select')
+  const anchor = firstVisibleParagraph(element)
   if (!anchor) return { name: 'pairedWidth-reading', ok: false, error: 'No visible paragraph' }
-  const key = anchor.closest('[data-block-key]')?.getAttribute('data-block-key')
-  const text = anchor.textContent
-  const y = anchor.getBoundingClientRect().top
-  const motion = await geometry(() => panelActions.close())
-  const end = Array.from(element.querySelectorAll<HTMLElement>('p')).find(
-    (p) =>
-      p.textContent === text &&
-      p.closest('[data-block-key]')?.getAttribute('data-block-key') === key
-  )
-  const delta = end ? end.getBoundingClientRect().top - y : null
+  step('reading-panel-close')
+  const motion = await observeFrames(() => panelActions.close())
+  step('reading-verify')
+  const delta = readingDelta(element, anchor)
   return {
     name: 'pairedWidth-reading',
     ok: delta !== null && Math.abs(delta) <= 2,
     delta,
-    key,
-    frames: motion.samples.length
+    key: anchor.key,
+    frames: motion.count
   }
 }
 
-async function measureSessionSwitches(): Promise<Measurement[]> {
+async function measureSessionSwitches(step: Step): Promise<Measurement[]> {
   const root = frameNode()
   const records: Measurement[] = []
   const targets = [
@@ -159,24 +128,29 @@ async function measureSessionSwitches(): Promise<Measurement[]> {
     ['opencode-to-claude', 'claude', 'code']
   ] as const
   for (const [name, backend, agentKind] of targets) {
+    step('switch-' + name + '-setup')
     const oldLayer = active()
-    const measurement = await geometry(() => {
-      useChatStore.setState((state) => {
-        const key = Object.keys(state.sessions).find((k) => k !== state.activeKey)!
-        const entry = state.sessions[key]
-        return {
-          sessions: {
-            ...state.sessions,
-            [key]: {
-              ...entry,
-              session: { ...entry.session, backend, agentKind, providerKey: backend + ':fixture' }
+    const measurement = await observeFrames(
+      () => {
+        useChatStore.setState((state) => {
+          const key = Object.keys(state.sessions).find((k) => k !== state.activeKey)!
+          const entry = state.sessions[key]
+          return {
+            sessions: {
+              ...state.sessions,
+              [key]: {
+                ...entry,
+                session: { ...entry.session, backend, agentKind, providerKey: backend + ':fixture' }
+              }
             }
           }
-        }
-      })
-      swapSession()
-    })
-    const minWidth = Math.min(...measurement.samples.map((s) => s.width))
+        })
+        step('switch-' + name)
+        swapSession()
+      },
+      () => root.getBoundingClientRect().width
+    )
+    const minWidth = Math.min(...measurement.samples)
     records.push({
       name: 'switch-' + name,
       ok:
@@ -199,36 +173,36 @@ async function measureLifecycle(): Promise<Measurement> {
     flushSync(() => root.render(null))
     useRightPanelStore.setState(useRightPanelStore.getInitialState(), true)
     renderApp()
-    await geometry(() => {})
+    await observeFrames(() => {})
   }
 
-  await geometry(() => resetScenario('session-switch-anchor', 'claude'))
-  await geometry(() => panelActions.close())
+  await observeFrames(() => resetScenario('session-switch-anchor', 'claude'))
+  await observeFrames(() => panelActions.close())
   const originalFrame = frameNode()
-  await geometry(() => chatActions.toggleRightPanelTile('plan'))
-  await geometry(() => chatActions.toggleRightPanelTile('diff'))
-  await geometry(() => chatActions.toggleRightPanelTile('subagent'))
+  await observeFrames(() => chatActions.toggleRightPanelTile('plan'))
+  await observeFrames(() => chatActions.toggleRightPanelTile('diff'))
+  await observeFrames(() => chatActions.toggleRightPanelTile('subagent'))
   const pushed = stack()
-  await geometry(() => find('[data-panel-back]').click())
+  await observeFrames(() => find('[data-panel-back]').click())
   const popped = stack()
   const originalWidth = frameNode().getBoundingClientRect().width
-  await geometry(() =>
+  await observeFrames(() =>
     find('[role=separator]').dispatchEvent(
       new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })
     )
   )
   const savedWidth = frameNode().getBoundingClientRect().width
-  await geometry(() => {
+  await observeFrames(() => {
     swapSession()
     setKind('work')
   })
   const switched = stack()
   const retainedFrame = frameNode() === originalFrame
-  await geometry(() => panelActions.close())
+  await observeFrames(() => panelActions.close())
   await restartRenderer()
   const restoredClosed = stack().length === 0 && frameNode().getBoundingClientRect().width === 0
-  await geometry(swapSession)
-  await geometry(() => chatActions.toggleRightPanelTile('diff'))
+  await observeFrames(swapSession)
+  await observeFrames(() => chatActions.toggleRightPanelTile('diff'))
   const beforeOpenRestart = stack()
   const oldFrame = frameNode()
   await restartRenderer()
@@ -267,7 +241,7 @@ Object.assign(window, {
   measureSurfaces,
   measureLifecycle,
   async checkClampedWidth() {
-    await geometry(() => {})
+    await observeFrames(() => {})
     const width = frameNode().getBoundingClientRect().width
     const available = find('[data-side-pane-host]').clientWidth
     const target = Math.min(available - 240, 960)
@@ -276,16 +250,19 @@ Object.assign(window, {
   async checkEqualWidths() {
     for (const kind of ['work', 'code'] as const) {
       flushSync(() => setKind(kind))
-      await geometry(() => {})
+      await observeFrames(() => {})
       flushSync(() =>
         find('[role=separator]').dispatchEvent(
           new KeyboardEvent('keydown', { key: 'Home', bubbles: true })
         )
       )
-      await geometry(() => {})
+      await observeFrames(() => {})
     }
-    const switched = await geometry(() => setKind('work'))
-    const widths = switched.samples.map((s) => s.width)
+    const panel = frameNode()
+    const { samples: widths } = await observeFrames(
+      () => setKind('work'),
+      () => panel.getBoundingClientRect().width
+    )
     return { name: 'kindWidth-equal', ok: widths.every((width) => width === 320), widths }
   },
   async preparePanelDrag() {
@@ -293,7 +270,7 @@ Object.assign(window, {
       setKind('code')
       panelActions.tile('plan')
     })
-    await geometry(() => {})
+    await observeFrames(() => {})
     const separator = find('[role=separator]')
     const rect = separator.getBoundingClientRect()
     dragStart = nativeCalls.length
@@ -323,10 +300,10 @@ Object.assign(window, {
       .filter(Boolean)
       .at(-1)
     flushSync(() => setKind('work'))
-    await geometry(() => {})
+    await observeFrames(() => {})
     const work = frameNode().getBoundingClientRect().width
     flushSync(() => setKind('code'))
-    await geometry(() => {})
+    await observeFrames(() => {})
     const restored = frameNode().getBoundingClientRect().width
     return {
       name: 'native-drag-mode-persistence',
@@ -364,30 +341,36 @@ Object.assign(window, {
       name: string,
       action: () => void,
       target: number,
-      reverse?: Reversal
+      reverse?: Reversal<PairedBounds>
     ): Promise<void> => {
       step(name)
-      const m = await geometry(action, reverse)
+      const panel = frameNode()
+      const pane = find('[data-chat-pane-content]')
+      const host = find('[data-side-pane-host]')
+      const m = await observeFrames(action, () => pairedBounds(pane, panel, host), reverse)
+      const first = m.samples[0].width
+      const last = m.samples.at(-1)!.width
+      const seam = Math.max(...m.samples.map((row) => Math.abs(row.seam)))
+      const hostError = Math.max(...m.samples.map((row) => row.hostError))
       const intermediates = m.samples.filter(
-        ({ width }) =>
-          Math.min(m.first, target) + 1 < width && width < Math.max(m.first, target) - 1
+        ({ width }) => Math.min(first, target) + 1 < width && width < Math.max(first, target) - 1
       ).length
       const motion = reverse ? !!m.reversedAt : reduced ? intermediates === 0 : intermediates > 0
       records.push({
         name,
         ok:
           frameElement === frameNode() &&
-          near(m.last, target) &&
-          m.seam <= 1 &&
-          m.hostError <= 1 &&
+          near(last, target) &&
+          seam <= 1 &&
+          hostError <= 1 &&
           motion,
         frames: m.samples.length,
-        first: m.first,
-        last: m.last,
+        first,
+        last,
         intermediates,
         reversedWidth: m.reversedAt?.width,
-        hostError: m.hostError,
-        seam: m.seam
+        hostError,
+        seam
       })
     }
     const bottom = scroller()
@@ -404,41 +387,40 @@ Object.assign(window, {
       bottomAfter
     })
     step('depth-forward')
-    const forward = await geometry(() => panelActions.tile('diff'))
+    const depth = (): number => layerOffset(active())
+    const forward = await observeFrames(() => panelActions.tile('diff'), depth)
     const goBack = find('[data-panel-back]')
     records.push({
       name: 'depth-forward',
       ok:
         active()?.dataset.rightPanelLayer === 'diff' &&
         !!goBack &&
-        (reduced
-          ? forward.samples.every((s) => near(s.x, 0))
-          : forward.samples.some((s) => s.x > 1)),
-      forward: forward.samples.map((s) => s.x)
+        (reduced ? forward.samples.every((x) => near(x, 0)) : forward.samples.some((x) => x > 1)),
+      forward: forward.samples
     })
     step('depth-back')
-    const back = await geometry(() => goBack?.click())
+    const back = await observeFrames(() => goBack?.click(), depth)
     records.push({
       name: 'depth-back',
       ok:
         active()?.dataset.rightPanelLayer === 'plan' &&
-        (reduced ? back.samples.every((s) => near(s.x, 0)) : back.samples.some((s) => s.x < -1)),
-      back: back.samples.map((s) => s.x)
+        (reduced ? back.samples.every((x) => near(x, 0)) : back.samples.some((x) => x < -1)),
+      back: back.samples
     })
     step('depth-interrupt')
-    const interrupted = await geometry(() => panelActions.tile('diff'), {
-      when: ({ x }) => reduced || (x > 1 && x < (active()?.clientWidth ?? 0) - 1),
+    const interrupted = await observeFrames(() => panelActions.tile('diff'), depth, {
+      when: (x) => reduced || (x > 1 && x < (active()?.clientWidth ?? 0) - 1),
       action: () => panelActions.back()
     })
     const activeLayers = document.querySelectorAll('[data-right-panel-layer]:not([inert])')
     records.push({
       name: 'depth-interrupt',
       ok:
-        !!interrupted.reversedAt &&
+        interrupted.reversedAt !== undefined &&
         activeLayers.length === 1 &&
         active()?.dataset.rightPanelLayer === 'plan' &&
         useRightPanelStore.getState().stack.at(-1)?.kind === 'tile',
-      reversedX: interrupted.reversedAt?.x,
+      reversedX: interrupted.reversedAt,
       frames: interrupted.samples.length
     })
     await widthCheck('pairedWidth-close', () => panelActions.close(), 0)
@@ -453,7 +435,7 @@ Object.assign(window, {
     const separator = find('[role=separator]')
     const writesBefore = nativeCalls.length
     separator?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
-    await geometry(() => {})
+    await observeFrames(() => {})
     const codeWidth = frameNode().getBoundingClientRect().width
     records.push({
       name: 'resize-persistence',
@@ -464,11 +446,10 @@ Object.assign(window, {
     })
     await widthCheck('mode-width-work', () => setKind('work'), 360)
     await widthCheck('mode-width-code', () => setKind('code'), codeWidth)
-    step('pairedWidth-reading')
-    records.push(await measureReading())
-    await geometry(() => panelActions.tile('diff'))
-    step('session-switches')
-    records.push(...(await measureSessionSwitches()))
+    records.push(await measureReading(step))
+    step('reading-reopen-diff')
+    await observeFrames(() => panelActions.tile('diff'))
+    records.push(...(await measureSessionSwitches(step)))
     longTasks.push(...observer.takeRecords())
     records.push({
       name: 'long-task-observation',
@@ -476,6 +457,15 @@ Object.assign(window, {
       durations: longTasks.map((e) => e.duration),
       operations: longTasks.map(
         (e) => steps.findLast((s) => s.start <= e.startTime)?.name ?? 'initial'
+      ),
+      // One task can straddle fixture setup, a user action and the next observation.
+      phases: longTasks.map((e) =>
+        steps
+          .filter(
+            (s, i) =>
+              s.start < e.startTime + e.duration && (steps[i + 1]?.start ?? Infinity) > e.startTime
+          )
+          .map((s) => s.name)
       )
     })
     observer.disconnect()
