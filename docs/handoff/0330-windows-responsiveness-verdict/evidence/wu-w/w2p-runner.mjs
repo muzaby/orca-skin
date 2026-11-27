@@ -8,6 +8,7 @@ import { execSync, spawn } from 'node:child_process'
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
+import { cardGuard, cardsTaken, writeTrace } from './cdp-lib.mjs'
 
 const SHAS = { d8684684: 'd86846844dc9ea092f394f942621b78dc3d50e02', '515ff58d': '515ff58d60eb5d76744cc34aaad20bc7f186d928' }
 const SIDE = { d8684684: 'before', '515ff58d': 'after' }
@@ -61,6 +62,7 @@ async function page() {
         const c = client(t.webSocketDebuggerUrl); await c.open
         const evaluate = async (expression) => { const r = await c.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text); return r.result.value }
         for (let k = 0; k < 60 && !(await evaluate(`!!${TEXTAREA}`).catch(() => false)); k++) await sleep(1000)
+        await evaluate(cardGuard(process.env.OO_CARD_POLICY || 'deny')).catch(() => {})
         await sleep(1500)
         return { c, evaluate }
       }
@@ -165,8 +167,9 @@ try {
   const checks = SIDE[sha8] === 'after' ? `applied-once-correct-session=${ok ? 'ok' : 'fail'}` : ''
   mkdirSync(rawDir, { recursive: true })
   const file = runId + '.json'
-  writeFileSync(join(rawDir, file), JSON.stringify({ traceEvents: r.kept, metadata: { startedAt: r.startedAt, endedAt: r.endedAt, steps: r.steps, sidA, sidB, checkA: a, checkB: bb, totalEvents: r.total, kept: 'measure-mark pid + metadata', source: 'w2p-runner.mjs CDP Tracing + CDP synthetic input' } }))
-  appendFileSync(runsheet, ['0330', 'W2p', 'live-large-turn', load, harness, 'diagnostic', SIDE[sha8], SHAS[sha8], repeat, runId, r.startedAt, r.endedAt, file, checks, 'CDP 합성 입력 · A ' + JSON.stringify(a) + ' · B ' + JSON.stringify(bb) + ' · ' + r.steps.map((x) => x.step).join('>')].join('\t') + '\n')
+  const cards = await p.evaluate(cardsTaken).catch(() => [])
+  writeTrace(join(rawDir, file), r.kept, { cards, startedAt: r.startedAt, endedAt: r.endedAt, steps: r.steps, sidA, sidB, checkA: a, checkB: bb, totalEvents: r.total, kept: 'measure-mark pid + metadata', source: 'w2p-runner.mjs CDP Tracing + CDP synthetic input' })
+  appendFileSync(runsheet, ['0330', 'W2p', 'live-large-turn', load, harness, 'diagnostic', SIDE[sha8], SHAS[sha8], repeat, runId, r.startedAt, r.endedAt, file, checks, 'CDP 합성 입력 · A ' + JSON.stringify(a) + ' · B ' + JSON.stringify(bb) + ' · ' + r.steps.map((x) => x.step).join('>') + ' · 카드 ' + cards.length + (cards.length ? ' ' + JSON.stringify(cards.map((c) => c.kind + '→' + c.action)) : '')].join('\t') + '\n')
   log('ok', JSON.stringify({ a, b: bb, steps: r.steps.map((x) => x.step) }))
   p.c.close()
 } catch (e) { log('FAIL', e.message); code = 1 } finally { killDiag() }

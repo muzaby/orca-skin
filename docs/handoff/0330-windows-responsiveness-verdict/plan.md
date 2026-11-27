@@ -14,7 +14,7 @@
 | 항목 | 값 |
 |---|---|
 | slug · 작성 · 일자 | `0330-windows-responsiveness-verdict` · Codex(V1) → Claude Code(V1 rev 2·rev 3) · 2026-11-20 / 2026-11-26 |
-| 상태 | **impl/IN_PROGRESS — ΔV5+ΔV6 r5(VP-25 v3 재확인·파일럿 남음) · H1 잠금 `61fe6398`.** ΔV3·ΔV4는 verify 4 PASS. WU-M은 verify 3 PASS. ΔV3은 W-004 합의값(W-041)·실측 순서(W-042)·S-E 대상 시드 도구(W-043)·셀 생성기(W-044)를 더한다. 시드 도구 구현 → verify 4 → H1 잠금 → WU-W 1단계. |
+| 상태 | **impl/IN_PROGRESS — WU-W 1단계 중지(사용자 지시) · 중간 결과 §26.** 130/429 run 기록(유효 128). W1 위반 · W2 충족 11/미판정 1 · W2′ Claude ok · W2″ 강조 없음(결함 후보) · W3′ 방식 재설계 필요. OpenCode는 무료 사용량 한도로 보류. |
 | 기준 트리 | `ff5c6b02`(PR #655 head). 앱 코드는 `eae9081b`와 같다(`git diff --quiet eae9081b ff5c6b02 -- app` → exit 0). V1의 기준 `62125eaa`는 PR 이력에 없어 rev 2가 대체했다. |
 | V mode · 기준 V · revision | **Delta V** — 기준 `V1 rev 7`(설계 `a8bbe99a`, 구현 r1 `ae27c4f7`·`f5ce4ca9`, verify 1 `b7e59da4` — 모두 PR #655 브랜치, `main` 미병합) · revision **ΔV1**(§20, 설계 `99d4def2` · 구현 r2 `40a545e4`·`8e3384e7` · verify 2 `cd622326`) · revision **ΔV2**(§21, 설계 `d77d3f3c` · 구현 r3 `515ff58d`·`07377db7` · verify 3 `18b5d5fe`) · revision **ΔV3**(§22, 설계 `7d4e6b60` · 구현 r4 `ebb69702`) · 이번 revision **ΔV4**(§23) · 유효 V = `V1 rev 7 + ΔV1 + ΔV2 + ΔV3 + ΔV4`. rev 1~6 = `a680ee0`·`ff5c6b02`·`4eb44249`·`cda149e3`·`13c41374`·`33760ca6` |
 | 작업 단위와 판정 구분 | §7-A “세 구분” 표가 정본이다(W-018) — WU-M 기계(지금) · 참고 기준선(0325 AC19, 지금) · WU-W 실측(W-004 뒤). |
@@ -886,6 +886,54 @@ Windows 디스플레이 설정에서 모니터·해상도·Hz·배율, 한국어
 | E3′ | `DrawFrame`·`DroppedFrame` · `frameSeqId`로 묶음 · 주 스레드 pid만 · 같은 seq 둘 다 → 누락 · `PipelineReporter` 무시 | 실제 발췌 fixture(`probe-min.json` — 두 렌더러의 DrawFrame·DroppedFrame·PipelineReporter·표식) → 앱 pid 값 · 다른 pid 프레임 섞음 · 같은 seq에 Draw+Dropped · PipelineReporter만 있는 입력 → 프레임 0 |
 
 선택 적대 증거(ΔV6): A-E1′ 표식 pid 대신 RunTask 최다로 되돌림 · A-E3′ pid 필터 제거 · A-E3″ 같은 seq 우선순위를 표시로 뒤집기.
+
+## 26. WU-W 진행 경과 — 중간 결과 (2026-11-27 · 사용자 지시로 중지)
+
+**판정: 진행 중 · 전체 판정 보류.** H1 잠금(`61fe6398`, `lockedAt 2026-11-26T11:11:41.678Z`) 뒤 1단계(W-042) 429 run 중 **130 run을 기록**했다(유효 128 — W1 2 run 재실행 필요). 입력은 W-053(CDP 합성 입력)이다. 원본 trace는 저장소 밖 `C:\orca-W\phase1\raw`(약 6GB)이고 SHA-256·실행표·관측은 [`evidence/wu-w/phase1/`](evidence/wu-w/phase1/README.md)에 있다.
+
+### 26-A. 시나리오별 상태
+
+| 시나리오 | 계획 | 기록 | 셀 판정(이후 빌드) | 근거 |
+|---|---|---|---|---|
+| W1 긴 대화 입력·휠·드래그 | 36 | 36 | **위반 6/6** — D-109 ② ≥160ms 정지·④ 연속 누락 ≥3 | 3 하네스 × history-1/100 모두 타이핑 멈춘 1초 뒤 290~460ms 정지·15~24 연속 누락. 이전 빌드도 같다(기존 동작) |
+| W2 열기·상단 당김 | 36 | 36 | **충족 11 · 미판정 1** | 제스처당 이전 턴 ≤1 6/6 · 읽던 글줄 0.15~0.27px 5/6 · OpenCode history-1은 첫 페이지가 두 턴을 다 담아 앞삽입 없음 |
+| W2′ 읽는 중 live 결과 | 18 | 12 | Claude 확인 값 ok 6/6 · OpenCode 보류 | A→B→A 뒤 A에 P1 1회·답 끝 도착, B에 흔적 없음 |
+| W2″ 검색 결과 클릭·Enter | 36 | 24 | **강조 없음 12/12**(결함 후보) · OpenCode 보류 | 검색 보기는 63턴을 바르게 열지만 `data-history-highlight` 설정 0회(MutationObserver) |
+| W3′ 긴 Markdown 꼬리 | 54 | 22 | ok 5 · NaN 6 — 측정 방식 재설계 필요(26-C) | 모델이 단어 수 지시를 지키지 않아 꼬리 길이가 구간을 벗어남 |
+| W3 드래그 복사 | 72 | 0 | — | 도구 호출 500개 세션·5만 줄 Git 저장소 준비 전 |
+| W4 이미지 5장 첨부·전환 | 18 | 0 | — | 드라이버 작성(`w4-runner.mjs`), 시험 전 |
+| W4′ 목록·패널·설치 로그 | 6 | 0 | — | 드라이버 미작성 |
+| 0326 S1~S9 | 153 | 0 | — | 드라이버 미작성 |
+
+### 26-B. 발견 (새 handoff 후보 표에 등록 — INDEX `0330` 행)
+
+| # | 발견 | 관측 | 소유 |
+|---|---|---|---|
+| 1 | 컴포저 입력창 맞춤법 검사가 렌더러를 ~300ms 막는다 | `probe-cause.mjs`: 타이핑만 290ms · 휠만 없음 · `spellcheck=false` 없음. 정지 작업 안은 `Receive mojo reply`뿐 | 0328 |
+| 2 | 검색 결과 선택 시 대상 행 강조가 붙지 않는다 | 검색 보기 블록 키 `m:170:user`(로컬 행) vs 일반 열기 `n:<uuid>` — `TranscriptViewport.tsx:352` `targetBlock`이 비는 것으로 추정 | 0329 |
+| 3 | 앞삽입이 반영되는 한 프레임 동안 읽던 글자가 한 턴 높이만큼 내려갔다 다음 프레임에 보정된다 | `probe-glyph.json` 첫 프레임 +166.7~190.7px → +0.3px | 관찰(D-016 판정 밖) |
+| 4 | OpenCode 하네스는 사용자 전역 설정(`Sisyphus - ultraworker` 에이전트)을 따라 짧은 지시에도 도구·긴 작업을 한다 | `opencode.log` | 관찰 |
+
+### 26-C. 측정 방식 정정 이력 (판정에 쓰지 않은 run은 `discarded/`)
+
+| 정정 | 원인 | 처리 |
+|---|---|---|
+| W2 읽던 위치: 요소 top → 화면 가운데 줄 글자 | 앞삽입 뒤 최신 메시지에 시각 행이 붙어 요소 top만 23.7px 움직였다 — 첫 "위반" 보고는 측정 오류 | 새 빌드 18 run 재측정 |
+| W2 history-1 최신 턴을 화면보다 길게(80줄 코드 블록) | 짧은 턴은 본문이 넘치지 않아 읽던 위치를 잴 수 없음 | 18 run 재측정 |
+| 100턴 Claude 세션 원본(jsonl)을 실행마다 복원 | 앞 run의 P1 답이 쌓여 최신 턴이 3,000줄이 됨 | 템플릿 재생성 |
+| 권한·계획·질문 카드 자동 처리(`cdp-lib.mjs`) | P1·lorem 지시에 Claude가 PowerShell 도구를 써 승인 카드에서 멈춘 run 5건(W1 2 · W3′ 3). 사용자가 한 카드를 직접 허용 | W3′ 1차 전부 폐기, W1 2 run 재실행 예정. 이후 run은 실행표에 카드 수 기록 |
+| 큰 trace 분할 저장 | 50,000자 구간 trace가 `Invalid string length`로 저장 실패 | `writeTrace` |
+| W3′ 꼬리 길이: lorem 잎 요소 최대 길이 | 이전 빌드는 `data-part-key`가 없고, 전체 innerText는 같은 글을 두 번 셈 | 적용 |
+| **W3′ 미해결** | 모델이 `lorem × N` 지시를 지키지 않음 — 7,500 요청에 ~124k자, 10,000 요청에 ~600자 | 꼬리 길이를 결정적으로 만드는 방법(예: 응답 대신 산출물·고정 본문 붙여넣기) 재설계 필요 |
+
+### 26-D. 막힌 것
+
+- **OpenCode 무료 모델 사용량 한도**: `opencode.log` `Free usage limit reached`(Big Pickle·DeepSeek·GLM 모두). OpenCode 36 run(W2′ 6 · W2″ 12 · W3′ 18)은 한도가 풀리거나 다른 모델로 바꾸는 결정 뒤에 돈다.
+- **판독기 처리 시간**: 관측마다 큰 trace를 다시 해시·파싱해 36 run 판정에 10분 이상. 판정은 시나리오별 실행표로 나눠 돌린다.
+
+### 26-E. 남은 일
+
+1단계 301 run(W1 재실행 2 · W2′/W2″ OpenCode 18 · W3′ 32 · W3 72 · W4 18 · W4′ 6 · 0326 S1~S9 153) → 1단계 결과표(H6) → verify 5(ΔV3~ΔV7) → 사용자 최종 확정(W-001) → 2단계(0325 AC19 · 0327 · 0328 · 0329 · Node 107행).
 
 ## READY self-review
 
