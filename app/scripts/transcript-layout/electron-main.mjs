@@ -20,11 +20,27 @@ app.whenReady().then(async () => {
           ...['text', 'reasoning', 'ask', 'error', 'compact'].map((kind) => 'matrix-c4-' + kind),
           'errorRun',
           'errorLive',
+          'acceptedFailures',
+          'reopenedFailures',
           'editStat'
         ]
       ],
-      ['claude-work', ['workDot', 'workNote', 'matrix-w3', 'errorRun']],
-      ['opencode-code', ['matrix-o1', 'matrix-o2', 'matrix-o3', 'matrix-o4', 'editStat']]
+      [
+        'claude-work',
+        ['workDot', 'workNote', 'matrix-w3', 'errorRun', 'acceptedFailures', 'reopenedFailures']
+      ],
+      [
+        'opencode-code',
+        [
+          'matrix-o1',
+          'matrix-o2',
+          'matrix-o3',
+          'matrix-o4',
+          'editStat',
+          'acceptedFailures',
+          'reopenedFailures'
+        ]
+      ]
     ])
       for (const scenario of scenarios) {
         try {

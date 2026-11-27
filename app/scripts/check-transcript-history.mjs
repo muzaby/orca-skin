@@ -226,10 +226,18 @@ try {
     throw Error('Electron binary unavailable')
   }
   if (process.argv.includes('--layout')) {
-    server = await serveProbe('transcript-layout')
+    const { acceptedFailures } = await import('./transcript-layout/accepted-failures.mjs')
+    server = await serveProbe('transcript-layout', {
+      'import.meta.env.VITE_LAYOUT_FAILURES': JSON.stringify(await acceptedFailures())
+    })
     const result = await runElectron(binary, server.origin, 'transcript-layout', SCREENS, 1)
     console.log(JSON.stringify(result))
-    process.exitCode = result.records?.length === 8 && result.records.every((row) => row.ok) ? 0 : 1
+    process.exitCode =
+      result.records?.length === 27 &&
+      new Set(result.records.map((row) => row.screen + '/' + row.scenario)).size === 27 &&
+      result.records.every((row) => row.ok)
+        ? 0
+        : 1
   } else {
     server = await serveProbe('transcript-history', {
       'import.meta.env.VITE_OO_DIAGNOSTIC': JSON.stringify('1')

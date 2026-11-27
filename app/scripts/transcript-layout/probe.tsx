@@ -6,6 +6,7 @@ import { chatActions, ingestChatEvent, useChatStore } from '@renderer/features/c
 import { HarnessScrollController } from '@renderer/features/chat/components/transcript/HarnessScrollController'
 import { TranscriptView } from '@renderer/features/chat/components/transcript/TranscriptView'
 import { chatReducer } from '@renderer/features/chat/reducer/chatReducer'
+import { capture, measureAccepted, scrollToPosition } from './failure-cards'
 import appCss from '@renderer/styles/app.css?inline'
 
 const query = new URLSearchParams(location.search)
@@ -14,7 +15,9 @@ const [backend, agentKind] = query.get('screen')!.split('-') as [
   'code' | 'work'
 ]
 const scenario = query.get('scenario')
-const id = 'transcript-layout'
+const accepted = scenario === 'acceptedFailures' || scenario === 'reopenedFailures'
+const reopened = scenario === 'reopenedFailures'
+const id = accepted ? capture.id : 'transcript-layout'
 const error = { category: 'stream_error' as const, message: 'Fixture failure', retryable: false }
 const text = (text: string): AppMessagePart => ({ type: 'text', text })
 const call = (toolRunId: string, toolName: string, args: unknown): AppMessagePart => ({
@@ -129,14 +132,24 @@ function fixture(): LoadedMessage[] {
 Object.assign(window, {
   oo: {
     session: {
-      load: async () => ({
-        id,
-        backend,
-        agentKind,
-        title: id,
-        messages: fixture(),
-        complete: true
-      }),
+      page: async ({ cursor }: { cursor: string }) => {
+        const page = capture.before.find((p) => p.cursor === cursor)
+        if (!page) throw Error('unexpected history cursor')
+        return page.reply
+      },
+      load: async () =>
+        accepted
+          ? reopened
+            ? capture.reopened
+            : capture.initial
+          : {
+              id,
+              backend,
+              agentKind,
+              title: id,
+              messages: fixture(),
+              complete: true
+            },
       refresh: async () => ({ status: 'unchanged' })
     },
     settings: { set: async () => ({}) },
@@ -218,9 +231,11 @@ Object.assign(window, {
         work: work.length
       }
     }
+    if (accepted) return measureAccepted(reopened)
     if (scenario === 'errorLive') {
       const gaps: number[] = []
       const counts: number[] = []
+      const stored: number[] = []
       for (let i = 0; i < 3; i++) {
         flushSync(() => {
           useChatStore.setState((s) => {
@@ -237,22 +252,46 @@ Object.assign(window, {
         await frame()
         const errors = all('[data-transcript-error]')
         counts.push(errors.length)
+        stored.push(
+          useChatStore
+            .getState()
+            .sessions[id].session.messages.filter((message) =>
+              message.parts.some((part) => part.type === 'error')
+            ).length
+        )
         if (errors.length >= 2) gaps.push(gap(errors.at(-2)!, errors.at(-1)!))
       }
       return {
-        ok: counts.join(',') === '4,5,6' && Math.max(...gaps) - Math.min(...gaps) <= 1,
+        ok: counts.join(',') === '4,4,4' && stored.every((n) => n === 3),
         counts,
+        stored,
         gaps
       }
     }
     if (scenario === 'errorRun') {
-      const rows = all('[data-transcript-error]')
-      const gaps = rows.slice(1).map((node, i) => gap(rows[i], node))
-      return {
-        ok: rows.length === 6 && Math.max(...gaps) - Math.min(...gaps) <= 1,
-        gaps,
-        rows: rows.length
+      const measure = (): { ok: boolean; rows: number; gaps: number[] } => {
+        const rows = all('[data-transcript-error]')
+        const gaps = rows.slice(1).map((node, i) => gap(rows[i], node))
+        const legacy = rows.every((row) =>
+          agentKind === 'work'
+            ? row.dataset.responseOutcome === 'aborted' && Boolean(row.innerText.trim())
+            : row.innerText.includes(error.message) && !row.dataset.failureId
+        )
+        return {
+          ok: legacy && rows.length === 6 && Math.max(...gaps) - Math.min(...gaps) <= 1,
+          gaps,
+          rows: rows.length
+        }
       }
+      const initial = measure()
+      for (const event of capture.steps.at(-1)!.events) {
+        if ('sessionId' in event) ingestChatEvent({ ...event, sessionId: id })
+      }
+      await scrollToPosition('middle')
+      const next = measure()
+      await scrollToPosition('bottom')
+      const hasSuccess = document.body.innerText.includes(capture.success)
+      return { ok: initial.ok && next.ok && hasSuccess, initial, next, hasSuccess }
     }
     if (scenario === 'editStat') {
       const ok = (values: string[]): boolean =>
