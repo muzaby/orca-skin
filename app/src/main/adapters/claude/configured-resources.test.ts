@@ -380,7 +380,9 @@ it('allows a nameless manifest only after an unambiguous SDK observation of that
   await json(join(path, '.claude-plugin/plugin.json'), {})
   await json(join(other, '.claude-plugin/plugin.json'), {})
   const registry = join(paths.root, 'plugins/installed_plugins.json')
-  const install = (installPath: string) => [{ scope: 'user', installPath }]
+  const install = (installPath: string): { scope: string; installPath: string }[] => [
+    { scope: 'user', installPath }
+  ]
   await json(registry, { plugins: { 'a@registry': install(path) } })
   expect((await globalClaudeResources(paths))[0].canToggle).toBe(false)
   observeClaudePluginNames([{ name: 'sdk-name', path }])

@@ -9,7 +9,7 @@ vi.mock('electron-store', () => ({ default: class {} }))
 vi.mock('../../adapters/claude/adapter', () => ({
   ClaudeAdapter: class {
     id = 'claude'
-    constructor(_control: unknown, _snapshots: unknown, preferences: () => unknown) {
+    constructor(_control: unknown, preferences: () => unknown) {
       captured.claude = preferences
     }
   }

@@ -18,7 +18,7 @@ vi.setConfig(scaledBudget({ testTimeout: 180_000, hookTimeout: 30_000 }))
 
 function streamMessage(response: ServerResponse, tool: string | undefined, argument: string): void {
   response.writeHead(200, { 'Content-Type': 'text/event-stream' })
-  const send = (event: string, value: object) =>
+  const send = (event: string, value: object): boolean =>
     response.write(`event: ${event}\ndata: ${JSON.stringify({ type: event, ...value })}\n\n`)
   send('message_start', {
     message: {
@@ -150,7 +150,7 @@ it.each(['command', 'hook', 'mcp', 'combined', 'native', 'external', 'builtin'])
     const installation = join(base, 'active-installation')
     const mark = join(base, 'hook-count')
     const calls = join(base, 'mcp-calls')
-    const put = async (file: string, body: string | object) => {
+    const put = async (file: string, body: string | object): Promise<void> => {
       await mkdir(dirname(file), { recursive: true })
       await writeFile(file, typeof body === 'string' ? body : JSON.stringify(body))
     }
@@ -181,7 +181,7 @@ it.each(['command', 'hook', 'mcp', 'combined', 'native', 'external', 'builtin'])
     const address = endpoint.address()
     if (!address || typeof address === 'string') throw new Error('fixture endpoint unavailable')
     const env = localClaudeEnvironment(nativeRoot, address.port)
-    const count = async (path: string) =>
+    const count = async (path: string): Promise<string[]> =>
       (await readFile(path, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean)
     let selected = true
     const key =
@@ -327,15 +327,13 @@ it('finishes the old responses in A and B and applies the saved choice to an ind
   ]
   const nativeIds: (string | null)[] = [null, null, null]
   const calls: string[] = []
-  const inputs = new Map<
-    string,
-    {
-      requests: { tools: string[]; messages: string }[]
-      entered: ReturnType<typeof Promise.withResolvers<void>>
-      release: ReturnType<typeof Promise.withResolvers<void>>
-      hold: boolean
-    }
-  >()
+  interface Input {
+    requests: { tools: string[]; messages: string }[]
+    entered: ReturnType<typeof Promise.withResolvers<void>>
+    release: ReturnType<typeof Promise.withResolvers<void>>
+    hold: boolean
+  }
+  const inputs = new Map<string, Input>()
   const endpoint = createServer(async (request, response) => {
     if (!request.url?.startsWith('/v1/messages') || request.url.includes('count_tokens')) {
       response
@@ -373,14 +371,22 @@ it('finishes the old responses in A and B and applies the saved choice to an ind
     const address = endpoint.address()
     if (!address || typeof address === 'string') throw new Error('fixture endpoint unavailable')
     const env = localClaudeEnvironment(root, address.port)
-    const start = (index: number, hold = false) => {
+    const start = (
+      index: number,
+      hold = false
+    ): {
+      entry: Input
+      token: string
+      done: Promise<void>
+      entered: Promise<void>
+    } => {
       const uuid = randomUUID()
       const token = 'probe-' + uuid
-      const entry = {
+      const entry: Input = {
         hold,
         entered: Promise.withResolvers<void>(),
         release: Promise.withResolvers<void>(),
-        requests: [] as { tools: string[]; messages: string }[]
+        requests: []
       }
       inputs.set(token, entry)
       const done = (async () => {
@@ -407,7 +413,7 @@ it('finishes the old responses in A and B and applies the saved choice to an ind
       void done.catch(() => undefined)
       return { entry, token, done, entered: Promise.race([entry.entered.promise, done]) }
     }
-    const verify = async (turn: ReturnType<typeof start>, enabled: boolean) => {
+    const verify = async (turn: ReturnType<typeof start>, enabled: boolean): Promise<void> => {
       await turn.done
       expect(turn.entry.requests[0].tools.includes(tool)).toBe(enabled)
       expect(turn.entry.requests[0].tools).toContain('Read')

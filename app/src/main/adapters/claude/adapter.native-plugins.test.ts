@@ -33,7 +33,7 @@ const fixture = vi.hoisted(() => ({
         error_count: 0
       })),
       mcpServerStatus: vi.fn<() => Promise<McpServerStatus[]>>(async () => []),
-      toggleMcpServer: vi.fn(async (_name: string, _enabled: boolean) => {}),
+      toggleMcpServer: vi.fn<(name: string, enabled: boolean) => Promise<void>>(async () => {}),
       close: vi.fn()
     }
   })

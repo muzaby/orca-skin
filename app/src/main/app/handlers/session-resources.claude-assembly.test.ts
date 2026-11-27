@@ -3,6 +3,7 @@ import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { NativeResources } from '../../../shared/native-resources'
 import { ClaudeAdapter } from '../../adapters/claude/adapter'
@@ -43,7 +44,12 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (o) => ({
   query: fx.query
 }))
 let temp = ''
-afterEach(() => rmSync(temp, { recursive: true, force: true }))
+afterEach(() => {
+  vi.restoreAllMocks()
+  fx.enabled.clear()
+  fx.messages.length = 0
+  rmSync(temp, { recursive: true, force: true })
+})
 const write = (p: string, v: unknown): void => {
   mkdirSync(dirname(p), { recursive: true })
   writeFileSync(p, JSON.stringify(v))
@@ -56,7 +62,7 @@ it(
     const cwd = join(temp, 'desk'),
       root = join(temp, 'claude')
     fx.root = join(temp, 'plugins')
-    mkdirSync(cwd, { recursive: true })
+    mkdirSync(join(cwd, '.git'), { recursive: true })
     const names = ['a', 'b', 'c']
     for (const name of names) {
       write(join(fx.root, name, '.claude-plugin/plugin.json'), { name })
@@ -69,6 +75,25 @@ it(
       plugins: Object.fromEntries(
         names.map((name) => [`${name}@m`, [{ scope: 'user', installPath: join(fx.root, name) }]])
       )
+    })
+    // The SDK's project-level reload methods are available on the Windows harness.
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    fx.messages.push({
+      type: 'system',
+      subtype: 'init',
+      session_id: 'S',
+      uuid: randomUUID(),
+      apiKeySource: 'none',
+      claude_code_version: 'test',
+      cwd,
+      tools: [],
+      mcp_servers: [],
+      model: 'fixture',
+      permissionMode: 'default',
+      slash_commands: [],
+      output_style: 'default',
+      skills: [],
+      plugins: names.map((name) => ({ name, path: join(fx.root, name) }))
     })
     const live = (await sendPrepared(new ClaudeAdapter(), {
       sessionId: null,
@@ -99,8 +124,16 @@ it(
         lookup: (id) => (id === 'S' ? live : undefined),
         projectSync: sync
       }) as typeof reader.read
+      await live.eventBatches[Symbol.asyncIterator]().next()
       sync.tick()
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await vi.waitFor(
+        () => {
+          expect(snapshots.at(-1)?.items.map((item) => [item.name, item.status])).toEqual(
+            names.map((name) => [name + '@m', 'enabled'])
+          )
+        },
+        { timeout: 5000 }
+      )
       write(join(cwd, '.claude/settings.local.json'), {
         enabledPlugins: { 'a@m': false, 'b@m': false }
       })

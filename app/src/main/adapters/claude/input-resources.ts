@@ -23,7 +23,12 @@ export function claudeInputResources(
   choices: Record<string, boolean>,
   plugins: ClaudePluginCatalog,
   nativeDefinitions: OoMcpConfig = {}
-) {
+): {
+  targets: Target[]
+  external: NonNullable<Options['mcpServers']>
+  runtimeTools: TurnExtensions['runtimeTools']
+  spawnKey: string
+} {
   const managed = extensions.managedMcp
   const targets: Target[] = []
   const servers = new Map(extensions.runtimeTools?.servers)
@@ -114,7 +119,7 @@ export async function applyClaudeInputResources(
   if (!targets.length) return
   const status = (): Promise<McpServerStatus[]> =>
     resourceQuery(() => query.mcpServerStatus(), 30_000)
-  const find = (rows: McpServerStatus[], target: Target) =>
+  const find = (rows: McpServerStatus[], target: Target): McpServerStatus | undefined =>
     rows.find((row) => row.name === target.name && target.sources.includes(row.source ?? ''))
   let rows = await status()
   for (const target of targets) {
