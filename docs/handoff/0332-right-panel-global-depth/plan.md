@@ -605,8 +605,8 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 03′·06·13·20′ | EP-4″ 스택 | §21 ①~⑨ | ① 닫힘→X, ② 토글 닫기, ③ 기존 층 pop-to, ④ push=`navigateStack`; ⑤ back·⑥ close·⑦ switchSession·⑧ commit(memory)=store; ⑨ 닫힌 산출물→[root,viewer]=`navigateStack` | `rightPanelStore.test.ts`의 E1~E8, AC6, A2/A8/A9 및 `Panel.lifecycle.test.ts` | 지원하지 않는 task→plan 뒤 OpenCode 복귀 시 task, 산출물 뒤로 시 기존 화면과 스크롤 | EP-4″ 사용자 연산 9/9 분기 대표 변이 검출 |
 | 04′·05·14 | EP-5 전환 | ① 열기 ② 닫기 ③ 모드·host ④ 드래그 | ①② `framePhase`·프레임의 outgoing/타이머, ③ `targetWidth`, ④ 프레임의 drag/finish | `rightPanelFrameState.test.ts`, Electron `pairedWidth`·`mode-width`·`resize-persistence` | 기본 360/520, host 690 시 450, 64px 드래그와 저장, 축소 모션 즉시 | — |
 | 07′·15 | EP-6′ 폐기 | 기준 60파일 421줄. src/scripts 전체 | 구 grid 로직·계약·액션·수명 테스트 대체 | §20-G 명령 0줄. 테스트 fixture에 sentinel을 심어 같은 명령 정확히 1줄 | production·테스트·시나리오 3경로 포함 | — |
-| 10·17·18 | EP-7·8 경계·깊이 | transcript/패널 공통 flex, 양방향 navigation, 중단/세션 이동 | 프레임만 폭 보간, 콘텐츠 층별 transform, 구 층 inert·aria-hidden | `check-right-panel.mjs`, `Panel.lifecycle.test.ts` | 읽기 위치·하단·폭·도착층 x·inactive·원점 버튼 | 일반 열기 2·닫기 3·종류별 폭 4/4 중간 표본. 읽던 글줄/하단 오차 0px. 두 모드 모두 외곽 경계와 폭 합 오차 0px |
-| 19 | EP-9 앱 전환 | 앱 셸·라우트, 페이지, 공통 UI, 기능별 소유자 | 아래 소유자 표 | `scripts/right-panel/surfaces.tsx`가 실제 컴포넌트를 그리고 계산값을 수집 | 일반/축소별 opacity, sidebar/disclosure 폭·높이, 스위치 thumb 위치 | 33개 표면 × 2모드 통과. §10-A 장기 작업은 일반 14건, 축소 17건 |
+| 10·17·18 | EP-7·8 경계·깊이 | transcript/패널 공통 flex, 양방향 navigation, 중단/세션 이동 | 프레임만 폭 보간, 콘텐츠 층별 transform, 구 층 inert·aria-hidden | `check-right-panel.mjs`, `Panel.lifecycle.test.ts` | 읽기 위치·하단·폭·도착층 x·inactive·원점 버튼 | 일반 열기 7·닫기 11·종류별 폭 10/9 중간 표본. 읽던 글줄/하단 오차 0px. 두 모드 모두 외곽 경계와 폭 합 오차 0px |
+| 19 | EP-9 앱 전환 | 앱 셸·라우트, 페이지, 공통 UI, 기능별 소유자 | 아래 소유자 표 | `scripts/right-panel/surfaces.tsx`가 실제 컴포넌트를 그리고 계산값을 수집 | 일반/축소별 opacity, sidebar/disclosure 폭·높이, 스위치 thumb 위치 | 33개 표면 × 2모드 통과. §10-A 장기 작업은 일반 6건, 축소 3건 |
 | 20′ | EP-10 산출물 | 카드 클릭, 활성 검사, 취소, 세션 정리, 검색, 뷰어/닫기 버튼 | 7자리, 카탈로그의 기존 독립 호스트 유지 | `artifactViewerStore.test.ts` A1~A7, `rightPanelStore.test.ts` A2/A8/A9, `Panel.lifecycle.test.ts` | 늦은 완료·실패 시 스택 불변, 정상 완료 시 원 세션에만 push. 재시도 실패 시 뒷면 복귀 | 실제 카드 A1~A9 모두 양 모드 통과 |
 
 - §10 밖 운반 자리. `scripts/fixtures/harness-entry/main.tsx`, OpenCode 시나리오·settings mock도 신규 경계로 이관했다.
@@ -618,12 +618,12 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | VP-02′ | REQUIRED | SELF_PASS | Panel.lifecycle AC2, Electron switch-* | 다섯 방향 모두 기존 프레임을 유지했다. ChatTile에 backend key 재도입 1 red |
 | VP-03′ | REQUIRED | SELF_PASS | rightPanelStore E1~E8 | fallback 기억 덮어쓰기 4 red |
 | VP-04′ | REQUIRED | SELF_PASS | rightPanelFrameState AC4, Electron mode-width/clamp/equal/native-drag | 기본 폭 2 red, host clamp 제거 1 red. 드래그 4표본의 transition=0s, 동일 폭 21표본=320px |
-| VP-05 | REQUIRED | SELF_PASS | Electron pairedWidth-open/close, Panel.lifecycle | 일반 중간 표본 2/3, 축소 0/0. 199ms까지 구 층 유지, 200ms 후 제거. 즉시 unmount 변이 1 red |
+| VP-05 | REQUIRED | SELF_PASS | Electron pairedWidth-open/close, Panel.lifecycle | 일반 중간 표본 7/11, 축소 0/0. 199ms까지 구 층 유지, 200ms 후 제거. 즉시 unmount 변이 1 red |
 | VP-06 | REQUIRED | SELF_PASS | rightPanelStore AC6, Panel.lifecycle back·초점 | pop-to 제거 3 red |
 | VP-07′ | REQUIRED | SELF_PASS | §20-G rg와 registry·수명 양성 | 테스트 sentinel 0→1줄 |
 | VP-08 | REQUIRED | SELF_BLOCKED | ChatTitleBar·GitRow·Panel.interaction·chatStore.panelTiles 등 | 17자리 개별 소거 미완 |
 | VP-09 | REQUIRED | SELF_PASS | chatStore.panelTiles AC9, chatReducer 세션/턴 | 닫힌 활성 세션, 열린 비활성 세션, 열린 활성 세션을 비교 |
-| VP-10 | REQUIRED | SELF_BLOCKED | Electron pairedWidth·depth·session-swap, settings 왕복 | 열기·push·뒤로·세션 이동·닫기와 settings 쓰기/재읽기를 검증했다. Electron 단일 생애 시나리오의 앱 재기동 단계는 미측정 |
+| VP-10 | REQUIRED | SELF_PASS | Electron lifecycle-restart, 실제 ChatTile/TweakProvider/settings | 두 모드에서 [plan,diff,subagent]→뒤로 [plan,diff]→다른 Work [task]→닫기. 같은 settings host에서 창의 provider와 store를 두 번 재생성해 닫힘, 열림, Code 540px 및 메모리 초기화를 모두 검증 |
 | VP-11 | REQUIRED | SELF_PASS | settings-store AC1 round-trips | 손상 복구 bounds 소거 1 red |
 | VP-12 | REQUIRED | SELF_BLOCKED | Panel.interaction·lifecycle | VP-08의 자리별 스윕 |
 | VP-13 | REQUIRED | SELF_PASS | rightPanelStore AC6 | 기존 스택 pop-to 소거 3 red |
@@ -699,7 +699,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 4 | 복합 메뉴를 빠르게 닫았다 열 때 가려진 하위 선택과 포커스가 남을 수 있다 | 재진입 때 내부 트리의 key를 갱신하고 실제 애니메이션이 가능한 호스트에서만 퇴장 표면을 유지한다 | 프로젝트 선택·계단 메뉴·컴포저·셸 42/42 |
 | 5 | 일반 Composer 버튼의 dismissible 속성까지 검사하면 산출물 Escape가 막혔다 | 열려 있는 floating·modal만 판정한다 | A8 실제 카드에서 재현 |
 | 6 | 워크스페이스 전체 테스트와 Chromium의 시간 경쟁으로 150~200ms 사이 표본을 놓쳤다 | 표본 수와 실제 경과를 같이 보고 일반·축소 결과를 분리 기록 | EP-9 표와 실측 로그 |
-| 7 | 일반 세션 교체에도 미확대 상태를 부모에 다시 쓰면 ChatTile 전체가 한 차례 더 렌더됐다 | 실제 확대/해제에만 부모를 알린다. 키보드 진입은 현재 포커스를 원점으로 저장한다 | 네 세션 교체 쌍의 확대 콜백 0회, 수명/Work 회귀 17/17. 이 변경 뒤 장기 작업값은 별도 재측정 대상 |
+| 7 | 일반 세션 교체에도 미확대 상태를 부모에 다시 쓰면 ChatTile 전체가 한 차례 더 렌더됐다 | 실제 확대/해제에만 부모를 알린다. 키보드 진입은 현재 포커스를 원점으로 저장한다 | 네 세션 교체 쌍의 확대 콜백 0회, 수명/Work 회귀 17/17. 이 변경을 포함한 통합 측정에서 일반 6건·축소 3건 |
 
 ### 설계 대비 명시적 차이
 
@@ -718,15 +718,15 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 |---|---|
 | 변경 파일 | settings/IPC, TweakProvider, chat store와 reducer, 새 stack/frame, 두 하네스 화면, 진입점과 테스트, UI 모션 소유자, Electron gate, 아키텍처 문서와 인벤토리 |
 | 실행 명령 | `vitest run --maxWorkers=1` 대상 스위트, §20-G rg, `node scripts/check-doc-inventory.mjs --check`, `node scripts/check-test-budgets.mjs`, Electron right-panel gate |
-| **관측한 게이트 산출** | 주요 13파일 106개, 메뉴/셸 42개, 뷰어/CSS/composer 42개, store/초점·수명 22개, 세션/턴 정책 34개, 마지막 프레임 알림 수정의 수명/Work 17개 통과. 전체 문서 가드 9항목·127채널·링크 통과, test-budgets 18 real-git suites 위반 0. 통합 스냅숏의 Node 스크립트 1,174/1,174, 앱 빌드와 호스트/preload smoke 통과 |
-| **Electron 실측** | 0331~333 통합 `99bbdf45`, CPU 3–4에서 `check-right-panel.mjs` 일반·축소 각 63/64, 총 126/128, exit 1. 두 모드 모두 A1~A9, 9개 라우트 포함 33개 전환 표면, 세션 교체 다섯 방향, 폭·깊이·읽는 위치·하단·드래그 통과 |
-| **§10-A 운영 예산** | `long-task-observation`만 양 모드 실패. 일반 모션에서 50ms 초과 14건(최대 294ms, 세션 전환 중 8건), 축소 모션에서 17건(최대 661ms, 세션 전환 중 10건). 측정 후 비확대 세션 전환의 중복 부모 통지를 제거했다. 이 변경의 예산 통과 여부는 미확인 |
+| **관측한 게이트 산출** | 주요 13파일 106개, 메뉴/셸 42개, 뷰어/CSS/composer 42개, store/초점·수명 22개, 세션/턴 정책 34개, 마지막 프레임 알림 수정의 수명/Work 17개, 점프 버튼 숨김 시 세션 전환 렌더/표시 동작을 포함한 ChatTile 9개 통과. 전체 실행에서 실패한 Panel.lifecycle은 시간 배율 6으로 독립 재실행하여 10/10 통과. 전체 문서 가드 9항목·127채널·링크 통과, test-budgets 18 real-git suites 위반 0. 통합 스냅숏의 Node 스크립트 1,174/1,174, 앱 빌드와 호스트/preload smoke 통과 |
+| **Electron 실측** | 0331~333 통합 `c9e3028e`, CPU 3–4에서 `check-right-panel.mjs` 일반·축소 각 63/64, 총 126/128, exit 1. 후속 창 재시작 시나리오를 실제 Chromium에서 따로 돌려 2/2 통과. 두 모드 모두 A1~A9, 9개 라우트 포함 33개 전환 표면, 세션 교체 다섯 방향, 폭·깊이·읽는 위치·하단·드래그 통과 |
+| **§10-A 운영 예산** | `long-task-observation`만 양 모드 실패. 일반 모션에서 50ms 초과 6건(최대 102ms, 세션 전환 중 4건), 축소 모션에서 3건(최대 215ms, 모두 세션 전환). 앞선 `99bbdf45`에서는 일반 14건/294ms·축소 17건/661ms였다. 최근 측정 뒤 ChatTile이 숨은 점프 버튼의 상태를 세션마다 다시 게시하는 동작도 제거했다. 그 수정 뒤의 통합 예산은 재측정 대상 |
 | **추가·수정 테스트의 subtree 규칙** | 기준 커밋과 대조해 현재 존재하는 추가·수정 테스트 45개. 직접 exe/native SQLite 사용 검색 0건. 실시간 기한 추가 0, 경계는 fake timer·메모리 fixture와 기존 store 규칙 사용 |
 | V-pair 자기확인 | 위 21행. REQUIRED 20, REGRESSION 1 |
 | 강제 지점 전수 | EP-1′~10 및 EP-4″ 9분기·EP-5 4지점을 위 표에 고정 |
 | **AC 자기보고**(`Criteria-Met`) | 12/14. AC1~7·9~12·14 통과. AC8은 17 진입점의 동작별 입증이 일부 남았다. AC11·12의 경계·깊이·스크롤은 통과했으나 §10-A의 장기 작업 운영 예산이 실패해 AC13 전체 적용을 닫지 않았다. AC14 산출물은 A1~A9가 양 모드 통과 |
 | **합계 검산** | ✅ 12 · ⚠️ 1(AC8) · ❌ 1(AC13/§10-A 예산) = 14 |
-| 블로커 / 역질문 | 설계 결정 요청 없음. EP-2 사용자 진입별 검증, VP-10 실제 재기동, §10-A 장기 작업과 EP-9 소거 검증이 남았다 |
+| 블로커 / 역질문 | 설계 결정 요청 없음. EP-2 사용자 진입별 검증, §10-A 장기 작업과 EP-9 소거 검증이 남았다 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만

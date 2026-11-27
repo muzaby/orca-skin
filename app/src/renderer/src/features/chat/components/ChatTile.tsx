@@ -84,7 +84,9 @@ export function ChatTile({
   )
   const onScrollControls = useCallback(
     (controls: ScrollControls): void => {
-      setScrollControls({ ...controls, key: activeKey })
+      // Hidden jump controls carry no user action. Preserve null across session
+      // switches so a layout effect doesn't rerender the newly mounted transcript.
+      setScrollControls(controls.showJump ? { ...controls, key: activeKey } : null)
     },
     [activeKey]
   )

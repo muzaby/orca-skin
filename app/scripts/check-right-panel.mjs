@@ -13,6 +13,7 @@ export const requiredMeasurements = [
   'depth-forward',
   'depth-back',
   'resize-persistence',
+  'lifecycle-restart',
   'mode-width-work',
   'mode-width-code',
   'kindWidth-host-clamp',

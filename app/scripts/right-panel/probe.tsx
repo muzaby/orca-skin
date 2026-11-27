@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import { MemoryRouter } from 'react-router-dom'
 import { ChatTile } from '@renderer/features/chat/components/ChatTile'
 import { useChatStore, chatActions } from '@renderer/features/chat/store/chatStore'
+import { layerKey } from '@renderer/features/chat/lib/rightPanelStack'
 import { panelActions, useRightPanelStore } from '@renderer/features/chat/store/rightPanelStore'
 import { TweakProvider } from '@renderer/shared/theme/TweakProvider'
 import { installNativeFixture, nativeCalls } from '../fixtures/opencode-ui/native'
@@ -17,15 +18,18 @@ const style = document.createElement('style')
 style.textContent = css + '\nbody{margin:0}#root{height:100vh;display:flex;flex-direction:column}'
 document.head.append(style)
 const root = createRoot(document.querySelector('#root')!)
-flushSync(() =>
-  root.render(
-    <MemoryRouter>
-      <TweakProvider>
-        <ChatTile backendLabel="Claude" canAbort />
-      </TweakProvider>
-    </MemoryRouter>
+function renderApp(): void {
+  flushSync(() =>
+    root.render(
+      <MemoryRouter>
+        <TweakProvider>
+          <ChatTile backendLabel="Claude" canAbort />
+        </TweakProvider>
+      </MemoryRouter>
+    )
   )
-)
+}
+renderApp()
 type Measurement = { name: string; ok: boolean; [field: string]: unknown }
 type FrameSample = { width: number; seam: number; hostError: number; x: number }
 
@@ -183,11 +187,81 @@ async function measureSessionSwitches(): Promise<Measurement[]> {
   return records
 }
 
+async function measureLifecycle(): Promise<Measurement> {
+  const stack = (): string[] => useRightPanelStore.getState().stack.map(layerKey)
+  async function restartRenderer(): Promise<void> {
+    // The settings host survives the window. Recreate both the renderer's settings
+    // provider and its in-memory panel store, as on a new renderer boot.
+    flushSync(() => root.render(null))
+    useRightPanelStore.setState(useRightPanelStore.getInitialState(), true)
+    renderApp()
+    await geometry(() => {})
+  }
+
+  await geometry(() => resetScenario('session-switch-anchor', 'claude'))
+  await geometry(() => panelActions.close())
+  const originalFrame = frameNode()
+  await geometry(() => chatActions.toggleRightPanelTile('plan'))
+  await geometry(() => chatActions.toggleRightPanelTile('diff'))
+  await geometry(() => chatActions.toggleRightPanelTile('subagent'))
+  const pushed = stack()
+  await geometry(() => find('[data-panel-back]').click())
+  const popped = stack()
+  const originalWidth = frameNode().getBoundingClientRect().width
+  await geometry(() =>
+    find('[role=separator]').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })
+    )
+  )
+  const savedWidth = frameNode().getBoundingClientRect().width
+  await geometry(() => {
+    swapSession()
+    setKind('work')
+  })
+  const switched = stack()
+  const retainedFrame = frameNode() === originalFrame
+  await geometry(() => panelActions.close())
+  await restartRenderer()
+  const restoredClosed = stack().length === 0 && frameNode().getBoundingClientRect().width === 0
+  await geometry(swapSession)
+  await geometry(() => chatActions.toggleRightPanelTile('diff'))
+  const beforeOpenRestart = stack()
+  const oldFrame = frameNode()
+  await restartRenderer()
+  const restoredOpen = stack()
+  const restoredWidth = frameNode().getBoundingClientRect().width
+  return {
+    name: 'lifecycle-restart',
+    ok:
+      pushed.join() === 'plan,diff,subagent' &&
+      popped.join() === 'plan,diff' &&
+      switched.join() === 'task' &&
+      retainedFrame &&
+      restoredClosed &&
+      beforeOpenRestart.join() === 'diff' &&
+      frameNode() !== oldFrame &&
+      restoredOpen.join() === 'plan' &&
+      savedWidth > originalWidth &&
+      restoredWidth === savedWidth,
+    pushed,
+    popped,
+    switched,
+    retainedFrame,
+    restoredClosed,
+    beforeOpenRestart,
+    restoredOpen,
+    originalWidth,
+    savedWidth,
+    restoredWidth
+  }
+}
+
 let dragStart = 0
 let dragTrust = false
 Object.assign(window, {
   measureArtifacts,
   measureSurfaces,
+  measureLifecycle,
   async checkClampedWidth() {
     await geometry(() => {})
     const width = frameNode().getBoundingClientRect().width

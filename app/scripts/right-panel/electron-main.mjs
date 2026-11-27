@@ -68,6 +68,9 @@ app.whenReady().then(async () => {
         })
         const equalWidths = await wc.executeJavaScript('window.checkEqualWidths()')
         records.push({ ...equalWidths, reduced })
+        stage = 'lifecycle restart ' + reduced
+        const lifecycle = await wc.executeJavaScript('window.measureLifecycle()')
+        records.push({ ...lifecycle, reduced })
       } catch (error) {
         records.push({ ok: false, reduced, error: String(error) })
       }

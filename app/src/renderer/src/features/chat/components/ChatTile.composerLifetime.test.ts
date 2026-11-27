@@ -26,6 +26,8 @@ import { ChatTile } from './ChatTile'
 const fixture = vi.hoisted(() => ({
   backend: 'claude' as 'claude' | 'opencode',
   key: 'pending',
+  transcriptRenders: 0,
+  jump: undefined as (() => void) | undefined,
   mounts: 0,
   unmounts: 0,
   scroll: {
@@ -65,14 +67,23 @@ vi.mock('../harnesses/opencode/transcript/ScrollController', () => ({
 }))
 vi.mock('./ChatTitleBar', () => ({ ChatTitleBar: () => null }))
 vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
-vi.mock('./transcript/TranscriptView', () => ({ TranscriptView: () => null }))
+vi.mock('./transcript/TranscriptView', () => ({
+  TranscriptView: () => {
+    fixture.transcriptRenders++
+    return null
+  }
+}))
 vi.mock('./rightpanel/RightPanelFrame', () => ({
   RightPanelFrame: () => createElement('div', { 'data-frame-owner-probe': '' })
 }))
 vi.mock('./Composer', async () => {
   const { createElement, useEffect, useState } = await import('react')
   return {
-    Composer: function ComposerProbe() {
+    Composer: function ComposerProbe(props: {
+      showScrollToBottom?: boolean
+      onScrollToBottom?: () => void
+    }) {
+      fixture.jump = props.showScrollToBottom ? props.onScrollToBottom : undefined
       const [draft, setDraft] = useState('')
       useEffect(() => {
         fixture.mounts++
@@ -95,6 +106,28 @@ afterEach(() => {
   vi.useRealTimers()
 })
 describe('ChatTile Composer identity', () => {
+  it('renders a switched transcript once while the jump control is hidden, then publishes a visible control', () => {
+    vi.useFakeTimers()
+    fixture.backend = 'claude'
+    fixture.key = 'first'
+    fixture.scroll.showJump = false
+    dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+    const render = (): void =>
+      dom!.render(createElement(ChatTile, { backendLabel: fixture.backend, canAbort: true }))
+    render()
+    fixture.transcriptRenders = 0
+    fixture.key = 'second'
+    render()
+    expect(fixture.transcriptRenders).toBe(1)
+    expect(fixture.jump).toBeUndefined()
+    fixture.scroll.showJump = true
+    render()
+    expect(fixture.jump).toBe(fixture.scroll.scrollToBottom)
+    fixture.scroll.showJump = false
+    render()
+    expect(fixture.jump).toBeUndefined()
+  })
+
   it('keeps the Composer instance across harness switch and draft session materialization', () => {
     vi.useFakeTimers()
     fixture.backend = 'claude'
