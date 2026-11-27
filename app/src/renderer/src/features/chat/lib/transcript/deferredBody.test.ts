@@ -4,6 +4,7 @@ import {
   setComputeClient,
   type WorkerLike
 } from '../../../../shared/compute/client'
+import { createHistoryBodyDecoder } from '../../../../shared/compute/worker/historyBody'
 import { handleMessage } from '../../../../shared/compute/worker/handler'
 import { installHistoryWorker } from '../../../../shared/compute/historyWorker.testfixture'
 import { describe, it, expect, vi } from 'vitest'
@@ -40,6 +41,8 @@ describe('deferred history bodies', () => {
       const nextOffset = q.offset + block.length
       return {
         status: 'body',
+        generation: ref.generation,
+        bytes: bytes.length,
         sessionId: 's',
         openGeneration: 3,
         requestId: offsets.length,
@@ -94,6 +97,8 @@ describe('deferred history bodies', () => {
     const page = vi.fn<Parameters<typeof readDeferredParts>[2]>()
     page.mockResolvedValueOnce({
       status: 'body',
+      generation: ref.generation,
+      bytes: text.length,
       sessionId: 's',
       requestId: 1,
       openGeneration: 3,
@@ -159,7 +164,7 @@ it('waits for the worker to accept the current bytes before requesting the next 
           onmessageerror: null,
           terminate: vi.fn(),
           postMessage(message) {
-            if ('id' in message)
+            if (!('type' in message))
               replies.push(async () => {
                 const data = await handleMessage(message)
                 port.onmessage?.({ data })
@@ -183,6 +188,8 @@ it('waits for the worker to accept the current bytes before requesting the next 
       const nextOffset = query.offset + packet.length
       return {
         status: 'body',
+        generation: ref.generation,
+        bytes: bytes.length,
         sessionId: 's',
         openGeneration: 3,
         requestId: 1,
@@ -201,4 +208,80 @@ it('waits for the worker to accept the current bytes before requesting the next 
   expect(offsets).toEqual([0, HISTORY_BODY_BYTES])
   await replies.shift()!()
   await expect(reading).resolves.toEqual(parts)
+})
+
+it.each([
+  ['generation', 'worker', 'success'],
+  ['worker', 'generation', 'worker'],
+  ['worker', 'worker', 'worker']
+] as const)('AC3″ shares the two restarts across %s, %s and %s', async (...events) => {
+  const parts = [{ type: 'text', text: 'chunked' }]
+  const bytes = Buffer.from(JSON.stringify(parts).padEnd(HISTORY_BODY_BYTES + 1))
+  const offsets: number[] = []
+  let generation = 0
+  let attempts = 0
+  const released: number[] = []
+  const started: number[] = []
+  setComputeClient(
+    createComputeClient({
+      createWorker() {
+        const port: WorkerLike = {
+          onmessage: null,
+          onerror: null,
+          onmessageerror: null,
+          terminate: vi.fn(),
+          postMessage(message) {
+            if ('type' in message || message.kind !== 'historyBody') return
+            if (!message.packet) released.push(message.sequence)
+            if (message.packet?.offset === 0) started.push(message.sequence)
+            if (message.packet?.offset && events[attempts - 1] === 'worker') {
+              // A new worker receives the continuation without the old stream.
+              const fresh = createHistoryBodyDecoder()
+              try {
+                fresh(message)
+              } catch (error) {
+                queueMicrotask(() =>
+                  port.onmessage?.({
+                    data: { id: message.id, ok: false, error: (error as Error).message }
+                  })
+                )
+              }
+            } else {
+              void handleMessage(message).then((data) => port.onmessage?.({ data }))
+            }
+          }
+        }
+        return port
+      }
+    })
+  )
+  const reading = readDeferredParts(
+    { ...ref, bytes: bytes.length },
+    3,
+    async (q) => {
+      if (q.kind !== 'body') throw Error(q.kind)
+      offsets.push(q.offset)
+      if (q.offset === 0) attempts++
+      else if (events[attempts - 1] === 'generation') generation++
+      const packet = bytes.subarray(q.offset, q.offset + HISTORY_BODY_BYTES)
+      return {
+        status: 'body',
+        sessionId: 's',
+        requestId: 1,
+        openGeneration: 3,
+        generation: 'p' + generation,
+        bytes: bytes.length,
+        offset: q.offset,
+        nextOffset: q.offset + packet.length,
+        done: q.offset + packet.length === bytes.length,
+        base64: packet.toString('base64')
+      }
+    },
+    () => true
+  )
+  if (events[2] === 'success') await expect(reading).resolves.toEqual(parts)
+  else await expect(reading).rejects.toMatchObject({ reason: 'churn' })
+  expect(offsets).toEqual([0, HISTORY_BODY_BYTES, 0, HISTORY_BODY_BYTES, 0, HISTORY_BODY_BYTES])
+  expect(new Set(started).size).toBe(3)
+  expect(released).toEqual(started.filter((_sequence, index) => events[index] === 'generation'))
 })

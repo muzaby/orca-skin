@@ -24,7 +24,8 @@ function edge(
   at: IndexHeader,
   other: IndexHeader | undefined,
   before: boolean,
-  unitFloor?: number
+  unitFloor?: number,
+  unitHeadKey?: string
 ): HistoryEdge | undefined {
   if (!other) return undefined
   const kind: EdgeKind =
@@ -44,7 +45,7 @@ function edge(
       before ? 'before' : 'after',
       at.ordinal,
       at.message_key,
-      ...(kind === 'withinUnit' ? [unitFloor] : [])
+      ...(kind === 'withinUnit' ? [unitFloor, ...(unitHeadKey ? [unitHeadKey] : [])] : [])
     ])
   ).toString('base64url')
   return { kind, cursor }
@@ -53,16 +54,22 @@ function readCursor(
   index: HistoryIndexQueries,
   req: Extract<HistoryPageRequest, { cursor: string }>,
   gen: string
-): { next: IndexHeader; floor?: number } | 'stale' | 'invalid' {
+):
+  | { next?: IndexHeader; floor?: number; unitHeadKey?: string; before?: HistoryEdge }
+  | 'stale'
+  | 'invalid' {
   let values: unknown
   try {
     values = JSON.parse(Buffer.from(req.cursor, 'base64url').toString())
   } catch {
     return 'invalid'
   }
-  if (!Array.isArray(values) || values.length !== (req.kind === 'withinUnit' ? 8 : 7))
+  if (
+    !Array.isArray(values) ||
+    (req.kind === 'withinUnit' ? values.length !== 8 && values.length !== 9 : values.length !== 7)
+  )
     return 'invalid'
-  const [v, id, g, kind, direction, ordinal, key, floor] = values
+  const [v, id, g, kind, direction, ordinal, key, floor, unitHeadKey] = values
   const before =
     req.kind === 'earlierTurn' ||
     req.kind === 'withinUnit' ||
@@ -72,26 +79,39 @@ function readCursor(
     id !== req.sessionId ||
     kind !== req.kind ||
     direction !== (before ? 'before' : 'after') ||
-    !Number.isSafeInteger(ordinal)
+    typeof g !== 'string' ||
+    !g ||
+    typeof key !== 'string' ||
+    !key ||
+    !Number.isSafeInteger(ordinal) ||
+    ordinal < 0
   )
     return 'invalid'
-  if (g !== gen) return 'stale'
-  const at = index.header(id, g, ordinal)
+  const at = g === gen ? index.header(id, gen, ordinal) : index.byKey(id, gen, key)
   if (!at || at.message_key !== key) return 'stale'
-  const next = index.header(id, g, ordinal + (before ? -1 : 1))
-  if (!next) return 'invalid'
+  const next = index.header(id, gen, at.ordinal + (before ? -1 : 1))
+  if (!next) return g === gen ? 'invalid' : {}
   if (kind === 'withinUnit') {
     if (
       !Number.isSafeInteger(floor) ||
       floor < 0 ||
-      floor > next.turn ||
-      floor < index.unitFloor(id, g, at.turn) ||
-      index.header(id, g, floor)?.turn !== floor
+      (unitHeadKey !== undefined && (typeof unitHeadKey !== 'string' || !unitHeadKey))
     )
       return 'invalid'
-    return { next, floor }
+    if (g !== gen) {
+      // The capped page may already have passed several turns from the original
+      // five-turn head. Find that head again to keep the same unit after republishing.
+      const head = unitHeadKey ? index.byKey(id, gen, unitHeadKey) : undefined
+      const lower = index.unitFloor(id, gen, head?.turn ?? at.turn)
+      if (next.turn < lower) return { before: edge(id, gen, at, next, true) }
+      return { next, floor: lower, unitHeadKey: head?.message_key ?? at.message_key }
+    }
+    const lower = index.unitFloor(id, gen, at.turn)
+    if (floor > next.turn || floor < lower || index.header(id, g, floor)?.turn !== floor)
+      return 'invalid'
+    return { next, floor, unitHeadKey }
   }
-  if ((kind === 'withinTurn') !== (at.turn === next.turn)) return 'invalid'
+  if (g === gen && (kind === 'withinTurn') !== (at.turn === next.turn)) return 'invalid'
   return { next }
 }
 
@@ -136,21 +156,29 @@ export function readHistoryPage(
       }
     }
     if (req.kind === 'body') {
-      const { ref, offset } = req
-      if (ref.session !== id || offset % HISTORY_BODY_BYTES !== 0 || offset >= ref.bytes)
+      const { ref } = req
+      if (ref.session !== id || req.offset % HISTORY_BODY_BYTES !== 0)
         return { ...echo, status: 'invalid' }
-      if (ref.generation !== generation) return { ...echo, status: 'stale' }
       const header = index.byKey(id, generation, ref.message)
-      if (!header || header.body_bytes !== ref.bytes) return { ...echo, status: 'invalid' }
+      if (!header) return { ...echo, status: 'stale' }
+      const bytes = header.body_bytes
+      if (ref.generation === generation && (bytes !== ref.bytes || req.offset >= bytes))
+        return { ...echo, status: 'invalid' }
+      // A shorter replacement can end before the old offset. Return its first chunk
+      // so the reader learns which publication to restart from.
+      const offset = req.offset >= bytes ? 0 : req.offset
       const block = index.chunk(id, generation, header.ordinal, offset)
       if (!block) return { ...echo, status: 'invalid' }
+      const nextOffset = offset + block.length
       return {
         ...echo,
         status: 'body',
+        generation,
+        bytes,
         base64: block.toString('base64'),
         offset,
-        nextOffset: offset + block.length,
-        done: offset + block.length === ref.bytes
+        nextOffset,
+        done: nextOffset === bytes
       }
     }
     const storedMeta = loadSessionMetadata(ctx.db, id, ctx.getCwd)
@@ -183,6 +211,8 @@ export function readHistoryPage(
       meta = compact
     }
     let floor: number | undefined
+    let unitHeadKey: string | undefined
+    let emptyBefore: HistoryEdge | undefined
     let start: IndexHeader | undefined
     if (req.kind === 'latest') start = index.latest(id, generation)
     else if (req.kind === 'visit') {
@@ -207,6 +237,8 @@ export function readHistoryPage(
       if (typeof next === 'string') return { ...echo, status: next }
       start = next.next
       floor = next.floor
+      unitHeadKey = next.unitHeadKey
+      emptyBefore = next.before
     }
     const messages: LoadedMessage[] = []
     const session = {
@@ -214,7 +246,7 @@ export function readHistoryPage(
       userMessageCount: index.userCount(id, generation),
       complete: false,
       messages,
-      history: { generation }
+      history: { generation, ...(emptyBefore && { before: emptyBefore }) }
     }
     const reply: HistoryPageReply = {
       ...echo,
@@ -232,8 +264,10 @@ export function readHistoryPage(
       req.kind === 'target' ||
       req.kind === 'visit' ||
       (req.kind === 'withinTurn' && req.direction === 'after')
-    if (req.kind === 'latest' || req.kind === 'earlierTurn')
+    if (req.kind === 'latest' || req.kind === 'earlierTurn') {
       floor = index.unitFloor(id, generation, start.turn)
+      unitHeadKey = start.message_key
+    }
     const candidates = index.pageHeaders(
       id,
       generation,
@@ -255,7 +289,7 @@ export function readHistoryPage(
     }
     const pageEdges = (first: IndexHeader, last: IndexHeader): HistoryWindow => ({
       generation,
-      before: edge(id, generation, first, neighbour(first.ordinal - 1), true, floor),
+      before: edge(id, generation, first, neighbour(first.ordinal - 1), true, floor, unitHeadKey),
       after: edge(id, generation, last, neighbour(last.ordinal + 1), false)
     })
     let contentsBytes = 0,

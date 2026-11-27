@@ -241,6 +241,8 @@ describe('bounded history page replies', () => {
     await expect(pending).rejects.toThrow('Mismatched history reply')
   })
   it.each([
+    ['missing generation', { generation: '' }],
+    ['non-positive bytes', { bytes: 0 }],
     ['offset', { offset: 2 }],
     ['nonadvancing', { nextOffset: 1 }],
     ['beyond reference', { nextOffset: 9 }],
@@ -259,6 +261,8 @@ describe('bounded history page replies', () => {
     port.reply(0, {
       ...ok,
       status: 'body',
+      generation: ref.generation,
+      bytes: ref.bytes,
       offset: 1,
       nextOffset: 4,
       done: false,
@@ -266,6 +270,29 @@ describe('bounded history page replies', () => {
       ...patch
     })
     await expect(pending).rejects.toThrow('Mismatched history reply')
+  })
+  it('AC19 validates a body against the served generation and total byte count', async () => {
+    const port = setup(true)
+    const updated = {
+      ...ok,
+      status: 'body' as const,
+      generation: 'current',
+      bytes: 16,
+      offset: 8,
+      nextOffset: 16,
+      done: true,
+      base64: 'YWFhYWFhYWE='
+    }
+    const query = { sessionId: 's', openGeneration: 0, kind: 'body' as const, ref, offset: 8 }
+    const pending = port.client.page(query)
+    port.reply(0, updated)
+    await expect(pending).resolves.toEqual(updated)
+    const shortened = port.client.page(query)
+    port.reply(1, { ...updated, requestId: 1, bytes: 3, offset: 0, nextOffset: 3, base64: 'YWJj' })
+    await expect(shortened).resolves.toMatchObject({ generation: 'current', bytes: 3, offset: 0 })
+    const invalid = port.client.page(query)
+    port.reply(2, { ...updated, requestId: 2, bytes: 12 })
+    await expect(invalid).rejects.toThrow('Mismatched history reply')
   })
   it('rejects confirmation for a different cached message and cancels a target already in flight', async () => {
     const port = setup(true)

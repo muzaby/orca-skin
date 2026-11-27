@@ -338,6 +338,46 @@ describe('turn pages from the published SQLite generation', () => {
     expect(head.session.history.before).toBeUndefined()
   })
 
+  it('AC19 re-resolves a cursor by message key in a new generation', async () => {
+    const keys = Array.from({ length: 12 }, (_, i) => [
+      'm:' + local('user', String(i)),
+      'm:' + local('assistant', String(i))
+    ])
+    const tail = await latest()
+    if (tail.status !== 'ok') throw Error(tail.status)
+    const cursor = tail.session.history.before!
+    const update = sqlite.prepare('DELETE FROM messages WHERE id=?')
+    update.run(1)
+    const older = await readEdge(cursor, 'before')
+    if (older.status !== 'ok') throw Error(older.status)
+    expect(older.session.history.generation).not.toBe(tail.session.history.generation)
+    expect(older.session.messages.map((m) => m.id)).toEqual(keys.slice(2, 7).flat())
+    const later = older.session.history.after!
+    update.run(3)
+    const returned = await readEdge(later, 'after')
+    if (returned.status !== 'ok') throw Error(returned.status)
+    expect(returned.session.messages.map((m) => m.id)).toEqual(keys[7])
+    update.run(15)
+    expect(await readEdge(cursor, 'before')).toMatchObject({ status: 'stale' })
+  })
+
+  it('AC19 recomputes the withinUnit floor when the ordinal of its message changes', async () => {
+    const keys = Array.from({ length: 10 }, (_, i) => {
+      const first = 'm:' + local('user', String(i))
+      for (let n = 0; n < (i === 7 ? 140 : 1); n++) local('assistant', String(n))
+      return first
+    })
+    const tail = await latest()
+    if (tail.status !== 'ok') throw Error(tail.status)
+    const cursor = tail.session.history.before!
+    expect(cursor.kind).toBe('withinUnit')
+    sqlite.prepare('DELETE FROM messages WHERE id=1').run()
+    const rest = await readEdge(cursor, 'before')
+    if (rest.status !== 'ok') throw Error(rest.status)
+    expect(rest.session.messages[0].id).toBe(keys[5])
+    expect(rest.session.history.before?.kind).toBe('earlierTurn')
+  })
+
   it('rejects a cursor reused for another kind or direction before reading any message body', async () => {
     sqlite.transaction(() => {
       for (let i = 0; i < 140; i++) local(i === 0 ? 'user' : 'assistant', String(i))
@@ -597,7 +637,7 @@ describe('turn pages from the published SQLite generation', () => {
     expect(read).toHaveBeenCalledTimes(4)
   })
 
-  it('reads a deferred UTF-8 body across chunk boundaries and rejects stale or foreign references', async () => {
+  it('AC3″ serves a body by key in the current generation and rejects foreign references', async () => {
     const text = 'a'.repeat(HISTORY_BODY_BYTES - 26) + '🦦漢'.repeat(610000)
     local('user', text)
     const read = vi.spyOn(db.historyIndex, 'parts')
@@ -632,6 +672,31 @@ describe('turn pages from the published SQLite generation', () => {
     sqlite
       .prepare('UPDATE message_parts SET payload_json=? WHERE message_id=1')
       .run(JSON.stringify({ text: 'edited' }))
+    const current = await query({ ...base, offset: HISTORY_BODY_BYTES })
+    const edited = Buffer.from(JSON.stringify([{ type: 'text', text: 'edited' }]))
+    expect(current).toMatchObject({
+      status: 'body',
+      bytes: edited.length,
+      offset: 0,
+      nextOffset: edited.length,
+      done: true,
+      base64: edited.toString('base64')
+    })
+    if (current.status !== 'body') throw Error(current.status)
+    expect(current.generation).not.toBe(ref.generation)
+    for (const updated of [text.replace('a', 'b'), text + ' grows']) {
+      sqlite
+        .prepare('UPDATE message_parts SET payload_json=? WHERE message_id=1')
+        .run(JSON.stringify({ text: updated }))
+      const expected = Buffer.from(JSON.stringify([{ type: 'text', text: updated }]))
+      expect(await query({ ...base, offset: 0 })).toMatchObject({
+        status: 'body',
+        bytes: expected.length,
+        done: false,
+        base64: expected.subarray(0, HISTORY_BODY_BYTES).toString('base64')
+      })
+    }
+    sqlite.prepare('DELETE FROM messages WHERE id=1').run()
     expect(await query({ ...base, offset: 0 })).toMatchObject({ status: 'stale' })
   })
 

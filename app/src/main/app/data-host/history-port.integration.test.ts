@@ -1,4 +1,8 @@
-import { chatActions, useChatStore } from '../../../renderer/src/features/chat/store/chatStore'
+import {
+  chatActions,
+  useChatStore,
+  type SessionEntry
+} from '../../../renderer/src/features/chat/store/chatStore'
 import { installChatStoreHarness } from '../../../renderer/src/features/chat/store/chatStore.testHarness'
 import { sessionApi } from '../../../renderer/src/shared/api/ipc'
 import { installHistoryWorker } from '../../../renderer/src/shared/compute/historyWorker.testfixture'
@@ -7,7 +11,13 @@ import Database from 'better-sqlite3'
 import { expect, it, vi } from 'vitest'
 import { createSessionLoadClient } from '../../../renderer/src/shared/api/transport/session-load'
 import { readDeferredParts } from '../../../renderer/src/features/chat/lib/transcript/deferredBody'
-import { HISTORY_PAGE_BYTES, type HistoryEdge } from '../../../shared/history-page'
+import * as errors from '../../../renderer/src/shared/errors'
+import {
+  HISTORY_BODY_BYTES,
+  HISTORY_PAGE_BYTES,
+  type HistoryPageReply,
+  type HistoryEdge
+} from '../../../shared/history-page'
 import { CHANNELS } from '../../../shared/ipc'
 import { HistoryIndex } from '../../features/history/turn-index'
 import { applyMigrations } from '../../infra/db/migrate'
@@ -236,6 +246,103 @@ it('opens and refreshes the latest turn, then reads both sides of a large search
     expect(all).not.toHaveBeenCalled()
     expect(sender.sent).toHaveLength(0)
     expect(Math.max(...wire.map((f) => f.bytes))).toBeLessThanOrEqual(HISTORY_PAGE_BYTES)
+  } finally {
+    index.stop()
+    sqlite.close()
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('AC3″ resolves a republished body through the real port and AC19 prepends the five current turns', async () => {
+  const sqlite = new Database(':memory:')
+  sqlite.pragma('foreign_keys=ON')
+  applyMigrations(sqlite)
+  const db = new DbQueries(sqlite)
+  const index = new HistoryIndex(db)
+  const sessionId = 'republished'
+  const sender = fakeClient()
+  const initial = 'old '.repeat(90_000)
+  const updated = 'current '.repeat(60_000)
+  const observed: { offset: number; generation: string; bytes: number }[] = []
+  try {
+    db.insertSession({
+      id: sessionId,
+      backend: 'claude',
+      title: 'current history',
+      projectId: null,
+      createdAt: 0
+    })
+    const turns: string[][] = []
+    let target = 0
+    for (let i = 0; i < 12; i++) {
+      const keys: string[] = []
+      for (const role of ['user', 'assistant'] as const) {
+        const text = i === 11 && role === 'assistant' ? initial : role + ' ' + i
+        const id = db.appendMessage({ sessionId, role, content: text, createdAt: i })
+        db.appendPart({
+          messageId: id,
+          type: 'text',
+          toolRunId: null,
+          payloadJson: JSON.stringify({ text })
+        })
+        keys.push('m:' + id)
+        target = id
+      }
+      turns.push(keys)
+    }
+    registerSessionLoadHandlers({ db, getCwd: () => '.' }, { historyIndex: index })
+    const client = createSessionLoadClient({
+      channels: {
+        load: CHANNELS.sessionLoad,
+        refresh: CHANNELS.sessionRefresh,
+        cancel: CHANNELS.sessionLoadCancel,
+        chunk: CHANNELS.sessionLoadChunk,
+        page: CHANNELS.sessionHistoryPage
+      },
+      async invoke(channel, payload) {
+        const response = (await invokeChannel(channel, payload, sender)) as HistoryPageReply
+        if (response.status === 'body') {
+          observed.push({
+            offset: response.offset,
+            generation: response.generation,
+            bytes: response.bytes
+          })
+          if (observed.length === 1)
+            sqlite
+              .prepare('UPDATE message_parts SET payload_json=? WHERE message_id=?')
+              .run(JSON.stringify({ text: updated }), target)
+        }
+        return response
+      },
+      send: (channel, payload) => sendChannel(channel, payload, sender),
+      subscribe: () => () => {}
+    })
+    installChatStoreHarness()
+    vi.stubGlobal('requestAnimationFrame', () => 1)
+    vi.spyOn(sessionApi, 'load').mockImplementation(client.loadLatest)
+    vi.spyOn(sessionApi, 'page').mockImplementation(client.page)
+    const report = vi.spyOn(errors, 'reportError').mockImplementation(() => {})
+    await chatActions.loadSession(sessionId)
+    expect(report).not.toHaveBeenCalled()
+    const entry = (): SessionEntry => useChatStore.getState().sessions[sessionId]
+    await vi.waitFor(() =>
+      expect(entry().session.messages.at(-1)?.parts).toEqual([{ type: 'text', text: updated }])
+    )
+    expect(observed.slice(0, 3).map((r) => r.offset)).toEqual([0, HISTORY_BODY_BYTES, 0])
+    expect(observed[0].generation).not.toBe(observed[1].generation)
+    expect(observed[1].bytes).toBe(
+      Buffer.byteLength(JSON.stringify([{ type: 'text', text: updated }]))
+    )
+    expect(new Set(observed.slice(1).map((r) => r.generation))).toEqual(
+      new Set([observed[1].generation])
+    )
+    expect(entry().history?.generation).toBe(observed[0].generation)
+    expect(chatActions.readPrevious(sessionId)).toBe(true)
+    await vi.waitFor(() => expect(entry().history?.generation).toBe(observed[1].generation))
+    expect(entry().session.messages.map((m) => m.id)).toEqual(turns.slice(2).flat())
+    expect(entry().history?.beforeState).toBeUndefined()
+    expect(report).not.toHaveBeenCalled()
   } finally {
     index.stop()
     sqlite.close()

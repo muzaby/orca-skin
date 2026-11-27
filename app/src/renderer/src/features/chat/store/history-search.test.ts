@@ -210,7 +210,7 @@ describe('search history in the chat store', () => {
     )
   })
 
-  it.each(['search rejected', 'wrong generation', 'overlap', 'transport'] as const)(
+  it.each(['search rejected', 'missing cursor key', 'overlap', 'transport'] as const)(
     'reports one earlier-history failure for the admitted request (%s)',
     async (problem) => {
       const report = vi.spyOn(errors, 'reportError').mockImplementation(() => {})
@@ -220,8 +220,15 @@ describe('search history in the chat store', () => {
         .mockResolvedValueOnce(reply('b', ['one', 'two'], true, search))
       await chatActions.openSearchHit(locator('b', 'one'), false)
       const next = reply('b', problem === 'overlap' ? ['two', 'one'] : ['older'])
-      if (problem === 'wrong generation') next.session.history.generation = 'wrong'
+
       if (problem === 'transport' || search) page.mockRejectedValueOnce(Error('transport'))
+      else if (problem === 'missing cursor key')
+        page.mockResolvedValueOnce({
+          status: 'stale',
+          sessionId: 'b',
+          requestId: 2,
+          openGeneration: 1
+        })
       else page.mockResolvedValueOnce(next)
       const request = (): boolean =>
         search ? chatActions.readSearchEdge('b', 'before') : chatActions.readPrevious('b')
@@ -259,40 +266,33 @@ describe('search history in the chat store', () => {
   })
 
   it.each(['ordinary', 'before', 'after'] as const)(
-    'rejects a different publication and retries the same %s cursor',
+    'AC19 adopts a new generation at the %s history edge without reporting a failure',
     async (direction) => {
       const ordinary = direction === 'ordinary'
       const side = direction === 'after' ? 'after' : 'before'
+      const report = vi.spyOn(errors, 'reportError').mockImplementation(() => {})
       const page = vi
         .spyOn(sessionApi, 'page')
         .mockResolvedValueOnce(reply('b', ['m:2'], true, !ordinary))
       await chatActions.openSearchHit(locator('b'), false)
+      const next = reply('b', ['adjacent'], true, true)
+      next.session.history.generation = 'republished'
+      next.session.history[side] = {
+        kind: side === 'before' ? 'earlierTurn' : 'laterTurn',
+        cursor: 'new-cursor'
+      }
+      page.mockResolvedValueOnce(next)
       const request = (): boolean =>
         ordinary ? chatActions.readPrevious('b') : chatActions.readSearchEdge('b', side)
-      const wrong = reply('b', ['foreign'])
-      wrong.session.history.generation = 'other-generation'
-      page.mockResolvedValue(wrong)
       expect(request()).toBe(true)
       expect(request()).toBe(false)
-      expect(page).toHaveBeenCalledTimes(2)
-      const originalQuery = page.mock.lastCall![0]
       await Promise.resolve()
       const current = ordinary ? entry().history : entry().search?.view
-      expect(current).toMatchObject({
-        generation: 'g',
-        [side]: edge(side === 'before' ? 'earlierTurn' : 'laterTurn'),
-        [side + 'State']: 'error'
-      })
-      expect(
-        (ordinary ? entry().session.messages : entry().search!.view!.messages).map((m) => m.id)
-      ).toEqual(['m:2'])
-      page.mockResolvedValueOnce(reply('b', ['valid'], side === 'after', side === 'before'))
-      expect(request()).toBe(true)
-      expect(page.mock.lastCall![0]).toEqual(originalQuery)
-      await Promise.resolve()
-      expect(
-        (entry().search?.view?.messages ?? entry().session.messages).map((m) => m.id)
-      ).toContain('valid')
+      expect(current).toMatchObject({ generation: 'republished', [side]: { cursor: 'new-cursor' } })
+      expect((entry().search?.view?.messages ?? entry().session.messages).map((m) => m.id)).toEqual(
+        side === 'before' ? ['adjacent', 'm:2'] : ['m:2', 'adjacent']
+      )
+      expect(report).not.toHaveBeenCalled()
     }
   )
   it('discards an ordinary earlier page on session change without moving the inactive history cursor', async () => {
@@ -734,6 +734,8 @@ it.each([
     if (q.kind === 'body')
       return {
         status: 'body',
+        generation: 'g',
+        bytes: data.length,
         sessionId: 'b',
         openGeneration: q.openGeneration,
         requestId: 2,

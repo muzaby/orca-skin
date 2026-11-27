@@ -1,5 +1,5 @@
 import { receiptEndsTurn } from '../lib/transcript/turnFailures'
-import { readDeferredParts } from '../lib/transcript/deferredBody'
+import { HistoryBodyFailure, readDeferredParts } from '../lib/transcript/deferredBody'
 import type {
   HistoryWindow,
   HistoryPageReply,
@@ -22,7 +22,7 @@ import {
   rememberSearchOrigin,
   searchPosition
 } from '../lib/transcript/viewport/searchVisit'
-import { useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { isPublishedMessage, hasHandoffHistory } from '../reducer/chatReducer'
 import { TranscriptPanelProjection } from '../../../../../shared/history-panels/projection'
 import type { PanelKind } from '../../../../../shared/history-panels/rows'
@@ -69,6 +69,8 @@ import {
   type HostLifecycleEvent
 } from '../../../shared/api/ipc'
 import { i18n } from '../../../shared/i18n'
+import { computeClient } from '../../../shared/compute/client'
+import { rendererLog } from '../../../shared/logging'
 import { reportError } from '../../../shared/errors'
 import type { BranchSnapshot } from '../harnesses/common/composer/branchChipState'
 import type { DiffComparison } from '../harnesses/common/rightpanel/diffComparison'
@@ -2687,10 +2689,23 @@ const readingBodies = new WeakMap<
   HistoryBodyRef,
   { promise: Promise<boolean>; abort: AbortController }
 >()
-const failedBodies = new WeakSet<HistoryBodyRef>()
+const failedBodies = new WeakMap<HistoryBodyRef, HistoryBodyFailure>()
 export function useHistoryBodyFailed(ref: HistoryBodyRef): boolean {
-  const failed = (): boolean => failedBodies.has(ref)
-  return useSyncExternalStore(useChatStore.subscribe, failed, failed)
+  const snapshot = (): HistoryBodyFailure | undefined => failedBodies.get(ref)
+  const failed = useSyncExternalStore(useChatStore.subscribe, snapshot, snapshot)
+  useEffect(() => {
+    const epoch = failed?.recoveryEpoch
+    if (epoch === undefined) return
+    const client = computeClient()
+    const retry = (): void => {
+      if (failedBodies.get(ref) === failed && client.recoveryEpoch('compute') > epoch)
+        void openHistoryBody(ref)
+    }
+    const unsubscribe = client.subscribeRecovery('compute', retry)
+    retry()
+    return unsubscribe
+  }, [ref, failed])
+  return !!failed
 }
 
 function resolveDeferredBodies(
@@ -2722,7 +2737,6 @@ function openHistoryBody(ref: HistoryBodyRef): Promise<boolean> {
       !!entry &&
       entry.search?.seq === seq &&
       (view ? seq : entry.history?.openGeneration) === generation &&
-      (view?.generation ?? entry.history?.generation) === ref.generation &&
       (view?.messages ?? entry.session.messages).some((message) => message.deferredBody === ref)
     )
   }
@@ -2776,9 +2790,21 @@ function openHistoryBody(ref: HistoryBodyRef): Promise<boolean> {
       }
       return true
     })
-    .catch(() => {
+    .catch((error: unknown) => {
+      const failure =
+        error instanceof HistoryBodyFailure
+          ? error
+          : new HistoryBodyFailure('transport', String(error))
+      rendererLog.warn('history.body.failed', 'chat', {
+        sessionId: ref.session,
+        messageKey: ref.message,
+        kind: 'historyBody',
+        lane: 'compute',
+        reason: failure.reason
+      })
       if (current()) {
-        failedBodies.add(ref)
+        if (readingBodies.get(ref)?.promise === result) readingBodies.delete(ref)
+        failedBodies.set(ref, failure)
         patchEntry(key, (entry) => ({ ...entry }))
       }
       return false
@@ -2911,7 +2937,7 @@ function readSearchEdge(
   void sessionApi
     .page({ ...query, sessionId: key, openGeneration: seq, cursor: edge.cursor })
     .then((reply) => {
-      if (reply.status !== 'ok' || reply.session.history.generation !== view.generation) {
+      if (reply.status !== 'ok') {
         failed()
         return
       }
@@ -2924,6 +2950,7 @@ function readSearchEdge(
         const next = {
           ...v,
           messages,
+          generation: reply.session.history.generation,
           [direction]: reply.session.history[direction],
           ...(direction === 'before' ? { lastBeforeCursor: edge.cursor } : {}),
           [stateKey]: undefined,
@@ -2967,8 +2994,7 @@ function readPrevious(key: string, automatic: HistoryTrigger = false): boolean {
       let committed = false
       patchEntry(key, (entry) => {
         if (entry.history !== loading || getState().activeKey !== key) return entry
-        if (reply.status !== 'ok' || reply.session.history.generation !== history.generation)
-          return failed(entry)
+        if (reply.status !== 'ok') return failed(entry)
         let rejected = false
         const session = chatReducer(entry.session, {
           type: 'PREPEND_HISTORY',
@@ -2986,6 +3012,7 @@ function readPrevious(key: string, automatic: HistoryTrigger = false): boolean {
           session,
           history: {
             ...history,
+            generation: reply.session.history.generation,
             before: reply.session.history.before,
             lastBeforeCursor: edge.cursor,
             beforeState: undefined
