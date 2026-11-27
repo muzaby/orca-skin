@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { createElement } from 'react'
+import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
 import { transcriptHarness } from './transcript'
@@ -38,6 +39,22 @@ vi.mock('../../store/chatStore', () => ({
   useLiveReasoningFor: () => '',
   useTranscriptView: () => ({})
 }))
+
+function callsVirtualizer(path: string): boolean {
+  const source = readFileSync(path, 'utf8')
+  if (!source.includes('useVirtualizer')) return false
+  const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest)
+  const visit = (node: ts.Node): boolean => {
+    if (ts.isCallExpression(node)) {
+      const name = ts.isPropertyAccessExpression(node.expression)
+        ? node.expression.name
+        : node.expression
+      if (ts.isIdentifier(name) && name.text === 'useVirtualizer') return true
+    }
+    return ts.forEachChild(node, visit) ?? false
+  }
+  return visit(file)
+}
 
 function walkTsFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -147,9 +164,7 @@ describe('harnesses/registries/transcript.viewport (VP-21 · EP-10)', () => {
     const chatRoot = resolve(__dirname, '../..')
     const viewportFile = join(chatRoot, 'components', 'transcript', 'TranscriptViewport.tsx')
     const files = walkTsFiles(chatRoot)
-    const virtualizerCallers = files.filter((f) =>
-      /\buseVirtualizer\s*\(/.test(readFileSync(f, 'utf8'))
-    )
+    const virtualizerCallers = files.filter(callsVirtualizer)
     expect(virtualizerCallers).toEqual([viewportFile])
 
     const scrollTopWriters = files.filter((f) => {
