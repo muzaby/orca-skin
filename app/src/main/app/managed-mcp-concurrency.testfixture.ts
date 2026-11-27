@@ -56,6 +56,7 @@ export function sharedMcpResponses() {
       const streams = [s1, s3].map((turn) => turn.eventBatches[Symbol.asyncIterator]())
       const oldA = ended(streams[0])
       const oldB = ended(streams[1])
+      const drains = [oldA, oldB]
       let s2: LiveTurn | undefined
       try {
         await Promise.all([...gates.values()].map((gate) => gate.started.promise))
@@ -66,6 +67,7 @@ export function sharedMcpResponses() {
           if (phase?.kind === 'mcp') waiting.resolve()
         })
         const peer = ended(s2.eventBatches[Symbol.asyncIterator]())
+        drains.push(peer)
         await waiting.promise
         const startB = called.length
         gates.get('B')!.finish.resolve()
@@ -96,6 +98,7 @@ export function sharedMcpResponses() {
       } finally {
         for (const gate of gates.values()) gate.finish.resolve()
         for (const turn of [s1, s2, s3]) turn?.close()
+        await Promise.allSettled(drains)
       }
     }
   }

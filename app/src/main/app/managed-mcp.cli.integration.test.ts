@@ -249,7 +249,7 @@ await server.connect(new StdioServerTransport());`
     { enabledConfig: () => users, resolver: () => () => undefined },
     bindings
   )
-  const choices: Record<string, boolean> = {}
+  const choices: Record<string, boolean> = { 'managed:user:sse': true }
   const env = {
     HOME: home,
     USERPROFILE: home,

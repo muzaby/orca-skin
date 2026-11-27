@@ -125,7 +125,7 @@ export async function applyClaudeInputResources(
     let observed = find(rows, target)
     while (
       !observed &&
-      target.enabled &&
+      (target.enabled || !target.absentWhenOff) &&
       target.expectRegistration &&
       !rows.some((server) => server.name === target.name) &&
       Date.now() < deadline
@@ -146,7 +146,17 @@ export async function applyClaudeInputResources(
       rows = await status()
       if (!current()) return
       signal.throwIfAborted()
-      const server = find(rows, target)
+      let server = find(rows, target)
+      // The CLI can publish tools after a disconnect issued during its startup
+      // connection. Let that attempt finish before confirming the OFF transition.
+      while (!target.enabled && server?.status === 'pending') {
+        if (Date.now() >= deadline)
+          throw new Error(`Claude MCP 초기 연결 대기 시간이 초과됐습니다: ${target.name}`)
+        await delay(100, undefined, { signal })
+        if (!current()) return
+        rows = await status()
+        server = find(rows, target)
+      }
       if (!server) throw new Error(`Claude MCP 출처가 변경됐습니다: ${target.name}`)
       if (server.status === expected) return
       if (server.status !== 'pending' || !target.enabled)

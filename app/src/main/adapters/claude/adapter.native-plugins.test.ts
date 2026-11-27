@@ -1,5 +1,11 @@
+import { applyClaudeInputResources } from './input-resources'
 import { loadClaudeSdk } from './sdk'
-import type { McpServerStatus, Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import type {
+  McpServerStatus,
+  Options,
+  SDKMessage,
+  SDKUserMessage
+} from '@anthropic-ai/claude-agent-sdk'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -376,19 +382,20 @@ it('reads the published dist and the current harness installation for every new 
     extensions: { pluginRoots: [dist], skills: [skill('active', true)], hooks: { normalized: {} } }
   }
   let revision = 1
-  const adapter = new ClaudeAdapter({global:()=>({}), deploymentRevision:()=>revision})
+  const adapter = new ClaudeAdapter({ global: () => ({}), deploymentRevision: () => revision })
   const first = await sendPrepared(adapter, request)
   const paths = (): string[] =>
     ((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.plugins ?? []).map(
       (entry) => entry.path
     )
-  const options = (): Options => (fixture.query.mock.calls.at(-1)![0] as { options: Options }).options
+  const options = (): Options =>
+    (fixture.query.mock.calls.at(-1)![0] as { options: Options }).options
   expect(paths()).toEqual([dist, plugin])
   expect(options().skills).toContain('frontend-design:frontend-design')
-  expect((await first.pushTurn!({text:'same deployment'})).kind).toBe('accepted')
+  expect((await first.pushTurn!({ text: 'same deployment' })).kind).toBe('accepted')
   revision++
   expect(first.inputResourcesChanged?.()).toBe(true)
-  expect((await first.pushTurn!({text:'updated deployment'})).kind).toBe('restartBeforeAccept')
+  expect((await first.pushTurn!({ text: 'updated deployment' })).kind).toBe('restartBeforeAccept')
   expect(readFileSync(registry, 'utf8')).toBe(v1)
   const v2 = join(temp, 'market-updated')
   write(join(v2, '.claude-plugin/plugin.json'), { name: 'frontend-design' })
@@ -399,7 +406,7 @@ it('reads the published dist and the current harness installation for every new 
   expect(paths()).toEqual([dist, v2])
   expect(options().skills).toContain('frontend-design:v2-only')
   expect(options().skills).not.toContain('frontend-design:frontend-design')
-  expect(readFileSync(join(v2,'commands/v2-only.md'), 'utf8')).toBe('v2-only-body')
+  expect(readFileSync(join(v2, 'commands/v2-only.md'), 'utf8')).toBe('v2-only-body')
   first.close()
   second.close()
   expect(readFileSync(registry, 'utf8')).toBe(updated)
@@ -488,49 +495,101 @@ it('carries the prepared global plugin defaults into the spawned query settings'
   live.close()
 })
 
-
-it.each(['off','cancel','fail'] as const)(
+it.each(['off', 'cancel', 'fail'] as const)(
   'holds initial input until the selected MCP is confirmed and handles %s while waiting',
-  async outcome => {
+  async (outcome) => {
     let enabled = true
-    const adapter = new ClaudeAdapter({global:()=>({'mcp:docs':enabled})})
+    const adapter = new ClaudeAdapter({ global: () => ({ 'mcp:docs': enabled }) })
     const controller = new AbortController()
-    const request = { cwd, sessionId:null, text:'ordinary message',promptUuid:'2129a9eb-d199-49b8-8c1b-84fa41fc7db1',
-      env:{CLAUDE_CONFIG_DIR:root},extensions:{skills:[],hooks:{normalized:{}}} }
+    const request = {
+      cwd,
+      sessionId: null,
+      text: 'ordinary message',
+      promptUuid: '2129a9eb-d199-49b8-8c1b-84fa41fc7db1',
+      env: { CLAUDE_CONFIG_DIR: root },
+      extensions: { skills: [], hooks: { normalized: {} } }
+    }
     const prepared = await adapter.prepareTurn(request, controller.signal)
-    const live = adapter.sendMessage({...request,prepared})
+    const live = adapter.sendMessage({ ...request, prepared })
     const sdk = fixture.query.mock.results.at(-1)!.value
     let release!: (rows: McpServerStatus[]) => void
-    const lookup = new Promise<McpServerStatus[]>(resolve=>{release=resolve})
-    let status:McpServerStatus['status']='connected'
-    const row = (): McpServerStatus[] => [{name:'docs',source:'user',status}]
-    sdk.mcpServerStatus.mockImplementationOnce(()=>lookup).mockImplementation(async()=>row())
-    sdk.toggleMcpServer.mockImplementation(async (_id: string, active: boolean)=>{
-      if(outcome==='fail') throw new Error('SDK failed to change connection')
+    const lookup = new Promise<McpServerStatus[]>((resolve) => {
+      release = resolve
+    })
+    let status: McpServerStatus['status'] = 'connected'
+    const row = (): McpServerStatus[] => [{ name: 'docs', source: 'user', status }]
+    sdk.mcpServerStatus.mockImplementationOnce(() => lookup).mockImplementation(async () => row())
+    sdk.toggleMcpServer.mockImplementation(async (_id: string, active: boolean) => {
+      if (outcome === 'fail') throw new Error('SDK failed to change connection')
       status = active ? 'connected' : 'disabled'
     })
-    const stream = (fixture.query.mock.calls.at(-1)![0] as {prompt:AsyncIterable<SDKUserMessage>}).prompt[Symbol.asyncIterator]()
-    let delivered=false
-    const first = stream.next().then(item=>{delivered=!item.done;return item})
+    const stream = (
+      fixture.query.mock.calls.at(-1)![0] as { prompt: AsyncIterable<SDKUserMessage> }
+    ).prompt[Symbol.asyncIterator]()
+    let delivered = false
+    const first = stream.next().then((item) => {
+      delivered = !item.done
+      return item
+    })
     try {
       const admission = live.submitInitial!(controller.signal)
-      await vi.waitFor(()=>expect(sdk.mcpServerStatus).toHaveBeenCalledOnce())
+      await vi.waitFor(() => expect(sdk.mcpServerStatus).toHaveBeenCalledOnce())
       expect(delivered).toBe(false)
-      if(outcome==='cancel') controller.abort()
-      else enabled=false
+      if (outcome === 'cancel') controller.abort()
+      else enabled = false
       release(row())
-      if(outcome==='off'){
-        expect(await admission).toEqual({kind:'accepted'})
-        expect((await first).value).toMatchObject({uuid:request.promptUuid,message:{content:request.text}})
-        expect(sdk.toggleMcpServer).toHaveBeenCalledExactlyOnceWith('docs',false)
+      if (outcome === 'off') {
+        expect(await admission).toEqual({ kind: 'accepted' })
+        expect((await first).value).toMatchObject({
+          uuid: request.promptUuid,
+          message: { content: request.text }
+        })
+        expect(sdk.toggleMcpServer).toHaveBeenCalledExactlyOnceWith('docs', false)
         live.close()
         expect((await stream.next()).done).toBe(true)
-      }else{
+      } else {
         await expect(admission).rejects.toThrow()
         live.close()
         expect((await first).done).toBe(true)
         expect(delivered).toBe(false)
       }
-    }finally {live.close()}
+    } finally {
+      live.close()
+    }
   }
 )
+
+it('waits for the startup connection to finish before disconnecting a native server on the first OFF input', async () => {
+  const observedPending = Promise.withResolvers<void>()
+  const finishStartup = Promise.withResolvers<void>()
+  let reads = 0
+  let state: McpServerStatus['status'] = 'pending'
+  const query = {
+    mcpServerStatus: vi.fn(async (): Promise<McpServerStatus[]> => {
+      reads++
+      if (reads === 3) {
+        observedPending.resolve()
+        await finishStartup.promise
+        state = 'connected'
+      }
+      return [{ name: 'docs', source: 'user', status: state }]
+    }),
+    toggleMcpServer: vi.fn(async (_id: string, enabled: boolean) => {
+      state = enabled ? 'connected' : 'disabled'
+    })
+  }
+  const admission = applyClaudeInputResources(
+    query,
+    'root',
+    [{ name: 'docs', enabled: false, sources: ['user'], expectRegistration: true }],
+    () => true,
+    new AbortController().signal
+  )
+  await observedPending.promise
+  const writesWhileStarting = query.toggleMcpServer.mock.calls.length
+  finishStartup.resolve()
+  await admission
+  expect(writesWhileStarting).toBe(0)
+  expect(query.toggleMcpServer).toHaveBeenCalledExactlyOnceWith('docs', false)
+  expect(state).toBe('disabled')
+})
