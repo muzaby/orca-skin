@@ -74,7 +74,7 @@ interface RowProps {
   priority: Priority
   showPendingText?: boolean
   parts?: readonly MarkdownSourcePart[]
-  onComplete?: () => void
+  onSettled?: (parsed: boolean) => void
 }
 
 export const MarkdownRowView = memo(function MarkdownRowView(props: RowProps): React.JSX.Element {
@@ -85,7 +85,7 @@ function RegularMarkdownRow({
   row,
   priority,
   parts,
-  onComplete,
+  onSettled,
   showPendingText = false
 }: RowProps): React.JSX.Element {
   const { doc, segment, block } = row
@@ -151,8 +151,8 @@ function RegularMarkdownRow({
     [parts, segment, block]
   )
   useEffect(() => {
-    if (failed || committed === chunks) onComplete?.()
-  }, [failed, committed, chunks, onComplete])
+    if (failed || committed === chunks) onSettled?.(!failed)
+  }, [failed, committed, chunks, onSettled])
   if (!roots?.length)
     return (
       <pre
@@ -179,13 +179,13 @@ const TranscriptRows = memo(function TranscriptRows({
   start,
   end,
   parts,
-  onComplete
+  onSettled
 }: {
   rows: MarkdownRow[]
   start: number
   end: number
   parts?: readonly MarkdownSourcePart[]
-  onComplete: (index: number) => void
+  onSettled: (index: number, parsed: boolean) => void
 }): React.JSX.Element {
   return (
     <>
@@ -195,7 +195,7 @@ const TranscriptRows = memo(function TranscriptRows({
           row={row}
           priority="visible"
           parts={parts}
-          onComplete={() => onComplete(start + i)}
+          onSettled={(parsed) => onSettled(start + i, parsed)}
         />
       ))}
     </>
@@ -217,8 +217,15 @@ export function WorkerDocumentRows({
   rows: MarkdownRow[] | undefined
   tail?: boolean
 }): React.JSX.Element {
-  const [progress, setProgress] = useState({ rows, prefix: 0, ready: new Set<number>() })
-  const prefix = progress.rows === rows ? progress.prefix : 0
+  const [progress, setProgress] = useState({
+    rows,
+    parts: sourceParts,
+    prefix: 0,
+    ready: new Set<number>(),
+    failed: false
+  })
+  const sameContent = progress.rows === rows && progress.parts === sourceParts
+  const prefix = sameContent ? progress.prefix : 0
   const total = rows?.length ?? 0
   // Limit in-flight results while earlier rows are painting; share an open segment
   // with the workers even when a short paragraph finishes between frames.
@@ -236,19 +243,21 @@ export function WorkerDocumentRows({
     return () => lease.release()
   }, [doc, segment])
   const advance = useCallback(
-    (index: number): void => {
+    (index: number, parsed: boolean): void => {
       setProgress((current) => {
         const previous =
-          current.rows === rows ? current : { rows, prefix: 0, ready: new Set<number>() }
+          current.rows === rows && current.parts === sourceParts
+            ? current
+            : { rows, parts: sourceParts, prefix: 0, ready: new Set<number>(), failed: false }
         if (index < previous.prefix || previous.ready.has(index)) return current
         const ready = new Set(previous.ready)
         ready.add(index)
         let next = previous.prefix
         while (ready.delete(next)) next++
-        return { rows, ready, prefix: next }
+        return { rows, parts: sourceParts, ready, prefix: next, failed: previous.failed || !parsed }
       })
     },
-    [rows]
+    [rows, sourceParts]
   )
   if (!rows) return <span data-md-block-pending="" />
   if (!rows.length)
@@ -257,15 +266,18 @@ export function WorkerDocumentRows({
         {source}
       </pre>
     )
+  const settled = prefix === rows.length
+  const failed = sameContent && progress.failed
+  const parsed = settled && !failed
   return (
     <div
       className={
         (className ?? MARKDOWN_TYPOGRAPHY + ' text-ink') +
         ' [&>*]:[content-visibility:auto] [&>*]:[contain-intrinsic-size:auto_1lh]'
       }
-      data-markdown-tail={tail ? (prefix === rows.length ? 'parsed' : 'raw') : undefined}
-      data-markdown-tail-parsed={tail && prefix === rows.length ? source.length : undefined}
-      data-markdown-document={prefix === rows.length ? 'complete' : 'pending'}
+      data-markdown-tail={tail ? (parsed ? 'parsed' : 'raw') : undefined}
+      data-markdown-tail-parsed={tail && parsed ? source.length : undefined}
+      data-markdown-document={settled ? (failed ? 'error' : 'complete') : 'pending'}
       data-md-block-pending={prefix < rows.length ? '' : undefined}
     >
       {Array.from({ length: Math.ceil(Math.min(count, rows.length) / ROWS_PER_GROUP) }, (_, i) => {
@@ -278,7 +290,7 @@ export function WorkerDocumentRows({
             start={start}
             end={end}
             parts={sourceParts}
-            onComplete={advance}
+            onSettled={advance}
           />
         )
       })}

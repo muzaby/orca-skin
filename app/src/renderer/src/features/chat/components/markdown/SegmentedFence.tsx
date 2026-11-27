@@ -27,12 +27,12 @@ export function SegmentedFence({
   row,
   parts,
   priority,
-  onComplete
+  onSettled
 }: {
   row: MarkdownRow
   parts?: readonly MarkdownSourcePart[]
   priority: Priority
-  onComplete?: () => void
+  onSettled?: (parsed: boolean) => void
 }): React.JSX.Element {
   const [result, setResult] = useState<FenceResult>()
   const [failed, setFailed] = useState<Pick<FenceResult, 'row' | 'parts'>>()
@@ -120,10 +120,17 @@ export function SegmentedFence({
     }
   }, [row, parts])
   const complete = result?.row === row && result.parts === parts
+  const rejected = failed?.row === row && failed.parts === parts
   useEffect(() => {
-    if (complete) onComplete?.()
-  }, [complete, onComplete])
-  if (failed?.row === row && failed.parts === parts) return <span data-md-block-error="" />
+    if (complete || rejected) onSettled?.(complete)
+  }, [complete, rejected, onSettled])
+  const fence = row.block.fence
+  if (rejected && fence)
+    return (
+      <pre data-md-block-error="" className="whitespace-pre-wrap break-words">
+        {row.readSource?.(fence.start, fence.end)}
+      </pre>
+    )
   if (!complete) return <span data-md-block-pending="" />
   return <CodeBlock code={result.code} lang={row.block.fence?.lang} markedText={result.runs} />
 }

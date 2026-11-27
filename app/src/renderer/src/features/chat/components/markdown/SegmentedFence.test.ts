@@ -38,12 +38,18 @@ let dom: FakeDom
 const SIZE = 8_000_000
 let docs: Map<string, { text: string; users: number }>
 let registered: number[]
+let rejectFirstBlock: boolean
 beforeEach(() => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1000, innerHeight: 600 })
   docs = new Map()
   registered = []
+  rejectFirstBlock = false
   async function computeRange(input: ComputeRequest): Promise<ComputeResult> {
+    if (input.kind === 'markdown' && rejectFirstBlock) {
+      rejectFirstBlock = false
+      throw Error('parse failed')
+    }
     return input.kind === 'markdown'
       ? markdownBlock(docs.get(docKey(input.doc))!, input)
       : compute(input)
@@ -122,4 +128,24 @@ it('VP-41 a single fenced block crossing the 8M registrations retains its langua
   expect(first?.textContent.length).toBe(SIZE)
   expect(second?.textContent.startsWith('a'.repeat(13) + '🦦')).toBe(true)
   expect(registered.some((n) => n === SIZE)).toBe(true)
+})
+
+it.each([
+  ['regular block', '**bad**' + 'x'.repeat(4800)],
+  ['segmented fence', '~~~ts\n' + 'x'.repeat(SIZE + 12) + '\n~~~']
+])('keeps the source and finishes later rows when a %s fails', async (_name, first) => {
+  rejectFirstBlock = true
+  const later = Array.from({ length: 9 }, (_, i) => '**later' + i + '**' + 'y'.repeat(4100))
+  dom.render(createElement(TranscriptMarkdown, { source: [first, ...later].join('\n\n') }))
+  for (let frame = 0; frame < 160; frame++) {
+    for (let i = 0; i < 12; i++) await Promise.resolve()
+    dom.frame()
+    if (dom.query('[data-markdown-document="error"]') && !dom.query('[data-md-block-pending]'))
+      break
+  }
+  expect(dom.query('[data-md-block-error]')?.textContent.includes(first)).toBe(true)
+  expect(tags('strong').at(-1)?.textContent).toBe('later8')
+  expect(dom.query('[data-markdown-document="error"]')).not.toBeNull()
+  expect(dom.query('[data-md-block-pending]')).toBeNull()
+  expect(dom.query('[data-markdown-document="complete"]')).toBeNull()
 })
