@@ -47,11 +47,13 @@ export function receiptEndsTurn(state: ChatState, event: FailureEvent): boolean 
 // A delayed page may predate the SQLite ACK. Replay it only where its committed input is loaded.
 export function restoreTurnFailures(
   messages: Message[],
-  failures: Iterable<SavedFailure>
+  failures: Iterable<SavedFailure>,
+  insertedOwner?: string
 ): Message[] {
   let result = messages
   for (const part of failures) {
     const receipt = part.failure
+    if (insertedOwner !== undefined && receipt.ownerUserMessageKey !== insertedOwner) continue
     const owner = result.findIndex((message) => message.id === receipt.ownerUserMessageKey)
     if (owner < 0 || result[owner].role !== 'user') continue
     let end = owner + 1

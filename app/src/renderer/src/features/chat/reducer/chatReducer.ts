@@ -1051,7 +1051,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
       if (optimistic.size === 0) {
         const appended = [...state.messages, committed]
-        const messages = restoreTurnFailures(appended, state.acknowledgedFailures.values())
+        const messages = restoreTurnFailures(
+          appended,
+          state.acknowledgedFailures.values(),
+          committedId
+        )
         return {
           ...state,
           ...writeMessages(
@@ -1080,7 +1084,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         ...writeMessages(
           state,
-          restoreTurnFailures(messages, state.acknowledgedFailures.values()),
+          restoreTurnFailures(messages, state.acknowledgedFailures.values(), committedId),
           change
         )
       }
@@ -1707,12 +1711,20 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         seen.add(message.id)
         page.push(message)
       }
+      const overlappingFailures: SavedFailure[] = []
       const overlap = page.findIndex((message) => order.messagePosition(message.id) >= 0)
       if (overlap >= 0) {
         for (let index = overlap; index < page.length; index++) {
           if (order.messagePosition(page[index].id) !== index - overlap) {
             action.diagnostic?.('prependRejected', 1)
             return state
+          }
+          const message = page[index]
+          if (message.role === 'assistant') {
+            for (const part of message.parts) {
+              if (part.type === 'error' && part.failure?.assistantMessageKey === message.id)
+                overlappingFailures.push({ ...part, failure: part.failure })
+            }
           }
         }
         page.length = overlap
@@ -1745,6 +1757,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ),
           openCodeTodoTurnStartIndex: state.openCodeTodoTurnStartIndex + page.length
         }
+      }
+      if (overlappingFailures.length) {
+        const messages = restoreTurnFailures(next.messages, overlappingFailures)
+        if (messages !== next.messages)
+          next = {
+            ...next,
+            ...writeMessages(next, messages, { kind: 'reset', complete: next.historyComplete })
+          }
       }
       if (!action.reachedStart) return next
       if (next.historyComplete && next.heldPatches.size === 0 && next.heldOutputs.size === 0)

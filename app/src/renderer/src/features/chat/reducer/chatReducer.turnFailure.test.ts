@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { AppMessagePart, LoadedMessage, NormalizedEvent } from '../../../../../shared/ipc'
+import type {
+  AppMessagePart,
+  LoadedMessage,
+  NormalizedEvent,
+  TurnFailureReceipt
+} from '../../../../../shared/ipc'
 import { chatReducer, initialChatState, type ChatState } from './chatReducer'
 import { createWorkProjector } from '../lib/workActivity'
 import { partMergeKey } from '../lib/transcript/mergeKey'
@@ -11,7 +16,8 @@ const user = (id: string): LoadedMessage => ({
   createdAt: 1
 })
 const error = { category: 'stream_error', message: 'same failure', retryable: true } as const
-const failure = (owner: string, id: string) => ({
+type ReceiptEvent = Extract<NormalizedEvent, { type: 'error' }> & { failure: TurnFailureReceipt }
+const failure = (owner: string, id: string): ReceiptEvent => ({
   type: 'error' as const,
   sessionId: 's',
   messageKey: 'a:' + id,
@@ -23,12 +29,12 @@ const failure = (owner: string, id: string) => ({
     occurredAt: 100
   }
 })
-const load = (messages: LoadedMessage[], state = initialChatState, id = 's') =>
+const load = (messages: LoadedMessage[], state = initialChatState, id = 's'): ChatState =>
   chatReducer(state, {
     type: 'LOAD_SESSION',
     session: { id, backend: 'claude', agentKind: 'code', title: null, messages }
   })
-const recv = (state: ChatState, event: NormalizedEvent) =>
+const recv = (state: ChatState, event: NormalizedEvent): ChatState =>
   chatReducer(state, { type: 'RECV_EVENT', event })
 
 describe('durable turn failures', () => {
@@ -103,6 +109,7 @@ describe('durable turn failures', () => {
       messages: [user('u:old'), { ...old, parts: [] }],
       reachedStart: true
     })
+    expect(prepended.messages[1].parts).toEqual([{ type: 'error', error, failure: event.failure }])
     const body = chatReducer(prepended, {
       type: 'RESOLVE_HISTORY_BODY',
       ref,
@@ -147,4 +154,19 @@ describe('durable turn failures', () => {
       ])
     }
   )
+})
+
+it('reconciles a more recent overlapping page by occurrence, including two distinct receipts on one assistant', () => {
+  const first = failure('u:q', 'a')
+  const second = { ...first.failure, failureId: 'b' }
+  const firstPart = { type: 'error' as const, error, failure: first.failure }
+  const secondPart = { type: 'error' as const, error, failure: second }
+  const assistant = { id: 'a:a', role: 'assistant' as const, parts: [firstPart], createdAt: 1 }
+  let state = load([user('u:q'), assistant])
+  state = chatReducer(state, {
+    type: 'PREPEND_HISTORY',
+    messages: [user('u:q'), { ...assistant, parts: [firstPart, secondPart] }],
+    reachedStart: true
+  })
+  expect(state.messages[1].parts).toEqual([firstPart, secondPart])
 })

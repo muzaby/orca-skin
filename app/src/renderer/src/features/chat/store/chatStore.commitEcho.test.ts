@@ -1,3 +1,4 @@
+import type { LoadedMessage, NormalizedEvent } from '../../../../../shared/ipc'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { userMessageId } from '../../../../../shared/message-id'
 import { chatReducer, initialChatState } from '../reducer/chatReducer'
@@ -96,7 +97,12 @@ describe('VP-07 chatStore commit echo (r12)', () => {
 
 it('keeps the live stream of B on a late first receipt for A and on redelivery, then resets it on B’s own terminal', () => {
   installChatStoreHarness()
-  const user = (id: string) => ({ id, role: 'user' as const, parts: [], createdAt: 1 })
+  const user = (id: string): LoadedMessage => ({
+    id,
+    role: 'user' as const,
+    parts: [],
+    createdAt: 1
+  })
   let session = chatReducer(initialChatState, {
     type: 'LOAD_SESSION',
     session: { id: 's', agentKind: 'code', backend: 'claude', title: null, messages: [user('u:a')] }
@@ -108,7 +114,7 @@ it('keeps the live stream of B on a late first receipt for A and on redelivery, 
   })
   const live = { text: 'stream B', reasoning: 'detail', reasoningVisible: true }
   useChatStore.setState({ activeKey: 's', sessions: { s: { session, live, subagentMeta: {} } } })
-  const event = (id: string) => ({
+  const event = (id: string): NormalizedEvent => ({
     type: 'error' as const,
     sessionId: 's',
     messageKey: 'a:' + id,
