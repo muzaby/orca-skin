@@ -1,6 +1,7 @@
 import { app, BrowserWindow, clipboard, ipcMain } from 'electron'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { middleCorpus, measureMiddleSelection } from './middle-selection.mjs'
 import { fixture } from './fixtures.mjs'
 
 const [url] = process.argv.slice(-3)
@@ -44,8 +45,16 @@ function find(wc, needle, findNext) {
 app.whenReady().then(async () => {
   let timer, win, measured
   try {
-    const source = fixture(input)
-    const bytes = Buffer.from(JSON.stringify([{ type: 'text', text: source }]), 'utf8')
+    const original = fixture(input)
+    const middle =
+      params.get('variant') === 'middle-source-parts' && input === 'B5'
+        ? middleCorpus(original)
+        : undefined
+    const source = middle?.source ?? original
+    const bytes = Buffer.from(
+      JSON.stringify(middle?.parts ?? [{ type: 'text', text: source }]),
+      'utf8'
+    )
     const meta = {
       input,
       screen,
@@ -123,6 +132,13 @@ app.whenReady().then(async () => {
         const measurement = await js('window.measureBody(' + budget + ')')
         measured = { ...meta, ...measurement }
         if (!measurement.complete || params.has('calibrate')) return measurement
+        if (middle) {
+          return {
+            ...measurement,
+            variant: 'middle-source-parts',
+            ...(await measureMiddleSelection(wc, clipboard, js, find, middle))
+          }
+        }
         const semantic = await js('window.verifyBody()')
         Object.assign(measured, semantic)
         const expected = await js('window.selectBodyText()')
