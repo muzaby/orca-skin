@@ -8,14 +8,14 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0331-transcript-feedback-followup` |
-| 작성자 | Claude Code (V1·ΔV3·ΔV4·ΔV6·ΔV7) · Codex (ΔV1·ΔV2·ΔV5) |
+| 작성자 | Claude Code (V1·ΔV3·ΔV4·ΔV6·ΔV7·ΔV8) · Codex (ΔV1·ΔV2·ΔV5) |
 | 일자 | 2026-11-26 · ΔV5·ΔV6 2026-11-27 |
 | 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0332 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) · 0331~0333 사용자 실측(2026-11-27 — 기준 `c052c301`, §23) |
-| 상태 | plan/READY (ΔV6·ΔV7) · ΔV7은 Claude가 r1.5로 바로 구현(사용자 지시) · 이어서 ΔV6 Codex r1.6 · 라운드 1. r1.4 자기보고 16/17은 이력으로 남고 독립 검증 횟수는 0이다. |
+| 상태 | plan/READY (ΔV6·ΔV7·ΔV8) · ΔV7·ΔV8은 Claude가 r1.5로 바로 구현(사용자 지시) · 이어서 ΔV6 Codex r1.6 · 라운드 1. r1.4 자기보고 16/17은 이력으로 남고 독립 검증 횟수는 0이다. |
 | V mode | `Delta V` |
 | 기준 V | 0331 V1 + ΔV1~ΔV4 · ΔV4 설계 `4fbe492c` · 구현 근거 `98381394` |
-| 이번 V revision | `ΔV7` · Work 메모 점 — 보이는 글 판정과 메모 대기 원문 (§24). 직전 `ΔV6`(§23) · `ΔV5`(§22) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7` |
+| 이번 V revision | `ΔV8` · 워커가 뜨기 전에 죽는 dev 해석 결함(§25). 직전 `ΔV7`(§24) · `ΔV6`(§23) · `ΔV5`(§22) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7 + ΔV8` |
 | 기준 트리 | ΔV6: `c052c301`(r1.4 통합 결과). ΔV5: `98381394`. V1의 기준은 `18b5d5f`이다. |
 
 # Part I — Product & UX Contract
@@ -88,6 +88,7 @@
 | D-032 | 계산·Markdown·이미지 워커 실패는 창 수명 동안 영구 상태가 아니다. ① 연속 실패 한도(3)에 닿은 레인은 대기(2초 → 10초 → 60초 상한) 동안만 요청을 거부하고, 대기 뒤 첫 요청에서 새 워커를 만든다 ② 실패 상태에서 첫 성공이 오면 레인 회복 회차를 올리고, 워커 원인으로 원문에 머문 화면은 각 1회 자동 재요청한다 ③ 요청 단위 실패(계산 오류 포함)와 큰 본문 실패를 레인·종류·사유로 기록한다(같은 사유 연속은 1분에 1줄) ④ 10초 넘게 응답이 없는 요청은 진단 1줄(작업은 유지) ⑤ 원문 폴백은 실패가 지속되는 동안만이다 | “모든 도구 카드에서 … pretty format이 사라짐”(질의 답 “색만 없는 고정폭 코드”) · “마크다운 원문으로만 출력” — 최초 계기는 미재현, 영구 폴백 경로는 확정(§23-A 3a·5) | 사용자 실측 + 조사 | ACTIVE | 0324 상태표 “연속 3회 실패하면 창이 닫힐 때까지 요청하지 않음” 대체 |
 | D-033 | 도구 간격은 0324 이전 값이다 — Code 도구 블록 위·아래 8px, 그룹 안 카드 사이 8px(`--chat-item-gap`), Work 도구 행 `py-2`(행 사이 16px) | “도구 상하 간 간격이 너무 좁아짐. 324 이전을 참고할 것.” · 질의 답 “0324 이전 값 전부” | 사용자 실측 + 질의 | ACTIVE | D-011 대체 |
 | D-034 | Work 펼침 목록의 메모 점은 보이는 메모 글이 있을 때만 있다 — 보이는 글 판정은 공백·보이지 않는 서식 문자·공백 엔티티·링크 참조 정의만의 글을 빼고(정본 `shared/markdown/visibleText.ts`, 65,536자 초과 판정도 같은 글자 규칙), 워커를 기다리는 4,000자 초과 메모는 원문을 보인다. 상세 §24-B | “dot 아이콘이 섞여 출력 … 노트 출력이 실패한 케이스일 수 있으니 … 수정하라” — 공백 아닌 보이지 않는 메모 3형태 실측(§24-A) | 사용자 추가 요청 2026-11-27 + 조사 | ACTIVE | D-003 보완 |
+| D-035 | 렌더러(창·계산 워커·Markdown 워커)는 `decode-named-character-reference`를 DOM 없는 판으로 해석한다 — dev·사전 번들·빌드 모두, renderer `resolve.alias` 하나로. 상세 §25-B | “디코딩을 할 워커가 뜨기 전에 죽었다” — `index.dom.js` 최상위 `document.createElement('i')`(§25-A) | 사용자 확인 + 재현 2026-11-27 | ACTIVE | ΔV6 D-032 유지 |
 
 ### 갱신 메모
 
@@ -104,6 +105,7 @@
 - ΔV6 추가 결정: D-029~D-033 · 대체: D-011 → D-033(사용자 결정 변경). 0324 상태표의 워커 영구 차단 규칙은 D-032가 대체한다.
 - **ΔV6 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-029↔AC18 · D-030↔AC3″·AC19 · D-031↔AC3″ · D-032↔AC20·AC3″(g) · D-033↔AC10″ · D-010↔AC18(연속 ‘응답 중단’ 간격)·AC9″(회귀). D-011은 SUPERSEDED라 대조 대상 아님. AC 분모 17 → 20.
 - ΔV7 추가 결정: D-034. **ΔV7 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-034↔AC2″ · D-003↔AC2″(공백 입력 유지) · D-002↔VP-63(묶음 회귀) · D-009↔AC2″ ③. AC 분모 20 그대로.
+- ΔV8 추가 결정: D-035. **ΔV8 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-035↔AC21 · D-032↔AC20(유지). ΔV6 §23-F WU-0의 계기는 §25가 닫는다. AC 분모 20 → 21.
 
 ## 4. 요구 비판적 검토
 
@@ -1175,6 +1177,52 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 
 - 규칙 칸 ↔ 입력 1:1: ① 4분기 + 대조 → 입력 12 · ② 2 · ③ 2 · ④⑤ 1씩 · ⑥⑦ 2씩.
 - **선언 경계** — ① 목록 밖 엔티티(`&#x2002;` 등)·참조 정의의 변형(제목이 여러 줄)은 보이는 글로 본다(보수 쪽). ② 65,536자 초과 글은 글자 규칙만 적용하고 엔티티·정의 판정은 하지 않는다. ③ 대기 원문은 Work 메모에만 켜며 transcript 본문·검색 보기의 빈 대기 표시는 바꾸지 않는다(AC14′ 경로 불변).
+
+## 25. ΔV8 — 워커가 뜨기 전에 죽는다 (WU-0 계기 확정)
+
+**판정: 현재 결함이다 — dev 실행에서 계산·Markdown 워커가 진입 모듈 평가 중 `ReferenceError: document is not defined`로 죽는다.** 디코딩 실패가 아니라 디코딩할 워커가 뜨기 전에 죽는 것이며, 생성마다 같은 자리에서 죽어 3회 뒤 레인이 영구 차단된다(`client.ts:204`). ΔV6 §23-A 3a·5의 "계기 미재현"과 §23-F WU-0을 이 절이 닫는다. 기준 트리 `c052c301`. Claude가 ΔV7과 함께 r1.5에서 구현한다.
+
+### 25-A. 요구 원문 ↔ 관측
+
+| 사용자 원문 (2026-11-27) | 관측 |
+|---|---|
+| “본문로드 실패 케이스 확인했다. DefferedBody.tsx:17 에서 본문을 utf-8/json 으로 디코딩하는 compute 워커가 실패한 것이다. 또한 워커가 생성마다 죽으므로 3회 이후 영구 차단된다.” | 계산 워커 진입 `compute.worker.ts` → `handler.ts:16`·`historyBody.ts:3` → `markdownDefinitions.ts`(`remark-parse`·`remark-gfm` → micromark) → `decode-named-character-reference`. 이 패키지의 `browser` 조건은 `index.dom.js`이고 최상위가 `const element = document.createElement('i')`다 |
+| “디코딩 자체가 실패가 아닌 디코딩을 할 워커가 뜨기 전에 죽었다고 함. `Var element = document.creatElement("i") // 워커에는 document가 없다`” | 실제 electron-vite renderer 설정의 Vite dev 서버 + Chromium(`evidence/dv6/dev-worker.mjs`): 수정 전 계산·Markdown 워커 모두 `Uncaught ReferenceError: document is not defined` · 수정 후 둘 다 4초 동안 `error` 0. Vite 해석기(`resolver-probe.mjs`): 수정 전 serve·build × 소스·사전 번들 4경로 모두 `index.dom.js`, 수정 후 4경로 모두 `index.js`(`document.` 참조 0) |
+
+- 빌드 산출물의 워커는 `worker.plugins`의 `markdownWorkerBuild()`(`electron.vite.config.ts`)로 보호돼 있었다. 이 플러그인은 dev 서버의 워커 모듈과 의존성 사전 번들에 닿지 않는다 — 그래서 설치본은 정상이고 dev만 죽는다. 설계 턴의 Chromium 프로브(빌드 산출물)가 정상이었던 이유다.
+- 시점: 계산 워커는 `673b90d50`(0331 r1.x, `historyBody`가 `workerMarkdownLayout`을 import)부터. Markdown 워커는 dev에서 그 전부터 죽었다 — 4,000자 초과 답변만 워커를 쓰므로 "특정 세션"에서만 원문이 보였다.
+
+### 25-B. 결정과 AC
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-035 | 렌더러(창·계산 워커·Markdown 워커)는 `decode-named-character-reference`를 DOM 없는 판(`index.js`)으로 해석한다 — dev 파이프라인·의존성 사전 번들·빌드 모두. 수단은 renderer `resolve.alias` 하나(해석 대상 경로는 `scripts/markdown-worker-build.mjs` `domFreeEntityDecoder()`). 창의 Markdown도 같은 표 기반 해석을 쓴다(`character-entities` 37,342B 추가) | 워커에는 `document`가 없다. `worker.plugins`는 빌드 워커에만 닿는다(§25-A). alias는 사전 번들(esbuild)의 해석에도 적용된다 | 사용자 확인 + 재현 | ACTIVE | ΔV6 D-032는 유지 — 이번 계기가 사라져도 다른 이유의 워커 실패 회복은 필요하다 |
+
+**AC21** (NEW): electron-vite renderer 설정을 serve(development)·build(production)로 해석하고 Vite 해석기로 `decode-named-character-reference`를 워커 모듈(`markdownDefinitions.ts`)에서 풀면, 소스 해석·사전 번들 해석 4경로 모두 `document.`를 참조하지 않는 파일이다. 검증: `node --test` 단위(CI의 `node --test scripts/*.test.mjs`). 진단: dev 서버 + Chromium에서 두 워커가 생성 뒤 4초 동안 `error` 0(`evidence/dv6/dev-worker.mjs`, 게이트 아님). **AC 분모 20 → 21.**
+
+### 25-C. V 변경 (ΔV8)
+
+| Node | 레벨 | 계약 | provenance | 기준선 출처 |
+|---|---|---|---|---|
+| AR-09 | AR | renderer 빌드 설정 ↔ 워커 모듈 해석 — DOM 없는 entity 해석기 | NEW | — |
+| R-03 · AT-03″ · R-20 · AT-20 · R-08 · AT-08 | R · AT | 큰 본문 · 워커 회복 · Markdown 렌더 | INHERITED | ΔV6 · V1 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-64 | AR-09 ↔ IT-09 | REQUIRED | `electron.vite.config.ts` renderer `resolve.alias` → Vite 해석기(소스·사전 번들) → 워커 모듈 import | 새 `scripts/markdown-worker-build.test.mjs` `D-035 resolves the entity decoder without document (serve)`·`(build)` — 각 소스·사전 번들 2입력, 해석 파일에 `document.` 0 | required — alias 제거 변이(4경로 모두 `index.dom.js`, red) | EP-25 |
+| VP-65 | R-03 ↔ AT-03″ | REGRESSION | §23 | VP-45 좌표(ΔV6 구현 뒤) | not selected | EP-21·22 |
+
+### 25-D. §10 EP-25
+
+검색 `rg -nH 'decode-named-character-reference|markdownWorkerBuild|domFreeEntityDecoder' app/electron.vite.config.ts app/scripts/markdown-worker-build.mjs app/scripts/check-transcript-selection.mjs` → 자리 3 — `electron.vite.config.ts`의 renderer alias 줄(D-035의 강제 지점) · `markdown-worker-build.mjs` `domFreeEntityDecoder` 반환(해석 대상) · `electron.vite.config.ts` `worker.plugins`의 `markdownWorkerBuild()`(빌드 워커의 기존 보호, 유지). 나머지 줄(import·주석·실기 스크립트 `serveProbe`의 빌드 설정)은 제외 — 실기 스크립트는 빌드 산출물만 쓴다. 미분류 0은 구현 턴이 `site_census.mjs`로 기록한다.
+
+- **선언 경계** — ① 이 oracle은 이 패키지 하나의 해석만 본다. 다른 DOM 의존 모듈이 워커 그래프에 새로 들어오는 것은 잡지 않는다. dev 서버에서 워커가 실제로 사는지는 Chromium 진단으로만 확인했고 CI 게이트가 아니다. ② 설치본(빌드) 워커는 이번 변경 전에도 정상이었다(`worker.plugins`).
+
+## READY self-review (ΔV8)
+
+- 사용자 원문 2건을 §25-A에 원문으로 두고 같은 결론을 재현했다(수정 전후 양방향). D-035 ↔ AC21 충돌 0, D-032 유지.
+- NEW AR-09 ↔ VP-64 REQUIRED(적대 증거: alias 제거), 영향받은 INHERITED R-03 ↔ VP-65 REGRESSION.
+- EP-25 자리 3, 선언 경계 2(측정한 것만). AC 21개.
 
 ## READY self-review (ΔV7)
 

@@ -80,6 +80,26 @@ function fixture(): LoadedMessage[] {
       ])
     ]
   }
+  if (scenario === 'workNotes') {
+    const notes = [
+      'visible note',
+      '\u200b',
+      '<!-- hidden -->',
+      '[ref]: https://example.com',
+      '&nbsp;',
+      '\u2060\ufeff',
+      '<br>',
+      ('Long note paragraph. '.repeat(40) + '\n\n').repeat(6)
+    ]
+    const body: AppMessagePart[] = [begin('wn')]
+    notes.forEach((note, i) => {
+      body.push(call('t' + i, 'Bash', { command: 'echo ' + i }), result('t' + i, 'ok ' + i))
+      body.push(text(note))
+    })
+    body.push(call('tz', 'Bash', { command: 'echo end' }), result('tz', 'ok'), text('Done.'))
+    body.push(end('wn', 'ended'))
+    return [msg('u1', 'user', [text('notes')]), msg('a1', 'assistant', body)]
+  }
   if (scenario === 'emptyReasoning') {
     return [
       msg('u1', 'user', [text('q')]),
@@ -298,6 +318,21 @@ Object.assign(window, {
     l1.release()
     l2.release()
     return steps
+  },
+  notes() {
+    return Array.from(document.querySelectorAll<HTMLElement>('[data-work-note]')).map((el) => {
+      const content = el.lastElementChild as HTMLElement | null
+      const r = el.getBoundingClientRect()
+      const c = content?.getBoundingClientRect()
+      return {
+        rowH: Math.round(r.height * 10) / 10,
+        contentTag: content?.tagName,
+        contentH: c ? Math.round(c.height * 10) / 10 : null,
+        text: JSON.stringify((el.innerText || '').slice(0, 30)),
+        pending: el.querySelectorAll('[data-md-block-pending]').length,
+        error: el.querySelectorAll('[data-md-block-error]').length
+      }
+    })
   },
   report() {
     const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-index]')).map((el) => {

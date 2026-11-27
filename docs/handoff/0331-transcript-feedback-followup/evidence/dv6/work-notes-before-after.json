@@ -1,0 +1,18 @@
+{
+  "scenario": "claude-work:workNotes (Chromium, 펼친 Work 목록의 [data-work-note] 행)",
+  "before_c052c301": [
+    {"note": "visible note", "rowH": 29.5, "contentH": 22.3, "text": "visible note"},
+    {"note": "\\u200b", "rowH": 29.5, "contentH": 22.3, "text": "(보이는 글자 없음)"},
+    {"note": "<!-- hidden -->", "rowH": 29.5, "contentH": 22.3, "text": "<!-- hidden -->"},
+    {"note": "[ref]: https://example.com", "rowH": 7.3, "contentH": 0, "text": "", "dot": "20px 점이 다음 셸 행 위로 겹침"},
+    {"note": "&nbsp;", "rowH": 29.5, "contentH": 22.3, "text": "(NBSP 1자)"},
+    {"note": "\\u2060\\ufeff", "rowH": 29.5, "contentH": 22.3, "text": "(보이는 글자 없음)"},
+    {"note": "<br>", "rowH": 29.5, "contentH": 22.3, "text": "<br>"},
+    {"note": "Long note ×6 문단(5,000자 초과)", "rowH": 978.7, "contentH": 971.4, "text": "Long note paragraph. …"}
+  ],
+  "after_r1.5": {
+    "notes": 4,
+    "kept": ["visible note", "<!-- hidden -->", "<br>", "Long note ×6 문단"],
+    "removed": ["\\u200b", "[ref]: https://example.com", "&nbsp;", "\\u2060\\ufeff"]
+  }
+}
