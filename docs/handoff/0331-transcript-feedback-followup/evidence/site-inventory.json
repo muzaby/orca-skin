@@ -1,0 +1,234 @@
+{
+  "errors": [
+    {
+      "name": "G1 블록 간격",
+      "search": "rg -n 'gap:|const gap|gap\\b.*=.*\\?' app/src/renderer/src/features/chat/harnesses/claude/transcript/claudeBlocks.ts app/src/renderer/src/features/chat/lib/transcript/deferredBody.ts",
+      "sites": {
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/claudeBlocks.ts": "555,693,799,830,917,970,1081,1167,1363,1424,1565",
+        "app/src/renderer/src/features/chat/lib/transcript/deferredBody.ts": "26"
+      },
+      "excluded": {
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/claudeBlocks.ts": "67,78,95,103,111,122,128",
+        "app/src/renderer/src/features/chat/lib/transcript/deferredBody.ts": "17"
+      }
+    },
+    {
+      "name": "G2 프레임·여백",
+      "search": "rg -n 'reserveSpacerPx|pt-\\[(8|16|24)px\\]|gaps\\[' app/src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx",
+      "sites": {
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx": "31,96,101,106,155",
+        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "1010,1023,1142,1143"
+      },
+      "excluded": {}
+    },
+    {
+      "name": "P 오류 생성",
+      "search": "rg -n \"type: 'error'|errorEvent\\(\" app/src/main -g '!*.test.*' -g '!*.testfixture.*'",
+      "sites": {
+        "app/src/main/app/chat-turn/send.ts": "79,96,114,126,144,169,189,231,284,484,772",
+        "app/src/main/app/chat-turn/enqueue.ts": "103",
+        "app/src/main/app/agent-host/bootstrap.ts": "240",
+        "app/src/main/features/chat/turn-coordinator.ts": "579",
+        "app/src/main/adapters/opencode/v1/map.ts": "124,157",
+        "app/src/main/adapters/opencode/v1/channel.ts": "496",
+        "app/src/main/adapters/claude/map.ts": "832",
+        "app/src/main/adapters/claude/adapter.ts": "1076",
+        "app/src/main/adapters/claude/error-classifier.ts": "59"
+      },
+      "excluded": {
+        "app/src/main/adapters/claude/error-classifier.ts": "54,57",
+        "app/src/main/adapters/claude/mock-scenarios.ts": "652,668",
+        "app/src/main/features/history/writer.ts": "555",
+        "app/src/main/adapters/opencode/v1/native-history.ts": "80"
+      }
+    },
+    {
+      "name": "V 오류 소비·표시",
+      "search": "rg -n \"TurnErrorBanner|data-transcript-error|case 'error'|\\.type === 'error'|\\.type !== 'error'|\\.kind === 'error'\" app/src -g '!*.test.*' -g '!*.testfixture.*'",
+      "sites": {
+        "app/src/main/features/sessions/session-runtime.ts": "136,175",
+        "app/src/main/features/history/writer.ts": "549",
+        "app/src/main/features/chat/turn-coordinator.ts": "421,448,452,473",
+        "app/src/main/features/chat/response-boundary.ts": "15",
+        "app/src/main/adapters/opencode/v1/native-history.ts": "79",
+        "app/src/main/adapters/opencode/v1/channel.ts": "464",
+        "app/src/renderer/src/features/chat/store/chatStore.ts": "608,1188",
+        "app/src/renderer/src/features/chat/reducer/chatReducer.ts": "1480",
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx": "107,197",
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/ErrorCard.tsx": "29",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx": "110",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/AssistantSegment.tsx": "39",
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/AssistantSegment.tsx": "48",
+        "app/src/renderer/src/features/chat/harnesses/common/transcript/TurnErrorBanner.tsx": "11",
+        "app/src/renderer/src/features/chat/lib/transcript/blockKeys.ts": "60,87",
+        "app/src/renderer/src/features/chat/lib/parts.ts": "176"
+      },
+      "excluded": {
+        "app/src/main/features/auth/oauth-runner.ts": "170",
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx": "9",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx": "26",
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/Exchange.tsx": "2,72",
+        "app/src/renderer/src/features/chat/harnesses/common/transcript/TurnErrorBanner.tsx": "6",
+        "app/src/renderer/src/features/chat/lib/errorLabels.ts": "1"
+      }
+    },
+    {
+      "name": "T 호스트 전달",
+      "search": "rg -n 'turn\\.event|turn\\.artifactEvent|turn\\.commitUser|writer\\.persist\\(' app/src/main/app/agent-host/persistence-sender.ts app/src/main/app/data-host/persistence-receiver.ts",
+      "sites": {
+        "app/src/main/app/agent-host/persistence-sender.ts": "212,219,238,289",
+        "app/src/main/app/data-host/persistence-receiver.ts": "99,110,125,155"
+      },
+      "excluded": {}
+    },
+    {
+      "name": "L 이력·화면 재조립",
+      "search": "rg -n 'projectNativeHistory\\(|localMessages\\(|partFromRow\\(|isSidecar|append\\(target, part\\)|function userMessageId|case .(LOAD_SESSION|PREPEND_HISTORY|RESOLVE_HISTORY_BODY|HOST_LOST|REVALIDATE|APPEND_COMMITTED_USER_MESSAGE)' app/src/main/features/history/native-projection.ts app/src/main/features/history/reader.ts app/src/main/infra/ipc/dto.ts app/src/shared/message-id.ts app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "sites": {
+        "app/src/main/features/history/native-projection.ts": "35,111,157,164,182,187,191",
+        "app/src/main/features/history/reader.ts": "78,82,105,111",
+        "app/src/renderer/src/features/chat/reducer/chatReducer.ts": "1013,1599,1636,1657,1706"
+      },
+      "excluded": {
+        "app/src/main/features/history/native-projection.ts": "23,41",
+        "app/src/main/infra/ipc/dto.ts": "58",
+        "app/src/shared/message-id.ts": "20"
+      }
+    }
+  ],
+  "markdown": [
+    {
+      "name": "구간",
+      "search": "rg -n --no-heading '\\b(?:openHistoryBody|deferredBody|doc\\.open|doc\\.close|openDocument|parseResponse|coveredLength|markSourceText|sliceSourceParts)\\b' app/src app/scripts -g '!*.test.*' -g '!*.testfixture.*'",
+      "sites": {
+        "app/scripts/transcript-body/probe.tsx": "93",
+        "app/src/main/features/history/history-page.ts": "287",
+        "app/src/renderer/src/features/chat/components/markdown/MarkdownDocument.tsx": "103,136,201",
+        "app/src/renderer/src/features/chat/components/markdown/StreamingMarkdown.tsx": "66,69,72",
+        "app/src/renderer/src/features/chat/components/markdown/WorkerMarkdownTail.tsx": "43,64,116",
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/claudeBlocks.ts": "495,660",
+        "app/src/renderer/src/features/chat/harnesses/common/transcript/DeferredBody.tsx": "20",
+        "app/src/renderer/src/features/chat/harnesses/common/transcript/UserMessage.tsx": "28",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/openCodeBlocks.ts": "318",
+        "app/src/renderer/src/features/chat/lib/transcript/deferredBody.ts": "39,41",
+        "app/src/renderer/src/features/chat/lib/transcript/heldParts.ts": "102",
+        "app/src/renderer/src/features/chat/reducer/chatReducer.ts": "838,841,944,1184,1270,1273,1639,1643,1652,1701,1715",
+        "app/src/renderer/src/features/chat/store/chatStore.ts": "2690,2691,2714,2732,2733,2994",
+        "app/src/renderer/src/shared/api/transport/session-load.ts": "127,128,129,130",
+        "app/src/renderer/src/shared/compute/client.ts": "147,248,313,338",
+        "app/src/renderer/src/shared/compute/useComputeDocument.ts": "22",
+        "app/src/renderer/src/shared/compute/worker/markdown.worker.ts": "14",
+        "app/src/renderer/src/shared/compute/worker/state.ts": "89",
+        "app/src/renderer/src/shared/ui/markdown/Markdown.tsx": "39",
+        "app/src/renderer/src/shared/ui/markdown/MarkdownHast.tsx": "88",
+        "app/src/renderer/src/shared/ui/markdown/markdownComponents.tsx": "176",
+        "app/src/renderer/src/shared/ui/markdown/sourceParts.ts": "145",
+        "app/src/shared/history-page.ts": "115"
+      },
+      "excluded": {
+        "app/scripts/stage-d/probe.tsx": "48,53",
+        "app/scripts/visible-views/measure.mjs": "48,241,242,269,270"
+      }
+    },
+    {
+      "name": "사용",
+      "search": "rg -n --no-heading 'data-markdown-prose-group|data-markdown-part-fragment|data-history-highlight|\\b(?:copyAcrossProseWrap|findInPage|revealSearchRow)\\b' app/src app/scripts -g '!*.test.*' -g '!*.testfixture.*'",
+      "sites": {
+        "app/scripts/transcript-body/probe.tsx": "159,266",
+        "app/scripts/transcript-history/probe.tsx": "555",
+        "app/src/renderer/src/features/chat/components/markdown/WorkerMarkdownTail.tsx": "135",
+        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "472",
+        "app/src/renderer/src/features/chat/lib/transcript/viewport/searchReveal.ts": "33,90",
+        "app/src/renderer/src/features/chat/lib/transcript/viewport/textOffset.ts": "42,46",
+        "app/src/renderer/src/shared/ui/markdown/CodeBlock.tsx": "119,133,152",
+        "app/src/renderer/src/shared/ui/markdown/LongParagraphText.tsx": "22",
+        "app/src/renderer/src/shared/ui/markdown/Markdown.tsx": "40",
+        "app/src/renderer/src/shared/ui/markdown/MarkdownHast.tsx": "98,132",
+        "app/src/renderer/src/styles/app.css": "509"
+      },
+      "excluded": {
+        "app/scripts/diagnostic-overlay/visibility-marks.js": "106"
+      }
+    },
+    {
+      "name": "수송",
+      "search": "rg -n --no-heading '\\b(?:HISTORY_BODY_BYTES|readDeferredParts|decodeHistoryBody|RESOLVE_HISTORY_BODY|historyBody|markdownLayout)\\b' app/src app/scripts -g '!*.test.*' -g '!*.testfixture.*'",
+      "sites": {
+        "app/scripts/transcript-body/probe.tsx": "50,51,109,116",
+        "app/src/main/features/history/history-page.ts": "140",
+        "app/src/main/infra/db/history-index-queries.ts": "283,284",
+        "app/src/renderer/src/features/chat/components/markdown/useMarkdownRows.ts": "29",
+        "app/src/renderer/src/features/chat/lib/transcript/deferredBody.ts": "73,85",
+        "app/src/renderer/src/features/chat/reducer/chatReducer.ts": "1636",
+        "app/src/renderer/src/features/chat/store/chatStore.ts": "2722,2751",
+        "app/src/renderer/src/shared/compute/protocol.ts": "187,188,265,267",
+        "app/src/renderer/src/shared/compute/worker/handler.ts": "22,23,24,25",
+        "app/src/renderer/src/shared/markdown/markdownSegments.ts": "53",
+        "app/src/shared/history-page.ts": "11,175"
+      },
+      "excluded": {
+        "app/src/main/features/history/history-page.ts": "122",
+        "app/src/main/infra/db/history-index-queries.ts": "218,219",
+        "app/src/main/infra/db/history-panel-queries.ts": "70,77,100",
+        "app/src/shared/history-page.ts": "153,164"
+      }
+    },
+    {
+      "name": "등록",
+      "search": "rg -n --no-heading '\\b(?:MARKDOWN_WORKER_MIN_CHARS|MARKDOWN_DOC_SEGMENT_MAX_CHARS|COMPUTE_DOC_MAX_CHARS|MARKDOWN_COMMIT_MAX_NODES|MARKDOWN_TABLE_CHUNK_ROWS|markdownSegments|markdownFrames)\\b' app/src app/scripts -g '!*.test.*' -g '!*.testfixture.*'",
+      "sites": {
+        "app/src/renderer/src/features/chat/components/markdown/MarkdownDocument.tsx": "244",
+        "app/src/renderer/src/features/chat/components/markdown/StreamingMarkdown.tsx": "96",
+        "app/src/renderer/src/features/chat/components/markdown/WorkerMarkdownTail.tsx": "26",
+        "app/src/renderer/src/features/chat/components/markdown/useMarkdownRows.ts": "49",
+        "app/src/renderer/src/shared/compute/client.ts": "176",
+        "app/src/renderer/src/shared/compute/limits.ts": "23,24,25,27,37",
+        "app/src/renderer/src/shared/markdown/markdownDocumentBlocks.ts": "45",
+        "app/src/renderer/src/shared/markdown/markdownSegments.ts": "22,23,24",
+        "app/src/renderer/src/shared/ui/markdown/MarkdownHast.tsx": "58,202,203"
+      },
+      "excluded": {
+        "app/src/renderer/src/features/chat/harnesses/common/rightpanel/ArtifactPreviewContent.tsx": "111"
+      }
+    },
+    {
+      "name": "표시",
+      "search": "rg -n --no-heading 'data-md-block-pending|data-md-block-error|data-markdown-tail-parsed|\\b(?:TranscriptMarkdown|WorkerMarkdownTail|LongParagraphText|ParsedMarkdownBlock|MarkdownRowView|markSourceText|revealSearchRow)\\b' app/src app/scripts -g '!*.test.*' -g '!*.testfixture.*'",
+      "sites": {
+        "app/scripts/transcript-body/probe.tsx": "243,249",
+        "app/src/renderer/src/features/chat/components/markdown/MarkdownDocument.tsx": "71,145,146,154,155,179,210,213,223",
+        "app/src/renderer/src/features/chat/components/markdown/StreamingMarkdown.tsx": "72,85,97",
+        "app/src/renderer/src/features/chat/components/markdown/VirtualMarkdownView.tsx": "23,26,45",
+        "app/src/renderer/src/features/chat/components/markdown/WorkerMarkdownTail.tsx": "34,35,121",
+        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "472",
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/AssistantSegment.tsx": "43",
+        "app/src/renderer/src/features/chat/harnesses/claude/transcript/ReasoningBlock.tsx": "38",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Text.tsx": "29",
+        "app/src/renderer/src/shared/ui/markdown/LongParagraphText.tsx": "180",
+        "app/src/renderer/src/shared/ui/markdown/Markdown.tsx": "39",
+        "app/src/renderer/src/shared/ui/markdown/MarkdownHast.tsx": "88,130",
+        "app/src/renderer/src/shared/ui/markdown/markdownComponents.tsx": "176",
+        "app/src/renderer/src/shared/ui/markdown/sourceParts.ts": "145"
+      },
+      "excluded": {
+        "app/scripts/visible-views/probe.tsx": "266"
+      }
+    },
+    {
+      "name": "실기",
+      "search": "rg -n --no-heading '\\b(?:longtask|long-animation-frame|formattedBodyMatches|selectionMatches|copyAcrossProseWrap|measureBodyMatrix|measureBody|measureBodies)\\b' app/src app/scripts -g '!*.test.*' -g '!*.testfixture.*'",
+      "sites": {
+        "app/scripts/check-transcript-history.mjs": "5,6",
+        "app/scripts/transcript-body/perf.mjs": "28,29,30,45",
+        "app/scripts/transcript-body/probe.tsx": "68,266,267,270,271,275,295"
+      },
+      "excluded": {
+        "app/scripts/right-panel/probe.tsx": "339",
+        "app/scripts/stage-d-host/probe.tsx": "348,351",
+        "app/scripts/stage-d/panelTimings.ts": "6,9",
+        "app/scripts/transcript-selection/probe.tsx": "144",
+        "app/src/renderer/src/shared/perf/longTaskReporter.ts": "31,43,50"
+      }
+    }
+  ]
+}

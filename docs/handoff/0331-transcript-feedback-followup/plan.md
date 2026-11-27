@@ -8,15 +8,15 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0331-transcript-feedback-followup` |
-| 작성자 | Claude Code (V1·ΔV3·ΔV4) · Codex (ΔV1·ΔV2 추가 요구) |
-| 일자 | 2026-11-26 |
+| 작성자 | Claude Code (V1·ΔV3·ΔV4) · Codex (ΔV1·ΔV2·ΔV5) |
+| 일자 | 2026-11-26 · ΔV5 2026-11-27 |
 | 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0332 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
-| 상태 | DRAFT — r1 구현 중 AC9′의 실시간 오류 귀속이 EP-9 밖임을 확인해 설계자에게 반환했다. |
+| 상태 | plan/READY · 다음 주체 Codex · 라운드 1. r1의 남은 AC9′·AC14′ 보완 계획은 §22에 있다. 이전 구현 판정은 15/17이다. |
 | V mode | `Delta V` |
-| 기준 V | 0331 V1 + ΔV1 + ΔV2 + ΔV3 (`09d8b2ae`) |
-| 이번 V revision | `ΔV4` — 2차 리뷰 보완: 최상단 당김·로딩(새 요구) · 하단 이동 중 앞삽입 순서 · 워커 문서 분할·인라인 커밋 분할·스트리밍 종료점 · 일반 산출물 판정 · EP-2′ 정의 · 범위 문구 |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
-| 기준 트리 | `18b5d5f`(0330 verify 3의 앱 코드) |
+| 기준 V | 0331 V1 + ΔV1~ΔV4 · ΔV4 설계 `4fbe492c` · 구현 근거 `98381394` |
+| 이번 V revision | `ΔV5` · 연속 실패의 턴 귀속과 이력 재합류, 대용량 본문의 50ms 기준을 구현하고 판정하는 경로 (§22) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` |
+| 기준 트리 | `98381394`(r1 통합 결과). V1의 기준은 `18b5d5f`이다. |
 
 # Part I — Product & UX Contract
 
@@ -46,6 +46,7 @@
 | 리뷰 요구 | “계획 작성자(Claude)가 아래 동작을 결정하고, 각 결정에 구현 소유자와 통과 기준을 연결하면 같은 설계 커밋에서 해당 핸드오프를 READY로 전환해 주세요.” — 0331 4묶음(이력 조회·공통 뷰포트 · 큰 본문 자동 로드·Markdown · 하네스별 도구·오류 표시 · 아티팩트 카드)과 공통 모션 구분 | [PR #656 소유자 댓글](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7189285486) · 반영 대조는 §20-A |
 | 리뷰 요구(2차) | 0331 남은 보완 4건(일반 산출물 경로 · 워커 문서 예산과 인라인 노드 분할·스트리밍 종료점 · 하단 이동 중 이전 이력 도착 순서 · 범위 문구·`EP-2′`·`--perf` gate) | [PR #656 소유자 댓글(2차, `09d8b2ae` 기준)](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7189285486) · 반영 대조 §21-A |
 | 추가 명시 요구 | “최상단 도달은 이전 5턴의 자동 조회를 시작하고, 최상단을 넘어서려는 추가 상향 입력은 진행 중인 조회를 화면에 당김 동작으로 보여줍니다.” · “스피너가 보인 뒤에는 성공 또는 실패까지 당겨진 간격을 유지합니다.” · “스피너가 있던 영역을 이전 대화의 끝부분이 바로 채웁니다.” · 실패 시 “이전 대화를 불러오지 못했습니다.” 토스트 | 같은 댓글 ‘추가 사용자 요구’ · D-022 |
+| 후속 요청 | “충족하지 못한 건에 대해 Handoff-plan 진행하라.” r1에서 남은 AC9′와 AC14′의 설계·실행 경로를 정한다. | 2026-11-27 사용자 요청 · r1 구현 보고 |
 | 추론 의도 | 점 아이콘은 **공백뿐인 text가 만든 빈 메모 행**의 점이다. 공백 아닌 메모의 점·아이콘 없는 도구의 점은 유지한다 — 추론 | §8 R5: 빈 메모 행 높이 16px에 점 20px(`top-2.5`)이 다음 행 위로 겹친다 |
 | 추론 의도 | 상단 머리의 오류 상태 ‘다시 시도’와 아래 끝(다음 부분·대화 끝·최신 대화로)은 피드백 대상이 아니라 유지한다 — 추론 | 피드백이 명시한 문구가 ‘이전 부분 보기’·‘대화 시작’뿐 |
 
@@ -79,6 +80,8 @@
 | D-024 | 하단 이동(M2) 도중 이전 이력이 도착하면: M2 일시정지 → 응답 반영 직전 읽던 글줄 기준 앞삽입·즉시 보정(M3) → 사용자가 취소하지 않았을 때만 새 하단으로 M2 재개. 사용자의 상향 입력(휠·트랙패드 위·당김·스크롤바 위로·위쪽 키)은 하단 추종을 취소한다 | 2차 리뷰 “하단 이동 일시정지 → … → 사용자가 이동을 취소하지 않았을 때만 새 하단으로 재개” | PR #656 2차 리뷰 | ACTIVE | D-015·D-021 보완 |
 | D-025 | 큰 본문: D-018(조립·파싱 = 워커, 반영 = 창, 커밋당 ≤ 20,000노드, 4,000자 초과 완료 본문·확정 블록 = 워커 블록 경로)에 셋을 더한다 — ① 워커 문서 등록 전 분할: 등록 단위 ≤ 8,000,000자(용량 32,000,000자의 ¼), 경계는 Markdown 블록, 블록 하나가 넘으면 줄 경계, 줄이 없으면 글자 경계 ② 커밋 분할은 깊이 제한 없이 자식 합이 예산을 넘는 요소로 내려가 인라인 노드까지 나눈다(문단 하나에 인라인 2만 개 초과 포함) ③ 스트리밍 측정 종료 = 마지막 입력 글자의 서식 적용이 끝난 시점 | 2차 리뷰 “등록 전 분할 방법 … 단일 문단 안의 인라인 노드가 2만 개를 넘는 경우 … 마지막 입력 글자까지 서식 적용이 끝난 시점에 종료” | PR #656 2차 리뷰 | ACTIVE | D-018 대체 |
 | D-026 | 아티팩트 판정은 경로 두 종류 × 세 경우다. 관리형(`category !== 'file'`: `<root>/<artifactFileId>/<filename>`, 루트 = `~/.config/orcinus-orca/artifacts[/.dev]`)과 일반 산출물(`category === 'file'`: DB `inputSource` 절대 경로, 부모 = OS 임시 폴더 `tmpdir()/orcinus-orca`) 각각 (a) 정상 파일 → 열림, 실패면 결함 · (b) 실제 누락 → `missing` · (c) 루트·경로 불일치 → 관리형 `missing`, 일반 `unsafe-path`. (c)로만 재현되면 환경 차이(운영 DB를 dev 루트나 다른 프로필에서 연 경우). 실패 시 data 호스트 로그 `{ category, rootKind | reason, relativePath | basename }` 1줄 | 2차 리뷰 “같은 transcript 카드에서 두 경로가 모두 열릴 수 있으므로 각각 정상 파일 클릭, 실제 파일 누락, 루트 또는 경로 불일치를 검증” | PR #656 2차 리뷰 | ACTIVE | D-019 대체 |
+| D-027 | 저장이 확인된 사용자 입력과 그 응답을 식별할 수 있는 최종 실패를 연결한다. 저장된 이력을 다시 받거나 대화를 재개해도 같은 실패는 그 입력 아래 한 번 보인다. | 연속 실패 사이 간격을 비교하려면 각 실패가 자기 위치에 남아야 한다. 세션 알림과 중단 상태의 기존 처리는 §22에 따른다. | D-010·AC9′와 r1 재현에 대한 설계 결정 | ACTIVE | D-010 보완 |
+| D-028 | 창과 계산 워커 간에 큰 본문·파싱 결과를 분할 전달하고, 해당 창에서 화면 반영에 쓸 시간을 본문 간에 공유한다. | D-025의 20,000노드 상한 안에서도 50ms를 넘었다. 기존 원문·서식·선택과 문서 등록 한도는 유지한다. | AC14′ 이행 설계 | ACTIVE | D-025 보완 |
 
 ### 갱신 메모
 
@@ -90,6 +93,8 @@
 - **ΔV3 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-016↔AC5′·AC7 · D-017↔AC6′ · D-018↔AC14 · D-019↔AC13 · D-020↔AC1′·AC2 · D-021↔AC6′·AC12·AC15 · D-004↔AC3′(‘최신 대화로’ 경로 추가). D-013은 SUPERSEDED라 대조 대상 아님.
 - ΔV4 추가 결정: D-022~D-026 · 대체: D-005 → D-023, D-018 → D-025, D-019 → D-026.
 - **ΔV4 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-022↔AC16·AC5″·AC6″ · D-023↔AC4″ · D-024↔AC17·AC15′ · D-025↔AC14′ · D-026↔AC13′ · D-021↔AC15′(당김 열기·실패 닫기는 당김 공간 애니메이션 — 앵커 쓰기 아님). D-005·D-018·D-019는 SUPERSEDED.
+
+- ΔV5의 ACTIVE 결정 대조는 D-010·D-027 ↔ AC9″, D-004·D-009·D-025·D-028 ↔ AC3′·AC8·AC14′다. 기존 결정의 폐기는 0건이다. §22의 두 재현 경로로 판정하며 AC 분모는 17이다.
 
 ## 4. 요구 비판적 검토
 
@@ -165,12 +170,12 @@
 | R-06 | AT-06 / AC6 → AC6′(ΔV3 §20-B) → **AC6″(ΔV4 §21-C)** | 이전 5턴 앞삽입(행 높이가 추정 140px와 다른 행 포함)에서 응답 commit 직전 프레임부터 정착(연속 10프레임 무변화)까지 **매 프레임** 읽던 글줄 top 변화 ≤ 1px. 3 transcript 화면 · 자동 트리거(휠 없음)와 휠 트리거 둘 다 | Electron 실기 프레임 기록 — 프레임별 글줄 top | 실제 Chromium → production `TranscriptView` |
 | R-07 | AT-07 / AC7 | 열기 첫 응답 = 최신 5턴(한도 안이면 5턴 전부, before `earlierTurn`). 한도 초과면 한도 직전까지 + before `withinUnit`, 유휴마다 같은 단위 잔여 1묶음, 5번째 턴 첫 메시지까지 채우면 before `earlierTurn`이고 자동 연쇄 0. 상단 로드 1회 = 이전 5턴 단위(같은 규칙). 5턴 미만이면 전부·before 없음 | data 응답 메시지 ID 목록·경계 종류·응답 수 / 창 자동 요청 수 | `sessionApi.page` → data `history-page` → 창 `readPrevious`·유휴 훅 |
 | R-08 | AT-08 / AC8 (예산은 ΔV3 AC14) | 50,001자 블록 · 노드 20,001 · 표 2,001행 · 열 501 · 머리+한 행 50,001자 · 각주 문서 50,001자 · 스트리밍 꼬리 50,001자가 모두 hast로 렌더된다 — `data-md-block-raw`·`data-markdown-tail="final"` 0, 워커 결과에 `tooLarge` 형 없음 | 워커 파서 결과 형 · 블록 분류 `raw` false · 렌더 표지 | `computeClient` → 워커 `markdownBlock` → `VirtualMarkdownView`/`WorkerMarkdownTail` → `MarkdownHast` |
-| R-09 | AT-09 / AC9 → **AC9′(ΔV3 §20-B)** | 연속 오류 턴 6개(Code·Work · 저장된 error part · 응답 중단 status · 열기 후와 실시간 전송 후)에서 인접 오류 버블 사이 세로 거리가 모두 같다(±1px) | Electron 실기 DOM 거리 | production `TranscriptView` |
+| R-09 | AT-09 / AC9 → AC9′(ΔV3 §20-B) → **AC9″(ΔV5 §22-A)** | 연속 오류 턴 6개(Code·Work · 저장된 error part · 응답 중단 status · 열기 후와 실시간 전송 후)에서 인접 오류 버블 사이 세로 거리가 모두 같다(±1px) | Electron 실기 DOM 거리 | production `TranscriptView` |
 | R-10 | AT-10 / AC10 → **AC10′(ΔV3 §20-B)** | Code: 도구 블록 위 간격(앞 블록 끝→도구 위) = 아래 간격(도구 끝→다음 블록 위) = 12px(±1). 그룹 안 카드 사이 4px. Work: 도구 행 사이 8px | Electron 실기 DOM 거리 + 블록 gap 값 | production `TranscriptView` |
 | R-11 | AT-11 / AC11 → **AC11′(ΔV3 §20-B)** | Write 654줄 → 머리 “+654”. 400줄·64,000자를 넘는 Edit·MultiEdit·OpenCode patch도 워커 결과로 +N/−M 표시(계산 중 빈 칸 → 도착 후 표시). 수치는 동기 경로와 같은 규칙(`diffLines` 줄 수) | 카드 머리 텍스트 · 동기/워커 결과 대조 | `ToolCard`/OpenCode 파일 카드 → `toolDiffStat` → (초과) `computeClient` → 워커 |
 | R-12 | AT-12 / AC12 (ΔV2) | 대상 세션의 표시 위치가 목표와 다르면 실제 본문·스크롤바가 중간 위치를 거쳐 최신 하단에 정착한다(오차 ≤ 1 CSS px). 처음 그리는 본문은 하단에서 등장한다. 점프·빈 프레임·이전 세션 재노출 0회. 사용자 입력 시 이동 취소, 축소 모션은 즉시 정착 | Electron `openFrames`에서 가시 글줄·실제 scrollTop·표시 진행률을 매 프레임 기록(§10-A) | 이력 목록 → `chatActions.loadSession` → 하네스 제어기 → 공통 뷰포트 |
 | R-13 | AT-13 / AC13 (ΔV3) → **AC13′(ΔV4 §21-C)** | 아티팩트 미리보기 세 경우: (a) 레코드 파일이 서비스 루트에 있음 → 열림 · (b) 같은 레코드를 다른 루트의 서비스로 엶 → `missing` + 진단 로그(확인한 루트 종류·상대 경로) · (c) 파일 삭제 → `missing`. (a) 실패는 결함 | §20-B AC13 | 카드 클릭 → `openArtifactViewer` → `artifactApi.preview` → data `artifacts` 핸들러 → `ArtifactService.preview` → `own` → `inspect` |
-| R-14 | AT-14 / AC14 (ΔV3) → **AC14′(ΔV4 §21-C)** | 큰 본문 자동 로드·Markdown 렌더 동안 렌더러 메인 스레드 장기 작업(> 50ms) 0건 — 입력 B1(4 MiB 단일 text)·B2(1 MiB 혼합 Markdown)·B3(50,001자 이상 스트리밍 꼬리) | §20-B AC14 · §20-D | 페이지 commit → 자동 본문 → 워커 `historyBody` → 블록 파이프라인 → `MarkdownHast` 분할 커밋 |
+| R-14 | AT-14 / AC14 (ΔV3) → **AC14′(ΔV4 §21-C · ΔV5 이행 §22-B)** | 큰 본문 자동 로드·Markdown 렌더 동안 렌더러 메인 스레드 장기 작업(> 50ms) 0건 — 입력 B1(4 MiB 단일 text)·B2(1 MiB 혼합 Markdown)·B3(50,001자 이상 스트리밍 꼬리) | §20-B AC14 · §20-D | 페이지 commit → 자동 본문 → 워커 `historyBody` → 블록 파이프라인 → `MarkdownHast` 분할 커밋 |
 | R-15 | AT-15 / AC15 (ΔV3) → **AC15′(ΔV4 §21-C)** | 앞삽입 보정은 부드러운 스크롤을 쓰지 않는다 — 스크롤 컨테이너에 `scroll-behavior: smooth`가 걸려도, 하단 이동(AC12) 도중이어도 AC6′가 성립한다 | §20-B AC15 · §20-E | 공통 뷰포트 `writeScrollTop` 소유자별 쓰기 |
 | R-16 | AT-16 / AC16 (ΔV4) | 최상단 당김·로딩 — 당김 열림·간격 유지·성공 시 같은 페인트 앞삽입·실패 시 토스트 1회와 원위치 복귀·이력 끝 무반응 | §21-C AC16 · §21-D | 실제 상향 휠 → `TranscriptViewport` 당김 영역 → 이력 store 조회 → 앞삽입/실패 통지 |
 | R-17 | AT-17 / AC17 (ΔV4) | 하단 이동 중 이전 이력 도착: 일시정지 → 앵커 앞삽입 → 취소 없을 때만 새 하단으로 재개 · 사용자 상향 입력은 하단 추종 취소 | §21-C AC17 | 세션 열기 하단 이동(AC12) → 단위 채움 응답 → 공통 뷰포트 |
@@ -738,6 +743,176 @@ data 색인 → history-page(5턴·withinUnit) → zod → transport → chatSto
 |---|---|---|---|
 | 당김 중 패널 열기·닫기 | 당김은 transcript 안 상단 영역 — 패널 폭 변화(M4)와 독립, L 유지는 M3 | EP-7 재배치 · 기존 검증 유지 | 일치(서로 다른 축) |
 | 하단 이동 중 패널 폭 변화 | M2는 새 하단으로 목표 갱신 | EP-7 “하단을 보던 사용자는 하단” | 일치 |
+
+## 22. ΔV5 — 연속 실패의 턴 귀속과 대용량 본문 성능
+
+| 남은 기준 | 시작점 | 구현이 끝났을 때의 판정 |
+|---|---|---|
+| AC9″ (AC9′에서 구체화) | 실제 Electron에서 저장 3건 뒤 실시간 실패의 표시 수가 4→4→4였다. | 커밋이 확인된 세 번의 실패가 자기 입력에 붙어 4→5→6개가 된다. 이력을 다시 읽어도 각각 한 번이며 여섯 행의 인접 간격 차이는 1px 이하다. |
+| AC14′ (판정 유지) | 기존 두 화면 × 다섯 입력 × 세 번의 실측에서 서식과 50ms 예산을 함께 충족한 경우는 2/30이었다. | 같은 30회 모두에서 끝까지 정상 Markdown을 표시하고 관측 구간의 장기 작업은 0건이다. 시간 제한 도달·측정 누락은 실패로 기록한다. |
+
+r1의 WU-0가 발견한 §10 밖의 오류 귀속 경로는 EP-18에서 다룬다. 두 항목 모두 현재 실패를 포착하는 검사를 먼저 고정하고, 수정 뒤 같은 실제 화면에서 재측정한다. 두 항목은 독립적으로 진행할 수 있다. 이력 페이지·뷰포트 등 공통 파일이 바뀌면 같은 통합 버전에서 §22-C의 회귀 검사를 실행한다.
+
+### 22-A. 연속 실패의 귀속과 복원 (AC9″)
+
+**제품 계약 (§1~7).** 실패한 여섯 입력을 위에서 아래로 읽을 때 각 입력 다음에 그 실패를 한 번씩 볼 수 있다. 같은 질문을 다시 보내 같은 오류를 받아도 두 시도의 결과를 구별할 수 있다. 다른 세션을 열었다 돌아오거나, 오래된 질문 검색 결과에서 대화를 열거나, 앱을 재시작해도 당시 입력 바로 다음에서 같은 오류를 읽는다. 취소되어 입력창으로 돌아온 글, 접속 전 실패, 데이터 호스트 장애는 지금처럼 그 시점의 안내를 보여준다. 출처는 R-09·D-010, ΔV3 AC9′ 표시 위치 표, ΔV4 WU-0의 PLAN_GAP이다.
+
+
+**현재 실증과 한계.** 기준 `98381394`에서 layout 21좌표 중 20개 통과. `errorRun`은 저장 형식 Code 6행의 다섯 인접 간격이 각각 160.171875px, Work 중단 6행은 각각 165.171875px다. `errorLive`는 매 전송 후 행 수 4→4→4, 마지막 이웃 간격 160.40625→208.28125→256.15625px다. 실제 Electron에서 production TranscriptView·store·reducer·카드를 거친 수치다. 이 fixture는 `app/scripts/transcript-layout/probe.tsx:78,221–248`에서 이력 객체를 만들고 user action에 임의 키 `latest<i>`를 주입한 뒤, sessionId와 ClassifiedError만 실은 오류를 보낸다. SDK 입력 소비, 에이전트/데이터 호스트, SQLite commit, 저장소를 닫고 다시 읽기를 거치지 않는다. 이 수치는 한 개 footer가 교체되는 화면 증거다. 아래 producer·writer 경로는 현 코드에서 추적했고, 실제 조립·재시작 결과와 변이 검출은 구현 단계에서 별도로 측정한다.
+
+**AC9″ (CHANGED).**
+
+1. Claude Code에서 저장 오류 3건을 열고 같은 형식·높이의 질문으로 소비 확인된 실제 응답 실패를 3번 더 낸다. 처음 3행, 커밋별 4→5→6행, 여섯 질문 각각과 바로 다음 오류 카드가 일대일이고 순서가 기대한 (session, owner, failure) 목록과 같다. 각 추가 후 현재 보이는 **모든** 인접 간격을 잰다. 완성된 6행의 다섯 `next.top − prev.bottom` 간격 범위 ≤1 CSS px. 다음 성공 입력 직후·재열기에서도 앞선 6개의 소유자와 순서·정규 간격을 확인한다. 완료된 6턴은 5턴 latest 한도를 준수해 필요한 이전 페이지를 연 뒤 검증한다. 필요한 경우 실제 뷰포트를 이동해 이웃 쌍을 함께 측정한다. 장문·상이한 카테고리 대조에서는 동일 간격 판정을 같은 높이 fixture에만 적용하고 ID·순서·내용을 따로 판정한다.
+2. 기존 저장 형식 Claude Code 오류 6개와 Work `aborted` 6개는 각각 열기 후·다음 전송 후 6행, 같은 5쌍 ≤1px. Work 실제 실패도 owner가 같은 error와 failed 경계가 겹치면 한 번만 표시하고 실패 상세를 읽을 수 있다. OpenCode Code는 해당 provider 카드의 제목·본문을 보존하고 같은 오류의 라이브/재로드 개수·소유자·순서를 대조한다. 고정 픽셀 절댓값이나 OpenCode의 Claude 간격값은 판정에 넣지 않는다.
+3. 두 세션 A/B, 동문 사용자·동문 오류, 중간 성공 턴, 묶음 입력과 steer, 마지막 턴 밖 검색 대상에 대해 저장/라이브/replay/재시작에서 같은 session·user·assistant·failure 키와 발생 시각, 분류·본문·retryable을 확인한다. 정상 입력과 다른 세션에는 오류 0. 구형 bare part는 현재 행에 그대로 한 번, 소유자 없는 실패는 기존 일시 배너 한 번·영속 추가 0. 전송 실패로 반환된 초안, 재시도 상태, 승인 중인 하위 도구, Work 중단·성공 경계가 기존처럼 작동한다.
+
+**현재 경로와 설계 차이 (§8~9).**
+
+| 관찰한 경계 (@98381394) | 이번 계약 |
+|---|---|
+| Claude SDK receipt echo → `claude/adapter.ts:1023`, result 오류는 `claude/map.ts:815–836`에서 telemetry **뒤에** error, query 예외는 `adapter.ts:1076`. OpenCode는 `v1/channel.ts:353–383`에서 submit 수락 뒤 prelude/prompt echo 및 버퍼 SSE 방출, `v1/map.ts:116–126,149–158`에서 assistant message.error와 session.error를 정규화한다. `channel.ts:464`에 이미 terminal일 때 중복 방지 분기가 있고 연결 실패는 `:496`에서 수락 전에도 올 수 있다. | 각 실행 응답이 열린 시점에 원래 submit/response와 큐 배치의 관계를 유지한다. provider가 주는 assistant/parent/native/receipt ID가 있으면 해당 응답/입력 바인딩에 쓴다. telemetry 뒤의 Claude error와 OpenCode 같은 응답의 두 terminal 통지는 하나의 응답 슬롯에서 같은 occurrence를 사용한다. 이미 닫힌 이전 응답과 다음 응답의 지연 신호가 구분되지 않으면 새 입력을 소유자로 삼지 않는다. 정상 child/tool 오류나 `MessageAbortedError`는 기존 도구/중단 흐름을 따른다. |
+| `turn-coordinator.ts:179–206,405–430,532`은 confirmed 배치를 drain하고 **순서 있는 전체** `userMessageId(batch.ids)`를 생성한다. `await persist.commitUserMessage`의 결과가 있어야 `message.committed`를 relay한다. telemetry일 때는 persist 후 flush한다. `shared/model-output.ts`의 소비 확인 신호 다섯 종류에 error·telemetry는 없다. `message.received`는 별도 `i:` 영수증이다. | 요청별 응답 슬롯에 submit batch/response 인과관계와 DB commit 영수증을 각각 결합한다. 여러 prelude/steer가 동시에 confirm되어도 실행 prompt와 그 응답을 실제로 연 배치에만 귀속한다. 명시적으로 응답에 연결된 received user도 저장된 user 키와 대응이 입증될 때만 허용한다. 최신 user, 최근 완료한 assistant, `ids[0]`, prompt UUID, 시간·본문·카테고리·화면 선택·단순 sessionId, optimistic/submitted 상태는 귀속 근거가 아니다. 원인을 모호하게 만드는 admission/준비/연결 실패는 일시 안내로 남긴다. |
+| `turn-coordinator.ts:563–610` 마지막 catch는 `forward.forward`로 직접 발행한다. `send.ts` 11곳·`enqueue.ts:103`에 검증/준비·상태 오류, `agent-host/bootstrap.ts:240`에 저장소 오류가 있다. `HOST_LOST`는 여러 세션에 직접 dispatch한다. | 확정된 실행에 귀속된 최종 coordinator catch는 정규 저장→중계 경로 한 곳으로 보낸다. backoff의 `turn.retrying`은 최종 실패가 아니다. 입력 전 오류·외부 catch·저장 실패·HOST_LOST·session 없는 terminal은 기존 target/toast/banner 및 초안 회수 정책을 따른다. 같은 `stream_error`도 출처에 따라 두 경로가 각각 가능하다. |
+| `persistence-sender.ts:193–219`가 part용 assistant `messageKey`를 부여한 뒤 일반 오류는 `turn.event` notify한다. `data-host/persistence-receiver.ts:99,155`가 나중에 writer를 호출한다. agent-host 구독 순서만으로 SQLite 성공을 보장할 수 없다. `writer.ts:245,549`에서 assistant role을 확인하고 `{error}` part를 append한다. 기존 유일 키 `0036_message_key.sql`은 session·message 행 단위다. `queries.ts:144,565`, `dto.ts:58` 및 `ipc.ts:773,1606`은 occurrence를 전달하지 않는다. | assistant `messageKey`와 `ownerUserMessageKey`는 별도 필드다. user 행은 원래 입력 parts로 유지한다(`userMessageMatches`가 재전달 시 전체 parts를 비교). 아래 원자적 receipt를 사용한다. |
+| `chatStore.ts:608,1188,1257`가 세션/terminal을 처리하고, `chatReducer.ts:1480`은 live를 닫고 `session.error` 한 칸을 교체한다. assistant merge는 `chatReducer.ts:826–862`, `lib/transcript/mergeKey.ts`에 error 병합키가 없다. Claude와 OpenCode Timeline 모두 footer에 배너를, 저장된 part는 각 AssistantSegment의 카드로 표시한다. | 성공 receipt가 있는 오류는 정확한 user 다음 assistant 그룹의 같은 occurrence에 upsert, 세션 footer에는 같은 ID를 중복 표시하지 않는다. 사용자 A가 실패한 후 B로 넘어간 상황에서 A의 중복 receipt가 도착해도 B의 스트림·대기·오류·하위 승인을 종료하지 않는다. 현 실행 첫 terminal에서는 기존 stream 폐기, TURN_END_RESET과 childApprovalState를 보존한다. retryable 표지·기존 transientHint, 번역된 category·본문, provider별 카드, 선택/스크롤 동작을 유지한다. 다른 출처의 진짜 일시 배너는 별도로 표시된다. |
+| `native-projection.ts:72–85,100,157–192`는 frontier 이하에서 error를 sidecar로 취급하지 않는다. Claude native mapper는 error를 복원하지 않고 OpenCode native mapper는 가져온다. assistant 본문이 같다는 이유로 두 개를 합치면 서로 다른 실패도 합쳐진다. `reader.ts:78–121`가 local/native/archive를 투영하고, 인덱스 alias로 target 페이지를 찾는다. | 로컬 영속 오류는 원래 사용자와 assistant에 대응하는 native 위치에서 같은 발생 ID로 투영한다. OpenCode가 이미 보여주는 같은 native assistant의 동일 terminal은 검증 가능한 native 응답 ID/바인딩과 slot로 대응해 하나만 그린다. 단순 JSON/오류 문구·시간으로 합치지 않는다. 여러 prelude가 한 native ID로 합쳐져 대표 user가 바뀌는 구간은 저장한 입력 묶음의 순서·키로 펼쳐 오류를 원래 턴에 둔다. 대응이 불명확하면 그 구간의 로컬 user/assistant 쌍을 함께 표시하고, 다른 구간에 있는 native 전용 메시지·순서와 검색 alias를 보존한다. 단순 orphan tail 추가로 새 턴 뒤에 붙이지 않는다. |
+
+**D-027의 데이터·수명 규칙.**
+
+- 입력 바인딩이 확정된 응답에는 중복 terminal을 함께 처리할 실행/응답 토큰을 둔다. 처음 실패가 관측될 때 **호스트 한 곳에서 한 번** 불변 `failureId`와 `occurredAt`(epoch ms)를 발급한 뒤 같은 응답의 오류 재전달, UI 전송과 DB retry가 그 값을 공유한다. provider event에 불변 occurrence ID가 없어도 응답 슬롯 안에서 한 번만 발급한다. 새로운 실행은 같은 질문·같은 오류·같은 밀리초여도 새 ID다. 실패 수신 당시 입력 commit이 진행 중이면 원래 슬롯에 한정해 확인까지 순서를 보존한다. 취소·미확정 종료로 인과관계가 닫히면 안내로 마감한다. `turn_<seq>`, 임시 clientKey, 수신 당시 wall clock, SQLite AUTOINCREMENT msg/part ID를 공유 키로 쓰지 않는다.
+- 데이터 호스트가 `(sessionId, failureId)` 유일성을 원자적으로 보장한다. 한 구현 형태는 append-only migration에서 소유 user·assistant·part FK가 있는 실패 영수증과 유일 제약을 두는 것이다. 같은 트랜잭션에서 session과 user/assistant 역할·키·원래 순서/소유를 검사하고, 기존 영수증 조회 혹은 assistant 행·error part·영수증을 함께 저장한다. 최초 receipt의 시각/본문·분류·retryable·소유 키는 불변이다. 동일 ID·동일 payload 재시도는 기존 영수증을 되돌린다. 불일치 충돌은 덮어쓰기 없이 실패한다. part만 만들어졌거나 영수증만 남는 상태는 없어야 한다. rollback 뒤 in-memory currentAssistantMessageId 등 writer 캐시는 무효화/복구한다. 영수증 응답이 유실되면 같은 ID로 재확인하고 호스트를 재시작한 뒤에도 기존 저장 한 건을 읽는다. 저장 자체가 실패했으면 기존 저장장애 안내·턴 종료가 한 번 일어나고 기록된 척하는 카드가 생기지 않는다.
+- 승인받은 오류 request/ACK는 기존 turn 내 relay 순서를 지킨다. 성공한 DB 영수증의 session, ownerUserMessageKey, assistantMessageKey, failureId, occurredAt, ClassifiedError를 정규 live payload와 이력 DTO/part에 넣는다. 기존 IPC의 error·bare saved part·native-only odd payload는 읽을 수 있어야 한다. 구형 error는 기존 assistant/message와 part 순서로 표시한다. id/시간을 복원할 근거가 없는 데이터에 소급 생성하지 않는다. unrelated 일시 오류의 문구가 같아도 삭제하지 않는다. fork·archive의 기존 ID/part 복사와 새 세션 namespace를 존중한다.
+- live/load 경합, `LOAD_SESSION`, `PREPEND_HISTORY`의 겹치는 메시지, `RESOLVE_HISTORY_BODY`의 parts 교체, 검색 target의 양방향 페이지 및 캐시 재열기에서 (session, failureId)로 한 건을 보인다. 확인 전의 오래된 page/body 응답이 ACK 뒤의 카드를 지우지 못하고, 저장된 오류/중복 ACK는 뒤의 활성 턴을 reset하지 않는다. 기존 5턴·128메시지·256parts·256KiB 페이지 및 64KiB body 단위를 유지한다. 기존 FTS로 **사용자 질문**을 찾아 local/native/archive locator → 해당 턴 target → 이전/이후 이력 → latest 재진입까지 확인한다. 오류 본문 자체의 전문검색은 R-09에 추가하지 않는다.
+
+**검증 쌍 및 실행 순서 (§10).** VP-36은 CHANGED R-09의 REQUIRED 후속 쌍이다. VP-09′의 간격 판정·등록 변이·Code/Work 저장 대조군을 이어받고 입력 귀속과 재전달까지 판정한다. SD-03, AR-06, MD-12는 이 설계에서 NEW이며 VP-37~39가 각각 REQUIRED다. 기존 EP-9는 표시 간격을 계속 소유하고 EP-18이 오류의 생성·운반·복원을 맡는다. 아래 항목은 구현자가 추가·실행할 oracle이다. 현재 측정한 layout 20/21과 구분한다. 구현 전에는 실패 한 건의 provider 원본 입력, batch/user commit, sender/receiver 영수증, DB part, visible row를 같은 실행에서 대조해 최초 누락 경계를 기록한다. API 키 없이 provider SDK의 응답/로컬 transport만 대역으로 바꾸며 실제 adapter mapper·coordinator·host sender/receiver·SQLite 및 renderer event 경로를 통과시킨다. production 오류 mapper로부터 배우지 않는 독립 기대표 (S, user, assistant/응답, fault token, category, text, retryable)와 고정 시계를 둔다. DB를 닫고 다시 여는 검사는 메모리 store 재생성과 별도로 둔다.
+
+| 쌍 | V 좌표·방향 | 필수 oracle과 실패 위치 |
+|---|---|---|
+| VP-36 | R-09 ↔ AT-09″ 사용자 표시, EP-18 + 기존 EP-9 | 기존 `errorRun` 두 fixture와 기존 4→4→4 재현을 보존한다. 직접 주입 무키 오류는 모호한 오류 대조군으로 저장 카드 3 + 일시 배너 1 = 총 4→4→4·신규 영속 0, 실제로 승인된 3회 실패는 별도 production 조립으로 3→4→5→6 및 여섯 행 각각의 입력 키·발생 ID·표시된 오류 본문, 각 단계 모든 인접 간격, 다음 성공·재열기·Work 중단을 Electron에서 확인한다. 무키 fixture에 가짜 owner를 덧씌워 실측을 통과시키지 않는다. |
+| VP-37 | SD-03 ↔ ST-03 세션/프로세스, EP-18 | Claude result·예외(수락 전/후) 및 OpenCode message/session.error·접속 전 실패, 최종 catch·backoff·abort·host loss를 실제 소비/저장으로 조립한다. 동일 세션·같은 입력/오류·같은 시각의 서로 다른 시도 2건, 다른 세션 1건, grouped batch·prelude/steer·두 창 교차, active B 중 늦은 A 신호를 대조한다. row와 receipt 개수·owner·payload, 저장된 실제 reporter, live/영구 안내 구분, active stream/승인/초안/재시도 상태를 따로 assert한다. |
+| VP-38 | AR-06 ↔ IT-06 원자성/이력, EP-18 | 실제 임시 SQLite와 host protocol을 사용한다. 최초 delivery·동시 중복·commit 후 응답 유실 재전송·기록 중간 예외/rollback·다른 owner로 ID 충돌에서 영수증/part 양쪽의 수·키·시각·콘텐츠를 조회한다. fresh store와 DB reopen, native frontier 앞/뒤 및 뒤의 정상 턴 추가 후 refresh, native/local fallback, archive/fork, 새 세션에 같은 key, 최신 5턴 밖으로 밀린 질문의 FTS→target/local·native·archive alias, 이전/이후와 deferred body 교체를 지난 뒤 원래 위치·동일 ID를 확인한다. |
+| VP-39 | MD-12 ↔ UT-12 identity·reducer·렌더링, EP-18 | ordered batch 키를 단일 선두원소와 구분, assistant `a:`와 user `u:`의 role 검사, 서로 다른 ID의 동문 오류 2건/동일 ID 재전달 1건, 구형 id 없는 part·일시 error/동일 제목의 다른 카드·성공/abort·Work 실패 경계·OpenCode 카드의 marker, retryable hint·i18n, 취소와 child approval을 각각 판정한다. DOM 표지는 실제 카드/상태 텍스트·소유 user DOM과 같은 행에서 읽고 빈 marker만으로 통과시키지 않는다. |
+
+| 단일 제거 및 방향 오류 | 자리 교환 (각 변이는 독립 실행) | 판별 결과 |
+|---|---|---|
+| consumer에서 error를 입력 소비 증거로 추가하거나 첫 배치원만 owner로 쓴다. catch를 직접 forward로 되돌린다. | 같은 text·동일 millisecond인 두 입력 A/B의 소유 role/key만 맞바꾸고, 별도 변이에서 session A/B만 맞바꾼다. | VP-37/39가 미승인 영속 1건, 누락, wrong owner/cross-session을 각각 검출. 개수와 같은 메시지 문자열이 그대로인 교환도 실패해야 한다. |
+| sender에서 매 delivery 시 ID·시각 재발급, writer 유일/transaction 제거, DB 실패 시 UI를 먼저 발행, part ID merge 제거. | 서로 다른 두 실패의 occurrence ID만 교환한다. 별도로 retryable이 다른 두 오류의 payload/occurredAt만 교환한다. | VP-37/38/39에서 canonical receipt↔운반↔DB↔UI를 개별 입력 기준으로 비교. duplicate, rollback 잔여 행, phantom, 최초 시각 재작성, 두 distinct 실패 합침을 검출한다. |
+| footer 한 칸 복구, failed Work 상태와 error 양쪽 표시, 구형 part 누락, native frontier 이전 오류 제외, 최신 snapshot으로 ACK 삭제, 중복 ACK로 활성 B reset. | 순서·개수·간격을 유지한 채 2·5번째 카드 **내용/소유**만 교환한다. 검색·native에서 A/B alias만 교환한다. | VP-36/38/39에서 실제 user↔카드, visible detail↔receipt, 선택 locator↔원래 턴, B live 상태가 각각 실패한다. |
+| 기존 gap 1곳에 +8px 혹은 footer 예약 공백 추가, 중단 흐름을 durable error로 승격. | 같은 6행 fixture에서 서로 다른 두 gap 위치를 바꾸고, 기존 서로 다른 8/16/24px 간격을 쓰는 비오류 이웃 fixture에서도 교환한다. 균일한 동일 값 두 개의 교환은 관측 차이가 없어 변이로 집계하지 않는다. | VP-36으로 이관한 VP-09′의 검사가 개수·절대 순서뿐 아니라 이웃별 거리 벡터와 기존 정상/중단 대조를 잡는다. |
+
+**EP-18 자리 전수.** `98381394` 저장소 루트에서 다음 표의 검색을 재실행했다. G1·G2는 기존 EP-9의 동일 술어를 현재 줄에 재매핑한 **21**자리다. 새 P/V/T/L은 각각 생성/오류 소비·표시/host 전달/이력 재조립의 개별 술어다. 서로 다른 술어의 수를 고유 코드 줄 수로 합산하지 않는다. 범위는 주어진 source 디렉터리와 파일에 한정된다. IPC 타입, queue/commit, projection/검색의 오류 이름 없는 일반 분기는 위 경계 표 및 VP-37/38의 실행 oracle로 이어진다. 구현에서 새로 생긴 receipt·키의 쓰기/읽기·전달은 그 **실제 식별자**로 main/shared/renderer 전역 검색 후 위치를 추가하고 같은 도구로 재검사한다.
+
+| 분류 | 검색/AST 운반 후보/목록/제외 | 제외 이유 |
+|---|---:|---|
+| G1 블록 gap | 20/9/12/8 | Claude 7개·deferred 1개는 타입 선언. AST가 comment로 본 const gap 3개는 실제 할당이라 포함. |
+| G2 프레임/여백 | 9/9/9/0 | 기존 Claude 범위에 대한 5 래퍼 + 4 예약 여백. |
+| P main 오류 생성 | 26/24/20/6 | 정의·타입 2, mock 2, 저장 part·native 이력 part 생성 2(해당 소비는 V/T/L). 20곳은 runtime producer 19 + 공통 factory 본문 1. |
+| V terminal·표시 | 30/6/23/7 | OAuth 도메인 1, import 3, 주석 1, 함수 선언 1, production Timeline에서 호출하지 않는 과거 Exchange 배너 1. AST comment로 분류한 switch/속성 접근도 값 운반 목록에 명시. |
+| T host 프로토콜 | 8/8/8/0 | request/통지 및 writer 호출, user와 artifact 확인 대조 포함. |
+| L 읽기·reducer 교체 | 20/11/16/4 | 함수 선언 4. local/native 투영, alias 복귀, optimistic/host lost, deferred·prepend·load 경계 포함. |
+
+각 검색에서 미분류 0·목록만 0·종료 코드 0. 고정한 위치와 분류는 [기준선 자리 목록](evidence/site-inventory.json)에 있다. 저장소 루트에서 `node docs/handoff/0331-transcript-feedback-followup/evidence/check-sites.mjs errors`를 실행한다.
+
+### 22-B. 대용량 본문 렌더링과 50ms 예산 (AC14′)
+
+#### 제품 계약과 결정
+
+**AC14′는 그대로 적용한다.** Claude Code와 OpenCode Code에서 과거 메시지를 열거나 스트리밍 응답을 받으면 문단·인라인·펜스·표·목록·각주를 끝까지 읽고 선택·복사하고 검색 결과로 이동할 수 있어야 한다. §21-C의 다섯 입력 각각에 대해 렌더러 메인 스레드에서 50ms를 넘는 작업이 0건이어야 한다. 측정에 걸리는 총시간, 평균 프레임, 워커 처리 시간, 노드 수 중 어느 것도 이 판정을 대신하지 않는다.
+
+| 결정 | 이 계획에서의 효력 |
+|---|---|
+| D-009·AC8 | 크기로 원문 대체하지 않는다. 새로 연 완료 메시지에서 마크업을 먼저 원문으로 노출하지 않는다. 진행 중 꼬리에는 기존 증분 표시 계약을 적용하고 완료 표지는 마지막 소스 글자까지 파싱·화면 반영한 뒤에 낸다. |
+| D-004·AC3′, D-025·AC14′, EP-13′ | 기존 자동 해소 진입점·세션/검색 소유권, UTF-8 검증, 4,000자 초과 완료 text/reasoning·스트리밍 확정 블록 워커 경로, Markdown 등록 ≤8,000,000 UTF-16 단위, 열린 등록 합 레인당 ≤32,000,000, 깊이에 관계없이 한 번에 HAST ≤20,000노드, 표 200행 조각을 유지한다. |
+| D-028 (D-025 보완, 기술) | 큰 본문에서 창↔워커 전달, 파싱 결과 전달, 화면 적용 각각에 유한한 단위와 이전 단위 처리 확인을 둔다. 한 창의 모든 본문 조각은 같은 화면 적용 예산을 공유한다. 전체 등록·전체 트리 전송이 필요했던 부분만 바꾼다. |
+| 0332 v2 실측 규칙 | 가시 행·관찰 등록 전의 DOM·앵커 좌표는 실제 기하로 측정한다. 기존 높이의 재사용은 동일 키·폭과 관찰 중인 노드가 확인될 때로 한정한다. 화면 아래에서 관찰 중인 overscan 행의 임시 추정값은 0332 §22-B가 실측과 구분해 관리한다. 실제 관찰 높이가 도착하면 갱신한다. Markdown 내부 포맷팅 최적화가 이 규칙의 예외를 만들지 않는다. |
+
+D-028은 전송·커밋의 내부 이행 결정이다. 사용자에게 허용할 품질이나 유효 표본을 줄이는 결정은 포함하지 않는다. 예산을 충족하지 못하면 AC14′는 미충족으로 남는다. AC14′, INPUT 수, 반복 수, 전체 DOM, 선택·복사·검색 범위 또는 50ms 문턱을 바꾸려면 별도 명시 승인이 필요하다.
+
+#### 기준선과 원인 확인
+
+`98381394`의 0331 구현 보고를 기준으로 이전 전체 행렬은 30회 중 29회 최종 서식 일치, 그중 27회 장기 작업 발생, B3 두 회만 통과, B5 한 회 watchdog 종료였다. 완료된 29회에서 B1 57 + B2 347 + B3 33 + B4 280 + B5 180 = 897건이다. B5 별도 연장 관측은 257.312초에 40,000,000자의 2,443개 DOM 문단을 하나씩 원문과 대조했고 마지막 굵은 글씨와 pending 0을 확인했다. 이 별도 관측의 장기 작업 수는 첫 180.014초의 862건이다. 257초 전체의 성능 통과 또는 최신 커밋 재측정으로 합산하지 않는다.
+
+`app/scripts/transcript-body/probe.tsx`의 현 fixture에서 B1 본문은 한국어 1,680,006 UTF-16 단위, 4,200,010 UTF-8바이트이며 JSON part는 4,200,037바이트다. B5는 원문 40,000,000 UTF-16 단위, 40,000,004 UTF-8바이트, JSON 40,004,915바이트다. 문자·인코딩 바이트·등록 합·DOM 노드를 별도로 기록한다. 계획 시점의 로컬 재계산은 fixture 크기에 관한 것이며 50ms 통과 근거는 아니다.
+
+| 위치 (아래 경로의 기준은 저장소 루트) | 현재 비용 후보와 확인 방법 |
+|---|---|
+| `app/src/renderer/src/features/chat/lib/transcript/deferredBody.ts` → `shared/compute/worker/historyBody.ts` → `features/chat/store/chatStore.ts` (뒤 두 경로의 시작은 `app/src/renderer/src/`) | 64KiB raw 조각의 base64 배열을 창이 모두 모아 한 요청으로 전송한다. 워커가 fatal UTF-8·JSON·part 검사를 하고 전체 parts를 한 응답으로 복제한다. 요청·응답 양쪽 postMessage 호출, 창 message 수신과 store 적용을 구분해 잰다. |
+| `features/chat/components/markdown/useMarkdownRows.ts` → `shared/compute/worker/handler.ts` → `shared/markdown/markdownSegments.ts` → `shared/compute/client.ts` | 65,536자 초과에서는 layout용 전체 source를 다시 전송하고 범위를 받아 모든 segment/row를 구성한다. 분할 등록 자체는 성공한다. layout 요청·결과 역직렬화·문서 open·markdown 작업과 대기를 분리한다. |
+| `shared/compute/worker/markdown.ts`, `worker/markdown.worker.ts` → `features/chat/components/markdown/{MarkdownDocument,WorkerMarkdownTail}.tsx` → `shared/ui/markdown/{MarkdownHast,LongParagraphText}.tsx` | 워커가 블록 HAST 하나를 만들어 돌려준다. 창의 재귀 generator·행 묶음·긴 문단 줄바꿈은 이미 분할되어 있다. 수신, React render/commit, Range/DOMRect·style/layout, 페인트 전 작업과 이력 row 실측을 따로 추적한다. 임계시간 초과의 원인이 어느 하나라고 미리 단정하지 않는다. |
+| `app/scripts/transcript-body/{probe.tsx,perf.mjs,electron-main.mjs}` | 실험 준비와 base64 인코딩은 시작 전에 하지만 창에 거대 fixture를 보유하며 즉시 해결되는 mock page를 쓴다. 변경마다 `querySelectorAll('strong')`를 수행하고 B3는 store.live를 직접 바꾼다. 현재 집계는 30개와 행별 flag/빈 배열을 보며 이벤트 지원·행 신원 집합·유실 검증이 없다. |
+
+#### V와 단계별 이행
+
+상속 기준은 0331 V1 + ΔV1~ΔV4의 VP-29′(R-14↔AT-14), VP-31(AR-04↔IT-04), EP-13′이다. R-14와 AT-14는 상속한다. 기존 VP-29′의 REQUIRED 판정에 VP-43을 REGRESSION으로 연결한다. VP-40은 CHANGED AR-04의 VP-31을 대체하고 기존 워커 왕복·취소·늦은 세대 폐기 단언을 이관한다. VP-41은 CHANGED MD-08·MD-11, VP-42는 CHANGED SD-02의 추가 경로이며 기존 VP-13 자동 본문 요청·교체와 VP-16 정상 HAST·위치·URL은 회귀로 유지한다. `app/src/renderer/src/`를 renderer 경로의 접두어로 쓴다.
+
+| Pair | 수준·필요성 | 생산 경로 → 직접 oracle |
+|---|---|---|
+| VP-40 | AR-04 ↔ IT-04, REQUIRED | 실제 history body page → `readDeferredParts` → compute worker → 일반·검색 view reducer → 두 하네스. 워커 전송 방향별 max bytes/문자, in-flight 수, 등록 예약·해제, 재시작·취소 전후의 실제 부착 메시지/part/내용을 본다. |
+| VP-41 | MD-08 ↔ UT-08(분할 커밋), MD-11 ↔ UT-11(등록·회복), REQUIRED | 실제 등록 큐 → markdown.worker → 실제 `MarkdownRowView`·`WorkerMarkdownTail`·`MarkdownHast`. 원천 누락/중복, 참조·소스 위치 및 각 React 커밋의 실제 증가분과 누적 결과를 독립 기대값과 대조한다. |
+| VP-42 | SD-02 ↔ ST-02 (완료·선택·검색), REQUIRED | 페이지·검색 문맥·마지막 delta → store → 실제 TranscriptView → 최종 DOM → native Selection/클립보드·검색 결과. B1~B5 전체 서식, 세션 교체와 완료 중 pending을 본다. 기존 3하네스 AC3′/AC8 회귀도 실행한다. |
+| VP-43 | R-14 ↔ AT-14, REGRESSION (VP-29′의 실기 강화) | 출하 경로를 쓰는 격리 Electron 30창 → Chromium Long Tasks 원시기록 + 창 밖 행렬 검사. 각 조합의 개별 완료·서식·관측 무결성·50ms 수치가 있어야 한다. |
+
+1. **계측을 먼저 분리한다 (VP-43).** Electron main/별도 프로세스에서 자료·UTF-8 예상값·문단별 기대치를 만들어 둔다. 실제 `sessionApi.page` 경계에서 순번 있는 64KiB 응답을 IPC task로 전달한다. B3은 `ingestChatEvent` → 실제 delta coalescer/store → 화면 경로를 쓴다. B1·B2·B4·B5 시작은 첫 유효 body 응답이 창에 도착한 시각, B3 시작은 첫 delta가 창에 도착한 시각이다. 입력을 기다리는 동안 observer 등록/지원 확인을 끝낸다. 구간 내에 세션 해소, 첫 원문 전달과 워커 응답, 구문 적용·React commit·실제 레이아웃을 포함한다.
+2. **워커 요청의 수명과 전송량을 먼저 묶는다 (VP-40).** `begin/append/finish/release` 역할을 기존 요청 id·lane·revision·AbortSignal에 연결한다. 한 작업당 다음 64KiB 분량은 이전 조각의 정상 수신 확인 뒤에 읽는다. base64 수신량 ≤ 87,384자/회, 원본 byte offset 연속, 마지막 done 및 ref.bytes 일치, fatal 디코더를 유지한다. 창에서 전체 JSON.parse, base64 전체 join, 본문 전체 postMessage를 하지 않는다. 워커에서 기존 JSON·part 의미 검사 후 작은 메타와 순번 있는 텍스트 구간을 반환한다. 비텍스트 field/part·부모 도구·서명·순서와 미완료 도구 정착을 보존한다. 공개 DB/IPC의 `AppMessagePart` 텍스트는 원문이다. 기존 저장 형식·과거 세션을 그대로 입력으로 쓴다.
+3. **40M 원천과 32M 열린 등록은 서로 다른 수명으로 관리한다 (VP-40·41).** 큰 본문 원본은 데이터 호스트에 저장된 part와 이를 다시 읽는 기존 body 페이지를 정본으로 둔다. 세션/세대/메시지/part/수정판별 원천은 조각과 UTF-16 누계로 식별한다. 디코드 결과를 무제한 워커 Map에 두거나 40M 전체를 layout 요청으로 재복제하지 않는다. 실현 경로는 워커에서 한 번의 JSON 검사·레이아웃 뒤 **분할 가능한 스냅샷**(예: 워커에서 생성한 immutable Blob의 분할 목록과 길이/offset, 전송은 한 핸들씩)으로 내보내고 임시 JSON·디코드 문자열·표를 정리하는 것이다. Blob 자체를 원천 레지스트리 상한 우회에 쓰지 않는다. 행 전개 전에 필요한 범위만 읽고 실제 등록되는 text ≤8M, 레인 max 합 ≤32M, 창/워커 사이 문자열 message는 고정 크기로 받는다. 등록·행 정보도 가변 길이 배열 한 번으로 보내지 않는다. 이미 창에 있는 live source는 append delta와 reset/revision으로 워커에 반영한다. 기존 `AppMessagePart.text: string`을 읽는 입력 모델·특정 메시지 복사 등 기존 API는 원천 원문과 완전히 일치해야 한다. 기존 part 표현을 유지하는 구현은 크기가 제한된 전송 조각을 차례대로 합치되 이력 투영·공백 검사·Markdown 분할을 위해 매 업데이트마다 거대 문자열을 평탄화하거나 전체 스캔하지 않는다. 파생된 비공백 여부·텍스트 길이·part 키/offset을 `features/chat/lib/parts.ts`와 양 하네스의 블록 투영까지 전달한다. 공개 메시지에 핸들 문자열·빈 text를 넣는 지름길은 의미 단언 실패다.
+4. **예약·재등록을 명시한다.** 가장 긴 블록은 Markdown 블록 → 줄 → 서로게이트 사이를 피한 문자 순서로 자른다. 경계 양쪽의 펜스 상태, 참조 정의·각주 번호와 역링크, 인라인 문맥은 워커의 문서 범위 색인으로 잇는다. 한 번에 한 활성 구간부터 등록하고 마운트된 DOM이 소스를 더 쓰지 않을 때 임차를 반환한다. 다른 열린 문서가 있는 경우 read/parse 크레디트를 제한하고 용량 회복 뒤 재개한다. 스냅샷 참조와 열린 등록 비용, 디코드·파싱 일시 최고 사용량, 처리 대기 결과는 별도 계수한다. 창이 닫힘·취소·revision 교체·worker 재시작 때 늦은 ack/응답을 버리고, 임차/크레디트/Blob 참조·이벤트 리스너를 1회 정리한다. 현재 소유자만 재조회·재생한다. 등록 후 매 블록마다 전체 소스 재전송이 없는지 실제 포트에서 본다.
+5. **동일 파서 출력으로 작은 화면 작업을 만든다 (VP-41).** 분석 결과가 큰 블록은 워커 안에서 기존 unified/GFM·URL 변환·HTML 문자 처리 규칙으로 평가한다. 한 번에 건너가는 HAST 전체를 문서·revision·단조 순번·노드 위치를 가진 bounded `open/text/close` 등의 프레임으로 바꾼다. 단일 긴 text·속성/URL·코드 한 줄, 깊은 중첩과 넓은 형제에서도 한 프레임의 byte/노드 상한이 적용되어야 한다. 긴 속성은 쪼개 전송한 뒤 값이 완성된 시점에 한 번 적용한다. GFM 표는 유효한 동일 table/thead/tbody와 순서를 유지한다. 여러 각주·참조가 지연/경계를 가로질러도 같은 href/id를 얻는다. 열린 노드 스택의 무제한 재구성, 완료 prefix의 매 프레임 전체 재생·누적 prefix 대조를 없앤다. 스케줄러가 이미 적용한 접두부·sourceParts offset을 유지하고 다음 조각을 append한다.
+6. **한 창에서 실제 커밋을 직렬화한다 (VP-41·42).** `MarkdownDocument`의 문서·table row·스트리밍 tail·긴 문단이 하나의 작업 큐를 쓴다. 렌더 시간, 노드, 텍스트 크기 중 먼저 도달한 상한에서 새 task/프레임에 양보한다. DOM 커밋 확인 뒤 다음 batch를 허용한다. 기존 20,000노드는 절대 상한이다. 초기 작업 크기는 기존 5ms 생성 예산·4096자 샘플을 출발점으로 하고 원본 B1~B5 실기에서 긴 React commit과 Chromium style/layout까지 측정해 더 잘게 잡는다. `Promise.resolve` 연쇄만으로 양보하거나 각 leaf마다 독립 rAF를 신청하면 한 프레임 합계가 초과할 수 있다. 실제 50ms PASS가 될 때까지 총량과 호출 횟수·최장 task를 함께 기록한다.
+7. **CSS와 native 동작을 보존한다 (VP-42).** 이미 표시한 문단·인라인 일부를 잘라내는 내부 transcript 가상화를 쓰지 않는다. 별도 아티팩트의 `VirtualMarkdownView` 범위는 보존한다. 큰 일반 문단에서 이미 쓰는 `content-visibility:auto`와 측정된 줄 경계 묶음을 확장할 때 최종 DOM에는 원래 2,443개 `p`, 모든 자식과 텍스트가 동시에 존재해야 한다. B4 인라인의 임의 block/inline-block 삽입은 줄바꿈·link hit target·복사 개행을 바꿀 수 있다. 실제 너비·폰트·줄 경계에서만 묶고 공백/soft wrap·RTL/한글·코드와 링크 keyboard focus·가로 표 넘침을 원래 출력과 비교한다. 검색 이동과 native selection은 화면 밖 내용도 드러내야 한다. `hidden`/unmount/접힌 placeholder를 최종 콘텐츠로 인정하지 않는다. ResizeObserver 이전에 최초 row 및 앵커 위치에 필요한 실제 DOMRect를 유지한다. 같은 callback에 쓰기 없는 경우만 실측 결과를 재사용한다. 폭·폰트·새 DOM·revision 바뀌면 측정 캐시를 무효화한다. 0332 CDP에서 보인 실측 비용을 일괄 제거할 근거로 쓰지 않는다.
+
+#### 실기 판정·관측 실패의 의미
+
+`cd app && xvfb-run -a node scripts/check-transcript-history.mjs --perf`는 `{claude-code,opencode-code} × {B1,B2,B3,B4,B5} × {0,1,2}` 정확히 30창을 격리 실행한다. gate 내부에서 정상 표본을 고르거나 실패 행을 덮어쓰지 않는다. 진단 재실행/단일 fixture/observer 자기 검사는 별도 run id로 보존한다. 버전·SHA·OS·뷰포트·DPR·입력 크기·온전한 행 원문을 함께 남긴다.
+
+| 입력 | 종점과 독립 기대값 |
+|---|---|
+| B1 | 실제 64KiB 경계에서 다중바이트 한글이 갈라지는 단일 text ≥4MiB. 한 문단 전체 텍스트·마지막 strong을 원문으로 대조한다. 긴 줄 wrapping 두 단위에 걸친 Selection을 잡고 기대 문자열과 실제 OS clipboard를 비교한다. |
+| B2 | 1MiB 혼합 본문, 정확히 3,000개 기대 문단·40개 펜스·2,001 data행·600열 표·30,000항목·정상 각주와 backlink·마지막 strong. 개수와 함께 원천 fixture에서 만든 요소 순서·각 본문·대표 href/열별 정렬을 비교한다. |
+| B3 | 첫 입력부터 누적 50,001자 이상. 마지막 delta의 실제 마지막 source offset = DOM `data-markdown-tail-parsed`이고 해당 글자까지 서식·텍스트 일치, pending/error 0. 먼저 표시된 prefix의 오래된 revision·raw tail·마지막 delta 전달만으로 완료 처리하면 실패한다. |
+| B4 | 한 `p` 안에서 inline code 12,500개와 `https://example.org` 링크 12,500개가 원래 순서로 번갈아 있으며 각 항목의 텍스트·href와 최종 strong을 대조한다. 최초/중간/마지막 link focus·선택을 검사한다. |
+| B5 | 40,000,000자 입력, 동시에 실제 DOM의 `p` 2,443개, 원천으로 산출한 모든 paragraph text 1:1 일치, 마지막 **완료** 서식과 pending/error 0. 40M을 8M 하나로 잘라 보여 주거나 추정 높이만 남기면 실패한다. |
+
+B1·B2·B4·B5는 첫 body 응답부터 pending/error 없음 + 마지막 서식 및 완료 revision + 10번 연속 실제 프레임 무변화까지 잰다. B3은 첫 delta부터 마지막 글자 서식 반영까지를 포함하고 완료 뒤 10프레임도 보존한다. 관측기는 scoped MutationObserver가 모은 작은 상태 변화와 프레임 번호만 기록한다. `strong` 전체 탐색/XPath, 매 프레임 소스·전체 DOM 비교를 하지 않는다. 전체 DOM·각 문단 일치 검사는 종료 표지를 캡처한 뒤 독립 기대 자료로 분할 실행하고 첫글자/중간/마지막 누락, 실제 clipboard 불일치, 검색 실패 하나라도 있으면 해당 행 전체를 실패로 둔다. 검사를 늦춰 실행한 것을 제품 렌더 종점의 증거로 삼지 않도록 끝 시각 때 리비전·마지막 DOM 위치·미처리 수를 별도로 확인하고, 이후 뒤늦게 추가된 제품 콘텐츠는 종점 위반으로 처리한다.
+
+`PerformanceObserver.supportedEntryTypes`에서 `longtask`를 확인하고 관측기 등록 실패·실패한 통제 양성 작업(별도 비계측 창에서 실제 >50ms task를 일으켜 사건 수신 확인)·관측 손실/중단·잘못된 타임스탬프는 실패로 기록한다. start/end는 유한하고 순서가 맞아야 한다. Chromium의 `startTime+duration>start && startTime<end`로 겹친 longtask를 반올림하거나 부분 길이로 잘라 빼지 않는다. 현 gate처럼 보고된 longtask 배열이 비어야 green이다. `long-animation-frame`은 보조 수치다. collector callback·takeRecords flush·종료 뒤 event-loop 턴에 걸쳐 끝에 걸친 작업도 수집한다. renderer 정지/timeout(B1~B4 180초, B5 600초, 런처 여유 15초), 중복·누락·다른 fixture·잘못된 행 shape, 누락된 필수 숫자/배열·semantic oracle는 실패다. 실행 불가(예: Electron 없음)는 환경 exit 3, 실행된 미충족은 exit 1, 정확히 30개가 모두 충족하면 exit 0이다.
+
+장기 작업마다 원래 start/duration·해당 창/입력/run·시작/종료 단계·long frame script/forcedLayout과, 재현 진단에서 CDP trace의 task/React commit·style/layout·worker send/receive 시점을 함께 남긴다. 분류는 제품(전송/파서 결과/React·DOM/브라우저 레이아웃), 계측기(선택자·mock 공급·동기 로그), 둘이 겹침 또는 근거 부족으로 한다. 귀속 미확인도 초과 1건이다. 계측기 자체라면 측정기만 최소화한 후 **동일 제품·자료·전체 구간**에서 같은 형상·수치를 재측정한다. 무수집/무부하 통제 창의 차이만으로 특정 장기 작업을 빼지 않는다. 최종 정상본 30회에는 별도 진단의 강제 busy loop나 동기 trace 덤프를 주입하지 않는다.
+
+#### §10 EP-19 — 자리별 규칙·실패 검출
+
+| 자리군·pair | 실제 호출/수명과 직접 단언 | 등록 변이 → 실패 기준 |
+|---|---|---|
+| 수송·구간 / VP-40 | 페이지 요청과 응답 echo/offset/done/총 바이트, worker 송수신 및 해제 이벤트와 실제 `fromLoadedMessage`·`RESOLVE_HISTORY_BODY` 결과. 두 세션·같은 id 다른 generation·검색 전환·팝 캡처·재시도·취소·깨진 UTF-8·중간 chunk 누락을 각각 넣는다. | 64KiB 넘는 응답 허용 / 마지막 ack 전 store 반영 / 용량 반환 생략 / 옛 결과를 새 메시지에 적용 / 창의 동기 decode 복귀를 해당 자리마다 심는다. 크기·오류/부착 수·원천 원문·실기 B1 대조가 각기 red여야 한다. |
+| 등록·구간 / VP-40·41 | 실제 `client.openDocument`/레인 worker의 register→job→release 순서와 피크. 32M 안팎/이미 예약 24M·32M/두 세션/8M보다 긴 한 줄·CRLF·surrogate 양쪽·경계 양쪽 펜스/각주. UTF-16 연속 범위가 원문[0,length)를 한 번씩 덮고 마지막까지 임차 회복. | 전체 40M 등록 / 예약 합에서 다른 doc 누락 / 중간 segment 중복·마지막 누락 / 분할 경계에서 의미 상태 초기화 / 체류 중 release 누락 → 실제 대기·합계·문단·href·pre/code 내용 assertion red. |
+| 표시·사용 / VP-41·42 | 워커 결과와 실제 표·중첩 목록·인라인·코드·긴 prose의 commit 증가분을 관찰한다. 형제 leaf 여러 개가 함께 증가할 때 창 합과 실제 프레임을 잰다. 4,000/4,001 경계, 새 완료 메시지 첫 표시, 직전 세션의 늦은 응답·현재 세션 재활성·B3 마지막 delta까지 검사한다. | 배치마다 전체 HAST 전달 / 각 leaf 무제한 동시 commit / 마지막 글자 전 parsed 마킹 / 새 완료 메시지에 raw·잘린 DOM / 인라인 코드와 링크 뒤집기 → 포트 최대 크기·커밋 통계·정확한 DOM·50ms 중 대응 단언 red. |
+| 사용 / VP-42 | 브라우저 실제 `Selection` + Electron native copy(시스템 clipboard sentinel을 원문 예상값으로 교체), 범위가 prose·코드/링크·sourcePart 경계를 가로지르게 한다. `search` 문맥 → `revealSearchRow`로 해당 메시지와 하이라이트를 확인한다. Electron `webContents.findInPage`의 실제 `found-in-page` 완료/일치 및 대상까지 이동 후 Range rect를 보조 검사로 쓴다. B5는 고정 fixture 마지막 ‘완료’ 및 별도 변형의 중간 유일 토큰, B2 각주/표·B4 링크를 확인한다. 기존 가상행 교체의 선택 취소 규칙을 보존한다. | 가운데 DOM 삭제 / 원문 없이 placeholder만 / part offset 교환 / 개행 삽입 / 검색 reveal의 실제 대상 교환 → 독립 전체 텍스트·OS clipboard·검색 도착·실제 좌표 red. |
+| 실기 / VP-43 | 정체성 30개, 시작/끝+10 frame, 관측기 양성·원시 events·형상검사·기한·종료 코드. 실제 입력/마지막 marker 위변조를 포함한 행 단위 decoder/집계기를 순수 테스트한다. | observer off / 마지막 프레임 누락 / B5 끝 1문단 누락 / 동일 행 복제해 30개 / 결과 필드 제거 / 시작 전·종료 직전 걸치는 80ms 주입 / timeout을 정상 처리 각각 red. 원본 명령이 0으로 복구되는 것까지 기록한다. |
+
+`app/src`와 `app/scripts`의 전체 생산·실기 원천에서 읽기·등록량·서식/위치·실기 결과를 운반하는 술어를 사용했다. 아래는 98381394에서 검사한 **AST 운반 발생 자리**다. 같은 줄이 여러 규칙을 운반하면 각 검색에서 센다. 이 수는 서로 다른 메서드 수가 아니다. 자리 목록의 `sites`는 해당 기준의 직접 검사와 연결한다. `excluded`는 다른 시나리오·패널/메타데이터이지 본문 생산 경로에서 제외된다는 뜻이다. 구체적으로 `history-index-queries:218,219`는 메타, `history-page:122`는 메타, 공용 schema 153·164는 panelDetail·metadata, history-panel-*는 패널용이다. ArtifactPreview는 아티팩트 보기, reporter·다른 probe는 자체 observer/표지다. CSS의 fragment wrapper는 실제 선택·글자 경계 규칙이므로 `unparsed` 운반을 포함한다. 계획된 새 begin/chunk/credit·적용 완료·계측 schema는 이 기준에 아직 없다. 구현 후 각 발행·전달·수신·해제·실제 커밋·필수 행 검사 자리를 동일 전수 범위에서 다시 검색해 해당 원천·검증 좌표를 추가한다. 기준선의 숫자에 새 코드까지 소급해 PASS를 매기지 않는다.
+
+| 검색 | 검색 줄 | 운반 후보 | 자리 | 사유 제외 | 미분류 | 목록만 |
+|---|---:|---:|---:|---:|---:|---:|
+| 구간 | 82 | 59 | 52 | 7 | 0 | 0 |
+| 사용 | 21 | 18 | 17 | 1 | 0 | 0 |
+| 수송 | 51 | 32 | 24 | 8 | 0 | 0 |
+| 등록 | 32 | 18 | 17 | 1 | 0 | 0 |
+| 표시 | 49 | 31 | 30 | 1 | 0 | 0 |
+| 실기 | 29 | 22 | 13 | 9 | 0 | 0 |
+
+저장소 루트에서 `node docs/handoff/0331-transcript-feedback-followup/evidence/check-sites.mjs markdown`을 실행한다. 제품 코드를 재배치하면 검색 결과와 목록의 차이를 확인해 새 자리와 제외 사유를 기록한다. [검색·분류 목록](evidence/site-inventory.json)
+
+부가 검색은 AST가 문자열 리터럴에 섞인 선택자·template literal·숫자 상한·비동기 완료 조건을 전부 해석하지 못하는 구간을 덮는다. 저장소 루트에서 `rg -n 'pending|complete|stable|takeRecords|supports|supportedEntryTypes|observer|budget|longtask|startTime|duration|selection|querySelector' app/scripts/transcript-body`, `rg -n 'postMessage|requestAnimationFrame|getBoundingClientRect|reserved|capacity|parseResponse|onComplete' app/src/renderer/src/{shared/compute,shared/ui/markdown,features/chat/components/markdown}`, `rg -n 'sourceParts|hasSegmentText|hasSegmentReasoning|isMainTextPart' app/src/renderer/src/features/chat/{lib,harnesses}`로 raw source와 사용자·harness 소유자를 확인한다. 바뀌는 실제 제어 지점은 VP-40~43의 해당 행에 추가한다. AST 미분류 0은 열린 Markdown 문법·성능 자체의 인증이 아니다.
+
+**계획의 선언 경계.** AC14′ 성능 모집단은 §21-C에 이미 정의한 5개 입력 × 2개 화면 × 3회다. 임의 장비/모든 Markdown의 50ms 보장은 이 행렬로 추정하지 않는다. 유효한 기존 Markdown의 내용·의미는 입력 크기로 제외하지 않는다. 새 워커 프레임 종류·알 수 없는 타입/순번·끝나지 않은 open/close·다른 revision은 제품에서 해당 작업 오류/취소로 처리하고, 계측기에서는 결측/미완료를 실패로 본다. 범위 외 Claude Work도 기존 AC3′·AC8의 source와 pending·선택 회귀로 검사한다.
+
+**운영 gate.** 작업 중에는 수송·임차·세션 교체·단일 B 재현과 변이별 red→복구를 쓰고, 최종 SHA에서 `app/AGENTS.md`·`app/src/renderer/AGENTS.md`에 따라 lint/typecheck, 직접 Vitest(실제 history worker/client/등록·MarkdownHast·StreamingMarkdown·chatStore·transcript selection/search/viewport), `node --test scripts/*.test.mjs`, `xvfb-run -a node scripts/check-transcript-selection.mjs` 및 `xvfb-run -a node scripts/check-transcript-history.mjs --perf`를 실행한다(모두 `app/` 기준). 기존 `check-transcript-history.mjs` 기본 동작과 0332 v2 최초/observer/앵커 위치도 동일 버전에서 회귀한다. 수치 조정값 근거와 actual payload/최대 커밋·잔여 longtask 귀속, 실패 행 원문을 구현 보고에 붙인다. 30행 전부 green 및 각 의미 단언/기존 정상 회귀 일치 전에는 VP-29′/AC14′를 닫지 않는다.
+
+### 22-C. 구현 인계와 READY 대조
+
+1. AC9″에서는 영속 가능한 실패와 일시 알림에 서로 구별되는 입력을 준다. 이전 자료를 읽는 호환 경로, 네이티브 이력 합류와 재시작을 포함해 §22-A의 SQLite·호스트 통합 검사와 `app/`의 `node scripts/check-transcript-history.mjs --layout`로 판정한다.
+2. AC14′에서는 다섯 입력의 마지막 DOM과 원문을 확인한 뒤 두 화면의 30개 관측을 모두 집계한다. 단계별 계측이나 한 화면의 성공 기록은 최종 행렬과 분리해 남긴다.
+3. 통합 트리에서 기존 이력 390건·검색 6건, 선택·복사와 인접 행 간격을 다시 확인한다. 공통 뷰포트를 바꾸면 [0332 §22](../0332-right-panel-global-depth/plan.md)의 모드별 패널 검사도 수행한다. 원래 통과한 다른 15개 AC는 기존 V·운영 게이트를 따른다.
+4. §22-A·B의 현재 경로와 분모는 [자리 대조 명령](evidence/check-sites.mjs)으로 재현한다. 현재 기준선의 분류와 새로 구현할 오류 영수증·워커 전송 위치를 분리해 기록한다. 다음 단계는 Codex의 구현이며, 이 설계 턴은 독립 검증 횟수와 r1의 15/17 판정을 바꾸지 않는다.
 
 ## READY self-review (V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4)
 
