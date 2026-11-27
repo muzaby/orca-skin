@@ -2,7 +2,11 @@ import { createElement } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { ComputeClient } from '../../../../shared/compute/client'
 import { setComputeClient } from '../../../../shared/compute/client'
-import { docKey, type ComputeRequest, type ComputeResult } from '../../../../shared/compute/protocol'
+import {
+  docKey,
+  type ComputeRequest,
+  type ComputeResult
+} from '../../../../shared/compute/protocol'
 import { compute } from '../../../../shared/compute/worker/handler'
 import { markdownBlock } from '../../../../shared/compute/worker/markdown'
 import {
