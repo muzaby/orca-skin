@@ -965,7 +965,7 @@ B1·B2·B4·B5는 첫 body 응답부터 pending/error 없음 + 마지막 서식 
 | AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|
 | **AC3″** (CHANGED — AC3′ 대체, AC3′의 (a) 자동 요청·스피너·버튼 0 (b) 실패 재시도 (c) 전환 뒤 폐기는 유지) | (d) 조회 전·중 세대가 바뀌면 실패 표시 0 — 첫 조각부터 현재 세대로 다시 읽어 현재 본문을 렌더한다 (e) 조립 중 워커가 교체되면 실패 0 — 처음부터 다시 읽어 렌더한다 (f) 재시작은 조립 1회당 2회까지, 3번째와 호스트 `unavailable`·키 없음·형식 위반만 오류 문구 + ‘다시 시도’, 다시 시도는 새 조회 1회 (g) 실패마다 사유(`stale`·`invalid`·`unavailable`·`cancelled`·`worker`·`churn`·`transport`) 로그 1줄 | 렌더 텍스트·`button` 수·`sessionApi.page` 질의 순서(offset 0 재등장)·로그 호출 인자 | 페이지 commit → 자동 본문 → `sessionApi.page(body)` → data `history-page` → 워커 `historyBody` → `RESOLVE_HISTORY_BODY` → 렌더 |
-| **AC10″** (CHANGED — AC10′ 대체) | Code: 도구 블록 위 간격 = 아래 간격 = 8px(±1) · 그룹 안 카드 사이 8px(±1). Work: 도구 행 사이 16px(±1) | Electron 실기 DOM 거리 + 블록 gap 값 | production `TranscriptView` |
+| **AC10″** (CHANGED — AC10′ 대체 · Work 수치 정정 §23-G) | Code: 도구 블록 위 간격 = 아래 간격 = 8px(±1) · 그룹 안 카드 사이 8px(±1). Work: 도구 행 사이 14.5px(±1) — 0324 이전 `py-2` 두 개(루트 글꼴 14.5px의 0.5rem) | Electron 실기 DOM 거리 + 블록 gap 값 | production `TranscriptView` |
 | **AC18** (NEW) | 세 transcript 화면에서 모든 `[data-index]` 행이 높이 > 0인 자식 요소를 가진다. 입력: Work `aborted` 6턴 사이에 `ended`·`unknown`·이중 응답(`aborted`+`ended`)을 섞은 6턴 · Code 미응답 질문 · §23-E EP-20 자리별 입력. 연속 ‘응답 중단’ 6행의 다섯 인접 간격 최대−최소 ≤ 1px | Electron `--layout` 새 시나리오 `errorRunMixed`·`pendingAsk` + 자리별 렌더 단위 테스트 | 메시지 → 블록 모델 → `Timeline` → `TranscriptViewport` |
 | **AC19** (NEW) | 이전·이후 이력 읽기 도중 세대가 바뀌어도(색인된 메시지 변경·native 갱신) 실패 토스트·오류 머리 0, 다음 5턴이 앞삽입되고 AC6″ 보정이 유지된다. 일반·검색 보기 둘 다. 커서의 키가 현재 세대에 없으면 기존 실패(토스트 1회·다시 시도) | DB 커서 재해석 결과 · 창 `history.generation` 갱신·토스트 호출 0 · 앞삽입 메시지 ID | 상단 도달 → `readPrevious`/`readSearchEdge` → data `readCursor` → `PREPEND_HISTORY` |
 | **AC20** (NEW) | 계산·Markdown 레인이 연속 3회 실패하면 대기(2초 → 10초 → 60초 상한) 뒤 다음 요청에서 새 워커를 만든다. 회복 뒤 원문으로 떨어졌던 Read 카드 강조·Edit diff 강조·4,000자 초과 Markdown 블록·스트리밍 꼬리·큰 본문이 조작 없이 강조·hast·본문으로 바뀐다(각 1회 재요청). 요청 실패마다 로그 1줄(레인·종류·사유, 같은 사유 연속은 1분에 1줄), 10초 무응답 진단 1줄 | 레인 상태 단위(가짜 시계) · 소비처 14자리 렌더 단위 · Electron `workerRecovery`(`.shiki`·`h2` 복원) | 워커 실패 → 레인 대기 → 새 워커 → 회복 회차 → 소비처 재요청 → 렌더 |
@@ -1003,7 +1003,7 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 | VP-45 | R-03 ↔ AT-03″ | REQUIRED | 페이지 commit → 자동 본문 → data → 워커 → 렌더 | `TranscriptViewport.body.test.ts` 새 `AC3″ renders the current generation after a generation change`(page 흉내: 둘째 조각 응답의 `generation`이 바뀜 → offset 0 재요청 → 본문 · 실패 UI 0) · `AC3″ survives a worker replacement`(실제 클라이언트 + 워커마다 새 상태, 실행 중 diff pair 취소 → `worker-replaced` → 재시작 → 본문) · `AC3″ fails on the third restart and logs churn` · `AC3″ shows retry only for unavailable`(입력: `unavailable`·키 없음 `stale`·형식 위반 각 실패 1·버튼 1) · `AC3″ logs one reason per failure`(로그 인자 사유 7종) | required — 재시작 분기 제거 변이(세대 변경 입력에서 실패 UI 1, red) | EP-21 · EP-22 |
 | VP-46 | R-19 ↔ AT-19 | REQUIRED | 상단 도달 → `readPrevious`/`readSearchEdge` → data `readCursor` → 앞삽입 | `turn-page.db.test.ts` 새 `AC19 re-resolves a cursor by message key in a new generation`(색인된 메시지 변경 → `earlierTurn` 옛 커서 → ok·이전 5턴 ID · `withinUnit` 하한 재계산 · 키 삭제 → `stale`) · `history-port.integration.test.ts` 새 `AC19 prepend continues across a republish`(실제 포트 + store: 응답 세대 다름 → `history.generation` 갱신 · 토스트 0) · `history-search.test.ts` 새 `AC19 search edge adopts a new generation` | required — 창 `chatStore.ts:2971` 세대 비교를 되살린 변이(토스트 1, red) | EP-21 |
 | VP-47 | R-20 ↔ AT-20 | REQUIRED | 워커 실패 → 대기 → 새 워커 → 회복 → 재요청 → 렌더 | `client.test.ts` 새 `AC20 recovers after the cool-down and announces recovery` · 소비처 렌더 단위(VP-52 표) · `gate:… check-transcript-history.mjs --layout` 새 `workerRecovery`(프로브가 첫 3개 워커를 시작 직후 죽이는 생성기로 클라이언트를 만든다 → Read 강조·4,000자 초과 Markdown이 원문 → 대기 뒤 `.shiki`·`h2` 복원) | required — 회복 회차 증가 제거 변이(`workerRecovery` 원문 유지, red) | EP-23 |
-| VP-48 | R-10 ↔ AT-10″ | REQUIRED | Chromium → `TranscriptView` | 같은 스크립트 `--layout` `toolSpacing` 기대값 교체 — Code 위·아래 8±1 · 그룹 카드 사이 8±1 · Work 행 사이 16±1 | not selected — 직접 거리 단언 | EP-10′ |
+| VP-48 | R-10 ↔ AT-10″ | REQUIRED | Chromium → `TranscriptView` | 같은 스크립트 `--layout` `toolSpacing` 기대값 교체 — Code 위·아래 8±1 · 그룹 카드 사이 8±1 · `workDot` Work 행 사이 14.5±1(§23-G) | not selected — 직접 거리 단언 | EP-10′ |
 | VP-49 | SD-02 ↔ ST-02 | REQUIRED (ΔV6 경로 추가 — VP-13·VP-42는 REGRESSION) | 실제 data 포트 → 창 store → 워커 → reducer | `history-port.integration.test.ts` 새 `AC3″ body resolves across a republish through the real data port`(실제 SQLite 색인 + 포트: 첫 조각 뒤 색인된 메시지 변경 → 세대 변경 응답 → 재시작 → 최종 parts = DB 현재 parts) | not selected | EP-21 |
 | VP-50 | SD-04 ↔ ST-04 | REQUIRED | 레인 수명 전체 | `client.test.ts` 새 `AC20 lane lifecycle`(정상 → 실패 1·2 → 한도 → 대기 → 새 워커 → 성공 → 회복 → 다시 실패 시 대기 10초) · 취소 교체는 실패 수에 들지 않음 | not selected | EP-22 · EP-23 |
 | VP-51 | AR-07 ↔ IT-07 | REQUIRED | 창 전송 → data handler → 색인 | `history-port.integration.test.ts` 새 `AC19 body and cursor replies carry the served generation`(zod 왕복: `body` 응답 `generation`·`bytes` · 늘어난 bytes 수용 · `bytes ≤ 0`·`nextOffset > bytes` → `Mismatched history reply`) | not selected | EP-21 |
@@ -1117,6 +1117,18 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 
 - 운영 gate: §7-A "현재 변경의 운영 gate" 전부 + `--layout`의 `errorRunMixed`·`pendingAsk`·`workerRecovery`·`toolSpacing`(새 기대) + `node scripts/check-doc-inventory.mjs --check`(IPC 계약). exit 3(Electron 없음)은 환경, exit 1만 blocking.
 - 다음 주체는 Codex다(ΔV7을 Claude가 r1.5로 먼저 구현하므로 ΔV6은 r1.6). 이 설계 턴은 독립 검증 횟수(0)와 라운드(1)를 바꾸지 않는다. r1.4의 AC14′ 4/30 미충족은 VP-58로 계속 추적한다.
+
+### 23-G. 정정 — AC10″ Work 행 수치 (r1.6 구현 중 발견 · 2026-11-27)
+
+**판정: plan 내부 불일치(PLAN_GAP)를 D-033 쪽으로 정정한다 — AC10″·VP-48의 Work "16px"은 4px 단위를 가정한 산술 오류다.** 사용자 결정 D-033은 "0324 이전 값 전부"이고 EP-10′ 규칙도 `py-1 → py-2`다. 이 앱은 루트 글꼴이 14.5px라 `py-2`(0.5rem)는 7.25px이다. 새 제품 결정은 없다.
+
+| 관측 | 값 |
+|---|---|
+| 0324 이전 트리 `671ee43d~1` | `app.css:11` `font-size: 14.5px` · `WorkToolTimeline.tsx:27`·`:92` `relative py-2 pl-[30px]` |
+| r1.6 Electron `--layout` `workDot`(`py-2` 적용) | 행 `paddingTop` 7.25px · 두 버튼 사이 14.5px |
+| Code 쪽 | `--chat-item-gap: 8px`(`tokens.css:210`)은 절대값이라 `toolSpacing` 8·8·8 — 정정 대상 아님 |
+
+- 바꾼 규범 행: §23-C AC10″ Work 수치(16 → 14.5) · §23-D VP-48 oracle 칸. 그 밖의 Decision·AC·§10·V node는 그대로다.
 
 ## 24. ΔV7 — Work 메모 점: 보이는 글이 없는 메모 (사용자 추가 요청)
 
