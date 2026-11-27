@@ -276,7 +276,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               {renderChoice(selectedNative)}
               {selectedNative.resource.canOpen !== false && (
                 <Button
-                  variant="secondary"
+                  variant="contained"
                   onClick={() =>
                     void nativeMcp.open(selectedNative.backend, selectedNative.resource)
                   }

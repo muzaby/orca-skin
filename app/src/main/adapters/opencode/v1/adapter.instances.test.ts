@@ -226,10 +226,10 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
       a2.commands(signal()),
       b.commands(signal())
     ])
-    expect(inventories.map((list) => list[0].name.replaceAll('\\', '/'))).toEqual([
-      'C:/one',
-      'C:/one',
-      'C:/two'
+    expect(inventories.map((list) => list[0].name)).toEqual([
+      resolve('C:/one'),
+      resolve('C:/one'),
+      resolve('C:/two')
     ])
     expect(f.children).toHaveLength(1)
     expect(f.requests.filter((r) => new URL(r.url).pathname === '/config')).toHaveLength(2)
@@ -248,7 +248,7 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
     await vi.waitFor(() => expect(f.disposals).toHaveLength(1))
     expect(joined).not.toHaveBeenCalled()
     expect(f.children[0].kill).not.toHaveBeenCalled()
-    expect((await b.commands(signal()))[0].name.replaceAll('\\', '/')).toBe('C:/two')
+    expect((await b.commands(signal()))[0].name).toBe(resolve('C:/two'))
     f.finish(f.disposals[0])
     await releasing
     const renewed = await acquiring
@@ -282,7 +282,7 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
     await vi.advanceTimersByTimeAsync(90_000)
     await vi.waitFor(() => expect(reportError).toHaveBeenCalledOnce())
     expect(f.children[0].kill).not.toHaveBeenCalled()
-    expect((await b.commands(signal()))[0].name.replaceAll('\\', '/')).toBe('C:/two')
+    expect((await b.commands(signal()))[0].name).toBe(resolve('C:/two'))
     const next = await f.adapter.client({}, undefined, 'C:/one')
     await next.prepare(signal())
     expect(f.children).toHaveLength(2)

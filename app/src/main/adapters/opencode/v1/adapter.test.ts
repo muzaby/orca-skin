@@ -3,7 +3,7 @@ vi.mock('electron-store', () => ({ default: class {} }))
 import type { Event } from '@opencode-ai/sdk/v2'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizedEvent } from '../../../../shared/ipc'
 import { setRootLogger } from '../../../infra/log/registry'
@@ -872,9 +872,7 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     expect(f.requests.every((req) => req.headers.get('Authorization') === 'Basic fixture')).toBe(
       true
     )
-    expect(new URL(f.requests[1]!.url).searchParams.get('directory')?.replaceAll('\\', '/')).toBe(
-      'C:/work'
-    )
+    expect(new URL(f.requests[1]!.url).searchParams.get('directory')).toBe(resolve('C:/work'))
     const payload = await f.requests
       .find((request) => new URL(request.url).pathname.endsWith('/prompt_async'))!
       .json()

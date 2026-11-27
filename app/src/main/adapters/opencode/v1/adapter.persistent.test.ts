@@ -1,5 +1,5 @@
 import type { Event } from '@opencode-ai/sdk/v2'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { reportError } from '../../../infra/error-report'
 import { setRootLogger } from '../../../infra/log/registry'
@@ -1051,7 +1051,8 @@ describe('OpenCode persistent SDK channel', () => {
 })
 
 it('exposes native resources from the live channel client and its directory without mutations', async () => {
-  const f = fixture({ cwd: 'C:/native-B' })
+  const cwd = resolve('C:/native-B')
+  const f = fixture({ cwd })
   const iterator = f.live.eventBatches[Symbol.asyncIterator]()
   try {
     expect(await f.live.nativeResources?.()).toEqual({ state: 'disconnected', items: [] })
@@ -1087,9 +1088,7 @@ it('exposes native resources from the live channel client and its directory with
       .filter((request) => ['/mcp', '/config'].includes(new URL(request.url).pathname))
     expect(requests).toHaveLength(2)
     for (const request of requests) {
-      expect(new URL(request.url).searchParams.get('directory')?.replaceAll('\\', '/')).toBe(
-        'C:/native-B'
-      )
+      expect(new URL(request.url).searchParams.get('directory')).toBe(cwd)
       expect(request.method).toBe('GET')
     }
   } finally {

@@ -111,7 +111,7 @@ function fixture(): {
     agent_kind: 'code',
     provider_key: 'opencode-two',
     project_id: 'saved-project',
-    cwd: 'C:/saved',
+    cwd: join(tmpdir(), 'composer-saved'),
     last_model: null
   }
   const getSessionById = vi.fn(() => saved)
@@ -140,7 +140,10 @@ function fixture(): {
     harnessRuntime: { resolve },
     runtimeModelCatalog: { merge: (value: unknown) => value, isReadOnly: () => false },
     db: { getSessionById },
-    getCwd: (id: string | null) => (id === 'draft-project' ? 'C:/draft-project' : 'C:/default'),
+    getCwd: (id: string | null) =>
+      id === 'draft-project'
+        ? join(tmpdir(), 'composer-draft-project')
+        : join(tmpdir(), 'composer-default'),
     mcp: { resolver: () => () => undefined }
   }) as unknown as AgentContext
   const scope: ComposerCatalogScope = {
@@ -266,7 +269,7 @@ it('prepares draft and saved directory with the same production settings and env
   })
   expect(f.capture).toHaveBeenLastCalledWith(
     expect.objectContaining({
-      cwd: 'C:/draft-project',
+      cwd: join(tmpdir(), 'composer-draft-project'),
       env: expect.objectContaining({
         PREVIEW_APP_ENV: 'app-value',
         PREVIEW_RUNTIME_ENV: 'runtime-two'
@@ -278,12 +281,17 @@ it('prepares draft and saved directory with the same production settings and env
     })
   )
   await f.prepare(
-    { ...f.scope, sessionId: 'saved', cwd: 'C:/untrusted', providerKey: null },
+    {
+      ...f.scope,
+      sessionId: 'saved',
+      cwd: join(tmpdir(), 'composer-untrusted'),
+      providerKey: null
+    },
     signal
   )
   expect(f.capture).toHaveBeenLastCalledWith(
     expect.objectContaining({
-      cwd: 'C:/saved',
+      cwd: join(tmpdir(), 'composer-saved'),
       env: expect.objectContaining({ PREVIEW_RUNTIME_ENV: 'runtime-two' }),
       providerSettings: expect.objectContaining({ provider: 'two' })
     })
@@ -320,12 +328,15 @@ it('returns prepared plugin and agent parts through IPC before blocked MCP/model
     const models = read('models')
     expect(await read('plugins')).toMatchObject({
       part: 'plugins',
-      value: [{ name: '@dynamic/plugin@1', kind: 'plugin', status: 'enabled' }]
+      value: [{ name: '@dynamic/plugin@1', kind: 'plugin', status: 'configured' }]
     })
     expect(await read('agents')).toMatchObject({ value: [{ name: 'Atlas' }] })
     expect(f.acquire).toHaveBeenCalledOnce()
     expect(
-      requests.every((r) => new URL(r.url).searchParams.get('directory') === 'C:\\draft-project')
+      requests.every(
+        (r) =>
+          new URL(r.url).searchParams.get('directory') === join(tmpdir(), 'composer-draft-project')
+      )
     ).toBe(true)
     expect(requests.map((r) => new URL(r.url).pathname).sort()).toEqual([
       '/agent',
@@ -375,7 +386,7 @@ it('does not start a native server after caller cancellation or session scope ch
   expect(f.capture).not.toHaveBeenCalled()
   for (const changed of [
     { ...f.saved, backend: 'claude' },
-    { ...f.saved, cwd: 'C:/changed' },
+    { ...f.saved, cwd: join(tmpdir(), 'composer-changed') },
     { ...f.saved, project_id: 'changed-project' }
   ]) {
     f.getSessionById
@@ -412,7 +423,9 @@ it('wires the public handler through the production resolver and returns its shu
         sender
       )
     ).resolves.toEqual({ part: 'agents', value: [], generation: 'boot-owner' })
-    expect(f.capture).toHaveBeenCalledWith(expect.objectContaining({ cwd: 'C:/draft-project' }))
+    expect(f.capture).toHaveBeenCalledWith(
+      expect.objectContaining({ cwd: join(tmpdir(), 'composer-draft-project') })
+    )
   } finally {
     close()
   }

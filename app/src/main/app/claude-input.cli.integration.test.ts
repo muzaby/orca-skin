@@ -11,6 +11,7 @@ import { PRODUCT_SLUG } from '../../shared/product'
 import { scaledBudget, scaleMs } from '../../../scripts/test-time.mjs'
 import type { TurnRequest } from '../adapters/common/turn'
 import { ClaudeAdapter } from '../adapters/claude/adapter'
+import { extensionControl } from './extension-control'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 
 vi.setConfig(scaledBudget({ testTimeout: 180_000, hookTimeout: 30_000 }))
@@ -57,6 +58,75 @@ function streamMessage(response: ServerResponse, tool: string | undefined, argum
   })
   send('message_stop', {})
   response.end()
+}
+
+function localClaudeEnvironment(nativeRoot: string, port: number): NodeJS.ProcessEnv {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === 'string' &&
+        /^(path|systemroot|windir|comspec|pathext|tmp|temp)$/i.test(entry[0])
+    )
+  )
+  Object.assign(env, {
+    HOME: dirname(nativeRoot),
+    USERPROFILE: dirname(nativeRoot),
+    CLAUDE_CONFIG_DIR: nativeRoot,
+    ANTHROPIC_BASE_URL: 'http://127.0.0.1:' + port,
+    ANTHROPIC_API_KEY: 'local-test',
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+    ENABLE_TOOL_SEARCH: 'false'
+  })
+  return env
+}
+
+function builtinExtensions(
+  observe: (argument: string) => Promise<void> | void
+): TurnRequest['extensions'] {
+  const server: RuntimeToolServer = {
+    descriptor: {
+      id: 'fixturehost',
+      connectorId: 'fixture-source',
+      executionScope: 'application',
+      alwaysLoad: true,
+      tools: [{ name: 'echo', description: 'fixture echo' }]
+    },
+    implementations: [
+      {
+        name: 'echo',
+        inputSchema: { argument: z.string() },
+        handler: async (args) => {
+          await observe(String(args.argument))
+          return { content: [{ type: 'text', text: 'reply-' + args.argument }] }
+        }
+      }
+    ]
+  }
+  return {
+    skills: [],
+    hooks: { normalized: {} },
+    runtimeTools: { revision: 1, servers: new Map([['fixturehost', server]]) },
+    managedMcp: {
+      revision: 1,
+      users: {},
+      plugins: new Map([
+        [
+          'fixturehost',
+          {
+            identity: {
+              kind: 'builtin',
+              name: 'Fixture',
+              sourceId: 'fixture-source',
+              mentionId: 'fixture-source'
+            },
+            server,
+            authorized: () => true,
+            credentialRevision: () => 1
+          }
+        ]
+      ])
+    }
+  }
 }
 
 it.each(['command', 'hook', 'mcp', 'combined', 'native', 'external', 'builtin'])(
@@ -110,23 +180,7 @@ it.each(['command', 'hook', 'mcp', 'combined', 'native', 'external', 'builtin'])
     await new Promise<void>((resolve) => endpoint.listen(0, '127.0.0.1', resolve))
     const address = endpoint.address()
     if (!address || typeof address === 'string') throw new Error('fixture endpoint unavailable')
-    const env = Object.fromEntries(
-      Object.entries(process.env).filter(
-        (entry): entry is [string, string] =>
-          typeof entry[1] === 'string' &&
-          /^(path|systemroot|windir|comspec|pathext|tmp|temp)$/i.test(entry[0])
-      )
-    )
-    Object.assign(env, {
-      HOME: join(base, 'home'),
-      USERPROFILE: join(base, 'home'),
-      CLAUDE_CONFIG_DIR: nativeRoot,
-      ANTHROPIC_BASE_URL: 'http://127.0.0.1:' + address.port,
-      ANTHROPIC_API_KEY: 'local-test',
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-      ENABLE_TOOL_SEARCH: 'false',
-      API_TIMEOUT_MS: '10000'
-    })
+    const env = localClaudeEnvironment(nativeRoot, address.port)
     const count = async (path: string) =>
       (await readFile(path, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean)
     let selected = true
@@ -185,26 +239,10 @@ it.each(['command', 'hook', 'mcp', 'combined', 'native', 'external', 'builtin'])
       const config = { command: process.execPath, args: [mcp] }
       if (fixture === 'native')
         await put(join(nativeRoot, '.claude.json'), { mcpServers: { fixtureuser: config } })
-      const server: RuntimeToolServer = {
-        descriptor: {
-          id: 'fixturehost',
-          connectorId: 'fixture-source',
-          executionScope: 'application',
-          alwaysLoad: true,
-          tools: [{ name: 'echo', description: 'fixture echo' }]
-        },
-        implementations: [
-          {
-            name: 'echo',
-            inputSchema: { argument: z.string() },
-            handler: async (args) => {
-              await appendFile(calls, String(args.argument) + '\n')
-              return { content: [{ type: 'text', text: 'reply-' + args.argument }] }
-            }
-          }
-        ]
-      }
-      const extensions: TurnRequest['extensions'] = { skills: [], hooks: { normalized: {} } }
+      const extensions: TurnRequest['extensions'] =
+        fixture === 'builtin'
+          ? builtinExtensions((argument) => appendFile(calls, argument + '\n'))
+          : { skills: [], hooks: { normalized: {} } }
       if (fixture === 'external')
         extensions.managedMcp = {
           revision: 1,
@@ -213,29 +251,6 @@ it.each(['command', 'hook', 'mcp', 'combined', 'native', 'external', 'builtin'])
           definitions: { external: config },
           desired: { external: false }
         }
-      if (fixture === 'builtin') {
-        extensions.runtimeTools = { revision: 1, servers: new Map([['fixturehost', server]]) }
-        extensions.managedMcp = {
-          revision: 1,
-          users: {},
-          plugins: new Map([
-            [
-              'fixturehost',
-              {
-                identity: {
-                  kind: 'builtin',
-                  name: 'Fixture',
-                  sourceId: 'fixture-source',
-                  mentionId: 'fixture-source'
-                },
-                server,
-                authorized: () => true,
-                credentialRevision: () => 1
-              }
-            ]
-          ])
-        }
-      }
       let nativeId: string | null = null
       for (const on of [true, false, true]) {
         selected = on
@@ -295,3 +310,134 @@ it.each(['command', 'hook', 'mcp', 'combined', 'native', 'external', 'builtin'])
     }
   }
 )
+
+it('finishes the old responses in A and B and applies the saved choice to an independent A conversation immediately', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'oo-claude-concurrent-'))
+  const root = join(base, 'home', '.claude')
+  const a = join(base, 'A')
+  const b = join(base, 'B')
+  const tool = 'mcp__fixturehost__echo'
+  const choice = 'managed:builtin:fixture-source'
+  const control = extensionControl()
+  const adapter = new ClaudeAdapter(control)
+  const sessions = [
+    new SessionRuntime(adapter),
+    new SessionRuntime(adapter),
+    new SessionRuntime(adapter)
+  ]
+  const nativeIds: (string | null)[] = [null, null, null]
+  const calls: string[] = []
+  const inputs = new Map<
+    string,
+    {
+      requests: { tools: string[]; messages: string }[]
+      entered: ReturnType<typeof Promise.withResolvers<void>>
+      release: ReturnType<typeof Promise.withResolvers<void>>
+      hold: boolean
+    }
+  >()
+  const endpoint = createServer(async (request, response) => {
+    if (!request.url?.startsWith('/v1/messages') || request.url.includes('count_tokens')) {
+      response
+        .writeHead(200, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ input_tokens: 24 }))
+      return
+    }
+    const chunks: Buffer[] = []
+    for await (const chunk of request) chunks.push(Buffer.from(chunk))
+    const body = JSON.parse(Buffer.concat(chunks).toString())
+    const messages = JSON.stringify(body.messages)
+    const identifiers = messages.match(/probe-[0-9a-f-]{36}/g)
+    const id = identifiers?.at(-1)
+    const current = id && inputs.get(id)
+    if (!id || !current) {
+      response.writeHead(400).end('Unknown fixture input')
+      return
+    }
+    const first = current.requests.length === 0
+    current.requests.push({
+      tools: (body.tools ?? []).map((entry: { name: string }) => entry.name),
+      messages
+    })
+    current.entered.resolve()
+    if (first && current.hold) await current.release.promise
+    streamMessage(response, first ? tool : undefined, id)
+  })
+  const extensions = builtinExtensions((argument) => {
+    calls.push(argument)
+  })
+  const pending: Promise<unknown>[] = []
+  try {
+    await Promise.all([root, a, b].map((dir) => mkdir(dir, { recursive: true })))
+    await new Promise<void>((resolve) => endpoint.listen(0, '127.0.0.1', resolve))
+    const address = endpoint.address()
+    if (!address || typeof address === 'string') throw new Error('fixture endpoint unavailable')
+    const env = localClaudeEnvironment(root, address.port)
+    const start = (index: number, hold = false) => {
+      const uuid = randomUUID()
+      const token = 'probe-' + uuid
+      const entry = {
+        hold,
+        entered: Promise.withResolvers<void>(),
+        release: Promise.withResolvers<void>(),
+        requests: [] as { tools: string[]; messages: string }[]
+      }
+      inputs.set(token, entry)
+      const done = (async () => {
+        let ended = false
+        for await (const event of sessions[index].send({
+          env,
+          extensions,
+          cwd: index === 2 ? b : a,
+          sessionId: nativeIds[index],
+          promptUuid: uuid,
+          text: token,
+          permissionMode: 'bypass'
+        })) {
+          if (event.type === 'error') throw new Error(JSON.stringify(event))
+          if (event.type === 'session.updated') {
+            if (nativeIds[index]) expect(event.sessionId).toBe(nativeIds[index])
+            nativeIds[index] = event.sessionId
+          }
+          if (event.type === 'telemetry') ended = true
+        }
+        expect(ended).toBe(true)
+      })()
+      pending.push(done)
+      void done.catch(() => undefined)
+      return { entry, token, done, entered: Promise.race([entry.entered.promise, done]) }
+    }
+    const verify = async (turn: ReturnType<typeof start>, enabled: boolean) => {
+      await turn.done
+      expect(turn.entry.requests[0].tools.includes(tool)).toBe(enabled)
+      expect(turn.entry.requests[0].tools).toContain('Read')
+      expect(calls.filter((item) => item === turn.token)).toHaveLength(enabled ? 1 : 0)
+      if (enabled) expect(turn.entry.requests.at(-1)?.messages).toContain('reply-' + turn.token)
+    }
+    await control.setGlobal('claude', choice, true)
+    const s2First = start(1)
+    await verify(s2First, true)
+    const s1 = start(0, true)
+    const s3 = start(2, true)
+    await Promise.all([s1.entered, s3.entered])
+    await control.setGlobal('claude', choice, false)
+    await verify(start(1), false)
+    expect(calls).toEqual([s2First.token])
+    s3.entry.release.resolve()
+    await verify(s3, true)
+    await verify(start(2), false)
+    expect(calls).not.toContain(s1.token)
+    s1.entry.release.resolve()
+    await verify(s1, true)
+    await verify(start(0), false)
+    expect(nativeIds.every((id) => !!id)).toBe(true)
+    expect(new Set(nativeIds).size).toBe(3)
+  } finally {
+    for (const input of inputs.values()) input.release.resolve()
+    for (const session of sessions) session.close()
+    endpoint.closeAllConnections()
+    await Promise.allSettled(pending)
+    await new Promise<void>((resolve) => endpoint.close(() => resolve()))
+    await rm(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+  }
+})
