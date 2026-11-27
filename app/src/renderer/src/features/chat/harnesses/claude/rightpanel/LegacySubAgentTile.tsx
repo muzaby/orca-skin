@@ -1,3 +1,7 @@
+import {
+  useDismissMissingSubagent,
+  useSubagentDetail
+} from '../../common/rightpanel/panelNavigation'
 import { useMemo } from 'react'
 import { SubAgentTaskDetail } from '../../common/rightpanel/SubAgentTaskDetail'
 import { projectLegacyBackgroundPanel } from '../../../lib/canonicalBackground'
@@ -74,8 +78,8 @@ export function LegacySubAgentHeader(): React.JSX.Element {
   const sessionId = useChatSession((s) => s.sessionId)
   const activeKey = useChatStore((s) => s.activeKey)
   const panel = useBackgroundStore((s) => s.panels[sessionId ?? activeKey])
-  const subagentTasks = useTranscriptView('subagentTasks')
-  const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
+  const selectedId = useSubagentDetail()?.selectedId ?? null
+  const subagentTasks = useTranscriptView('subagentTasks', false, selectedId)
   const selected = useMemo(
     () =>
       selectedId
@@ -89,13 +93,6 @@ export function LegacySubAgentHeader(): React.JSX.Element {
   if (selected) {
     return (
       <div className="flex min-w-0 flex-1 items-center gap-g1">
-        <Button
-          iconOnly
-          size="small"
-          leadingIcon="arrowL"
-          onClick={() => chatActions.selectSubagentTask(null)}
-          aria-label={tr('chat.subagentTile.backToList')}
-        />
         <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
           {selected.description}
         </span>
@@ -113,9 +110,9 @@ export function LegacySubAgentContent(): React.JSX.Element {
   const sessionId = useChatSession((s) => s.sessionId)
   const activeKey = useChatStore((s) => s.activeKey)
   const panel = useBackgroundStore((s) => s.panels[sessionId ?? activeKey])
-  const subagentTasks = useTranscriptView('subagentTasks')
   const transcriptPolicy = agentUiPolicy(useChatSession((s) => s.agentKind)).transcript
-  const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
+  const selectedId = useSubagentDetail()?.selectedId ?? null
+  const subagentTasks = useTranscriptView('subagentTasks', false, selectedId)
   // 중단 요청을 보내고 SDK 확정을 기다리는 집합(D-005). 표시에만 쓰고 상태를 확정하지 않는다.
   const stopping = useStoppingTasks()
   // 두 타일이 같은 라이브 표식을 본다(0212 §10 EP-10·EP-12) — 한쪽만 인자를 늘리면 같은 항목이
@@ -137,6 +134,7 @@ export function LegacySubAgentContent(): React.JSX.Element {
   // 아래에 띄우기 위한 경과 앵커 — 라이브 메타의 startedAtMs(첫 task 이벤트 수신 시각).
   const selectedMeta = useSubagentMeta(selectedId ?? '')
 
+  useDismissMissingSubagent(!!selected)
   if (selected) {
     return (
       <SubAgentTaskDetail
@@ -183,12 +181,9 @@ export function SubAgentTaskList({
   const activeKey = useChatStore((s) => s.activeKey)
   const panelKey = sessionId ?? activeKey
   const panel = useBackgroundStore((s) => s.panels[panelKey])
-  const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
   const tasks = projectLegacyBackgroundPanel(allTasks, panel)
   const clearCompleted = (): void => {
     dismissCompletedBackgroundItems(panelKey, tasks)
-    if (tasks.some((task) => task.toolUseId === selectedId && task.status !== 'running'))
-      chatActions.selectSubagentTask(null)
   }
   if (tasks.length === 0) {
     return (
@@ -220,7 +215,8 @@ export function SubAgentTaskList({
             onClear={clearCompleted}
           >
             {group.items.map((task) => {
-              const open = (): void => chatActions.selectSubagentTask(task.toolUseId)
+              const open = (origin: HTMLElement): void =>
+                chatActions.openSubagentTask(task.toolUseId, origin)
               // 중단 대기 → 표시 상태의 규칙은 `taskBoard` 가 소유한다(plan §3 갱신메모) —
               // 두 타일이 같은 수명주기를 각자의 인라인 조건으로 쓰면 한쪽만 따라간다.
               const boardStatus = backgroundBoardStatus(

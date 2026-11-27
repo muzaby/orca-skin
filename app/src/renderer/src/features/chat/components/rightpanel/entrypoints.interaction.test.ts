@@ -2,6 +2,7 @@ import { createElement, type ComponentProps } from 'react'
 import type { StateCreator } from 'zustand/vanilla'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
+import { OpenCodeToolCard } from '../../harnesses/opencode/transcript/ToolCard'
 import { AgentTaskBody } from '../../harnesses/claude/transcript/tool-bodies/AgentTaskBody'
 import { AgentTaskRow } from '../../harnesses/common/transcript/AgentTaskRow'
 import { SubagentNoticeRow } from '../../harnesses/common/transcript/SubagentNoticeRow'
@@ -140,12 +141,22 @@ it('toggles the diff stack from the active Git row', () => {
   expect(stack()).toEqual([])
 })
 
-it.each(['agent body', 'agent row', 'completion notice'] as const)(
-  'opens the exact Claude subagent from the %s',
+it.each(['agent body', 'agent row', 'completion notice', 'OpenCode tool card'] as const)(
+  'AC15 pushes a detail over plan from the %s',
   (source) => {
     const call = { toolUseId: 'inspect-1', name: 'Agent', input: { description: 'inspect' } }
     const transcriptPolicy = agentUiPolicy('code').transcript
-    if (source === 'agent body')
+    if (source === 'OpenCode tool card') {
+      seed({ backend: 'opencode' })
+      panelActions.switchSession(
+        { key: original.activeKey, kind: 'code', backend: 'opencode' },
+        false
+      )
+    }
+    panelActions.navigate({ kind: 'tile', id: 'plan' })
+    if (source === 'OpenCode tool card')
+      dom.render(createElement(OpenCodeToolCard, { call: { ...call, name: 'Task' } }))
+    else if (source === 'agent body')
       dom.render(createElement(AgentTaskBody, { call, transcriptPolicy }))
     else if (source === 'agent row')
       dom.render(createElement(AgentTaskRow, { call, transcriptPolicy }))
@@ -158,11 +169,17 @@ it.each(['agent body', 'agent row', 'completion notice'] as const)(
         })
       )
     const trigger =
-      source === 'agent body' ? dom.query('[type="button"]') : dom.query('[role="button"]')
+      source === 'OpenCode tool card'
+        ? dom.query('[data-slot="collapsible-trigger"]')
+        : source === 'agent body'
+          ? dom.query('[type="button"]')
+          : dom.query('[role="button"]')
     expect(trigger).not.toBeNull()
     dom.click(trigger!)
-    expect(session().selectedSubagentTaskId).toBe(call.toolUseId)
-    expect(stack()).toMatchObject([{ kind: 'tile', id: 'subagent' }])
+    expect(stack()).toMatchObject([
+      { kind: 'tile', id: 'plan' },
+      { kind: 'detail', selection: { id: 'subagent', selectedId: call.toolUseId }, origin: trigger }
+    ])
   }
 )
 

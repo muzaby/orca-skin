@@ -107,7 +107,6 @@ import {
   forgetBackgroundState,
   ingestBackgroundEvent,
   refreshBackgroundState,
-  selectBackgroundItem,
   useBackgroundStore
 } from './backgroundStore'
 
@@ -3148,27 +3147,19 @@ export const chatActions = {
     panelActions.tile('process')
   },
   openSubagentTask: (toolRunId: string, origin?: HTMLElement): void => {
-    if (
-      HARNESS_CAPABILITIES[getState().sessions[getState().activeKey]?.session.backend ?? 'claude']
-        .subagentTile === 'task'
-    ) {
-      dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
-      panelActions.tile('task')
-      panelActions.navigate({
-        kind: 'detail',
-        selection: { id: 'subagent', selectedId: toolRunId },
-        origin
-      })
-    } else {
-      dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
-      panelActions.tile('subagent', false, origin)
-    }
-    const sessionId = getState().sessions[getState().activeKey]?.session.sessionId
-    const background = sessionId
-      ? useBackgroundStore.getState().sessions[sessionId]?.state
-      : undefined
+    const session = getState().sessions[getState().activeKey]?.session
+    const background =
+      session?.backend !== 'opencode' && session?.sessionId
+        ? useBackgroundStore.getState().sessions[session.sessionId]?.state
+        : undefined
     const key = background ? backgroundCallKeyForToolUse(background, toolRunId) : undefined
-    if (sessionId && key) selectBackgroundItem(sessionId, { kind: 'call', key })
+    panelActions.navigate({
+      kind: 'detail',
+      selection: key
+        ? { id: 'subagent', selectedId: key, backgroundKind: 'call' }
+        : { id: 'subagent', selectedId: toolRunId },
+      origin
+    })
   },
   acknowledgeSettledTasks: (): void => dispatchActive({ type: 'ACKNOWLEDGE_SETTLED_TASKS' }),
   stopTask,
@@ -3465,7 +3456,8 @@ export function useTranscriptView(
 ): ReturnType<ReturnType<typeof transcriptIndexFor>['taskContextSources']>
 export function useTranscriptView(
   domain: 'subagentTasks',
-  includeNested?: boolean
+  includeNested?: boolean,
+  selectedId?: string | null
 ): ReturnType<ReturnType<typeof transcriptIndexFor>['subagentTasks']>
 export function useTranscriptView(
   domain: 'subagentTaskDescription',
@@ -3485,14 +3477,18 @@ export function useTranscriptView(
   domain: 'sessionPanelModel',
   background?: BackgroundSessionState
 ): ReturnType<ReturnType<typeof transcriptIndexFor>['openCodePanelModel']>
-export function useTranscriptView(domain: string, arg?: unknown): unknown {
+export function useTranscriptView(
+  domain: string,
+  arg?: unknown,
+  selectedId?: string | null
+): unknown {
   const scope = usePanelScope()
   const selected = useChatStore((state) => {
     if (!scope) return null
     const session = state.sessions[state.activeKey].session
     if (domain === 'taskBoard') return session.selectedTaskKey
     if (domain === 'childMessage') return typeof arg === 'string' ? arg : null
-    if (domain === 'subagentTasks') return session.selectedSubagentTaskId
+    if (domain === 'subagentTasks') return selectedId ?? null
     return null
   })
   const kinds = domainPanels(domain)

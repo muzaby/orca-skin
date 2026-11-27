@@ -1,3 +1,8 @@
+import {
+  useDismissMissingSubagent,
+  useSubagentDetail
+} from '../../common/rightpanel/panelNavigation'
+import { panelActions } from '../../../store/rightPanelStore'
 import { useEffect, useState } from 'react'
 import { Button } from '../../../../../shared/ui/Button'
 import { formatElapsed, useElapsed } from '../../../../../shared/ui/elapsed'
@@ -23,10 +28,10 @@ import {
   refreshBackgroundState,
   dismissCompletedBackgroundItems,
   toggleBackgroundGroup,
-  selectBackgroundItem,
   useBackgroundStore
 } from '../../../store/backgroundStore'
 import {
+  backgroundPanelSelection,
   callForBackgroundTask,
   backgroundCallDisplay,
   backgroundTaskDisplay,
@@ -64,16 +69,20 @@ export function CanonicalBackgroundContent(): React.JSX.Element {
   useEffect(() => {
     if (sessionId && !view) void refreshBackgroundState(sessionId)
   }, [sessionId, view])
-  if (!sessionId || !view)
+  const detail = useSubagentDetail()
+  const projection = view
+    ? projectBackgroundPanel(
+        view.state,
+        backgroundPanelSelection(view.state, detail),
+        panel,
+        transcriptResults
+      )
+    : undefined
+  useDismissMissingSubagent(!!(projection?.selectedTask || projection?.selectedCall))
+  if (!sessionId || !view || !projection)
     return <p className="p-4 text-footnote text-t6">{tr('background.loading')}</p>
   const state = view.state
-  const selection = view.selection
-  const { tasks, calls, selectedTask, selectedCall } = projectBackgroundPanel(
-    state,
-    selection,
-    panel,
-    transcriptResults
-  )
+  const { tasks, calls, selectedTask, selectedCall } = projection
   if (selectedTask || selectedCall) {
     return (
       <CanonicalBackgroundDetail
@@ -131,10 +140,15 @@ export function CanonicalBackgroundContent(): React.JSX.Element {
                 call={call}
                 transcript={transcript}
                 persistedModel={persistedModels.get(task.toolUseId ?? call?.toolUseId ?? '')}
-                onOpen={() =>
-                  selectBackgroundItem(sessionId, {
-                    kind: 'task',
-                    key: backgroundKey(task.generation, task.taskId)
+                onOpen={(origin) =>
+                  panelActions.navigate({
+                    kind: 'detail',
+                    selection: {
+                      id: 'subagent',
+                      backgroundKind: 'task',
+                      selectedId: backgroundKey(task.generation, task.taskId)
+                    },
+                    origin
                   })
                 }
               />
@@ -146,10 +160,15 @@ export function CanonicalBackgroundContent(): React.JSX.Element {
                 state={state}
                 transcript={transcriptResults.get(call.toolUseId)}
                 persistedModel={persistedModels.get(call.toolUseId)}
-                onOpen={() =>
-                  selectBackgroundItem(sessionId, {
-                    kind: 'call',
-                    key: backgroundKey(call.generation, call.toolUseId)
+                onOpen={(origin) =>
+                  panelActions.navigate({
+                    kind: 'detail',
+                    selection: {
+                      id: 'subagent',
+                      backgroundKind: 'call',
+                      selectedId: backgroundKey(call.generation, call.toolUseId)
+                    },
+                    origin
                   })
                 }
               />
@@ -176,7 +195,7 @@ export function BackgroundTaskCard({
   call?: BackgroundCallRecord
   transcript?: ToolCall['result']
   persistedModel?: string
-  onOpen?: () => void
+  onOpen?: (origin: HTMLElement) => void
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [error, setError] = useState<string>()
@@ -289,7 +308,7 @@ function BackgroundCallCard({
   call: BackgroundCallRecord
   transcript?: ToolCall['result']
   persistedModel?: string
-  onOpen: () => void
+  onOpen: (origin: HTMLElement) => void
 }): React.JSX.Element {
   const { tr } = useI18n()
   const display = backgroundCallDisplay(state, call, transcript)

@@ -15,7 +15,7 @@ export function TranscriptActionRow({
   children
 }: {
   groupClassName: string
-  onActivate: () => void
+  onActivate: (origin: HTMLElement) => void
   expanded?: boolean
   children: ReactNode
 }): React.JSX.Element {
@@ -24,11 +24,11 @@ export function TranscriptActionRow({
       role="button"
       tabIndex={0}
       aria-expanded={expanded}
-      onClick={onActivate}
+      onClick={(event) => onActivate(event.currentTarget)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onActivate()
+          onActivate(event.currentTarget)
         }
       }}
       className={`${groupClassName} flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus`}

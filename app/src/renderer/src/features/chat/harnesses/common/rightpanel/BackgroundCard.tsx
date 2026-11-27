@@ -13,7 +13,7 @@ export function BackgroundCard({
 }: {
   title: string
   ariaLabel: string
-  onOpen?: () => void
+  onOpen?: (origin: HTMLElement) => void
   children: ReactNode
   [data: `data-${string}`]: string
 }): React.JSX.Element {
@@ -21,11 +21,11 @@ export function BackgroundCard({
     <div
       role="button"
       tabIndex={0}
-      onClick={onOpen}
+      onClick={onOpen && ((event) => onOpen(event.currentTarget))}
       onKeyDown={(event) => {
         if (shouldActivateBackgroundCard(event)) {
           event.preventDefault()
-          onOpen?.()
+          onOpen?.(event.currentTarget)
         }
       }}
       aria-label={ariaLabel}

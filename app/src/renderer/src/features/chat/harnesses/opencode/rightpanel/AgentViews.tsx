@@ -13,7 +13,7 @@ export function AgentList({
   onSelect
 }: {
   agents: SessionPanelModel['agents']
-  onSelect: (id: string) => void
+  onSelect: (id: string, origin: HTMLElement) => void
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
   return (
@@ -37,7 +37,7 @@ export function AgentList({
               <button
                 key={agent.toolUseId}
                 type="button"
-                onClick={() => onSelect(agent.toolUseId)}
+                onClick={(event) => onSelect(agent.toolUseId, event.currentTarget)}
                 className="flex w-full min-w-0 items-center gap-3 rounded-md px-2 py-3 text-left outline-none hover:bg-oc-layer-2 ring-focus"
               >
                 <AgentAvatar index={index} />

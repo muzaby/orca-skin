@@ -20,6 +20,7 @@ it('opens process, source and subagent entries through the active session action
   chatActions.setRightPanelTileActive('source', true)
   expect(useRightPanelStore.getState().stack.map(layerKey)).toEqual([
     'task',
+    'diff',
     'detail:subagent',
     'process',
     'source'

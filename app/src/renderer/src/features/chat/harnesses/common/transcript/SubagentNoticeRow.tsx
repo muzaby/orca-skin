@@ -52,9 +52,9 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
       <TranscriptActionRow
         groupClassName="group/notice"
         expanded={transcriptPolicy.inlineSubagentDetail ? expanded : undefined}
-        onActivate={() => {
+        onActivate={(origin) => {
           if (transcriptPolicy.inlineSubagentDetail) setExpanded((value) => !value)
-          else chatActions.openSubagentTask(toolRunId)
+          else chatActions.openSubagentTask(toolRunId, origin)
         }}
       >
         <span
