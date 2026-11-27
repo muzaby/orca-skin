@@ -273,7 +273,13 @@ const header = (): HTMLElement =>
 type Line = { part: string; text: string }
 let reading: Line
 let point: { x: number; y: number } | undefined
-function hitAtPoint() {
+interface Hit {
+  part?: string
+  message?: string
+  offset: number
+  text?: string
+}
+function hitAtPoint(): Hit | undefined {
   if (!point) return undefined
   const range = document.caretRangeFromPoint(point.x, point.y)
   const node = range?.startContainer
@@ -324,7 +330,7 @@ interface Sample extends Line {
   headerHeight: number
   state?: string
   time: number
-  hit?: ReturnType<typeof hitAtPoint>
+  hit?: Hit
 }
 function snapshot(): Sample {
   const line = visibleLine(reading)
@@ -390,7 +396,8 @@ Object.assign(window, {
       return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
     },
     async unit() {
-      const ids = () => useChatStore.getState().sessions[id].session.messages.map((m) => m.id)
+      const ids = (): string[] =>
+        useChatStore.getState().sessions[id].session.messages.map((m) => m.id)
       await settle(8)
       const first = ids()
       const rowsBeforeScroll = requestsBeforeUnitInput ?? [...searchRequests]
@@ -414,7 +421,7 @@ Object.assign(window, {
     },
     async entry() {
       const offsets: { top: number; bottom: number; opacity: number; line: string }[] = []
-      const sample = () => {
+      const sample = (): void => {
         const el = scroller()
         const body = el.querySelector('[data-transcript-viewport]')
         const first = el.querySelector('[data-block-key]')
@@ -712,8 +719,8 @@ Object.assign(window, {
     async result() {
       await settle(8)
       const scrollerEl = scroller()
-      const row = (part: string) =>
-        scrollerEl.querySelector('[data-part-key="' + part + '"]')?.closest('[data-index]')
+      const row = (part: string): Element | null =>
+        scrollerEl.querySelector('[data-part-key="' + part + '"]')?.closest('[data-index]') ?? null
       // A saved assistant message can end in a metadata row below its final text segment.
       const insertedRows = Array.from(scrollerEl.querySelectorAll<HTMLElement>('[data-index]'))
       const lastInserted = insertedRows.findLast(

@@ -27,6 +27,8 @@ vi.mock('../../components/transcript/TranscriptViewport', async () => {
 })
 vi.mock('../../store/chatStore', () => ({
   useActiveSessionKey: () => 's1',
+  useChatStore: (select: (state: { entryIntent: null }) => unknown) =>
+    select({ entryIntent: null }),
   useTranscriptChanges: () =>
     recordChange(newTranscriptChanges(), { kind: 'reset', complete: true }),
   useHasLiveText: () => false,

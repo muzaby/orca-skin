@@ -223,7 +223,7 @@ describe('search history in the chat store', () => {
       if (problem === 'wrong generation') next.session.history.generation = 'wrong'
       if (problem === 'transport' || search) page.mockRejectedValueOnce(Error('transport'))
       else page.mockResolvedValueOnce(next)
-      const request = () =>
+      const request = (): boolean =>
         search ? chatActions.readSearchEdge('b', 'before') : chatActions.readPrevious('b')
       expect(request()).toBe(true)
       expect(request()).toBe(false)
@@ -246,7 +246,7 @@ describe('search history in the chat store', () => {
     const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(first)
     await chatActions.openSearchHit(locator('b'), false)
     page.mockResolvedValueOnce({ ...first, session: { ...first.session, messages: [] } })
-    const request = () =>
+    const request = (): boolean =>
       ordinary
         ? chatActions.readPrevious('b', true)
         : chatActions.readSearchEdge('b', 'before', true)

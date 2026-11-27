@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi, type Mock } from 'vitest'
 import { writeScrollTop } from './TranscriptViewport'
 import {
   cancelEntryMotion,
@@ -11,7 +11,13 @@ import {
 
 afterEach(() => vi.unstubAllGlobals())
 
-function motionFixture(reduced = false) {
+interface MotionFixture {
+  el: HTMLElement
+  scroll: { scrollTop: number; scrollHeight: number; scrollTo: Mock }
+  body: { animate: Mock }
+  write: (top: number, behavior: ScrollBehavior) => void
+}
+function motionFixture(reduced = false): MotionFixture {
   vi.stubGlobal('window', { matchMedia: () => ({ matches: reduced }) })
   const body = { querySelector: () => ({}), animate: vi.fn() }
   const scroll = {
@@ -23,7 +29,7 @@ function motionFixture(reduced = false) {
     scrollTo: vi.fn()
   }
   const el = scroll as unknown as HTMLElement
-  const write = (top: number, behavior: ScrollBehavior) =>
+  const write = (top: number, behavior: ScrollBehavior): void =>
     writeScrollTop(el, top, behavior, 'claude')
   return { el, scroll, body, write }
 }
