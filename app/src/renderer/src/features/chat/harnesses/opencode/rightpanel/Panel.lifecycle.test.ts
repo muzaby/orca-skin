@@ -6,7 +6,7 @@ import {
   type FakeDom,
   FakeNode
 } from '../../../../../shared/ui/renderHarness.testfixture'
-import { RightPanelFrame } from '../../common/rightpanel/RightPanelFrame'
+import { RightPanelFrame } from '../../../components/rightpanel/RightPanelFrame'
 import { panelActions, useRightPanelStore } from '../../../store/rightPanelStore'
 import { useChatStore } from '../../../store/chatStore'
 import { useArtifactViewerStore } from '../../../store/artifactViewerStore'

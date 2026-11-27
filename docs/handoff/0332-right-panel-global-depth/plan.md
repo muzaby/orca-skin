@@ -602,7 +602,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 01′·04′·11 | EP-1′ 설정 | protocol 기본/부분 쓰기, IPC 타입, Tweaks 기본/로드, 프레임 쓰기 | 6자리 | `settings-store.test.ts` 기본/손상/부분/왕복, `TweakProvider.store.test.ts` 로드/쓰기, `rightPanelStore.test.ts` A→B | false·Work 360·Code 520, 100·2000 복구, 독립 저장 | — |
 | 08·12 | EP-2 사용자 진입 | §8의 15개 UI 동작, 카드, 폭 | 제목/도구/승인/작업/상세/닫기/아티팩트/폭을 같은 store에 연결 | `ChatTitleBar.render`, `Panel.interaction`, `Panel.lifecycle`, `chatStore.panelTiles`, `ArtifactViewer.actions` | 선택한 작업·process·subagent id, 프레임 실제 타일·복귀 초점 | 17자리 각각에 독립적으로 결함을 심는 스윕 |
 | 02′·09·21 | EP-3′ 수명·자동 사건 | 프레임 배치, 구 wrapper, 계약, registry, 두 어댑터, 구 프레임. BEGIN/LOAD/RECV 및 사용자 액션 6종 | `ChatTile > RightPanelFrame`, registry `screen`, 수명 테스트 4쌍. 기존 자동 타일 배치 제거 | `Panel.lifecycle.test.ts` AC2, `Panel.render.test.ts` AC7, `chatStore.panelTiles.test.ts` AC9 | 세션 교체 전후 프레임 동일, 도착 층 교체, 비활성·닫힘 plan_review 무동작 | ChatTile 소유권 테스트에서 backend key 변이 1 red |
-| 03′·06·13·20′ | EP-4″ 스택 | §21 ①~⑨ | ① 닫힘→X, ② 토글 닫기, ③ 기존 층 pop-to, ④ push=`navigateStack`; ⑤ back·⑥ close·⑦ switchSession·⑧ commit(memory)=store; ⑨ 닫힌 산출물→[root,viewer]=`navigateStack` | `rightPanelStore.test.ts`의 E1~E8, AC6, A2/A8/A9 및 `Panel.lifecycle.test.ts` | 지원하지 않는 task→plan 뒤 OpenCode 복귀 시 task, 산출물 뒤로 시 기존 화면과 스크롤 | §3 구현 조건별 소거 스윕 일부 |
+| 03′·06·13·20′ | EP-4″ 스택 | §21 ①~⑨ | ① 닫힘→X, ② 토글 닫기, ③ 기존 층 pop-to, ④ push=`navigateStack`; ⑤ back·⑥ close·⑦ switchSession·⑧ commit(memory)=store; ⑨ 닫힌 산출물→[root,viewer]=`navigateStack` | `rightPanelStore.test.ts`의 E1~E8, AC6, A2/A8/A9 및 `Panel.lifecycle.test.ts` | 지원하지 않는 task→plan 뒤 OpenCode 복귀 시 task, 산출물 뒤로 시 기존 화면과 스크롤 | EP-4″ 사용자 연산 9/9 분기 대표 변이 검출 |
 | 04′·05·14 | EP-5 전환 | ① 열기 ② 닫기 ③ 모드·host ④ 드래그 | ①② `framePhase`·프레임의 outgoing/타이머, ③ `targetWidth`, ④ 프레임의 drag/finish | `rightPanelFrameState.test.ts`, Electron `pairedWidth`·`mode-width`·`resize-persistence` | 모드 360/520, host 700 시 460, 축소 모션 즉시 | 일반 모션 실측 및 종료 시점 교란 |
 | 07′·15 | EP-6′ 폐기 | 기준 60파일 421줄. src/scripts 전체 | 구 grid 로직·계약·액션·수명 테스트 대체 | §20-G 명령 0줄. 테스트 fixture에 sentinel을 심어 같은 명령 정확히 1줄 | production·테스트·시나리오 3경로 포함 | — |
 | 10·17·18 | EP-7·8 경계·깊이 | transcript/패널 공통 flex, 양방향 navigation, 중단/세션 이동 | 프레임만 폭 보간, 콘텐츠 층별 transform, 구 층 inert·aria-hidden | `check-right-panel.mjs`, `Panel.lifecycle.test.ts` | 읽기 위치·하단·폭·도착층 x·inactive·원점 버튼 | 읽던 글줄·하단·정/역방향 x 통과. 첫 열기의 중간폭 표본 누락 |
@@ -640,11 +640,11 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 
 | 조작/사건 | 전후 | 화면 소유자 | 관측 |
 |---|---|---|---|
-| 경로 선택 | /new, /chat/:id, /projects, /projects/:id, /scheduled, /artifacts, /plugins, /agent, /captures | AppLayout의 route pattern이 바뀔 때 main 진입. 같은 chat route 안에서는 키 유지 | 라우트별 소비 경로 확인. 모든 경로 왕복 실측은 미완 |
+| 경로 선택 | /new, /chat/:id, /projects, /projects/:id, /scheduled, /artifacts, /plugins, /agent, /captures | AppLayout의 route pattern이 바뀔 때 main 진입. 같은 chat route 안에서는 키 유지 | 실제 RouteSurface를 ROUTES 각 항목으로 전환하는 surface-route-* 실기. 누락됐던 /scheduled도 등록 |
 | 시작·로그인·복원 | 부팅 대기→provider 로그인/다음 단계→앱 | BootScreen, FullFrameShell, GateLogin | surface-boot/gate/login-open |
 | nav 접기, 섹션 클릭 | nav 248px→3.5rem, disclosure 본문→0 | Sidebar, SidebarSection. 드래그 동안 transition 비활성 | surface-sidebar-collapse/disclosure-close |
-| 프로젝트·예약·산출물·확장 탭 선택 | 이전 목록→선택 탭 목록 | ProjectsScreen, SchedulesScreen, ArtifactsView, ExtensionsCatalogView의 keyed tabpanel | 앞 세 화면 surface-*-tab. 확장 탭 개별 실측 미완 |
-| 상세·설정 | 목록→상세, 일반→사용량·provider | DetailSidePane, SettingsModal | 상세 surface-detail-open. 설정 탭 개별 실측 미완 |
+| 프로젝트·예약·산출물·확장 탭 선택 | 이전 목록→선택 탭 목록 | ProjectsScreen, SchedulesScreen, ArtifactsView, ExtensionsCatalogView의 keyed tabpanel | 네 화면 모두 surface-*-tab 실기 |
+| 상세·설정 | 목록→상세, 일반→사용량·provider | DetailSidePane, SettingsModal | surface-detail-open과 surface-settings-open/tab 실기 |
 | 사용자 토글·메뉴·모달 | 켜짐↔꺼짐, portal 열기↔닫기 | Toggle, Popover, Modal. 상태 정리·입력 즉시 해제 | surface-toggle, surface-popover-*, surface-modal-* |
 | 검색·인증 만료·설치 | 검색 레이어·auth/installer 진입·dismiss | OverlayLayer, SearchModal, AuthExpiredModal, InstallerDialog | surface-search/auth/installer |
 | 알림·개발 패널 | 오류 도착 및 만료, 디버그 접기 | ErrorToastHost 기존 4.6초 키프레임, FloatingPanel의 두 표면 | surface-toast-open/floating-close |
@@ -664,9 +664,16 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 기존 층 pop-to 제거 | VP-13 | 첫 구현 | rightPanelStore / 3 | 검출 |
 | ChatTile 내부 프레임을 backend key로 재생성 | VP-02′ | 첫 구현 | ChatTile.composerLifetime / 1 | 검출 |
 | 닫을 때 outgoing 즉시 제거 | VP-05 | 첫 구현 | Panel.lifecycle AC5 / 1 | 검출 |
+| 닫힌 일반 타일의 X를 기본 화면으로 대체 | EP-4″ ① | 첫 구현 | rightPanelStore / 2 | 검출 |
+| 최상단 토글에서 닫기 제거 | EP-4″ ② | 첫 구현 | rightPanelStore / 1 | 검출 |
+| 새 층 push에서 기존 스택 제거 | EP-4″ ④ | 첫 구현 | rightPanelStore / 1 | 검출 |
+| back에서 마지막 층 유지 | EP-4″ ⑤ | 첫 구현 | rightPanelStore / 3 | 검출 |
+| close에서 기존 스택 유지 | EP-4″ ⑥ | 첫 구현 | rightPanelStore / 4 | 검출 |
+| 화면 기억의 하네스 지원 검사 제거 | EP-4″ ⑦ | 첫 구현 | rightPanelStore / 3 | 검출 |
+| 명시적 선택 기억을 plan으로 고정 | EP-4″ ⑧ | 첫 구현 | rightPanelStore / 6 | 검출 |
 | 테스트에 rightPanelTiles 한 줄 삽입 | VP-07′·15 | 첫 구현 | §20-G 검색 0→1줄 | 검출 |
 
-- **분모 검산**. 선택 증거 9개, 인용 이슈 0개, 음성 oracle 1개, 추가 범위 검사 1개로 11실행이다. 하나의 실행을 여러 pair가 공유할 때 한 번만 셌다. 전체 §10 자리별 변이의 잔여에는 전환 클래스·같은 프레임 경계·깊이, EP-2의 17 진입, EP-9의 개별 화면이 있다.
+- **분모 검산**. 선택 증거 9개, 인용 이슈 0개, 음성 oracle 1개, 범위 검사 1개와 추가 스택 분기 7개로 18실행이다. EP-4″ 분기 대표는 9/9이며 site별 전체 소거와 구별한다. 하나의 실행을 여러 pair가 공유할 때 한 번만 셌다. 전체 §10 자리별 변이의 잔여에는 전환 클래스·같은 프레임 경계·깊이, EP-2의 17 진입, EP-9의 개별 화면이 있다.
 - **덮개 회귀**. 구 열/행 전용 단언을 폐기하고, 기존 상세 생애·subagent/process 선택·원점 초점·스크롤 위치를 실제 공통 프레임 테스트로 옮겼다. 직전 verify에서 재실행할 고장 이력은 없다.
 
 ## [구현자 기입] Product/UX 파생 검토
@@ -686,11 +693,13 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 1 | active viewer의 미리보기 모드·확대가 다른 산출물에 가려지면 소실될 수 있다 | 각 층이 viewer snapshot을 보관하고 돌아오면 그 선택을 복원한다 | Panel.lifecycle의 가려진 산출물·retry 해제 |
 | 2 | 세션이 교체될 때 퇴장 층이 이전 내용을 잠깐 노출할 수 있다 | 세션 소유자가 바뀌면 즉시 폐기하고 같은 세션에서만 outgoing 보존 | Panel.lifecycle의 네 교체 쌍 |
 | 3 | 실제 화면 fixture가 구 패널이나 settings를 계속 주입하면 앱 대신 fixture가 실패한다 | harness-entry와 OpenCode scenario/native settings를 같이 이관 | 실제 ChatTile Electron 기동 |
-| 4 | 워크스페이스 전체 테스트와 Chromium의 시간 경쟁으로 150~200ms 사이 표본을 놓쳤다 | 표본 수와 실제 경과를 같이 보고 일반·축소 결과를 분리 기록 | EP-9 표와 실측 로그 |
+| 4 | 복합 메뉴를 빠르게 닫았다 열 때 가려진 하위 선택과 포커스가 남을 수 있다 | 재진입 때 내부 트리의 key를 갱신하고 실제 애니메이션이 가능한 호스트에서만 퇴장 표면을 유지한다 | 프로젝트 선택·계단 메뉴·컴포저·셸 42/42 |
+| 5 | 일반 Composer 버튼의 dismissible 속성까지 검사하면 산출물 Escape가 막혔다 | 열려 있는 floating·modal만 판정한다 | A8 실제 카드에서 재현 |
+| 6 | 워크스페이스 전체 테스트와 Chromium의 시간 경쟁으로 150~200ms 사이 표본을 놓쳤다 | 표본 수와 실제 경과를 같이 보고 일반·축소 결과를 분리 기록 | EP-9 표와 실측 로그 |
 
 ### 설계 대비 명시적 차이
 
-- 별도 Frame 렌더 파일 대신 기존 OpenCode `Panel.lifecycle.test.ts`의 실제 reducer/store/화면 트리에 프레임을 올렸다. pure stack과 store 입력은 `rightPanelStore.test.ts`에서 함께 재현한다.
+- 저장소의 harness/ownership 경계를 따라 registry를 고르는 프레임은 feature의 components/rightpanel에 배치했다. 별도 Frame 렌더 파일 대신 기존 OpenCode `Panel.lifecycle.test.ts`의 실제 reducer/store/화면 트리에 프레임을 올렸다. pure stack과 store 입력은 `rightPanelStore.test.ts`에서 함께 재현한다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|

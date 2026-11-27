@@ -1,29 +1,25 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { useTweakContext } from '../../../../../shared/theme/TweakProvider'
-import { useReducedMotion } from '../../../../../shared/hooks/useReducedMotion'
+import { useTweakContext } from '../../../../shared/theme/TweakProvider'
+import { useReducedMotion } from '../../../../shared/hooks/useReducedMotion'
 import {
   resizeSidePaneByKey,
   sidePaneBounds,
   startSidePaneDrag
-} from '../../../../../shared/hooks/sidePaneResize'
-import { useI18n } from '../../../../../shared/i18n'
-import { ResizableSidePane } from '../../../../../shared/ui/ResizableSidePane'
-import { rightPanelPolicy } from '../../../lib/panelTiles'
-import { layerKey, type PanelEntry } from '../../../lib/rightPanelStack'
-import { framePhase, PANEL_TRANSITION_MS, targetWidth } from '../../../lib/rightPanelFrameState'
-import { closeArtifactViewer, useArtifactViewerStore } from '../../../store/artifactViewerStore'
-import { useChatSession, useChatStore } from '../../../store/chatStore'
-import {
-  panelActions,
-  connectPanelSettings,
-  useRightPanelStore
-} from '../../../store/rightPanelStore'
-import { assistantRuntime } from '../../registries/assistant'
-import { harnessRightPanel } from '../../registries/rightpanel'
-import { TranscriptRuntimeProvider } from '../transcript/TranscriptRuntime'
-import { ArtifactViewer } from './ArtifactViewer'
-import { focusPanelOrigin } from './panelFocus'
-import { PanelNavigationContext } from './panelNavigation'
+} from '../../../../shared/hooks/sidePaneResize'
+import { useI18n } from '../../../../shared/i18n'
+import { ResizableSidePane } from '../../../../shared/ui/ResizableSidePane'
+import { rightPanelPolicy } from '../../lib/panelTiles'
+import { layerKey, type PanelEntry } from '../../lib/rightPanelStack'
+import { framePhase, PANEL_TRANSITION_MS, targetWidth } from '../../lib/rightPanelFrameState'
+import { closeArtifactViewer, useArtifactViewerStore } from '../../store/artifactViewerStore'
+import { useChatSession, useChatStore } from '../../store/chatStore'
+import { panelActions, connectPanelSettings, useRightPanelStore } from '../../store/rightPanelStore'
+import { assistantRuntime } from '../../harnesses/registries/assistant'
+import { harnessRightPanel } from '../../harnesses/registries/rightpanel'
+import { TranscriptRuntimeProvider } from '../../harnesses/common/transcript/TranscriptRuntime'
+import { ArtifactViewer } from '../../harnesses/common/rightpanel/ArtifactViewer'
+import { focusPanelOrigin } from '../../harnesses/common/rightpanel/panelFocus'
+import { PanelNavigationContext } from '../../harnesses/common/rightpanel/panelNavigation'
 
 interface Props {
   projectName?: string | null
@@ -100,6 +96,10 @@ export function RightPanelFrame({ onExpandedChange, ...header }: Props): React.J
     }
     setMotion(motion)
   }
+  if (motion.entry !== top) {
+    motion = { ...motion, entry: top }
+    setMotion(motion)
+  }
   useLayoutEffect(() => {
     if (motion.settled) return
     const timer = window.setTimeout(
@@ -108,20 +108,31 @@ export function RightPanelFrame({ onExpandedChange, ...header }: Props): React.J
     )
     return () => window.clearTimeout(timer)
   }, [motion, reduced])
-  const [widthSettled, setWidthSettled] = useState(true)
-  const lastOpen = useRef(t.open)
+  const [widthState, setWidthState] = useState({ open: t.open, settled: true, ready: true })
+  if (widthState.open !== t.open)
+    setWidthState({
+      open: t.open,
+      settled: reduced,
+      // Let the first screen mount and the browser finish layout at zero width.
+      // An interrupted closing transition reverses from its actual current size.
+      ready: !t.open || reduced || !widthState.settled
+    })
   useLayoutEffect(() => {
-    if (lastOpen.current === t.open) return
-    lastOpen.current = t.open
-    if (reduced) {
-      setWidthSettled(true)
-      return
+    if (widthState.settled || reduced) return
+    if (!widthState.ready) {
+      const frame = window.requestAnimationFrame(() =>
+        setWidthState((state) => (state === widthState ? { ...state, ready: true } : state))
+      )
+      return () => window.cancelAnimationFrame(frame)
     }
-    setWidthSettled(false)
-    const timer = window.setTimeout(() => setWidthSettled(true), PANEL_TRANSITION_MS)
+    const timer = window.setTimeout(
+      () => setWidthState((state) => (state === widthState ? { ...state, settled: true } : state)),
+      PANEL_TRANSITION_MS
+    )
     return () => window.clearTimeout(timer)
-  }, [t.open, reduced])
-  const phase = framePhase(t.open, widthSettled, reduced)
+  }, [widthState, reduced])
+  const displayed = t.open && (reduced || (widthState.open && widthState.ready))
+  const phase = framePhase(t.open, widthState.open === t.open && widthState.settled, reduced)
   const entries = current ? [...stack] : []
   const outgoing = motion.outgoing && layerKey(motion.outgoing)
   if (current && motion.outgoing && !entries.some((e) => layerKey(e) === outgoing))
@@ -160,9 +171,7 @@ export function RightPanelFrame({ onExpandedChange, ...header }: Props): React.J
     }
   }, [activeViewer, sessionKey])
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
-  useLayoutEffect(() => {
-    if (!t.open) setExpandedKey(null)
-  }, [t.open])
+  if (!t.open && expandedKey !== null) setExpandedKey(null)
   const displayKey = JSON.stringify([sessionKey, key])
   const expanded =
     !!top && (top.kind === 'artifact' ? !!selection?.expanded : expandedKey === displayKey)
@@ -200,7 +209,7 @@ export function RightPanelFrame({ onExpandedChange, ...header }: Props): React.J
       data-phase={phase}
       inert={!top}
       aria-hidden={!top}
-      style={{ width: t.open ? width : 0, opacity: t.open ? 1 : 0 }}
+      style={{ width: displayed ? width : 0, opacity: displayed ? 1 : 0 }}
       className={
         'flex min-h-0 min-w-0 shrink-0 ' +
         (drag === null
@@ -210,9 +219,9 @@ export function RightPanelFrame({ onExpandedChange, ...header }: Props): React.J
       onKeyDown={(e) => {
         if (e.key !== 'Escape' || e.defaultPrevented || stack.length < 2) return
         const popups = e.currentTarget.ownerDocument.body.querySelectorAll(
-          '[data-context="floating"], [data-behavior="dismissible"]'
+          '[data-context="floating"], [role="dialog"][aria-modal="true"]'
         )
-        if ([...popups].some((p) => !p.closest('[hidden], [inert]'))) return
+        if ([...popups].some((p) => !p.closest('[hidden], [inert], [aria-hidden="true"]'))) return
         e.preventDefault()
         e.stopPropagation()
         panelActions.back()

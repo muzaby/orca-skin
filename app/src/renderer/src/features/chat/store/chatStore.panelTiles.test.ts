@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, expect, it } from 'vitest'
 import { chatActions, getActiveChatSession, ingestChatEvent, useChatStore } from './chatStore'
 import { installChatStoreHarness } from './chatStore.testHarness'
 import { panelActions, useRightPanelStore } from './rightPanelStore'
@@ -64,4 +64,11 @@ it('AC9 only an active open panel navigates to an arriving plan review', () => {
   expect(useRightPanelStore.getState().stack.map(layerKey)).toEqual(['task'])
   review('s')
   expect(useRightPanelStore.getState().stack.map(layerKey)).toEqual(['task', 'plan'])
+})
+
+it('AC9 beginning a user turn keeps a closed panel closed', () => {
+  panelActions.close()
+  expect(chatActions.send('begin turn')).toBe(true)
+  expect(getActiveChatSession().inflight).toBe(true)
+  expect(useRightPanelStore.getState().stack).toEqual([])
 })

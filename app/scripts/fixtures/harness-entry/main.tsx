@@ -1,4 +1,4 @@
-import { RightPanelFrame } from '../../../src/renderer/src/features/chat/harnesses/common/rightpanel/RightPanelFrame'
+import { RightPanelFrame } from '../../../src/renderer/src/features/chat/components/rightpanel/RightPanelFrame'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import '../../../src/renderer/src/styles/app.css'

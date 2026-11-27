@@ -91,7 +91,7 @@ vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
 vi.mock('./Composer', () => ({
   Composer: () => createElement('div', { 'data-composer-probe': '' })
 }))
-vi.mock('../harnesses/common/rightpanel/RightPanelFrame', () => ({
+vi.mock('./rightpanel/RightPanelFrame', () => ({
   RightPanelFrame: ({
     projectName,
     projectPath

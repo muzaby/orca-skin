@@ -2,6 +2,8 @@ import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { createRef } from 'react'
 import { MemoryRouter } from 'react-router-dom'
+import { RouteSurface } from '@renderer/app/RouteSurface'
+import { ROUTES } from '@renderer/shared/navigation'
 import { Sidebar } from '@renderer/app/Sidebar'
 import { BootScreen } from '@renderer/app/boot/BootScreen'
 import { FullFrameShell } from '@renderer/app/FullFrameShell'
@@ -31,23 +33,23 @@ interface SurfaceMeasurement {
   last: Record<string, number>
 }
 
-function SidebarProbe(): React.JSX.Element {
-  const { t, setTweak } = useTweakContext((settings) => settings.sidebarCollapsed)
-  return (
-    <>
-      <button data-toggle-sidebar="" onClick={() => setTweak('sidebarCollapsed', !t)}>
-        toggle sidebar
-      </button>
-      <Sidebar projectsSlot={null} pinnedSlot={null} sessionsSlot={null} footerSlot={null} />
-    </>
-  )
-}
-
 // Mount independent production owners after the transcript probe. Each sample reads
 // the compositor's actual value, including an absent outgoing portal after cleanup.
 export async function measureSurfaces(): Promise<
   { name: string; ok: boolean; [key: string]: unknown }[]
 > {
+  function SidebarProbe(): React.JSX.Element {
+    const { t, setTweak } = useTweakContext((settings) => settings.sidebarCollapsed)
+    return (
+      <>
+        <button data-toggle-sidebar="" onClick={() => setTweak('sidebarCollapsed', !t)}>
+          toggle sidebar
+        </button>
+        <Sidebar projectsSlot={null} pinnedSlot={null} sessionsSlot={null} footerSlot={null} />
+      </>
+    )
+  }
+
   const container = document.createElement('div')
   container.style.cssText = 'position:fixed;inset:0;z-index:100;background:white'
   document.body.append(container)
@@ -60,6 +62,13 @@ export async function measureSurfaces(): Promise<
     flushSync(() =>
       root.render(
         <>
+          {ROUTES.map((route, i) => (
+            <div key={route.pattern} data-probe-route={i}>
+              <RouteSurface route={open ? route : ROUTES[(i + 1) % ROUTES.length]}>
+                {route.pattern}
+              </RouteSurface>
+            </div>
+          ))}
           <button ref={anchor}>anchor</button>
           <Toggle on={open} label="probe-switch" onClick={noop} />
           <Popover open={open} onClose={noop} anchorRef={anchor} className="motion-probe-menu">
@@ -172,6 +181,12 @@ export async function measureSurfaces(): Promise<
   const modal = '[data-surface-presence]:has(> [aria-label="motion-probe-dialog"])'
   const menu = '.motion-probe-menu'
   const metrics = (): Record<string, number> => ({
+    ...Object.fromEntries(
+      ROUTES.map((route, i) => [
+        'route-' + route.pattern,
+        opacity(`[data-probe-route="${i}"] [data-context="route-target"]`)
+      ])
+    ),
     modal: opacity(modal),
     menu: opacity(menu),
     thumb: parseFloat(getComputedStyle(container.querySelector('[role=switch] > span')!).left),
@@ -237,6 +252,8 @@ export async function measureSurfaces(): Promise<
         errorToastStore.getState().push({ id: 'motion', origin: 'renderer', title: 'unexpected' })
       )
     })
+    for (const route of ROUTES)
+      record('route-' + route.pattern, show, 'route-' + route.pattern, 1, 0)
     for (const field of ['auth', 'installer', 'boot', 'gate', 'login', 'detail', 'search', 'toast'])
       record(field + '-open', show, field, 1)
     record('modal-open', show, 'modal', 1)

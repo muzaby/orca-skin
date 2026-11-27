@@ -8,7 +8,6 @@ import {
 
 const draft = (): ChatState =>
   chatReducer(initialChatState, { type: 'SET_AGENT_KIND', kind: 'work' })
-const started = (): ChatState => chatReducer(draft(), { type: 'BEGIN_TURN' })
 
 describe('0224 r3 agent panel policy', () => {
   it('offers only task to Work and integrates Code tasks under plan', () => {

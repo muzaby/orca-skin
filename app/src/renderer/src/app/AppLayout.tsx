@@ -5,6 +5,7 @@ import { useI18n } from '../shared/i18n'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { OverlayLayer } from './OverlayLayer'
+import { RouteSurface } from './RouteSurface'
 import { AppRouter } from './router'
 import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useChatRouteSync } from './hooks/useChatRouteSync'
@@ -51,14 +52,9 @@ export function AppLayout(): React.JSX.Element {
       <div className="app-frame-grid relative grid min-h-0 flex-1 grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]">
         <div className="app-frame-body z-0 flex min-h-0 min-w-0">
           <Sidebar {...slots} />
-          <main
-            data-surface-entry=""
-            className="app-frame-main flex min-h-0 min-w-0 flex-1 flex-col"
-            key={info.pattern}
-            data-context="route-target"
-          >
+          <RouteSurface route={info}>
             <AppRouter artifactCatalog={artifactCatalog} onDeleteProject={onDeleteProject} />
-          </main>
+          </RouteSurface>
         </div>
         <OverlayLayer searchOpen={searchOpen} onCloseSearch={closeSearch} />
       </div>

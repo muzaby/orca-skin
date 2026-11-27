@@ -66,7 +66,7 @@ vi.mock('../harnesses/opencode/transcript/ScrollController', () => ({
 vi.mock('./ChatTitleBar', () => ({ ChatTitleBar: () => null }))
 vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
 vi.mock('./transcript/TranscriptView', () => ({ TranscriptView: () => null }))
-vi.mock('../harnesses/common/rightpanel/RightPanelFrame', () => ({
+vi.mock('./rightpanel/RightPanelFrame', () => ({
   RightPanelFrame: () => createElement('div', { 'data-frame-owner-probe': '' })
 }))
 vi.mock('./Composer', async () => {

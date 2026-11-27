@@ -364,7 +364,7 @@ Object.assign(window, {
     await widthCheck('mode-width-code', () => setKind('code'), codeWidth)
     step('pairedWidth-reading')
     records.push(await measureReading())
-    flushSync(() => panelActions.tile('diff'))
+    await geometry(() => panelActions.tile('diff'))
     step('session-switches')
     records.push(...(await measureSessionSwitches()))
     longTasks.push(...observer.takeRecords())

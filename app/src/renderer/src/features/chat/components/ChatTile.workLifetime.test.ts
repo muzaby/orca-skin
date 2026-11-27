@@ -17,7 +17,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ChatTile } from './ChatTile'
 import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
-import { RightPanelFrame } from '../harnesses/common/rightpanel/RightPanelFrame'
+import { RightPanelFrame } from './rightpanel/RightPanelFrame'
 import { initialChatState } from '../reducer/chatReducer'
 import { HarnessScrollController } from './transcript/HarnessScrollController'
 import { useScrollAnchor as mockScrollAnchor } from '../harnesses/claude/transcript/useScrollAnchor'
@@ -82,7 +82,7 @@ vi.mock('./ChatTitleBar', () => ({ ChatTitleBar: () => null }))
 vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
 vi.mock('./transcript/TranscriptView', () => ({ TranscriptView: () => null }))
 vi.mock('./Composer', () => ({ Composer: () => null }))
-vi.mock('../harnesses/common/rightpanel/RightPanelFrame', () => ({ RightPanelFrame: () => null }))
+vi.mock('./rightpanel/RightPanelFrame', () => ({ RightPanelFrame: () => null }))
 
 function find(node: ReactNode, type: unknown): ReactElement | undefined {
   if (!isValidElement(node)) return undefined

@@ -12,7 +12,7 @@ import { panelActions, useRightPanelStore } from '@renderer/features/chat/store/
 import { errorToastStore } from '@renderer/shared/errors/errorToastStore'
 import { swapSession } from '../fixtures/opencode-ui/scenarios'
 
-const publications: ArtifactRef[] = ['first', 'second'].map((id) => ({
+const publications: ArtifactRef[] = ['first', 'second', 'third'].map((id) => ({
   publicationId: id,
   artifactFileId: 'file-' + id,
   title: id,
@@ -82,7 +82,18 @@ export async function measureArtifacts(): Promise<
     flushSync(() => card(id)?.click())
     const call = pending[count]
     if (!call || call.target.sessionId !== sessionId || call.target.publicationId !== id)
-      throw Error('Missing artifact preview IPC for ' + id)
+      throw Error(
+        'Missing artifact preview IPC for ' +
+          JSON.stringify({
+            id,
+            expectedSession: sessionId,
+            activeSession: useChatStore.getState().activeKey,
+            previous: results.at(-1)?.name,
+            requests: pending.map((p) => p.target),
+            hasCard: !!card(id),
+            disabled: card(id)?.disabled
+          })
+      )
     return async (response: ArtifactPreviewResult = ready) => {
       call.resolve(response)
       await frame()
@@ -161,8 +172,12 @@ export async function measureArtifacts(): Promise<
     record('A2-open', opened && stack().join() === 'plan,artifact:first', { width: width() })
 
     const originalLayer = active()
-    await request('first')()
-    const same = originalLayer === active() && stack().join() === 'plan,artifact:first'
+    const countBeforeSame = pending.length
+    flushSync(() => card('first')?.click())
+    const same =
+      countBeforeSame === pending.length &&
+      originalLayer === active() &&
+      stack().join() === 'plan,artifact:first'
     await request('second')()
     const pushed = stack().join() === 'plan,artifact:first,artifact:second' && isViewer('second')
     await request('first')()
@@ -196,7 +211,7 @@ export async function measureArtifacts(): Promise<
         stack().join() === 'plan,artifact:first'
     )
 
-    const earlier = request('first')
+    const earlier = request('third')
     const latest = request('second')
     await latest()
     await earlier()
@@ -206,8 +221,10 @@ export async function measureArtifacts(): Promise<
     )
     flushSync(() => active()?.querySelector<HTMLElement>('[data-panel-back]')?.click())
     const back = isViewer('first') && card('second') === document.activeElement
+    const backButton = active()?.querySelector<HTMLElement>('[data-panel-back]')
+    backButton?.focus()
     flushSync(() =>
-      active()?.dispatchEvent(
+      backButton?.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
       )
     )

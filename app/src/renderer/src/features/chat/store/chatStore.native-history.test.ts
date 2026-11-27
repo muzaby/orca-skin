@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import type { LoadedSession, RefreshSessionResult } from '../../../../../shared/ipc'
 import * as errors from '../../../shared/errors'
 import { chatActions, ingestChatEvent, useChatStore } from './chatStore'
+import { panelActions, useRightPanelStore } from './rightPanelStore'
 import { flushRaf, installChatStoreHarness } from './chatStore.testHarness'
 
 function deferred<T>(): {
@@ -74,6 +75,13 @@ afterEach(() => {
 })
 
 describe('native history refresh on cached session reopen', () => {
+  it('AC9 loading session history keeps a closed frame closed', async () => {
+    panelActions.switchSession({ key: 's', kind: 'code', backend: 'opencode' }, false)
+    await chatActions.loadSession('s')
+    expect(useChatStore.getState().sessions.s.session.messages).toEqual(snapshot().messages)
+    expect(useRightPanelStore.getState().stack).toEqual([])
+  })
+
   it('keeps the cached screen during IPC and refreshes history without resetting model or panel state', async () => {
     const pending = deferred<LoadedSession>()
     load.mockReturnValueOnce(pending.promise)

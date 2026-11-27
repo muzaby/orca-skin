@@ -5,7 +5,7 @@ import { ChatTitleBar } from './ChatTitleBar'
 import { LineageBanner } from './transcript/LineageBanner'
 import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
-import { RightPanelFrame } from '../harnesses/common/rightpanel/RightPanelFrame'
+import { RightPanelFrame } from './rightpanel/RightPanelFrame'
 import { HarnessScrollController, type ScrollControls } from './transcript/HarnessScrollController'
 import {
   chatActions,
