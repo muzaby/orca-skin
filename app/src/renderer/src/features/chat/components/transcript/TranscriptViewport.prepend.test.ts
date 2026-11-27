@@ -7,6 +7,7 @@ import { type ChatState, type Message } from '../../reducer/chatReducer'
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
 import { createOpenCodeBlockModel } from '../../harnesses/opencode/transcript/openCodeBlocks'
 import * as viewportAnchor from '../../lib/transcript/viewport/anchor'
+import { startEntryMotion } from '../../lib/transcript/viewport/entryMotion'
 import { messageOrderFor } from '../../lib/transcript/messageOrder'
 import { createBlockList } from '../../lib/transcript/blockList'
 import { chatActions } from '../../store/chatStore'
@@ -155,6 +156,36 @@ afterEach(() => {
 })
 
 describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)', () => {
+  it('reuses a measured row on ref attach and accepts its next observed height', () => {
+    dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+    const scroller = makeScroller()
+    const sizes = new Map([['known', 52]])
+    const blocks = createBlockList([{ key: 'visible' }])
+    dom.render(
+      createElement(TranscriptViewport<{ key: string }>, {
+        snapshot: blocks.snapshot(),
+        scrollRef: { current: scroller },
+        sizeCache: sizes,
+        isPinned: () => true,
+        renderBlock: (block) => createElement('p', null, block.key)
+      })
+    )
+    const rect = vi.fn(() => ({ height: 71 }))
+    const row = {
+      getAttribute: () => 'known',
+      getBoundingClientRect: rect
+    } as unknown as HTMLElement
+    const measure = virtualizer.options.measureElement
+    expect(measure(row, undefined, virtualizer)).toBe(52)
+    expect(rect).not.toHaveBeenCalled()
+    const observed = { borderBoxSize: [{ blockSize: 69 }] } as unknown as ResizeObserverEntry
+    expect(measure(row, observed, virtualizer)).toBe(69)
+    expect(sizes.get('known')).toBe(69)
+    sizes.delete('known')
+    expect(measure(row, undefined, virtualizer)).toBe(71)
+    expect(rect).toHaveBeenCalledTimes(1)
+  })
+
   it('AC5 requests once when the head enters and additional loading pulls never request again', () => {
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
     vi.stubGlobal('Element', dom.body.constructor)
@@ -616,6 +647,7 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
     'header-toggle',
     'mixed-prepend-live',
     'active-anchor-across-prepends',
+    'entry-compositor-scroll',
     'footer-resize',
     'character',
     'pinned',
@@ -722,6 +754,18 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
         const row = dom!.query('[data-block-key="above"]') as unknown as HTMLElement
         virtualizer.options.measureElement(row, entry, virtualizer)
       }
+    }
+
+    if (cause === 'entry-compositor-scroll') {
+      const reading = dom!.query('[data-block-key="visible"]')!
+      const before = reading.getBoundingClientRect().top
+      startEntryMotion(scroller, () => {}, true)
+      blocks.splice(0, 0, [{ key: 'older' }])
+      render()
+      scrollTop += 100
+      scroller.dispatchEvent(new Event('scroll'))
+      expect(reading.getBoundingClientRect().top).toBe(before)
+      return
     }
 
     if (cause === 'active-anchor-across-prepends' || cause === 'footer-resize') {

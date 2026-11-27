@@ -55,6 +55,14 @@ function passes(record) {
         last.bottom - last.top > 1 &&
         !writes.some((w) => w.event === 'write' && ['claude', 'opencode'].includes(w.owner))
       )
+    if (record.scenario === 'openFrames' && !writes.some((w) => w.event === 'open')) {
+      // Idle unit fill may arrive after the native bottom movement has completed.
+      // AC12 still requires the middle frames and both settled bottom positions.
+      return (
+        Math.abs(record.before.scrollTop - moving.at(-1).bottom) <= 1 &&
+        Math.abs(last.top - last.bottom) <= 1
+      )
+    }
     if (record.scenario === 'entryPrepend') {
       const backend = record.screen.split('-')[0]
       const open = writes.findIndex((w) => w.event === 'open')

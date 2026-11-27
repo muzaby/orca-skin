@@ -574,7 +574,13 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       const prevHeight = key ? sizeCache.get(key) : undefined
       // The ref callback already attached ResizeObserver. Outside an active correction,
       // a remounted row can reuse its last measured height until the next resize delivery.
-      if (!entry && prevHeight !== undefined && !activeAnchorRef.current) return prevHeight
+      if (
+        !entry &&
+        prevHeight !== undefined &&
+        !activeAnchorRef.current &&
+        !isCorrecting(scrollRef.current)
+      )
+        return prevHeight
       const height = entry?.borderBoxSize?.[0]?.blockSize ?? element.getBoundingClientRect().height
       if (key && height > 0) {
         sizeCache.set(key, height)
@@ -831,7 +837,13 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       if (direction && request(direction, event.target)) event.preventDefault()
     }
     const onScroll = (): void => {
-      if (selfWritingScrollRef.current || entryMoving(el)) return
+      if (selfWritingScrollRef.current) return
+      if (entryMoving(el)) {
+        // Chromium can deliver the final compositor scroll of an interrupted smooth
+        // movement before this frame. A paused entry already belongs to the glyph anchor.
+        if (isCorrecting(el)) flushAnchorRestore()
+        return
+      }
       // Chromium can deliver multiple scroll notifications for the same rounded position.
       // A changed position or an explicit input clears the correction in cancel().
       const adjustedTop = adjustedScrollTopRef.current
@@ -875,7 +887,8 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     scrollRef,
     sessionKey,
     settleInterruptedLayout,
-    requestHead
+    requestHead,
+    flushAnchorRestore
   ])
 
   // Observe header slot height changes for top-displacement anchor restoration (EP-12 ① · a9 · a10)

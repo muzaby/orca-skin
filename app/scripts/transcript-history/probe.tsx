@@ -589,12 +589,15 @@ Object.assign(window, {
       scroller().scrollTo({ top: 0, behavior: 'instant' })
       if (scenario === 'framesSmoothCss') scroller().style.scrollBehavior = 'smooth'
       await settle()
-      // Native Home can keep moving asynchronously after the event was delivered.
-      // Establish the common zero coordinate before recording the first measured frame.
-      if (['frames', 'framesSmoothCss', 'states'].includes(scenario ?? '')) {
+      // Native Home animates independently of the key event. Establish the same
+      // measured starting coordinate across wheel, pull, and no-wheel cases.
+      let atHead = 0
+      for (let n = 0; n < 60 && atHead < 3; n++) {
         scroller().scrollTo({ top: 0, behavior: 'instant' })
         await frame()
+        atHead = scroller().scrollTop === 0 ? atHead + 1 : 0
       }
+      if (atHead < 3) throw Error('Native Home did not settle at the head')
       reading = visibleLine()
       observeScrollWrites(scroller(), (event) => writes.push(event))
       const bounds = scroller().getBoundingClientRect()
