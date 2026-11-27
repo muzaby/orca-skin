@@ -140,6 +140,20 @@ async function capture(root, out, screen) {
         await pair.close()
         pair = await bootPair(out, root)
         await pair.invoke('agent', 'oo:harness:recheck', { backend })
+        const refreshed = await pair.invoke('data', 'oo:session:refresh', {
+          sessionId,
+          requestId: ++requestId,
+          openGeneration: 1
+        })
+        assert.ok(['updated', 'unchanged'].includes(refreshed.status), JSON.stringify(refreshed))
+        const previous = (await page({ kind: 'latest' })).session
+        const failures = previous.messages
+          .flatMap((message) => message.parts)
+          .filter((part) => part.type === 'error')
+        assert.deepEqual(
+          failures.map((part) => part.failure),
+          [steps[0].fault.failure]
+        )
       }
       const before = pair.received.length
       const requests = replies
@@ -164,7 +178,8 @@ async function capture(root, out, screen) {
           await Promise.race([
             requested.promise,
             send.then(() => {
-              throw Error('model not reached')
+              const cause = pair.received.slice(before).filter((ev) => ev.type === 'error')
+              throw Error('model not reached: ' + JSON.stringify(cause))
             })
           ])
           const rows = await pair.invoke('data', 'oo:session:list')
