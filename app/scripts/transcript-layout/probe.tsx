@@ -7,6 +7,7 @@ import { HarnessScrollController } from '@renderer/features/chat/components/tran
 import { TranscriptView } from '@renderer/features/chat/components/transcript/TranscriptView'
 import { chatReducer } from '@renderer/features/chat/reducer/chatReducer'
 import { capture, measureAccepted, scrollToPosition } from './failure-cards'
+import { failFirstRecoveryWorkers, recoveryMessages } from './worker-recovery'
 import appCss from '@renderer/styles/app.css?inline'
 
 const query = new URLSearchParams(location.search)
@@ -15,6 +16,7 @@ const [backend, agentKind] = query.get('screen')!.split('-') as [
   'code' | 'work'
 ]
 const scenario = query.get('scenario')
+const measureWorkerRecovery = scenario === 'workerRecovery' ? failFirstRecoveryWorkers() : null
 const accepted = scenario === 'acceptedFailures' || scenario === 'reopenedFailures'
 const reopened = scenario === 'reopenedFailures'
 const id = accepted ? capture.id : 'transcript-layout'
@@ -77,6 +79,7 @@ function toolMatrix(name: string): LoadedMessage[] {
   ]
 }
 function fixture(): LoadedMessage[] {
+  if (measureWorkerRecovery) return recoveryMessages()
   if (scenario?.startsWith('matrix-')) return toolMatrix(scenario.slice(7))
   if (scenario === 'errorRun' || scenario === 'errorLive') {
     return Array.from({ length: scenario === 'errorLive' ? 3 : 6 }, (_, i) => [
@@ -201,6 +204,7 @@ const startingStats = statHeads()
 Object.assign(window, {
   async layoutMeasurement() {
     for (let i = 0; i < 5; i++) await frame()
+    if (measureWorkerRecovery) return measureWorkerRecovery()
     if (scenario?.startsWith('matrix-')) {
       const name = scenario.slice(7)
       const claude = all('[data-claude-tool-group]')

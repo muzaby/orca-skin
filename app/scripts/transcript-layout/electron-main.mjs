@@ -22,6 +22,7 @@ app.whenReady().then(async () => {
           'errorLive',
           'acceptedFailures',
           'reopenedFailures',
+          'workerRecovery',
           'editStat'
         ]
       ],
