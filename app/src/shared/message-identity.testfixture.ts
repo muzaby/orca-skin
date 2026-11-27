@@ -3,7 +3,7 @@
  * Both main (`message-identity.integration.test.ts`) and renderer (`chatReducer.messageIdentity.test.ts`)
  * consume the exact same deterministic event sequence and expected message literals.
  */
-import type { AppMessagePart, NormalizedEvent } from './ipc'
+import type { AppMessagePart, NormalizedEvent, TurnFailureReceipt } from './ipc'
 import { assistantMessageId, userMessageId } from './message-id'
 
 export interface ExpectedPartSummary {
@@ -30,6 +30,12 @@ export const ST01_USER_STEER_ID = userMessageId(['steer-1'])
 export const ST01_ASSISTANT_A_ID = assistantMessageId('1')
 export const ST01_ASSISTANT_B_ID = assistantMessageId('2')
 export const ST01_ASSISTANT_C_ID = assistantMessageId('3')
+export const ST01_CONFIRMED_FAILURE: TurnFailureReceipt = {
+  failureId: 'st01-accepted-fault',
+  ownerUserMessageKey: ST01_USER_STEER_ID,
+  assistantMessageKey: ST01_ASSISTANT_C_ID,
+  occurredAt: 7
+}
 
 function extractResultText(result: unknown): string {
   if (typeof result === 'string') return result
@@ -85,7 +91,7 @@ export function summarizeMessage(msg: {
   }
 }
 
-export const ST01_EXPECTED_LIVE_MESSAGES: readonly ExpectedIdentityMessage[] = [
+export const ST01_EXPECTED_MESSAGES: readonly ExpectedIdentityMessage[] = [
   {
     id: ST01_USER_INITIAL_ID,
     role: 'user',
@@ -125,18 +131,8 @@ export const ST01_EXPECTED_LIVE_MESSAGES: readonly ExpectedIdentityMessage[] = [
     text: 'continuation C text',
     parts: [
       { type: 'text', summary: 'continuation C text' },
-      { type: 'subagent_notice', summary: 'completed:sub-1' }
-    ]
-  }
-]
-
-export const ST01_EXPECTED_RELOAD_MESSAGES: readonly ExpectedIdentityMessage[] = [
-  ...ST01_EXPECTED_LIVE_MESSAGES.slice(0, -1),
-  {
-    ...ST01_EXPECTED_LIVE_MESSAGES[ST01_EXPECTED_LIVE_MESSAGES.length - 1],
-    parts: [
-      ...ST01_EXPECTED_LIVE_MESSAGES[ST01_EXPECTED_LIVE_MESSAGES.length - 1].parts,
-      { type: 'error', summary: 'turn error after recommit' }
+      { type: 'subagent_notice', summary: 'completed:sub-1' },
+      { type: 'error', summary: 'confirmed continuation failure' }
     ]
   }
 ]
@@ -264,7 +260,7 @@ export const ST01_WINDOW_EVENTS: readonly NormalizedEvent[] = [
     createdAt: 2,
     messageKey: ST01_USER_STEER_ID
   },
-  // Error — banner in renderer, part at end of C in reload (B7)
+  // A message key alone cannot tie this transient notice to the committed input.
   {
     type: 'error',
     sessionId: ST01_SESSION_ID,
@@ -274,5 +270,17 @@ export const ST01_WINDOW_EVENTS: readonly NormalizedEvent[] = [
       retryable: false
     },
     messageKey: ST01_ASSISTANT_C_ID
+  },
+  // The acknowledged error after recommit belongs to that same C on screen and in SQLite.
+  {
+    type: 'error',
+    sessionId: ST01_SESSION_ID,
+    error: {
+      category: 'stream_error',
+      message: 'confirmed continuation failure',
+      retryable: true
+    },
+    messageKey: ST01_ASSISTANT_C_ID,
+    failure: ST01_CONFIRMED_FAILURE
   }
 ]

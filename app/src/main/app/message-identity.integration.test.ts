@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { NormalizedEvent } from '../../shared/ipc'
 import {
   ST01_ARTIFACT_RECEIPT,
-  ST01_EXPECTED_RELOAD_MESSAGES,
+  ST01_CONFIRMED_FAILURE,
+  ST01_EXPECTED_MESSAGES,
   ST01_SESSION_ID,
   ST01_USER_INITIAL_ID,
   ST01_USER_STEER_ID,
@@ -224,6 +225,30 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
       }
     })
 
+    await stream.settle()
+    expect(sqlite.prepare('SELECT COUNT(*) AS count FROM turn_failures').get()).toEqual({
+      count: 0
+    })
+
+    // The committed steer owns C. Recommitting the same input must preserve both row identities.
+    const acceptedError = {
+      type: 'error',
+      sessionId: ST01_SESSION_ID,
+      error: {
+        category: 'stream_error',
+        message: 'confirmed continuation failure',
+        retryable: true
+      }
+    } as const
+    const receipt = await stream.sender.commitFailure!(turn, acceptedError, {
+      failureId: 'st01-accepted-fault',
+      ownerUserMessageKey: ST01_USER_STEER_ID,
+      occurredAt: 7
+    })
+    expect(receipt).toEqual(ST01_CONFIRMED_FAILURE)
+    if (!receipt) throw new Error('Missing committed failure receipt')
+    emitBus({ ...acceptedError, messageKey: receipt.assistantMessageKey, failure: receipt })
+
     stream.sender.finalizeTurn!(turn)
     await stream.settle()
     await stream.settle()
@@ -237,6 +262,21 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
     const reloadedSummary = loaded!.messages.map((m) =>
       summarizeMessage({ id: m.id, role: m.role, parts: m.parts })
     )
-    expect(reloadedSummary).toEqual(ST01_EXPECTED_RELOAD_MESSAGES)
+    expect(reloadedSummary).toEqual(ST01_EXPECTED_MESSAGES)
+    expect(loaded!.messages.at(-1)?.parts.at(-1)).toEqual({
+      type: 'error',
+      error: acceptedError.error,
+      failure: ST01_CONFIRMED_FAILURE
+    })
+    const stored = sqlite
+      .prepare(
+        `
+      SELECT f.owner_message_id AS ownerRow, p.message_id AS assistantRow, m.message_key AS assistantKey
+      FROM turn_failures f JOIN message_parts p ON p.id = f.part_id JOIN messages m ON m.id = p.message_id
+      WHERE f.session_id = ?
+    `
+      )
+      .all(ST01_SESSION_ID)
+    expect(stored).toEqual([{ ownerRow: 3, assistantRow: 5, assistantKey: 'a:3' }])
   })
 })
