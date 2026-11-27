@@ -6,7 +6,7 @@ import type { NativeComposerCatalog, NativeResource } from '../../../../shared/n
 import { pluginMentionIds } from '../../../../shared/plugin-mention'
 import { reportError } from '../../../infra/error-report'
 import { recoveredPrompt } from '../../common/recovery'
-import type { TurnContinuation, TurnRequest } from '../../common/turn'
+import { McpAdmissionError, type TurnContinuation, type TurnRequest } from '../../common/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../common/types'
 import { OpenCodeActivityMapper } from './activity'
 import { isSettledOpenCodePermission, replyToApproval } from './approval'
@@ -26,6 +26,11 @@ export function openCodeChannel(
   preferences?: () => import('../../../../shared/harness').OpenCodePreferences | undefined
 ): LiveTurn {
   const env = { ...process.env, ...req.env }
+  const firstSubmission = Promise.withResolvers<void>()
+  // Some adapter clients only consume eventBatches and receive the error event there.
+  void firstSubmission.promise.catch(() => undefined)
+  let pumping: Promise<void> | undefined
+  let initialCallerSignal: AbortSignal | undefined
   const generation = randomUUID()
   const trace = new OpenCodeTurnTrace()
   const waitPhase = new OpenCodeWaitPhase(req.onWaitPhase)
@@ -132,7 +137,6 @@ export function openCodeChannel(
   const close = (): void => {
     if (closed) return
     closed = true
-    detachActivity?.()
     mainApproval.abort()
     controller.abort()
     void cleanupOwned()
@@ -140,45 +144,32 @@ export function openCodeChannel(
     wake?.()
     wake = undefined
   }
-  const submit = (next: TurnContinuation, initial = false): Promise<void> => {
-    const submittingSignal = AbortSignal.any([signal, admission.signal])
-    const mentioned = pluginMentionIds(next.text).map(
-      (id) => connection?.managedMcpReferences?.[id] ?? id
-    )
-    if (connection?.mcpControl) {
-      waitPhase.admitting()
-      return connection.mcpControl.submit(
-        submittingSignal,
-        () => submitPrepared(next, initial, submittingSignal),
-        mentioned
-      )
-    }
-    return submitPrepared(next, initial, submittingSignal)
-  }
-  const submitPrepared = async (
-    next: TurnContinuation,
-    initial: boolean,
-    signal: AbortSignal
-  ): Promise<void> => {
-    waitPhase.sending()
-    signal.throwIfAborted()
-    if (!client || !connection || !sessionId || !activity)
-      throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
+  const submit = async (next: TurnContinuation, initial = false): Promise<void> => {
+    const submittingSignal = AbortSignal.any([
+      signal,
+      admission.signal,
+      ...(next.signal ? [next.signal] : []),
+      ...(initial && initialCallerSignal ? [initialCallerSignal] : [])
+    ])
+    submittingSignal.throwIfAborted()
+    if (!connection) throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
     const slash = /^\s*\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(next.text)
     let command: Awaited<ReturnType<typeof openCodeNativeCommands>>[number] | undefined
     if (slash) {
       try {
-        command = (await connection.commands(signal)).find((item) => item.name === slash[1])
+        command = (await connection.commands(submittingSignal)).find(
+          (item) => item.name === slash[1]
+        )
       } catch (error) {
-        signal.throwIfAborted()
+        submittingSignal.throwIfAborted()
         throw openCodePreparationError('commands', error)
       }
     }
-    signal.throwIfAborted()
+    submittingSignal.throwIfAborted()
     // Catalog membership is authoritative only after a successful live read.
     const [agents, models] = await Promise.all([
-      next.harnessAgent ? connection.agents(signal) : undefined,
-      next.modelVariant ? connection.models(signal) : undefined
+      next.harnessAgent ? connection.agents(submittingSignal) : undefined,
+      next.modelVariant ? connection.models(submittingSignal) : undefined
     ])
     const agent =
       agents && next.harnessAgent && !agents.some((item) => item.name === next.harnessAgent)
@@ -190,6 +181,73 @@ export function openCodeChannel(
       !models.find((item) => item.id === next.model)?.variants.includes(next.modelVariant)
         ? undefined
         : next.modelVariant
+    const dispatch = () =>
+      submitPrepared(next, initial, submittingSignal, {
+        command: command?.name,
+        args: slash?.[2],
+        agent,
+        variant
+      })
+    if (!connection.mcpControl) return dispatch()
+    const mentioned = pluginMentionIds(next.text).map(
+      (id) => connection?.managedMcpReferences?.[id] ?? id
+    )
+    waitPhase.admitting()
+    await connection.mcpControl.submit(submittingSignal, dispatch, mentioned)
+  }
+  const submitPrepared = async (
+    next: TurnContinuation,
+    initial: boolean,
+    signal: AbortSignal,
+    {
+      command,
+      args,
+      agent,
+      variant
+    }: { command?: string; args?: string; agent?: string; variant?: string }
+  ): Promise<void> => {
+    signal.throwIfAborted()
+    if (!client || !connection) throw openCodePreparationError('events')
+    const canSubmit = initial ? req.canSubmitInitial : next.canSubmit
+    if (canSubmit && !canSubmit())
+      throw new McpAdmissionError('전송 대기 중인 입력이 취소되었습니다.')
+    if (initial) {
+      if (!sessionId) {
+        waitPhase.creatingSession()
+        sessionId =
+          (
+            await client.session.create(
+              {
+                directory: req.cwd,
+                permission: [{ permission: '*', pattern: '*', action: 'ask' }]
+              },
+              { signal, throwOnError: true }
+            )
+          ).data?.id ?? null
+      }
+      if (!sessionId) throw new Error('OpenCode 세션 생성 실패')
+      publish([
+        {
+          type: 'session.updated',
+          sessionId,
+          patch: { backend: 'opencode', cwd: req.cwd, ...(req.model ? { model: req.model } : {}) }
+        }
+      ])
+      activity = new OpenCodeActivityMapper(
+        sessionId,
+        createOpenCodeMessageId(),
+        generation,
+        req.providerSettings?.settings
+      )
+    }
+    if (!sessionId || !activity) throw openCodePreparationError('events')
+    signal.throwIfAborted()
+    if (canSubmit && !canSubmit())
+      throw new McpAdmissionError('전송 대기 중인 입력이 취소되었습니다.')
+    // The runtime owns the input once its MCP boundary is confirmed. Subsequent
+    // HTTP failures retain the existing classified error event and retry semantics.
+    if (initial) firstSubmission.resolve()
+    waitPhase.sending()
     const messageID = createOpenCodeMessageId()
     const submission = ++submissionEpoch
     if (initial) req.recovery?.onPrompt(messageID)
@@ -252,8 +310,8 @@ export function openCodeChannel(
               sessionID: sessionId,
               directory: req.cwd,
               messageID,
-              command: command.name,
-              arguments: slash?.[2] ?? '',
+              command,
+              arguments: args ?? '',
               model: next.model,
               agent,
               variant,
@@ -353,33 +411,6 @@ export function openCodeChannel(
       void connection.commands(signal).catch(() => undefined)
       await connection.prepare(signal)
       signal.throwIfAborted()
-      if (!sessionId) {
-        waitPhase.creatingSession()
-        sessionId =
-          (
-            await client.session.create(
-              {
-                directory: req.cwd,
-                permission: [{ permission: '*', pattern: '*', action: 'ask' }]
-              },
-              { signal, throwOnError: true }
-            )
-          ).data?.id ?? null
-      }
-      if (!sessionId) throw new Error('OpenCode 세션 생성 실패')
-      publish([
-        {
-          type: 'session.updated',
-          sessionId,
-          patch: { backend: 'opencode', cwd: req.cwd, ...(req.model ? { model: req.model } : {}) }
-        }
-      ])
-      activity = new OpenCodeActivityMapper(
-        sessionId,
-        createOpenCodeMessageId(),
-        generation,
-        req.providerSettings?.settings
-      )
       // Defaults require no catalog validation. Do not hold up the first prompt for menu metadata.
       try {
         await submit(req, true)
@@ -387,6 +418,7 @@ export function openCodeChannel(
         req.rollbackInitialSubmission?.()
         throw error
       }
+      if (!activity) throw openCodePreparationError('events')
       for await (const event of { [Symbol.asyncIterator]: () => iterator! }) {
         signal.throwIfAborted()
         if (closed) return
@@ -442,6 +474,7 @@ export function openCodeChannel(
         ) {
           waitPhase.end()
           responseOpen = false
+          connection.mcpControl?.resourceActivityChanged()
           const events = activity.finish()
           publish(interrupted ? [aborted()] : events)
           interrupted = false
@@ -450,6 +483,9 @@ export function openCodeChannel(
       signal.throwIfAborted()
       throw openCodePreparationError('events')
     } catch (error) {
+      if (error instanceof McpAdmissionError || initialCallerSignal?.aborted)
+        firstSubmission.reject(error)
+      else firstSubmission.resolve()
       if (!closed)
         publish(
           admission.signal.aborted ||
@@ -468,6 +504,8 @@ export function openCodeChannel(
       mainApproval.abort()
       controller.abort()
       await cleanupOwned()
+      detachActivity?.()
+      connection?.mcpControl?.resourceActivityChanged()
       await iterator?.return(undefined).catch(() => undefined)
       await release()
       ended = true
@@ -476,7 +514,7 @@ export function openCodeChannel(
     }
   }
   async function* batches(): AsyncGenerator<ProviderMessageBatch> {
-    const pumping = run()
+    pumping ??= run()
     try {
       while (!ended || queue.length) {
         if (queue.length) {
@@ -494,6 +532,12 @@ export function openCodeChannel(
   }
   return {
     providerGeneration: generation,
+    async submitInitial(signal) {
+      initialCallerSignal = signal
+      pumping ??= run()
+      await firstSubmission.promise
+      return { kind: 'accepted' }
+    },
     projectResourcePolicy: () => connection?.mcpControl?.policy,
     reconcileNativeResources: async (revision, idle) =>
       connection?.mcpControl ? connection.mcpControl.reconcile(revision, idle) : 'applied',
@@ -552,6 +596,7 @@ export function openCodeChannel(
           publish([aborted()])
           return { kind: 'accepted' }
         }
+        if (error instanceof McpAdmissionError) throw error
         // HTTP failure leaves acceptance uncertain. Retire this generation; the
         // runtime may open a new channel only for a later explicit input.
         close()

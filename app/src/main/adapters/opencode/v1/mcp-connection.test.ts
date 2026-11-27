@@ -1,5 +1,5 @@
 import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -88,154 +88,127 @@ function fixture(
   }
 }
 
-it('activates directories connects desired MCPs independently and admits submissions within the bound', async () => {
-  await writeFile(
-    join(cwd, 'opencode.json'),
-    JSON.stringify({ mcp: { project: { enabled: true }, managed: { enabled: false } } })
-  )
-  const f = fixture(
-    { slow: true, fast: true, global: true, project: false, managed: false },
-    { 'mcp:global': false, 'mcp:project': false },
-    { managed: true }
-  )
-  const slow = Promise.withResolvers<void>()
-  f.gates.set('slow', slow)
-  expect(await f.control.read(controller.signal)).toEqual([])
-  await f.control.reconcileChoices()
-  expect(f.requests).toEqual([])
-  // Initial additive activation is allowed even while a response is active.
+it('holds every explicit ON past the old bound, including ordinary submissions; busy peers suppress activation and read retries', async () => {
+  const f = fixture({ slow: false, fast: false }, { 'mcp:slow': true, 'mcp:fast': true })
+  const gate = Promise.withResolvers<void>()
+  f.gates.set('slow', gate)
   f.busy(true)
   f.control.activate()
-  await f.control.pending()
-  expect(await f.control.pending()).toBe(false)
-  await vi.waitFor(() => expect(f.control.connected('fast')).toBe(true))
-  expect(f.requests.filter((path) => path.endsWith('/connect')).sort()).toEqual([
-    '/mcp/fast/connect',
-    '/mcp/managed/connect',
-    '/mcp/project/connect',
-    '/mcp/slow/connect'
-  ])
+  await f.control.read(controller.signal, true)
+  await f.control.reconcileChoices()
+  expect(f.requests.filter((path) => path.endsWith('/connect'))).toEqual([])
   f.busy(false)
   await f.control.reconcileChoices()
-  expect(await f.control.pending()).toBe(false)
-  expect(
-    (await f.control.read(controller.signal)).find((item) => item.id === 'slow')
-  ).toMatchObject({
-    status: 'pending',
-    enabled: true,
-    canToggle: false
-  })
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-  const send = vi.fn(async () => 'accepted')
-  const submitted = f.control.submit(controller.signal, send)
-  await vi.advanceTimersByTimeAsync(1999)
-  expect(send).not.toHaveBeenCalled()
-  await vi.advanceTimersByTimeAsync(1)
-  expect(send).toHaveBeenCalledOnce()
-  expect(await submitted).toBe('accepted')
-  // A shared status flight crossing completion is successful and is not cached as fresh.
-  const reading = Promise.withResolvers<void>()
-  f.reads.push(reading)
-  const observed = f.control.read(controller.signal, true)
-  await vi.advanceTimersByTimeAsync(0)
-  slow.resolve()
-  await vi.advanceTimersByTimeAsync(0)
-  reading.resolve()
-  expect((await observed).find((item) => item.id === 'slow')?.status).toBe('connected')
+  await vi.waitFor(() => expect(f.control.connected('fast')).toBe(true))
   expect((await f.control.read(controller.signal)).find((item) => item.id === 'slow')?.status).toBe(
-    'connected'
+    'pending'
   )
-  f.control.activate()
-  await f.control.pending()
-  expect(f.requests.filter((path) => path === '/mcp/slow/connect')).toHaveLength(1)
-  controller.abort()
-  expect(() => f.control.read(new AbortController().signal)).toThrow()
-})
-
-it('settles mentioned connections and cancels admission without cancelling a shared attempt', async () => {
-  const f = fixture({ slow: true, failed: true })
-  const slow = Promise.withResolvers<void>()
-  f.gates.set('slow', slow)
-  f.failures.add('failed')
-  f.control.activate()
-  await f.control.pending()
-  await vi.waitFor(() => expect(f.requests).toContain('/mcp/failed/connect'))
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-  const caller = new AbortController(),
-    send = vi.fn(async () => {})
-  const pending = f.control.submit(caller.signal, send, ['slow'])
-  const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
-  await vi.advanceTimersByTimeAsync(5000)
+  vi.useFakeTimers()
+  const send = vi.fn(async () => 'sent')
+  const admitted = f.control.submit(controller.signal, send)
+  await vi.advanceTimersByTimeAsync(4000)
   expect(send).not.toHaveBeenCalled()
-  caller.abort()
-  await rejected
-  const next = f.control.submit(controller.signal, send, ['slow', 'failed'])
-  await vi.advanceTimersByTimeAsync(2000)
-  expect(send).not.toHaveBeenCalled()
-  slow.resolve()
-  await vi.advanceTimersByTimeAsync(0)
-  await next
+  gate.resolve()
+  await expect(admitted).resolves.toBe('sent')
   expect(send).toHaveBeenCalledOnce()
-  expect(f.control.connected('failed')).toBe(false)
-  expect(await f.control.pending()).toBe(false)
   expect(f.requests.filter((path) => path === '/mcp/slow/connect')).toHaveLength(1)
 })
 
-it('defers toggle mutations while busy and blocks submission on removal failure but not connect failure', async () => {
-  const f = fixture({ tool: true, other: false })
-  f.control.activate()
-  await f.control.pending()
-  await vi.waitFor(() => expect(f.control.connected('tool')).toBe(true))
-  await f.control.reconcileChoices()
+it('cancels one caller without cancelling the shared attempt or sending the cancelled input', async () => {
+  const f = fixture({ slow: true }, { 'mcp:slow': true })
+  const gate = Promise.withResolvers<void>()
+  f.gates.set('slow', gate)
+  const signal = new AbortController()
+  const cancelled = vi.fn(async () => {})
+  const send = vi.fn(async () => {})
+  const first = expect(f.control.submit(signal.signal, cancelled)).rejects.toMatchObject({
+    name: 'AbortError'
+  })
+  const second = f.control.submit(controller.signal, send)
+  await vi.waitFor(() => expect(f.requests).toContain('/mcp/slow/connect'))
+  signal.abort()
+  await first
+  expect(send).not.toHaveBeenCalled()
+  gate.resolve()
+  await second
+  expect(send).toHaveBeenCalledOnce()
+  expect(cancelled).not.toHaveBeenCalled()
+  expect(f.requests.filter((path) => path === '/mcp/slow/connect')).toHaveLength(1)
+})
+
+it('rejects ordinary submissions on explicit ON or OFF failure and retries the same selection', async () => {
+  const f = fixture({ tool: true, other: false }, { 'mcp:tool': true })
+  const send = vi.fn(async () => {})
+  await f.control.submit(controller.signal, send)
+  expect(f.control.connected('tool')).toBe(true)
+  send.mockClear()
   f.busy(true)
   f.global['mcp:tool'] = false
   f.global['mcp:other'] = true
   await f.control.reconcileChoices()
   expect(f.requests).not.toContain('/mcp/tool/disconnect')
-  expect(f.requests).not.toContain('/mcp/other/connect')
-  expect(await f.control.pending()).toBe(true)
   f.busy(false)
   f.failures.add('tool')
-  const send = vi.fn(async () => {})
-  await expect(f.control.submit(controller.signal, send)).rejects.toThrow()
+  await expect(f.control.submit(controller.signal, send)).rejects.toThrow('해제')
   expect(send).not.toHaveBeenCalled()
-  expect(await f.control.pending()).toBe(true)
   f.failures.delete('tool')
   f.failures.add('other')
-  await f.control.submit(controller.signal, send)
-  expect(send).toHaveBeenCalledOnce()
+  await expect(f.control.submit(controller.signal, send)).rejects.toThrow('연결')
   expect(f.states.tool.status).toBe('disabled')
-  expect(f.control.connected('other')).toBe(false)
   expect(
     (await f.control.read(controller.signal)).find((item) => item.id === 'other')
-  ).toMatchObject({ status: 'failed', enabled: true, canToggle: false })
-  expect(await f.control.pending()).toBe(false)
-  const attempts = f.requests.filter((path) => path === '/mcp/other/connect').length
-  await f.control.submit(controller.signal, send)
-  expect(f.requests.filter((path) => path === '/mcp/other/connect')).toHaveLength(attempts)
+  ).toMatchObject({ status: 'failed', enabled: true })
+  expect(send).not.toHaveBeenCalled()
   f.failures.delete('other')
-  await f.control.read(controller.signal, true)
-  await vi.waitFor(() => expect(f.control.connected('other')).toBe(true))
-  expect(f.requests.filter((path) => path === '/mcp/other/connect')).toHaveLength(attempts + 1)
+  await f.control.submit(controller.signal, send)
+  expect(send).toHaveBeenCalledOnce()
+  expect(f.control.connected('other')).toBe(true)
 })
 
-it('rechecks removal when choices change during the bounded admission wait', async () => {
-  const f = fixture({ slow: true, tool: true })
-  const slow = Promise.withResolvers<void>()
-  f.gates.set('slow', slow)
-  f.control.activate()
-  await f.control.pending()
-  await vi.waitFor(() => expect(f.control.connected('tool')).toBe(true))
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-  const send = vi.fn(async () => {})
-  const submitted = f.control.submit(controller.signal, send)
-  const failed = expect(submitted).rejects.toThrow()
-  await vi.advanceTimersByTimeAsync(1000)
+it('rechecks OFF saved during a slow connect before accepting the original input once', async () => {
+  const f = fixture({ slow: false }, { 'mcp:slow': true })
+  const gate = Promise.withResolvers<void>()
+  f.gates.set('slow', gate)
+  const send = vi.fn(async () => {
+    expect(f.states.slow.status).toBe('disabled')
+  })
+  const admitted = f.control.submit(controller.signal, send)
+  await vi.waitFor(() => expect(f.requests).toContain('/mcp/slow/connect'))
+  f.global['mcp:slow'] = false
+  gate.resolve()
+  await admitted
+  expect(f.requests.filter((path) => path.endsWith('/disconnect'))).toEqual([
+    '/mcp/slow/disconnect'
+  ])
+  expect(send).toHaveBeenCalledOnce()
+})
+
+it('re-observes a dropped ON and an externally reconnected OFF before the next SDK submission', async () => {
+  const f = fixture({ tool: true }, { 'mcp:tool': true })
+  await f.control.submit(controller.signal, async () => {})
+  f.states.tool.status = 'disabled'
+  await f.control.submit(controller.signal, async () => {
+    expect(f.states.tool.status).toBe('connected')
+  })
+  expect(f.requests.filter((path) => path === '/mcp/tool/connect')).toHaveLength(2)
   f.global['mcp:tool'] = false
-  f.failures.add('tool')
-  await vi.advanceTimersByTimeAsync(1000)
-  await failed
-  expect(f.requests).toContain('/mcp/tool/disconnect')
-  expect(send).not.toHaveBeenCalled()
-  slow.resolve()
+  await f.control.reconcileChoices()
+  f.states.tool.status = 'connected'
+  await f.control.submit(controller.signal, async () => {
+    expect(f.states.tool.status).toBe('disabled')
+  })
+  expect(f.requests.filter((path) => path === '/mcp/tool/disconnect')).toHaveLength(2)
+})
+
+it('allows an ordinary message after the bounded wait for an unselected directory default', async () => {
+  const f = fixture({ optional: true })
+  const gate = Promise.withResolvers<void>()
+  f.gates.set('optional', gate)
+  try {
+    await f.control.submit(controller.signal, async () => {
+      expect(f.states.optional.status).toBe('disabled')
+    })
+  } finally {
+    gate.resolve()
+  }
 })

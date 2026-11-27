@@ -26,6 +26,8 @@ export const TEST_INCLUDE = 'src/**/*.test.ts'
  * 깨진 것만 올린다(0298 §8).
  */
 export const FORCED_IO = {
+  'src/main/app/claude-input.cli.integration.test.ts':
+    '실제 SDK가 동봉한 Claude CLI를 자식 프로세스로 기동한다',
   'src/main/infra/loopback-callback.test.ts':
     '빈 포트를 확인한 뒤 다시 잡는다 — 같은 프로세스의 스레드끼리 EADDRINUSE 로 부딪힌다'
 }

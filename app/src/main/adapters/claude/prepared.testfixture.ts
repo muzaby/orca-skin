@@ -7,5 +7,15 @@ export async function sendPrepared(
   req: TurnRequest
 ): Promise<LiveTurn> {
   const prepared = await adapter.prepareTurn?.(req, req.signal ?? new AbortController().signal)
-  return adapter.sendMessage(prepared === undefined ? req : { ...req, prepared })
+  const live = adapter.sendMessage(prepared === undefined ? req : { ...req, prepared })
+  if (live.submitInitial) {
+    try {
+      const outcome = await live.submitInitial(req.signal)
+      if (outcome.kind !== 'accepted') throw new Error(outcome.kind)
+    } catch (error) {
+      live.close()
+      throw error
+    }
+  }
+  return live
 }

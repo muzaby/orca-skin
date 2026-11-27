@@ -13,7 +13,6 @@ export interface UseMcpServers {
   refresh: () => Promise<void>
   add: (req: CreateMcpServerRequest) => Promise<void>
   update: (req: UpdateMcpServerRequest) => Promise<void>
-  toggle: (id: string, enabled: boolean) => Promise<void>
   remove: (id: string) => Promise<void>
 }
 
@@ -69,14 +68,6 @@ export function useMcpServers(): UseMcpServers {
     [refresh]
   )
 
-  const toggle = useCallback(
-    async (id: string, enabled: boolean) => {
-      await mcpApi.update({ id, enabled })
-      await refresh()
-    },
-    [refresh]
-  )
-
   const remove = useCallback(
     async (id: string) => {
       await mcpApi.delete(id)
@@ -85,5 +76,5 @@ export function useMcpServers(): UseMcpServers {
     [refresh]
   )
 
-  return { list, loading, refresh, add, update, toggle, remove }
+  return { list, loading, refresh, add, update, remove }
 }

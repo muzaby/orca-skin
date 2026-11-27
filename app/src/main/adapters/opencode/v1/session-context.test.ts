@@ -155,7 +155,8 @@ describe('OpenCode server context with the installed SDK', () => {
         })
       return undefined
     })
-    const a = await f.pool.acquire(server, 'C:/A')
+    const settings = { defaults: { docs: true }, choices: () => ({}) }
+    const a = await f.pool.acquire(server, 'C:/A', undefined, settings)
     const peer = await f.pool.acquire(server, 'C:/A')
     await Promise.all([a.prepare(freshSignal()), peer.prepare(freshSignal())])
     await f.pool.reconcileConnections()
@@ -165,7 +166,7 @@ describe('OpenCode server context with the installed SDK', () => {
     ).toHaveLength(1)
     enabled = true
     await f.pool.reconcileConnections()
-    const b = await f.pool.acquire(server, 'C:/B')
+    const b = await f.pool.acquire(server, 'C:/B', undefined, settings)
     await b.prepare(freshSignal())
     expect((await b.mcp(freshSignal()))[0].enabled).toBe(true)
     expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
@@ -173,7 +174,7 @@ describe('OpenCode server context with the installed SDK', () => {
     await a.release()
     expect((await peer.mcp(freshSignal(), true))[0].enabled).toBe(true)
     await peer.release()
-    const fresh = await f.pool.acquire(server, 'C:/A')
+    const fresh = await f.pool.acquire(server, 'C:/A', undefined, settings)
     await fresh.prepare(freshSignal())
     expect((await fresh.mcp(freshSignal()))[0].enabled).toBe(true)
     expect(
@@ -184,6 +185,70 @@ describe('OpenCode server context with the installed SDK', () => {
     ).toBe(false)
     await Promise.all([fresh.release(), b.release()])
     f.pool.close()
+  })
+  it('holds the second A input behind its response while B finishes and admits independently', async () => {
+    let enabled = true
+    const f = fixture(4096, { global: () => ({ 'mcp:docs': enabled }) })
+    const states: Record<string, boolean> = { A: true, B: true }
+    const log: string[] = []
+    f.setRead(async (request) => {
+      const url = new URL(request.url)
+      const directory = url.searchParams.get('directory')!.replaceAll('\\', '/').split('/').at(-1)!
+      if (url.pathname === '/mcp')
+        return jsonResponse({ docs: { status: states[directory] ? 'connected' : 'disabled' } })
+      if (url.pathname === '/mcp/docs/disconnect') {
+        log.push(directory + '/off')
+        states[directory] = false
+        return jsonResponse(true)
+      }
+      return undefined
+    })
+    const settings = { defaults: { docs: true }, choices: () => ({}) }
+    const s1 = await f.pool.acquire(server, 'C:/A', undefined, settings)
+    const s2 = await f.pool.acquire(server, 'C:/A', undefined, settings)
+    const s3 = await f.pool.acquire(server, 'C:/B', undefined, settings)
+    try {
+      await Promise.all([
+        s1.prepare(freshSignal()),
+        s2.prepare(freshSignal()),
+        s3.prepare(freshSignal())
+      ])
+      await f.pool.reconcileConnections()
+      let activeA = true
+      let activeB = true
+      s1.mcpControl!.observeActivity(() => activeA)
+      s3.mcpControl!.observeActivity(() => activeB)
+      enabled = false
+      await f.pool.reconcileConnections()
+      const a = s2.mcpControl!.submit(freshSignal(), async () => {
+        log.push('S2/input')
+      })
+      const b = s3.mcpControl!.submit(freshSignal(), async () => {
+        log.push('S3/input')
+      })
+      expect(log).toEqual([])
+      expect(states.B).toBe(true)
+      log.push('S3/result')
+      activeB = false
+      f.pool.resourceActivityChanged()
+      await b
+      expect(log).toEqual(['S3/result', 'B/off', 'S3/input'])
+      expect(states.A).toBe(true)
+      log.push('S1/result')
+      activeA = false
+      f.pool.resourceActivityChanged()
+      await a
+      await s1.mcpControl!.submit(freshSignal(), async () => {
+        log.push('S1/input')
+      })
+      expect(log.slice(3)).toEqual(['S1/result', 'A/off', 'S2/input', 'S1/input'])
+      expect(
+        f.requests.some((request) => new URL(request.url).pathname === '/instance/dispose')
+      ).toBe(false)
+    } finally {
+      await Promise.all([s1.release(), s2.release(), s3.release()])
+      f.pool.close()
+    }
   })
   it('shares resource flights per directory, isolates folders and retries failed MCP without refetching plugins', async () => {
     const f = fixture()

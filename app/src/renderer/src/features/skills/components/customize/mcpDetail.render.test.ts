@@ -14,6 +14,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { McpServer } from '../../../../../../shared/ipc'
 import { ko } from '../../../../shared/i18n/resources/ko'
+import { ExtensionChoice } from './ExtensionChoice'
 import { McpDetail } from './McpDetail'
 import { load } from 'cheerio'
 import { Icon } from '../../../../shared/ui/Icon'
@@ -36,7 +37,20 @@ const render = (over: Partial<McpServer> = {}): string =>
   renderToStaticMarkup(
     createElement(McpDetail, {
       server: server(over),
-      onToggle: () => {},
+      choices: createElement(ExtensionChoice, {
+        entry: {
+          backend: 'claude',
+          resource: {
+            id: 'managed:user:github',
+            name: 'github',
+            kind: 'mcp',
+            enabled: false,
+            selected: server(over).enabled,
+            canToggle: true,
+            status: 'configured'
+          }
+        }
+      }),
       onEdit: () => {},
       onRemove: async () => {}
     })
@@ -70,8 +84,8 @@ describe('McpDetail — 활성 상태는 토글이 갖는다', () => {
       expect(html, `enabled=${enabled}`).not.toContain('>비활성화<')
     }
     // 양성 짝 — 상태 문구(활성/비활성) 자체는 여전히 헤더에 남는다.
-    expect(render({ enabled: true })).toContain(ko.skills.mcpDetail.active)
-    expect(render({ enabled: false })).toContain(ko.skills.mcpDetail.inactive)
+    expect(render({ enabled: true })).toContain(ko.chat.nativeResources.configured)
+    expect(render({ enabled: false })).toContain(ko.chat.nativeResources.configured)
   })
 })
 

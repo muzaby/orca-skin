@@ -589,6 +589,7 @@ export class DataBootstrap implements HostAssembly {
   ): void {
     const deps = {
       db,
+      settings: this.settings,
       defaultCwd: () => this.defaultCwd || hostEnvironment().desktop,
       harness: {
         settings: harness.harnessSettings,
@@ -598,6 +599,7 @@ export class DataBootstrap implements HostAssembly {
       mcp: this.mcp,
       host: {
         skills: (): SkillInfo[] => this.skillsCache,
+        managedExtensionCatalog: () => this.requireManagedMcp().catalog(),
         runtimeToolCall: (request: RemoteToolCall) => this.toolCalls.call(request),
         runtimeToolCancel: (callId: string): void => this.toolCalls.cancel(callId),
         managedMcpAcquire: (revision: number) => this.leases.acquire(revision),

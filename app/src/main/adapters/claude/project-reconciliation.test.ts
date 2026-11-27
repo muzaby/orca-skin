@@ -12,6 +12,7 @@ const json = (path: string, value: unknown): void => {
   writeFileSync(path, JSON.stringify(value))
 }
 beforeEach(() => {
+  vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
   temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-project-reconcile-'))
   cwd = join(temp, 'cwd')
   root = join(temp, 'root')
@@ -26,7 +27,10 @@ beforeEach(() => {
     plugins: { 'p@m': [{ scope: 'user', installPath: plugin }] }
   })
 })
-afterEach(() => rmSync(temp, { recursive: true, force: true }))
+afterEach(() => {
+  vi.restoreAllMocks()
+  rmSync(temp, { recursive: true, force: true })
+})
 async function fixture(): Promise<{
   reconcile: ClaudeProjectReconciliation
   resources: ReturnType<typeof claudeNativeResources>
@@ -66,6 +70,7 @@ async function fixture(): Promise<{
     { 'p@inline': true },
     persist
   )
+  resources.observePlugins([{name:'p',path:plugin}])
   const reconcile = new ClaudeProjectReconciliation({
     cwd,
     root,

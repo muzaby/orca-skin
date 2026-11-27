@@ -1,6 +1,15 @@
 import { deferClaudeQuery, loadClaudeSdk } from './sdk'
 import { DEFAULT_CLAUDE_OUTPUT_STYLE, type ClaudePreferences } from '../../../shared/harness'
 import { extensionChoices } from '../common/extension-control'
+import { readClaudeInputDefinitions } from './input-definitions'
+import type { OoMcpConfig } from '../common/mcp-config'
+import {
+  applyClaudeInputResources,
+  claudeInputResources,
+  UnregisteredClaudeMcpError
+} from './input-resources'
+import { canonicalJson } from '../../../shared/obj'
+import { observeClaudePluginNames } from './plugin-observations'
 import { claudeNativeResources } from './native-resources'
 import {
   claudePluginDefaults,
@@ -8,7 +17,6 @@ import {
   type ClaudePluginCatalog
 } from './plugin-catalog'
 import { persistClaudePluginState } from './plugin-state'
-import { pluginPathKey } from './project-path'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
 import { claudeProjectSettingsFiles, readClaudeProjectSettings } from './project-settings'
 // ClaudeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.
@@ -22,6 +30,10 @@ import type {
   SDKMessage
 } from '@anthropic-ai/claude-agent-sdk'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
+import { PRODUCT_SLUG } from '../../../shared/product'
+import { gitRootLineage } from '../common/git-root'
+import { pluginPathKey } from './project-path'
+import { McpAdmissionError } from '../common/turn'
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -345,6 +357,9 @@ export function makeCanUseTool(
 interface ClaudeTurnPreparation {
   readonly kind: 'claude-turn'
   readonly pluginDefaults: Record<string, boolean>
+  readonly deploymentRevision?: number
+  readonly nativeDefinitions: OoMcpConfig
+  readonly choices: Record<string, boolean>
   readonly plugins: ClaudePluginCatalog
 }
 
@@ -357,18 +372,8 @@ function claudePreparation(value: unknown): ClaudeTurnPreparation {
 }
 
 export class ClaudeAdapter implements SessionAdapter {
-  private readonly extensionSnapshots = new Map<
-    string,
-    {
-      references: number
-      skills: TurnRequest['extensions']['skills']
-      deployment?: import('../common/plugin-snapshots').PluginSnapshotLease
-      pluginRoots: string[] | undefined
-    }
-  >()
   constructor(
     private readonly extensionControl?: import('../common/extension-control').ExtensionControl,
-    private readonly pluginSnapshots?: import('../common/plugin-snapshots').PluginSnapshotPort,
     private readonly preferences?: () => ClaudePreferences | undefined
   ) {}
   async recoverSession({
@@ -470,74 +475,42 @@ export class ClaudeAdapter implements SessionAdapter {
       undefined,
       req.cwd
     ).root
+    const deploymentRevision = this.extensionControl?.deploymentRevision?.()
     const choices = this.extensionControl?.global('claude') ?? {}
     const flags = extensionChoices(choices, 'plugin')
-    const pluginDefaults = claudePluginDefaults(nativeRoot, {
-      ...req.providerSettings?.settings,
-      enabledPlugins: {
-        ...(req.providerSettings?.settings?.enabledPlugins as Record<string, unknown>),
-        ...flags
-      }
-    })
+    const pluginDefaults = claudePluginDefaults(nativeRoot, req.providerSettings?.settings)
     signal.throwIfAborted()
     const plugins = await readClaudePluginCatalogAsync(
       req.cwd,
       nativeRoot,
       req.providerSettings?.settings ?? {},
       true,
-      pluginDefaults
+      pluginDefaults,
+      flags
     )
-    return { kind: 'claude-turn', pluginDefaults, plugins }
+    const nativeDefinitions = await readClaudeInputDefinitions(
+      req.cwd,
+      nativeRoot,
+      !!envLookup(
+        req.env,
+        req.providerSettings?.settings,
+        process.env
+      )('CLAUDE_CONFIG_DIR')?.trim(),
+      choices
+    )
+    signal.throwIfAborted()
+    return { kind: 'claude-turn', pluginDefaults, plugins, choices, nativeDefinitions, deploymentRevision }
   }
 
   sendMessage(req: TurnRequest): LiveTurn {
     const prepared = claudePreparation(req.prepared)
-    const key = pluginPathKey(req.cwd)
-    let snapshot = this.extensionSnapshots.get(key)
-    if (!snapshot) {
-      const deployment = this.pluginSnapshots?.capture(req.extensions.pluginRoots ?? [])
-      snapshot = {
-        deployment,
-        pluginRoots: deployment?.roots ?? req.extensions.pluginRoots,
-        references: 0,
-        skills: req.extensions.skills.map((skill) => ({ ...skill }))
-      }
-      this.extensionSnapshots.set(key, snapshot)
-    }
-    snapshot.references++
-    const owned = snapshot
-    let released = false
-    const release = (): void => {
-      if (released) return
-      released = true
-      if (--owned.references === 0 && this.extensionSnapshots.get(key) === owned) {
-        this.extensionSnapshots.delete(key)
-        owned.deployment?.release()
-      }
-    }
-    try {
-      const live = this.openChannel(
-        {
-          ...req,
-          extensions: { ...req.extensions, skills: owned.skills, pluginRoots: owned.pluginRoots }
-        },
-        release,
-        prepared
-      )
-      return req.nativeSessionId && req.sessionId
-        ? routeNativeSession(live, req.nativeSessionId, req.sessionId)
-        : live
-    } catch (error) {
-      release()
-      throw error
-    }
+    const live = this.openChannel(req, prepared)
+    return req.nativeSessionId && req.sessionId
+      ? routeNativeSession(live, req.nativeSessionId, req.sessionId)
+      : live
   }
 
-  private openChannel(
-    req: TurnRequest,
-    releaseExtensions: () => void,
-    prepared: ClaudeTurnPreparation
-  ): LiveTurn {
+  private openChannel(req: TurnRequest, prepared: ClaudeTurnPreparation): LiveTurn {
     const { pluginDefaults, plugins: nativePlugins } = prepared
     const {
       sessionId,
@@ -597,6 +570,16 @@ export class ClaudeAdapter implements SessionAdapter {
         b.attachmentImages ?? [],
         b.requirements ?? []
       )
+    const latestChoices = (): Record<string, boolean> => this.extensionControl?.global('claude') ?? {}
+    const deploymentChanged = (): boolean =>
+      prepared.deploymentRevision !== this.extensionControl?.deploymentRevision?.()
+    const startup = claudeInputResources(
+      extensions,
+      prepared.choices,
+      nativePlugins,
+      prepared.nativeDefinitions
+    )
+    let appliedChoices = canonicalJson(prepared.choices)
     const initialInputs = [
       ...(req.preludes ?? []).map((b) => ({ content: batchContent(b), uuid: b.uuid })),
       {
@@ -606,8 +589,9 @@ export class ClaudeAdapter implements SessionAdapter {
     ]
     if (req.recovery && req.promptUuid) req.recovery.onPrompt(req.promptUuid)
     const receipts = new ClaudeInputReceipts()
-    for (const item of initialInputs) receipts.submitted(item.content, item.uuid)
-    const input = createSessionInputStream(initialInputs)
+    const checkInitial = !!this.extensionControl || !!startup.targets.length
+    if (!checkInitial) for (const item of initialInputs) receipts.submitted(item.content, item.uuid)
+    const input = createSessionInputStream(checkInitial ? [] : initialInputs)
     const pushInput = (content: TurnInputContent, uuid?: string): boolean => {
       if (!input.push(content, uuid)) return false
       receipts.submitted(content, uuid)
@@ -644,7 +628,7 @@ export class ClaudeAdapter implements SessionAdapter {
         ...(extensions.outputFiles ? [extensions.outputFiles.directory] : [])
       ])
     ]
-    const runtimeToolApprovalNames = runtimeApprovalToolNames(extensions.runtimeTools)
+    const runtimeToolApprovalNames = runtimeApprovalToolNames(startup.runtimeTools)
     // 실행 전 편집 미리보기(0229) — 가드 훅과 **같은 입력**으로 루트를 턴당 1회 푼다. 편집이 쓸 수
     // 없는 경로는 미리보기로도 읽지 않는다.
     const nativePaths = claudeNativePaths(contextEnv, undefined, cwd)
@@ -724,12 +708,17 @@ export class ClaudeAdapter implements SessionAdapter {
             getTemporaryFilesPath()
           ),
           disallowedTools: ['WebSearch'],
-          ...(extensions.runtimeTools?.servers.size
-            ? adaptRuntimeTools(
-                sdk.createSdkMcpServer,
-                extensions.runtimeTools,
-                req.runtimeToolContext
-              )
+          ...(startup.runtimeTools?.servers.size || Object.keys(startup.external).length
+            ? {
+                mcpServers: {
+                  ...startup.external,
+                  ...adaptRuntimeTools(
+                    sdk.createSdkMcpServer,
+                    startup.runtimeTools,
+                    req.runtimeToolContext
+                  ).mcpServers
+                }
+              }
             : {}),
           // hooks = 중립 정규화 훅 + 어댑터 내부 훅 병합 위에
           // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
@@ -809,6 +798,59 @@ export class ClaudeAdapter implements SessionAdapter {
       })
     )
 
+    let mutationScope: Promise<string> | undefined
+    const admitInput = async (
+      submit: () => boolean,
+      turnSignal?: AbortSignal,
+      canSubmit?: () => boolean
+    ): Promise<import('../common/types').AdapterSubmissionOutcome> => {
+      const signals = [abortController.signal]
+      if (turnSignal) signals.push(turnSignal)
+      const admissionSignal = AbortSignal.any(signals)
+      while (true) {
+        admissionSignal.throwIfAborted()
+        const choices = latestChoices()
+        const revision = canonicalJson(choices)
+        const next = claudeInputResources(
+          extensions,
+          choices,
+          nativePlugins,
+          prepared.nativeDefinitions
+        )
+        if (deploymentChanged() || next.spawnKey !== startup.spawnKey) return { kind: 'restartBeforeAccept' }
+        const current = (): boolean => !deploymentChanged() && canonicalJson(latestChoices()) === revision
+        if (next.targets.length) {
+          try {
+            mutationScope ??= gitRootLineage(cwd).then(({root}) =>
+              canonicalJson([pluginPathKey(projectFiles[3]), pluginPathKey(root)]))
+            await applyClaudeInputResources(
+              handle,
+              await mutationScope,
+              next.targets,
+              current,
+              admissionSignal
+            )
+          } catch (error) {
+            if (
+              canonicalJson(extensionChoices(choices, 'mcp')) !==
+                canonicalJson(extensionChoices(prepared.choices, 'mcp')) &&
+              error instanceof UnregisteredClaudeMcpError
+            )
+              return { kind: 'restartBeforeAccept' }
+            if (!current() && !admissionSignal.aborted) continue
+            throw new McpAdmissionError(error instanceof Error ? error.message : String(error))
+          }
+          admissionSignal.throwIfAborted()
+          if (!current()) continue
+        }
+        if (canSubmit && !canSubmit())
+          throw new McpAdmissionError('전송 대기 중 입력이 변경됐습니다.')
+        appliedChoices = revision
+        return submit()
+          ? { kind: 'accepted' }
+          : { kind: 'rejectedBeforeAccept', reason: 'stream_closed' }
+      }
+    }
     let closed = false
     const close = (): void => {
       if (closed) return
@@ -816,11 +858,7 @@ export class ClaudeAdapter implements SessionAdapter {
       capturedOutputs.length = 0
       input.close()
       receipts.close()
-      try {
-        handle.close?.()
-      } finally {
-        releaseExtensions()
-      }
+      handle.close?.()
     }
 
     // 대기 중인 압축 요약을 assistant 메시지 이벤트로 비운다 — persist(text 파트)와 렌더
@@ -863,6 +901,13 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     }
 
+    const managedIdentities = new Map<string, { kind: 'builtin' | 'user'; sourceId: string }>()
+    for (const [id, plugin] of extensions.managedMcp?.plugins ?? [])
+      managedIdentities.set(id, { kind: 'builtin', sourceId: plugin.identity.sourceId })
+    for (const name of Object.keys(
+      extensions.managedMcp?.definitions ?? extensions.managedMcp?.users ?? {}
+    ))
+      managedIdentities.set(`plugin:${PRODUCT_SLUG}:${name}`, { kind: 'user', sourceId: name })
     const resources = claudeNativeResources(
       handle,
       extensions.pluginRoots,
@@ -874,7 +919,8 @@ export class ClaudeAdapter implements SessionAdapter {
         await persistClaudePluginState(cwd, key, enabled)
         // This Query applied the choice before saving it; the watcher must not report it pending.
         projectResources.acknowledge(key, enabled)
-      }
+      },
+      managedIdentities
     )
 
     const configDirSpecified = !!contextEnv('CLAUDE_CONFIG_DIR')?.trim()
@@ -883,6 +929,7 @@ export class ClaudeAdapter implements SessionAdapter {
       root: nativePaths.root,
       configDirSpecified,
       plugins: nativePlugins,
+      explicit: () => latestChoices(),
       list: () => resources.list(),
       set: (...args) => resources.set(...args)
     })
@@ -898,6 +945,7 @@ export class ClaudeAdapter implements SessionAdapter {
       try {
         for await (const msg of handle) {
           if (msg.type === 'system' && msg.subtype === 'init') {
+            observeClaudePluginNames(msg.plugins ?? [])
             resources.observePlugins(msg.plugins ?? [])
             resources.observeCommands(msg.slash_commands ?? [])
           }
@@ -1025,6 +1073,17 @@ export class ClaudeAdapter implements SessionAdapter {
     }
 
     return {
+      inputResourcesChanged: () => deploymentChanged() || canonicalJson(latestChoices()) !== appliedChoices,
+      ...(checkInitial
+        ? {
+            submitInitial: (turnSignal?: AbortSignal) =>
+              admitInput(
+                () => initialInputs.every((item) => pushInput(item.content, item.uuid)),
+                turnSignal,
+                req.canSubmitInitial
+              )
+          }
+        : {}),
       projectResourcePolicy: () => projectPolicy,
       reconcileNativeResources: (revision, isIdle) => projectResources.reconcile(revision, isIdle),
       nativeResourcesApplied: (revision) => projectResources.covers(revision),
@@ -1077,9 +1136,11 @@ export class ClaudeAdapter implements SessionAdapter {
           await handle.applyFlagSettings({ outputStyle })
           appliedOutputStyle = outputStyle
         }
-        return pushInput(batchContent(next), next.promptUuid)
-          ? { kind: 'accepted' as const }
-          : { kind: 'rejectedBeforeAccept' as const, reason: 'stream_closed' as const }
+        return admitInput(
+          () => pushInput(batchContent(next), next.promptUuid),
+          next.signal,
+          next.canSubmit
+        )
       },
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(toClaudePermissionMode(mode)),

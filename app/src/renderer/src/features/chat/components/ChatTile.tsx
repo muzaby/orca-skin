@@ -103,7 +103,12 @@ export function ChatTile({
   const panelExpanded = panelExpansion?.key === activeKey && panelExpansion.expanded
   const storeRestore =
     draftRestore && draftRestore.key === activeKey
-      ? { id: draftRestore.seq, text: draftRestore.text, mode: draftRestore.mode }
+      ? {
+          id: draftRestore.seq,
+          text: draftRestore.text,
+          mode: draftRestore.mode,
+          attachments: draftRestore.attachments
+        }
       : undefined
 
   return (

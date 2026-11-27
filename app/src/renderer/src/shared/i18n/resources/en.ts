@@ -703,15 +703,13 @@ export const en: typeof ko = {
       more: 'Show more'
     },
     nativeResources: {
-      claudeCloseTitle: 'Close Claude sessions',
-      claudeCloseBody_one:
-        '{{count}} Claude session is responding or running work. Applying this plugin change closes every running Claude session, and responses and background work in progress will stop.',
-      claudeCloseBody_other:
-        '{{count}} Claude sessions are responding or running work. Applying this plugin change closes every running Claude session, and responses and background work in progress will stop.',
-      claudeCloseConfirm: 'Change',
+      nextInput: 'Applies on the next input ({{count}} sessions)',
+      saveFailed: 'Could not save this choice',
+      openLocation: 'Open configuration location',
+      readOnlyReason: 'This harness cannot change this item',
       retry: 'Retry',
       useMcp: 'Use the {{name}} MCP tools to ',
-      configured: 'Enabled in configuration',
+      configured: 'Configured · runtime unconfirmed',
       installed: 'Installed',
       error: 'Unable to refresh resources. Reopen the menu to try again.',
       connected: 'Connected',

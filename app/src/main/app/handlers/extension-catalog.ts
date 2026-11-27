@@ -6,36 +6,84 @@ import {
 } from '../../../shared/protocol'
 import type { Backend } from '../../../shared/ipc'
 import type {
+  NativeResource,
   NativeResources,
   SetGlobalNativeResourceResult
 } from '../../../shared/native-resources'
-import { extensionChoiceKey } from '../../adapters/common/extension-control'
+import { resourceChoiceKey } from '../../adapters/common/extension-control'
 import { handle } from '../../infra/ipc/handle'
-import type { ClaudeProcessReset } from '../harnesses/claude/processes'
 import type { MutableExtensionControl } from '../extension-control'
 import { harnessModule } from '../harnesses/registry'
 import { shellServices } from '../../infra/shell-services'
 
+interface CatalogInputs {
+  items: NativeResource[]
+  live: { sessionId: string; items?: NativeResource[] }[]
+}
+
+function projectCatalog(catalog: CatalogInputs, choices: Record<string, boolean>): NativeResources {
+  return {
+    state: catalog.live.length ? 'connected' : 'disconnected',
+    items: catalog.items.map((item) => {
+      const key = resourceChoiceKey(item)
+      const selected = item.canToggle ? (choices[key] ?? item.selected ?? item.enabled) : undefined
+      const states = catalog.live.map(({ sessionId, items }) => {
+        const actual = items?.find((candidate) =>
+          item.managedSource
+            ? candidate.managedSource?.kind === item.managedSource.kind &&
+              candidate.managedSource.sourceId === item.managedSource.sourceId
+            : !candidate.managedSource && candidate.kind === item.kind && candidate.id === item.id
+        )
+        return {
+          sessionId,
+          status: actual?.status ?? ('configured' as const),
+          ...(actual?.controlReason
+            ? { reason: actual.controlReason }
+            : !actual
+              ? { reason: items ? '이 세션에 미등록' : '실행 상태를 확인할 수 없습니다' }
+              : {})
+        }
+      })
+      const status =
+        states.length &&
+        states.every(
+          (s) => s.status === states[0].status && (s.status !== 'configured' || !s.reason)
+        )
+          ? states[0].status
+          : item.status
+      const pendingSessions = states.filter(
+        (s) =>
+          selected !== undefined &&
+          (selected ? s.status !== 'enabled' && s.status !== 'connected' : s.status !== 'disabled')
+      ).length
+      return {
+        ...item,
+        selected,
+        status,
+        enabled: ['connected', 'enabled'].includes(status),
+        ...(states.length ? { observations: states, pendingSessions } : {})
+      }
+    })
+  }
+}
 export function registerExtensionCatalogHandlers(
   control: MutableExtensionControl,
-  processes: ClaudeProcessReset,
-  changed: (backend: Backend) => void = () => undefined
+  changed: (backend: Backend) => void = () => undefined,
+  managed: () => Promise<NativeResource[]> = async () => [],
+  observations: (
+    backend: Backend
+  ) => Promise<{ sessionId: string; items?: NativeResource[] }[]> = async () => []
 ): void {
-  const read = async (backend: Backend): Promise<NativeResources> => {
-    const items = (await harnessModule(backend).globalResources?.()) ?? []
-    const choices = control.global(backend)
-    return {
-      state: 'disconnected',
-      items: items.map((item) => {
-        const choice = item.canToggle
-          ? choices[extensionChoiceKey(item.kind, item.name)]
-          : undefined
-        return choice === undefined
-          ? item
-          : { ...item, enabled: choice, status: choice ? 'configured' : 'disabled' }
-      })
-    }
+  const discover = async (backend: Backend): Promise<CatalogInputs> => {
+    const [native, injected, live] = await Promise.all([
+      harnessModule(backend).globalResources?.(),
+      managed(),
+      observations(backend)
+    ])
+    return { items: [...(native ?? []), ...injected], live }
   }
+  const read = async (backend: Backend): Promise<NativeResources> =>
+    projectCatalog(await discover(backend), control.global(backend))
   handle(CHANNELS.extensionCatalog, GlobalNativeResourcesSchema, 'reject', ({ backend }) =>
     read(backend)
   )
@@ -44,29 +92,22 @@ export function registerExtensionCatalogHandlers(
     SetGlobalNativeResourceSchema,
     'reject',
     async (request): Promise<SetGlobalNativeResourceResult> => {
-      const catalog = await read(request.backend)
+      const catalog = await discover(request.backend)
       const item = catalog.items.find(
-        (item) => item.kind === request.kind && item.id === request.id
+        (item) =>
+          item.kind === request.kind &&
+          item.id === request.id &&
+          item.managedSource?.kind === request.managedSource?.kind &&
+          item.managedSource?.sourceId === request.managedSource?.sourceId
       )
       if (!item?.canToggle)
         throw new Error('이 항목은 Orcinus orca에서 전역 활성 상태를 제어할 수 없습니다.')
-      const key = extensionChoiceKey(item.kind, item.name)
-      if (request.backend === 'claude' && item.kind === 'plugin') {
-        // Live Claude queries keep the flags they started with, so the toggle closes them all.
-        // No await from plan to close: a turn starting in between would skip the confirmation.
-        // The session data the plan reads is filled before it.
-        await processes.prepare()
-        const plan = processes.plan()
-        if (plan.busy > 0 && !request.confirmed)
-          return { status: 'confirm', reason: 'claude-processes', sessions: plan.busy }
-        // Save first: a failed save must leave every process running.
-        control.setGlobal(request.backend, key, request.enabled)
-        processes.close(plan.targets)
-      } else
-        // Save succeeds before the runtime receives the new desired connection state.
-        control.setGlobal(request.backend, key, request.enabled)
+      await control.setGlobal(request.backend, resourceChoiceKey(item), request.enabled)
       changed(request.backend)
-      return { status: 'applied', resources: await read(request.backend) }
+      return {
+        status: 'applied',
+        resources: projectCatalog(catalog, control.global(request.backend))
+      }
     }
   )
   handle(

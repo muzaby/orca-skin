@@ -10,7 +10,9 @@ import { pathToFileURL } from 'node:url'
 import { expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import type { OoMcpConfig } from '../adapters/common/mcp-config'
+import type { ProviderMessageBatch } from '../adapters/common/types'
 import type { TurnRequest } from '../adapters/common/turn'
+import { managedMcpAlias } from '../adapters/opencode/v1/managed-mcp'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { OpenCodeServerPool, resolveOpenCodeExecutable } from '../adapters/opencode/v1/server'
 import type { PluginAuth } from '../contracts/auth'
@@ -19,9 +21,10 @@ import { jiraTools } from '../features/plugins/jira/tools'
 import { mailTools } from '../features/plugins/mail/tools'
 import { createPluginBinding } from './deployment/plugins'
 import { createManagedMcp } from './managed-mcp'
+import { sharedMcpResponses } from './managed-mcp-concurrency.testfixture'
 import { scaleMs, scaledBudget } from '../../../scripts/test-time.mjs'
 
-vi.setConfig(scaledBudget({ testTimeout: 120_000, hookTimeout: 30_000 }))
+vi.setConfig(scaledBudget({ testTimeout: 180_000, hookTimeout: 30_000 }))
 const fixtureData = vi.hoisted(() => ({ root: '' }))
 vi.mock('../infra/config/user-data-path', () => ({ userDataPath: async () => fixtureData.root }))
 let executable: string | undefined
@@ -42,6 +45,7 @@ it.skipIf(!executable)('advertises and calls managed MCP through the supported C
   const home = join(root, 'home')
   await mkdir(home)
   const responses: Record<string, unknown>[] = []
+  const sharedResponses = sharedMcpResponses()
   const modelRequests: Record<string, unknown>[] = []
   const diagnostics: string[] = []
   const called: string[] = []
@@ -81,9 +85,9 @@ it.skipIf(!executable)('advertises and calls managed MCP through the supported C
         await transport.handlePostMessage(request, response)
         return
       }
-      if (request.url === '/http') {
-        expect(request.headers['x-secret']).toBe('http-secret')
-        const server = serverFor('http')
+      if (['/http', '/G', '/P', '/late'].includes(request.url ?? '')) {
+        if (request.url === '/http') expect(request.headers['x-secret']).toBe('http-secret')
+        const server = serverFor(request.url!.slice(1))
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined,
           enableJsonResponse: true
@@ -98,30 +102,47 @@ it.skipIf(!executable)('advertises and calls managed MCP through the supported C
       const body = await bodyOf(request)
       modelRequests.push(body)
       const messages = body.messages as Array<{ role: string; content: unknown }>
-      const results = messages.filter((message) => message.role === 'tool')
-      const tools = (body.tools as Array<{ function: { name: string } }>).filter(
-        (tool) =>
-          tool.function.name.startsWith('orcinus_orca_') &&
-          /_(lookup|confluence_search|jira_getIssue|mail_search)$/.test(tool.function.name)
-      )
-      const calls = results.length
-        ? undefined
-        : tools.map((tool, index) => ({
-            index,
-            id: `call-${index}`,
-            type: 'function',
-            function: {
-              name: tool.function.name,
-              arguments: JSON.stringify(
-                tool.function.name.endsWith('_jira_getIssue')
-                  ? { issueKey: 'QA-288' }
-                  : tool.function.name.endsWith('_mail_search')
-                    ? { query: 'mail-sentinel' }
-                    : { text: 'cli-sentinel' }
-              )
-            }
-          }))
-      const content = results.length ? 'Managed MCP calls completed' : null
+      const lastUser = messages.map((message) => message.role).lastIndexOf('user')
+      const results = messages.slice(lastUser + 1).filter((message) => message.role === 'tool')
+      const probe = JSON.stringify(messages[lastUser]?.content ?? '').includes('0333-probe')
+      const declared = (body.tools ?? []) as Array<{ function: { name: string } }>
+      if (!results.length && declared.length)
+        await sharedResponses.hold(JSON.stringify(messages[lastUser]?.content ?? ''))
+      const forceCalls = [
+        'docs_lookup',
+        managedMcpAlias('user', 'http') + '_lookup',
+        managedMcpAlias('builtin', 'jira') + '_jira_getIssue',
+        managedMcpAlias('user', 'sse') + '_lookup',
+        managedMcpAlias('user', 'late') + '_lookup',
+        managedMcpAlias('builtin', 'late-jira') + '_jira_getIssue'
+      ]
+      // Deliberately ask for the OFF tools too. The CLI must reject them without running a handler.
+      const tools = probe
+        ? forceCalls.map((name) => ({ function: { name } }))
+        : declared.filter(
+            (tool) =>
+              tool.function.name.startsWith('orcinus_orca_') &&
+              /_(lookup|confluence_search|jira_getIssue|mail_search)$/.test(tool.function.name)
+          )
+      const calls =
+        results.length || !declared.length
+          ? undefined
+          : tools.map((tool, index) => ({
+              index,
+              id: `call-${index}`,
+              type: 'function',
+              function: {
+                name: tool.function.name,
+                arguments: JSON.stringify(
+                  tool.function.name.endsWith('_jira_getIssue')
+                    ? { issueKey: 'QA-288' }
+                    : tool.function.name.endsWith('_mail_search')
+                      ? { query: 'mail-sentinel' }
+                      : { text: 'cli-sentinel' }
+                )
+              }
+            }))
+      const content = !calls ? 'Managed MCP calls completed' : null
       const completion = {
         id: 'fixture-completion',
         object: 'chat.completion',
@@ -205,13 +226,21 @@ await server.connect(new StdioServerTransport());`
     fields: { summary: 'jira-sentinel', issuetype: { name: 'Task' }, status: { name: 'Open' } }
   })
   const mail = authFor('mail', 'pop3://mail.test:110', {})
+  let firstAuth = false
+  const lateAuth = authFor('late-jira', 'https://jira.test', {
+    key: 'LATE',
+    fields: { summary: 'late-jira-sentinel', issuetype: { name: 'Task' } }
+  })
+  const initialAuth = lateAuth.snapshot
+  lateAuth.snapshot = () => ({ ...initialAuth(), status: firstAuth ? 'valid' : 'none' })
   const bindings = [
     confluenceTools(wiki),
     jiraTools(jira),
-    mailTools(mail, { accountId: 'fixture-mail' })
+    mailTools(mail, { accountId: 'fixture-mail' }),
+    jiraTools(lateAuth)
   ].map((server, index) =>
     createPluginBinding({
-      auth: [wiki, jira, mail][index],
+      auth: [wiki, jira, mail, lateAuth][index],
       server,
       registry: { add: () => {}, remove: () => {} }
     })
@@ -220,6 +249,7 @@ await server.connect(new StdioServerTransport());`
     { enabledConfig: () => users, resolver: () => () => undefined },
     bindings
   )
+  const choices: Record<string, boolean> = {}
   const env = {
     HOME: home,
     USERPROFILE: home,
@@ -248,9 +278,28 @@ await server.connect(new StdioServerTransport());`
       }
     }
   }
+  const globalDir = join(env.XDG_CONFIG_HOME, 'opencode')
+  await mkdir(globalDir, { recursive: true })
+  await writeFile(
+    join(globalDir, 'opencode.json'),
+    JSON.stringify({
+      $schema: 'https://opencode.ai/config.json',
+      mcp: {
+        docs: {
+          type: 'remote',
+          url: base + '/G',
+          oauth: false,
+          enabled: true
+        }
+      }
+    })
+  )
   const children: ChildProcess[] = []
+  const nativeDestinations: string[] = []
+  const sdkPaths: string[] = []
   const permissionReplies: { reply: unknown; status: number }[] = []
   const pool = new OpenCodeServerPool({
+    timeoutMs: scaleMs(40_000),
     dataDirectory: root,
     preferences: () => ({ executablePath: executable, instructions: '' }),
     fetchImpl: fetch,
@@ -262,6 +311,12 @@ await server.connect(new StdioServerTransport());`
   })
   const fetchObserved: typeof fetch = async (input, init) => {
     const url = input instanceof Request ? input.url : String(input)
+    const parsed = new URL(url)
+    sdkPaths.push(parsed.pathname)
+    if (/^\/mcp\/docs\/(?:dis)?connect$/.test(parsed.pathname)) {
+      const directory = parsed.searchParams.get('directory')
+      if (directory) nativeDestinations.push(directory)
+    }
     const permission = /\/permission\/[^/]+\/reply$/.test(new URL(url).pathname)
       ? ((await (input instanceof Request ? input.clone() : new Request(input, init)).json()) as {
           reply: unknown
@@ -275,11 +330,18 @@ await server.connect(new StdioServerTransport());`
       )
     return result
   }
-  const adapter = new OpenCodeAdapter(pool, fetchObserved, undefined, undefined, undefined, {
-    snapshot: () => managed.source.snapshot(),
-    peek: () => managed.source.peek(),
-    acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
-  })
+  const adapter = new OpenCodeAdapter(
+    pool,
+    fetchObserved,
+    undefined,
+    { global: () => choices },
+    undefined,
+    {
+      snapshot: () => managed.source.snapshot(),
+      peek: () => managed.source.peek(),
+      acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
+    }
+  )
   let prepared: Awaited<ReturnType<NonNullable<typeof adapter.prepareComposer>>> | undefined
   let turn: ReturnType<typeof adapter.sendMessage> | undefined
   try {
@@ -375,7 +437,11 @@ await server.connect(new StdioServerTransport());`
         expect(results).toContain('cacheAsOf')
         expect(called).toEqual(expect.arrayContaining(['wiki', 'jira', 'http', 'sse']))
       }
-      expect(JSON.stringify(modelRequests[before])).toContain('Orcinus orca MCP references')
+      expect(
+        modelRequests
+          .slice(before)
+          .some((body) => JSON.stringify(body).includes('Orcinus orca MCP references'))
+      ).toBe(true)
       expect(children).toHaveLength(1)
       expect(JSON.stringify(children[0].spawnargs)).not.toMatch(
         /stdio-secret|http-secret|sse-secret|Bearer /
@@ -417,13 +483,149 @@ await server.connect(new StdioServerTransport());`
         if (batch.events.some((event) => event.type === 'turn.aborted')) recordAborted()
       }
     })()
-    await vi.waitFor(() => expect(approvalSignal).toBeDefined(), { timeout: 15_000 })
+    await vi.waitFor(() => expect(approvalSignal).toBeDefined(), { timeout: 40_000 })
     await active.interrupt()
     await aborted
     expect(approvalSignal?.aborted).toBe(true)
     expect(observed).toContain('turn.aborted')
     active.close()
     await consuming
+    turn = undefined
+    await sharedResponses.verify(
+      root,
+      (cwd, text, onWaitPhase) =>
+        adapter.sendMessage({
+          cwd,
+          text,
+          onWaitPhase,
+          sessionId: null,
+          env,
+          model: 'fixture/fixture-model',
+          providerSettings,
+          extensions: {
+            skills: [],
+            hooks: { normalized: {} },
+            managedMcp: managed.source.snapshot()
+          },
+          requestApproval: async () => ({ behavior: 'allow' })
+        }),
+      (enabled) =>
+        Object.assign(choices, {
+          'mcp:docs': enabled,
+          'managed:user:http': enabled,
+          'managed:builtin:jira': enabled
+        }),
+      called,
+      modelRequests,
+      () => ({
+        pids: children.map((child) => child.pid),
+        disposals: sdkPaths.filter((path) => path === '/instance/dispose').length
+      })
+    )
+    // Keep consuming the same channel across all three inputs, as SessionRuntime does.
+    const disposeBefore = sdkPaths.filter((path) => path === '/instance/dispose').length
+    const promptPaths = new Set<string>()
+    const pids = children.map((child) => child.pid)
+    const ids = [
+      'docs_lookup',
+      managedMcpAlias('user', 'http') + '_lookup',
+      managedMcpAlias('builtin', 'jira') + '_jira_getIssue'
+    ]
+    let stream: AsyncIterator<ProviderMessageBatch> | undefined
+    for (const [index, enabled] of [true, false, true].entries()) {
+      Object.assign(choices, {
+        'mcp:docs': enabled,
+        'managed:user:http': enabled,
+        'managed:builtin:jira': enabled,
+        'managed:builtin:late-jira': index === 2
+      })
+      if (index === 1) {
+        firstAuth = true
+        users.late = { type: 'http', url: base + '/late' }
+        choices['managed:user:late'] = true
+        managed.source.refresh()
+      }
+      const text = '0333-probe-' + index
+      const before = modelRequests.length
+      const callsBefore = called.length
+      const beforeSdk = sdkPaths.length
+      if (!turn) {
+        turn = adapter.sendMessage({
+          sessionId: null,
+          cwd: root,
+          text,
+          env,
+          model: 'fixture/fixture-model',
+          providerSettings,
+          extensions: {
+            skills: [],
+            hooks: { normalized: {} },
+            managedMcp: managed.source.snapshot()
+          },
+          requestApproval: async () => ({ behavior: 'allow' })
+        })
+        stream = turn.eventBatches[Symbol.asyncIterator]()
+      } else expect(await turn.pushTurn!({ text })).toEqual({ kind: 'accepted' })
+      for (;;) {
+        const batch = await stream!.next()
+        expect(batch.done).toBeFalsy()
+        const events = batch.value!.events
+        expect(events.filter((event) => event.type === 'error')).toEqual([])
+        if (events.some((event) => event.type === 'turn.ended')) break
+      }
+      const names = modelRequests
+        .slice(before)
+        .flatMap((body) =>
+          ((body.tools ?? []) as { function: { name: string } }[]).map((tool) => tool.function.name)
+        )
+      for (const name of ids) expect(names.includes(name)).toBe(enabled)
+      for (const target of ['G', 'http', 'jira'])
+        expect(called.slice(callsBefore).includes(target)).toBe(enabled)
+      expect(called.slice(callsBefore)).toContain('sse')
+      expect(called.slice(callsBefore).includes('late')).toBe(index > 0)
+      expect(called.slice(callsBefore).includes('late-jira')).toBe(index === 2)
+      sdkPaths
+        .slice(beforeSdk)
+        .filter((path) => path.endsWith('/prompt_async'))
+        .forEach((path) => promptPaths.add(path))
+      expect(children.map((child) => child.pid)).toEqual(pids)
+      expect(sdkPaths.filter((path) => path === '/instance/dispose')).toHaveLength(disposeBefore)
+    }
+    expect(promptPaths.size).toBe(1)
+    turn!.close()
+    await stream?.return?.()
+    turn = undefined
+    // A different native definition can have exactly the same SDK id. A global
+    // OFF must not change that directory's own connection or its model results.
+    const foreign = join(root, 'foreign')
+    await mkdir(foreign)
+    await writeFile(
+      join(foreign, 'opencode.json'),
+      JSON.stringify({
+        $schema: 'https://opencode.ai/config.json',
+        mcp: { docs: { type: 'remote', url: base + '/P', oauth: false, enabled: true } }
+      })
+    )
+    choices['mcp:docs'] = false
+    const callsBeforeForeign = called.length
+    turn = adapter.sendMessage({
+      sessionId: null,
+      cwd: foreign,
+      text: '0333-probe-foreign',
+      env,
+      model: 'fixture/fixture-model',
+      providerSettings,
+      extensions: { skills: [], hooks: { normalized: {} }, managedMcp: managed.source.snapshot() },
+      requestApproval: async () => ({ behavior: 'allow' })
+    })
+    for await (const batch of turn.eventBatches) {
+      expect(batch.events.filter((event) => event.type === 'error')).toEqual([])
+      if (batch.events.some((event) => event.type === 'turn.ended')) break
+    }
+    expect(called.slice(callsBeforeForeign)).toContain('P')
+    expect(called.slice(callsBeforeForeign)).not.toContain('G')
+    expect(nativeDestinations).not.toContain(foreign)
+    turn.close()
     turn = undefined
   } finally {
     turn?.close()
@@ -432,7 +634,11 @@ await server.connect(new StdioServerTransport());`
       (child) =>
         new Promise<void>((resolve, reject) => {
           if (child.exitCode !== null || child.signalCode !== null) return resolve()
-          const timeout = setTimeout(() => reject(new Error('CLI did not exit')), scaleMs(10_000))
+          const timeout = setTimeout(() => {
+            // The Linux CLI can keep a stdio transport open after SIGTERM.
+            if (process.platform !== 'win32') child.kill('SIGKILL')
+            else reject(new Error('CLI did not exit'))
+          }, scaleMs(10_000))
           child.once('exit', () => {
             clearTimeout(timeout)
             resolve()

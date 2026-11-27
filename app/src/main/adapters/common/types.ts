@@ -21,8 +21,10 @@ export interface ProviderMessageBatch {
   providerEvents?: (BackgroundEvent | ProviderMessageEvent)[]
 }
 
-type AdapterSubmissionOutcome =
-  { kind: 'accepted' } | { kind: 'rejectedBeforeAccept'; reason: 'stream_closed' }
+export type AdapterSubmissionOutcome =
+  | { kind: 'restartBeforeAccept' }
+  | { kind: 'accepted' }
+  | { kind: 'rejectedBeforeAccept'; reason: 'stream_closed' }
 
 // 라이브 핸들 (provider-runtime.md §3). 0067 부터 두 수명 모델을 겸한다: `pushTurn` 을 구현한
 // 어댑터(Claude·OpenCode)는 **장수명 세션 채널** — 응답 뒤에도 입력과 수신을 유지하고,
@@ -30,6 +32,9 @@ type AdapterSubmissionOutcome =
 // 어댑터(mock)는 턴-스코프 — `events` 소비가 끝나면 핸들이 닫힌다(현행 보존). control 메서드는
 // 해당 하네스의 native 제어에 위임되며 지원하지 않는 제어는 성공을 가장하지 않는다.
 export interface LiveTurn {
+  /** Initial prompts may need an initialized SDK control channel before entering its stream. */
+  submitInitial?(signal?: AbortSignal): Promise<AdapterSubmissionOutcome>
+  inputResourcesChanged?(): boolean
   projectResourcePolicy?(): import('./project-resources').ProjectResourcePolicy | undefined
   nativeResources?(): Promise<NativeResources>
   reconcileNativeResources?(

@@ -1,3 +1,4 @@
+import type { McpLocalConfig, McpRemoteConfig } from '@opencode-ai/sdk/v2'
 import { createHash } from 'node:crypto'
 import type {
   ManagedMcpBridgeLease,
@@ -15,26 +16,32 @@ export function projectManagedMcp(
   snapshot: ManagedMcpSnapshot,
   bridgeLease: ManagedMcpBridgeLease,
   config: Record<string, unknown>,
-  nativeIds: readonly string[] = []
+  nativeIds: readonly string[] = [],
+  direct = false
 ): {
   config: Record<string, unknown>
   env: Record<string, string>
-  identities: ReadonlyMap<string, ManagedMcpIdentity>
+  identities: Map<string, ManagedMcpIdentity>
   failures: { sourceId: string; reason: 'identity-collision' }[]
+  registrations: Map<string, McpLocalConfig | McpRemoteConfig>
+  collisions: Map<string, ManagedMcpIdentity>
 } {
   const mcp = { ...(isRecord(config.mcp) ? config.mcp : {}) }
+  const registrations = new Map<string, McpLocalConfig | McpRemoteConfig>()
   const identities = new Map<string, ManagedMcpIdentity>()
   const env: Record<string, string> = {}
+  const collisions = new Map<string, ManagedMcpIdentity>()
   const failures: { sourceId: string; reason: 'identity-collision' }[] = []
   const normalize = (id: string): string => id.replace(/[^a-zA-Z0-9_-]/g, '_')
   const occupied = new Set([...nativeIds, ...Object.keys(mcp)].map(normalize))
   const add = (
     identity: ManagedMcpIdentity,
-    entry: (value: (text: string) => string) => unknown
+    entry: (value: (text: string) => string) => McpLocalConfig | McpRemoteConfig
   ): void => {
     const alias = managedMcpAlias(identity.kind, identity.sourceId)
     if (occupied.has(normalize(alias))) {
       failures.push({ sourceId: identity.sourceId, reason: 'identity-collision' })
+      collisions.set(alias, identity)
       return
     }
     occupied.add(normalize(alias))
@@ -58,7 +65,9 @@ export function projectManagedMcp(
           ? alias
           : identity.mentionId
     })
-    mcp[alias] = entry(value)
+    const definition = entry(direct ? (text) => text : value)
+    mcp[alias] = definition
+    registrations.set(alias, definition)
   }
   for (const [name, server] of Object.entries(snapshot.definitions ?? snapshot.users)) {
     add({ kind: 'user', sourceId: name, name, mentionId: '' }, (value) =>
@@ -93,7 +102,7 @@ export function projectManagedMcp(
       enabled: false
     }))
   }
-  return { config: { ...config, mcp }, env, identities, failures }
+  return { config: { ...config, mcp }, env, identities, failures, registrations, collisions }
 }
 
 export function mapManagedMcpResources(

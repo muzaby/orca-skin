@@ -7,10 +7,13 @@ export function nativeOpenCodeEnvironment(
   env?: Record<string, string>,
   base: NodeJS.ProcessEnv = process.env
 ): NodeJS.ProcessEnv {
+  // The harness reads its current native plugin declarations. Provider profiles from
+  // older installations may still contain a copied, versioned declaration.
+  const { plugin: _plugin, ...profile } = config
   return {
     ...base,
     ...env,
-    OPENCODE_CONFIG_CONTENT: JSON.stringify({ ...config, share: 'disabled', snapshot: false })
+    OPENCODE_CONFIG_CONTENT: JSON.stringify({ ...profile, share: 'disabled', snapshot: false })
   }
 }
 

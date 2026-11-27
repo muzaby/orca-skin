@@ -16,6 +16,11 @@ export interface NativeResource {
     | 'configured'
     | 'installed'
   enabled: boolean
+  /** Persisted preference, independent of live observations. */
+  selected?: boolean
+  controlReason?: string
+  pendingSessions?: number
+  observations?: { sessionId: string; status: NativeResource['status']; reason?: string }[]
   canToggle: boolean
   /** False when no native configuration/directory opening action is available. */
   canOpen?: boolean
@@ -26,6 +31,10 @@ export interface NativeResource {
   managedSource?: { kind: 'builtin' | 'user'; sourceId: string }
   mentionId?: string
 }
+export function catalogResourceKey(backend: Backend, item: NativeResource): string {
+  return JSON.stringify([backend, item.managedSource?.kind ?? null, item.kind, item.id])
+}
+
 export interface NativeCommand {
   name: string
   description: string
@@ -54,15 +63,12 @@ export interface GlobalNativeResourceTarget {
   backend: Backend
   kind: NativeResource['kind']
   id: string
+  managedSource?: NativeResource['managedSource']
 }
 export interface SetGlobalNativeResource extends GlobalNativeResourceTarget {
   enabled: boolean
-  // Claude plugin only: the user approved closing busy Claude sessions.
-  confirmed?: true
 }
-export type SetGlobalNativeResourceResult =
-  | { status: 'applied'; resources: NativeResources }
-  | { status: 'confirm'; reason: 'claude-processes'; sessions: number }
+export type SetGlobalNativeResourceResult = { status: 'applied'; resources: NativeResources }
 
 export interface ExtensionsChanged {
   backend: Backend

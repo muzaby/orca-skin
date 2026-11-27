@@ -12,6 +12,7 @@ export interface UseAttachments {
   draggingAttachment: boolean
   setDraggingAttachment: (dragging: boolean) => void
   pickAttachments: () => Promise<void>
+  addAttachments: (sources: ComposerAttachment[]) => void
   removeAttachment: (id: string) => void
   addDroppedFiles: (files: FileList) => void
   onPaste: (event: ClipboardEvent<HTMLDivElement>) => void
@@ -187,6 +188,7 @@ export function useAttachments(): UseAttachments {
     setDraggingAttachment,
     pickAttachments,
     removeAttachment,
+    addAttachments,
     addDroppedFiles,
     onPaste,
     resetIfUnchanged

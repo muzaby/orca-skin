@@ -206,9 +206,9 @@ describe('OpenCode native resources', () => {
       ['off', 'disabled', false, false],
       ['auth', 'needs-auth', true, false],
       ['bad', 'failed', true, false],
-      ['@vendor/native@2', 'enabled', true, false],
-      ['plugin.js', 'enabled', true, false],
-      ['relative.js', 'enabled', true, false]
+      ['@vendor/native@2', 'configured', true, false],
+      ['plugin.js', 'configured', true, false],
+      ['relative.js', 'configured', true, false]
     ])
     expect(JSON.stringify(items)).not.toMatch(/private|secret|token|local|provider/)
   })

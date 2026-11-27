@@ -31,10 +31,12 @@ import { getLogger } from '../../infra/log'
 import { toAgentEnvironments } from '../../features/harnesses/common/models'
 import { referencedVariables, type RemoteToolCall } from '../remote-tools'
 import type { RuntimeToolResult } from '../../adapters/common/runtime-tools'
+import { resourceChoiceKey } from '../../adapters/common/extension-control'
 import type { ArtifactRef } from '../../../shared/artifacts'
 
 export interface DataOpsDeps {
   db: DbQueries
+  settings?: Pick<import('../../infra/settings-store').SettingsStore, 'setNativeExtensionChoice'>
   // 프로젝트 미소속 세션의 기본 작업 폴더.
   defaultCwd(): string
   // 하네스 실행 구성(인증에 묶여 데이터 호스트에 있다). 없으면 그 연산이 던진다.
@@ -67,6 +69,7 @@ export interface DataHostOps {
   ): Promise<{ leaseId: string; endpoints: Array<[string, { url: string; token: string }]> }>
   managedMcpRelease(leaseId: string): Promise<void>
   captureOutput(request: CaptureOutputRequest): Promise<ArtifactRef | null>
+  managedExtensionCatalog?(): import('../../../shared/native-resources').NativeResource[]
   extensionsDeployed(): Promise<void>
 }
 
@@ -146,6 +149,7 @@ export function createDataQueryOps(deps: DataOpsDeps) {
           .warn('config.env.unresolved', { missing, reason: 'app env keys skipped' })
       return env
     },
+    managedExtensionCatalog: () => required(deps.host?.managedExtensionCatalog, '확장 목록')(),
     skills: (): SkillInfo[] => required(deps.host, '조립').skills(),
     runtimeToolCall: (request: RemoteToolCall) =>
       required(deps.host, '조립').runtimeToolCall(request),
@@ -172,6 +176,21 @@ export type DataQueryOps = ReturnType<typeof createDataQueryOps>
 export function createDataWriteOps(deps: DataOpsDeps) {
   const { db } = deps
   return {
+    setNativeExtensionChoice: (
+      backend: import('../../../shared/ipc').Backend,
+      key: string,
+      enabled: boolean
+    ) => {
+      if (
+        key.startsWith('managed:') &&
+        deps.host?.managedExtensionCatalog &&
+        !deps.host
+          .managedExtensionCatalog()
+          .some((item) => item.canToggle && resourceChoiceKey(item) === key)
+      )
+        throw new Error('변경하려는 서버가 더 이상 등록되어 있지 않습니다.')
+      return required(deps.settings, '설정 저장소').setNativeExtensionChoice(backend, key, enabled)
+    },
     updateSessionProviderKey: (
       id: string,
       providerKey: string | null,

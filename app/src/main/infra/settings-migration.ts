@@ -7,7 +7,7 @@ export const LAST_APP_VERSION_KEY = 'lastAppVersion'
 type Raw = Record<string, unknown>
 type SettingsKey = keyof Settings
 
-const SETTINGS_KEYS = Object.keys(SettingsSchema.parse({})) as SettingsKey[]
+const SETTINGS_KEYS = Object.keys(SettingsSchema.shape) as SettingsKey[]
 
 function settingValue<K extends SettingsKey>(key: K, value: unknown): Settings[K] {
   const parsed = SettingsSchema.safeParse({ [key]: value })
@@ -48,8 +48,6 @@ function applyRenames(raw: Raw): Raw {
 
 export function migrateRawSettings(raw: Raw, currentAppVersion: string): SettingsMigrationResult {
   const renamed = applyRenames({ ...raw })
-  const version = typeof raw[SETTINGS_VERSION_KEY] === 'number' ? raw[SETTINGS_VERSION_KEY] : 0
-  if (version < 2) delete renamed.nativeExtensionChoices
   const parsed = SettingsSchema.safeParse(renamed)
   const settings = parsed.success ? parsed.data : recoverKnownSettings(renamed)
   const migrated: Raw = {

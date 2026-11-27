@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { expect, it, vi } from 'vitest'
 import { OpenCodeMcpControl } from './mcp-control'
 
-it('applies restored choices once per new directory and preserves project overrides and existing instances', async () => {
+it('applies restored choices once per new directory and overrides same-source project defaults and existing instances', async () => {
   const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mcp-choices-'))
   const a = join(root, 'A'),
     b = join(root, 'B')
@@ -44,21 +44,39 @@ it('applies restored choices once per new directory and preserves project overri
   const client = { mcp: { status, connect, disconnect } } as unknown as OpencodeClient
   const signal = new AbortController().signal
   try {
-    const old = new OpenCodeMcpControl(client, a, control, signal)
+    const old = new OpenCodeMcpControl(
+      client,
+      a,
+      control,
+      signal,
+      undefined,
+      undefined,
+      undefined,
+      { docs: true, disabled: false, project: true }
+    )
     old.activate()
     await old.pending()
     await old.reconcileChoices()
     expect(connect.mock.calls.map(([params]) => params)).toEqual([
-      { directory: a, name: 'disabled' },
-      { directory: a, name: 'project' }
+      { directory: a, name: 'disabled' }
     ])
     expect(disconnect.mock.calls.map(([params]) => params)).toEqual([
-      { directory: a, name: 'docs' }
+      { directory: a, name: 'docs' },
+      { directory: a, name: 'project' }
     ])
     choices = { 'mcp:docs': true, 'mcp:disabled': false, 'mcp:project': true }
     old.activate()
     await old.pending()
-    const next = new OpenCodeMcpControl(client, b, control, signal)
+    const next = new OpenCodeMcpControl(
+      client,
+      b,
+      control,
+      signal,
+      undefined,
+      undefined,
+      undefined,
+      { docs: true, disabled: false, project: false }
+    )
     next.activate()
     await next.pending()
     await next.reconcileChoices()
@@ -79,8 +97,8 @@ it('applies restored choices once per new directory and preserves project overri
     expect(await old.pending()).toBe(false)
     expect(state(a).docs.status).toBe('connected')
     expect(state(a).project.status).toBe('connected')
-    expect(connect).toHaveBeenCalledTimes(5)
-    expect(disconnect).toHaveBeenCalledTimes(2)
+    expect(connect).toHaveBeenCalledTimes(3)
+    expect(disconnect).toHaveBeenCalledTimes(3)
     expect(await readFile(file, 'utf8')).toBe(contents)
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -98,14 +116,16 @@ it('wakes unsafe admission immediately on activity signals and cleans up aborted
     }
   } as unknown as OpencodeClient
   let idle = false
+  let docs = false
   const control = new OpenCodeMcpControl(
     client,
     root,
-    { global: () => ({}) } as never,
+    { global: () => ({ 'mcp:docs': docs }) },
     controller.signal,
     undefined,
     undefined,
-    () => idle
+    () => idle,
+    { docs: false }
   )
   const action = vi.fn(async () => 'sent')
   try {
@@ -122,6 +142,7 @@ it('wakes unsafe admission immediately on activity signals and cleans up aborted
     expect(action).toHaveBeenCalledOnce()
     expect(vi.getTimerCount()).toBe(0)
     idle = false
+    docs = true
     const abort = new AbortController()
     const rejected = control.submit(abort.signal, action)
     const assertion = expect(rejected).rejects.toMatchObject({ name: 'AbortError' })

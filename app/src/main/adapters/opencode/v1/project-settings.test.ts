@@ -35,10 +35,12 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
     client,
     a,
     { global: () => ({ 'mcp:same': true }) },
-    new AbortController().signal
+    new AbortController().signal,
+    undefined,
+    { choices: () => ({}), restricted: new Set(['same']) }
   )
   control.activate()
-  await control.pending() // Own native project declaration wins over an Orcinus orca global default.
+  await control.pending() // There is no matched global declaration to control.
   await writeFile(file, '{"mcp":{"same":{"enabled":false}},"plugin":["p"],"model":"other"}')
   openCodeDiscovery.invalidate()
   expect((await readOpenCodeProjectSettings(a)).revision).toBe(first.revision)
@@ -59,7 +61,14 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
         canToggle: false
       }
     ])
-  ).toMatchObject([{ enabled: true, status: 'disabled', canToggle: false }])
+  ).toMatchObject([
+    {
+      enabled: false,
+      status: 'disabled',
+      canToggle: false,
+      controlReason: expect.stringContaining('확인')
+    }
+  ])
   expect(connect).not.toHaveBeenCalled()
   expect(disconnect).not.toHaveBeenCalled()
   expect(await readFile(file, 'utf8')).toBe(bytes)

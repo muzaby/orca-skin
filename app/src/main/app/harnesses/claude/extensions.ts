@@ -18,8 +18,7 @@ export function claudePluginRoots(): string[] {
 
 export function createClaudeDeploymentService(
   mcp: Pick<McpStore, 'enabledConfig' | 'resolver'>,
-  skillRoots: () => SkillScanRoot[],
-  publish?: (roots: readonly string[]) => Promise<void>
+  skillRoots: () => SkillScanRoot[]
 ): ExtensionDeploymentService {
   const log = getLogger().child('extensions')
   return new ExtensionDeploymentService({
@@ -37,7 +36,6 @@ export function createClaudeDeploymentService(
         })
       const result = await deploy('claude', { skillRoots: skillRoots(), mcpConfig: config })
       if (!result.validation.ok) throw new Error('플러그인 배포 검증에 실패했습니다.')
-      await publish?.(claudePluginRoots())
       log.info('extensions.deploy.completed', {
         standard: 'claude',
         validationOk: result.validation.ok

@@ -320,6 +320,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
+| [features/skills/components/customize/ExtensionChoice.tsx](../../../app/src/renderer/src/features/skills/components/customize/ExtensionChoice.tsx) — `ExtensionChoice` | 플러그인·MCP 목록과 상세가 하네스별 선택, 관측 상태, 저장 실패 재시도를 공유한다. |
 | [features/artifacts/components/ArtifactCatalogRow.tsx](../../../app/src/renderer/src/features/artifacts/components/ArtifactCatalogRow.tsx) — `ArtifactCatalogRow` | CatalogListRow에 파일 종류·제목·위치·시각·상태·메뉴를 같은 슬롯으로 제공한다. |
 | [features/artifacts/components/ArtifactsView.tsx](../../../app/src/renderer/src/features/artifacts/components/ArtifactsView.tsx) — `ArtifactsView` | CatalogTabs·CatalogSearch·행·뷰어 pane. 목록/상세 폭과 빈/로딩 상태를 유지한다. |
 | [features/captures/components/CapturesView.tsx](../../../app/src/renderer/src/features/captures/components/CapturesView.tsx) — `CapturesView` | Future Scope 안내 화면. 중앙 아이콘·serif 제목·설명·참조 메타의 위계를 유지하고 미구현 목록·미리보기를 동작하는 UI처럼 제시하지 않는다. |

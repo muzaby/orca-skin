@@ -106,7 +106,7 @@ export function adaptRuntimeTools(
   create: typeof createSdkMcpServer,
   snapshot?: RuntimeToolSnapshot,
   context?: RuntimeToolContext
-): Pick<Options, 'mcpServers'> | Record<never, never> {
+): Pick<Options, 'mcpServers'> {
   if (!snapshot || snapshot.servers.size === 0) return {}
 
   const mcpServers: NonNullable<Options['mcpServers']> = {}

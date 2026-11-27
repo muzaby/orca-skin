@@ -1,3 +1,4 @@
+import { catalogResourceKey } from '../../../../../../shared/native-resources'
 import { useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../../shared/ui/Button'
@@ -17,6 +18,7 @@ import { ExtensionDetailPane } from './ExtensionDetailPane'
 import { CustomizeTabs } from './CustomizeTabs'
 import { CustomizeList } from './CustomizeList'
 import { SkillDetail } from './SkillDetail'
+import { ExtensionChoice, type CatalogEntry } from './ExtensionChoice'
 import { McpDetail } from './McpDetail'
 import { ProviderDetail } from './ProviderDetail'
 import { SkillAddMenu } from './SkillAddMenu'
@@ -59,7 +61,29 @@ export function ExtensionsCatalogView(): React.JSX.Element {
     selection.tab === 'providers'
       ? providers.list.find((item) => item.id === selection.selectedId)
       : undefined
-  const detail = selectedSkill ?? selectedMcp ?? selectedProvider
+  const selectedNative = nativeMcp.list.find(
+    ({ backend, resource }) =>
+      !resource.managedSource &&
+      `native:${backend}:${resource.kind}:${resource.id}` === selection.selectedId
+  )
+  const renderChoice = (entry: CatalogEntry): React.JSX.Element => (
+    <ExtensionChoice
+      key={entry.backend}
+      entry={entry}
+      details
+      locked={nativeMcp.locked?.has(entry.backend)}
+      failedTarget={nativeMcp.failedWrites?.get(catalogResourceKey(entry.backend, entry.resource))}
+      onToggle={nativeMcp.toggle}
+    />
+  )
+  const managedChoices = (kind: 'builtin' | 'user', id: string): React.JSX.Element[] =>
+    nativeMcp.list
+      .filter(
+        ({ resource }) =>
+          resource.managedSource?.kind === kind && resource.managedSource.sourceId === id
+      )
+      .map(renderChoice)
+  const detail = selectedSkill ?? selectedMcp ?? selectedProvider ?? selectedNative
   const title = tr(
     selection.tab === 'skills'
       ? 'skills.rail.skills'
@@ -154,7 +178,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
                 nativeMcp={nativeMcp.list}
                 nativeLocked={nativeMcp.locked}
                 suppressEmpty={selection.tab !== 'skills' && nativeMcp.failed}
-                onNativeMcp={(backend, resource) => void nativeMcp.open(backend, resource)}
+                failedWrites={nativeMcp.failedWrites}
                 onNativeToggle={nativeMcp.toggle}
                 onSkillToggle={(skill) =>
                   skills.setEnabled({
@@ -163,7 +187,6 @@ export function ExtensionsCatalogView(): React.JSX.Element {
                     enabled: !skill.enabled
                   })
                 }
-                onMcpToggle={(server) => mcp.toggle(server.id, !server.enabled)}
                 selectedId={selection.selectedId}
                 onSelect={(id, origin) => {
                   selectionEpoch.current += 1
@@ -221,22 +244,41 @@ export function ExtensionsCatalogView(): React.JSX.Element {
           ) : selectedMcp ? (
             <McpDetail
               server={selectedMcp}
-              onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
+              choices={managedChoices('user', selectedMcp.id)}
               onEdit={() => setMcpEditId(selectedMcp.id)}
               onRemove={() => removeDetail(() => mcp.remove(selectedMcp.id))}
             />
           ) : selectedProvider ? (
-            <ProviderDetail
-              // provider 를 갈아타면 방식 선택·입력값이 남지 않도록 리마운트한다.
-              key={selectedProvider.id}
-              provider={selectedProvider}
-              step={providers.step}
-              onLogin={(authKind) => void providers.login(selectedProvider.id, authKind)}
-              onSubmit={(input) => void providers.submit(selectedProvider.id, input)}
-              onReauth={(authKind) => void providers.reauth(selectedProvider.id, authKind)}
-              onRevoke={() => void providers.revoke(selectedProvider.id)}
-              onConnect={() => void providers.connect(selectedProvider.id)}
-            />
+            <>
+              {managedChoices('builtin', selectedProvider.id)}
+              <ProviderDetail
+                // provider 를 갈아타면 방식 선택·입력값이 남지 않도록 리마운트한다.
+                key={selectedProvider.id}
+                provider={selectedProvider}
+                step={providers.step}
+                onLogin={(authKind) => void providers.login(selectedProvider.id, authKind)}
+                onSubmit={(input) => void providers.submit(selectedProvider.id, input)}
+                onReauth={(authKind) => void providers.reauth(selectedProvider.id, authKind)}
+                onRevoke={() => void providers.revoke(selectedProvider.id)}
+                onConnect={() => void providers.connect(selectedProvider.id)}
+              />
+            </>
+          ) : selectedNative ? (
+            <div className="flex flex-col gap-g6 py-6">
+              <h2>{selectedNative.resource.name}</h2>
+              {selectedNative.resource.description && <p>{selectedNative.resource.description}</p>}
+              {renderChoice(selectedNative)}
+              {selectedNative.resource.canOpen !== false && (
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    void nativeMcp.open(selectedNative.backend, selectedNative.resource)
+                  }
+                >
+                  {tr('chat.nativeResources.openLocation')}
+                </Button>
+              )}
+            </div>
           ) : null}
         </ExtensionDetailPane>
       )}

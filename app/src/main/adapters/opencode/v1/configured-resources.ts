@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { NativeResource } from '../../../../shared/native-resources'
@@ -21,6 +22,7 @@ async function readConfiguredOpenCode(
   env: NodeJS.ProcessEnv = process.env,
   globalOnly = false
 ): Promise<{
+  definitions: Map<string, Record<string, unknown> | null>
   files: Map<string, string>
   items: NativeResource[]
   pluginSkillDirectories: string[]
@@ -39,6 +41,7 @@ async function readConfiguredOpenCode(
       ? at(join(env.ProgramData, 'opencode'))
       : [])
   ]
+  const definitions = new Map<string, Record<string, unknown> | null>()
   const declarations = new Map<string, string>()
   const servers = new Map<string, NativeResource>()
   const plugins = new Set<string>()
@@ -50,7 +53,17 @@ async function readConfiguredOpenCode(
       const config = parseConfig(await readFile(file, 'utf8'))
       if (!isRecord(config)) continue
       for (const [id, value] of Object.entries(isRecord(config.mcp) ? config.mcp : {})) {
-        if (!isRecord(value)) continue
+        if (!isRecord(value)) {
+          definitions.set(id, null)
+          continue
+        }
+        const prior = definitions.get(id)
+        const { enabled: _enabled, ...definition } = value
+        // An enabled-only declaration inherits its target. An invalid nearer target
+        // must never be mistaken for the previously read global one.
+        if (Object.keys(definition).length > 0 || prior === undefined) {
+          definitions.set(id, { ...prior, ...definition })
+        }
         declarations.set(id, file)
         const enabled = value.enabled !== false
         servers.set(id, {
@@ -90,13 +103,14 @@ async function readConfiguredOpenCode(
         name: source.split(/[?#]/)[0].split(/[\\/]/).filter(Boolean).at(-1) ?? 'Plugin',
         kind: 'plugin',
         enabled: true,
-        status: installation ? 'installed' : 'configured',
+        status: 'configured',
         canToggle: false
       }
     })
   )
   return {
     files: declarations,
+    definitions,
     items: [...servers.values(), ...installed],
     pluginSkillDirectories: [...pluginSkillDirectories]
   }
@@ -113,6 +127,53 @@ async function configuredOpenCode(
   )
 }
 
+function identifiableMcp(definition: Record<string, unknown> | null | undefined): boolean {
+  return (
+    !!definition &&
+    ((definition.type === 'remote' &&
+      typeof definition.url === 'string' &&
+      definition.url.length > 0) ||
+      (definition.type === 'local' &&
+        Array.isArray(definition.command) &&
+        definition.command.length > 0 &&
+        definition.command.every((part) => typeof part === 'string')))
+  )
+}
+
+/** Compare execution definitions in the host. Only ids, defaults and limitations leave here. */
+export async function openCodeMcpScope(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  profile: Record<string, unknown>
+): Promise<{ defaults: Record<string, boolean>; restricted: Set<string>; nativeIds: string[] }> {
+  const [global, effective] = await Promise.all([
+    configuredOpenCode(homedir(), env, true),
+    configuredOpenCode(cwd, env)
+  ])
+  const defaults: Record<string, boolean> = Object.create(null)
+  const restricted = new Set<string>()
+  for (const [id, definition] of global.definitions) {
+    const local = effective.definitions.get(id)
+    const override = isRecord(profile.mcp) ? profile.mcp[id] : undefined
+    const sameOverride =
+      override === undefined ||
+      (isRecord(override) &&
+        Object.entries(override).every(
+          ([key, value]) =>
+            key === 'enabled' || (!!definition && isDeepStrictEqual(definition[key], value))
+        ))
+    if (!identifiableMcp(definition) || !sameOverride || !isDeepStrictEqual(definition, local)) {
+      restricted.add(id)
+      continue
+    }
+    defaults[id] =
+      isRecord(override) && typeof override.enabled === 'boolean'
+        ? override.enabled
+        : (effective.items.find((item) => item.kind === 'mcp' && item.id === id)?.enabled ?? false)
+  }
+  return { defaults, restricted, nativeIds: [...effective.definitions.keys()] }
+}
+
 export async function globalOpenCodeResources(
   env: NodeJS.ProcessEnv = process.env,
   home = homedir()
@@ -120,7 +181,12 @@ export async function globalOpenCodeResources(
   const result = await configuredOpenCode(home, env, true)
   return result.items.map((item) => ({
     ...item,
-    canToggle: item.kind === 'mcp',
+    canToggle: item.kind === 'mcp' && identifiableMcp(result.definitions.get(item.id)),
+    ...(item.kind === 'plugin'
+      ? { controlReason: 'OpenCode SDK에서 플러그인 실행 상태를 확인하거나 전환할 수 없습니다.' }
+      : !identifiableMcp(result.definitions.get(item.id))
+        ? { controlReason: '전역 MCP의 실행 대상을 확인할 수 없습니다.' }
+        : {}),
     canOpen: result.files.has(item.id)
   }))
 }

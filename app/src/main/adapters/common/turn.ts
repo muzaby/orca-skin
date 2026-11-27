@@ -23,6 +23,9 @@ import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
 
+/** The SDK has not received this input. Its live channel can accept a later retry. */
+export class McpAdmissionError extends Error {}
+
 // pending message flush 배치 계약 — 어댑터가 턴 프롬프트/프렐류드(0067)로 받아 자기
 // 입력 채널로 주입한다. 구조 페이로드(0067 AC5): 첨부
 // 추출분은 어댑터가 content 블록으로 굽고, attachmentViews 는 커밋 시 표시/영속용으로 흐른다.
@@ -119,6 +122,8 @@ export interface TurnExtensions {
 // 적용한 뒤 content를 입력 채널로 push한다. providerSettings/extensions는 spawn에 묶여
 // 여기 없으며 변경 시 respawn한다.
 export interface TurnContinuation {
+  canSubmit?: () => boolean
+  signal?: AbortSignal
   harnessAgent?: string
   modelVariant?: string
   text: string

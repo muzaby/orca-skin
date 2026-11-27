@@ -191,6 +191,7 @@ interface HistorySelection {
   view?: SearchWindow
 }
 export interface SessionEntry {
+  unsubmittedAttachments?: Record<string, ComposerAttachment[]>
   search?: HistorySelection
   history?: SessionPaging
   clientKey?: string
@@ -235,6 +236,7 @@ export interface ChatStoreState {
     seq: number
     text: string
     mode?: ComposerDraftUpdate['mode']
+    attachments?: ComposerAttachment[]
   } | null
   // 세션 열기 진입 의도(EP-11 ⑧ · D-074) — loadSession 으로 활성 세션이 바뀔 때만 기록하고 뷰포트가 한 번 소비.
   entryIntent: EntryIntent | null
@@ -732,15 +734,30 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
   })
 }
 
+function takeUnsubmittedAttachments(key: string, ids: string[]): ComposerAttachment[] {
+  const all = getState().sessions[key]?.unsubmittedAttachments
+  if (!all) return []
+  const items = ids.flatMap((id) => all[id] ?? [])
+  if (!items.length) return []
+  const remaining = { ...all }
+  for (const id of ids) delete remaining[id]
+  patchEntry(key, (entry) => ({ ...entry, unsubmittedAttachments: remaining }))
+  return items
+}
+
 function sendNewChatPayload(payload: SendChatMessage): void {
-  void chatApi.send(payload).catch((err) =>
-    reportError({
-      event: 'chat.new-send.rejected',
-      scope: 'chat',
-      title: 'sendFailed',
-      error: err
-    })
-  )
+  void chatApi.send(payload).catch((error) => {
+    if (payload.clientKey && payload.clientRequestId) {
+      ingestChatEvent({
+        type: 'message.cancelled',
+        sessionId: payload.clientKey,
+        ids: [payload.clientRequestId]
+      })
+      dispatchTo(payload.clientKey, { type: 'CANCEL_CHAT' })
+      releaseNewChatGate(payload.clientKey)
+    }
+    reportError({ event: 'chat.new-send.rejected', scope: 'chat', title: 'sendFailed', error })
+  })
 }
 
 // 새 대화 전송의 직렬화 판정 — 준비 중인 새 대화가 없으면 바로 보내고, 있으면 큐에 선다.
@@ -1034,6 +1051,7 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'message.committed':
+      takeUnsubmittedAttachments(key, ev.ids)
       patchEntry(key, (entry) => {
         const session = chatReducer(entry.session, {
           type: 'APPEND_COMMITTED_USER_MESSAGE',
@@ -1103,12 +1121,15 @@ function receive(ev: NormalizedEvent): void {
         dispatchTo(key, { type: 'DROP_UNCOMMITTED_USER', clientId: bubble.clientId! })
       }
       const texts = [...bubbles.map(userBubbleText), ...present.map((item) => item.text)]
-      if (texts.length > 0) {
+      const attachments = takeUnsubmittedAttachments(key, ev.ids)
+      if (texts.length > 0 || attachments.length > 0) {
         setState({
           draftRestore: {
             key,
             seq: nextComposerDraftSequence(),
-            text: texts.join('\n\n')
+            text: texts.join('\n\n'),
+            mode: 'append',
+            ...(attachments.length ? { attachments } : {})
           }
         })
       }
@@ -1305,6 +1326,7 @@ function send(
       const nextEntry: SessionEntry = {
         ...entry,
         clientKey: draftKey,
+        ...(attachments.length ? { unsubmittedAttachments: { [requestId]: attachments } } : {}),
         // 낙관 커밋(0068) — 첫 메시지가 즉시 정식 버블로 서고 랜딩→transcript 전환을
         // 트리거한다. echo 커밋(message.committed)은 clientId 멱등으로 합류만 한다.
         session: chatReducer(chatReducer(entry.session, { type: 'BEGIN_TURN' }), {
@@ -1361,6 +1383,11 @@ function send(
   ) {
     return false
   }
+  if (attachments.length)
+    patchEntry(sendKey, (entry) => ({
+      ...entry,
+      unsubmittedAttachments: { ...entry.unsubmittedAttachments, [requestId]: attachments }
+    }))
   if (!queueAsPending) {
     // 턴을 여는 send — 잔여 라이브 버퍼 제거 + inflight 전이 + **낙관 커밋**(0068): 정식
     // user 버블이 즉시 서서 다음 어시스턴트 스트림이 올바른 턴 경계 아래로 흐른다. echo
@@ -1408,11 +1435,8 @@ function send(
       clientRequestId: requestId
     })
     .catch((err) => {
-      if (busy) {
-        patchPendingSteer(sendKey, (pending) => pending.filter((item) => item.id !== requestId))
-      } else {
-        dispatchTo(sendKey, { type: 'DROP_UNCOMMITTED_USER', clientId: requestId })
-      }
+      ingestChatEvent({ type: 'message.cancelled', sessionId: sendKey, ids: [requestId] })
+      if (!busy) dispatchTo(sendKey, { type: 'CANCEL_CHAT' })
       reportError({ event: 'chat.send.rejected', scope: 'chat', title: 'sendFailed', error: err })
     })
   return true

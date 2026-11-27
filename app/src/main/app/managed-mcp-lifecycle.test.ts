@@ -152,7 +152,15 @@ it('shares generations and releases only owned resources', async () => {
     expect(JSON.stringify(connected)).not.toContain('secret-0288-lifecycle')
     users = {}
     managed.source.refresh()
-    expect((await b.mcp(new AbortController().signal)).map((item) => item.id)).toEqual(['native'])
+    const observed = await b.mcp(new AbortController().signal)
+    expect(observed.find((item) => item.managedSource?.kind === 'user')).toMatchObject({
+      enabled: false,
+      status: 'connected'
+    })
+    expect(observed.find((item) => item.managedSource?.kind === 'builtin')).toMatchObject({
+      enabled: true,
+      status: 'connected'
+    })
     c = await adapter.client({}, env, 'C:/orcinus-orca-managed-mcp-C')
     expect(profiles.size).toBe(2)
     expect([...profiles.values()][0].owners).toBe(1)

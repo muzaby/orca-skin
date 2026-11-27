@@ -3,11 +3,22 @@ import type { NativeResource } from '../../../shared/native-resources'
 
 /** Only explicit Orcinus orca choices. Native defaults are read by each harness, never copied here. */
 export interface ExtensionControl {
+  deploymentRevision?(): number
   global(backend: Backend): Record<string, boolean>
 }
 
 export function extensionChoiceKey(kind: NativeResource['kind'], id: string): string {
   return `${kind}:${id}`
+}
+
+export function managedChoiceKey(kind: 'builtin' | 'user', sourceId: string): string {
+  return `managed:${kind}:${sourceId}`
+}
+
+export function resourceChoiceKey(item: NativeResource): string {
+  return item.managedSource
+    ? managedChoiceKey(item.managedSource.kind, item.managedSource.sourceId)
+    : extensionChoiceKey(item.kind, item.name)
 }
 
 export function extensionChoices(

@@ -1,3 +1,5 @@
+import type { NativeResource } from '../../shared/native-resources'
+import { managedChoiceKey } from '../adapters/common/extension-control'
 import type { McpStore } from '../features/extensions/common/mcp/store'
 import { createManagedMcpSource } from '../features/extensions/common/mcp/managed-source'
 import { ManagedMcpBridge } from '../features/extensions/common/mcp/bridge'
@@ -10,6 +12,7 @@ export function createManagedMcp(
   plugins: readonly PluginBinding[]
 ): {
   source: ReturnType<typeof createManagedMcpSource>
+  catalog(): NativeResource[]
   mcpBridge: ManagedMcpBridge
 } {
   const source = createManagedMcpSource({
@@ -40,5 +43,44 @@ export function createManagedMcp(
       }))
   })
   source.refresh()
-  return { source, mcpBridge: new ManagedMcpBridge(source) }
+  return {
+    source,
+    mcpBridge: new ManagedMcpBridge(source),
+    catalog: () => {
+      const all = mcp.executionDefinitions?.()
+      const users = Object.keys(all?.definitions ?? mcp.enabledConfig())
+      const item = (
+        kind: 'builtin' | 'user',
+        sourceId: string,
+        name: string,
+        selected: boolean,
+        authorized: boolean
+      ): NativeResource => ({
+        id: managedChoiceKey(kind, sourceId),
+        name,
+        kind: 'mcp',
+        origin: 'orcinus-orca',
+        managedSource: { kind, sourceId },
+        canOpen: false,
+        canToggle: true,
+        enabled: selected && authorized,
+        selected,
+        status: !authorized ? 'needs-auth' : selected ? 'configured' : 'disabled'
+      })
+      return [
+        ...plugins
+          .filter((p) => p.server.descriptor.executionScope === 'application')
+          .map((p) =>
+            item(
+              'builtin',
+              p.auth.authId,
+              p.catalog.title?.ko ?? p.auth.authId,
+              true,
+              p.auth.snapshot().status === 'valid'
+            )
+          ),
+        ...users.map((id) => item('user', id, id, all?.desired[id] ?? true, true))
+      ]
+    }
+  }
 }

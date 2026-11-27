@@ -384,7 +384,7 @@ describe('OpenCode submission through the production queue and session runtime',
     }
   })
 
-  it('IT-02: forwards waitPhase sequence [server, project, session, mcp, send, model, null] on 1st turn and omits server on 2nd turn', async () => {
+  it('IT-02: forwards waitPhase sequence [server, project, mcp, session, send, model, null] on 1st turn and omits server on 2nd turn', async () => {
     const { adapter, runtime } = fixture()
     expect(adapter.reportsWaitPhases).toBe(true)
     const setWaitPhase = vi.fn()
@@ -394,8 +394,8 @@ describe('OpenCode submission through the production queue and session runtime',
       expect(setWaitPhase.mock.calls.map(([key, phase]) => [key, phase])).toEqual([
         ['draft', { kind: 'server' }],
         ['draft', { kind: 'project' }],
-        ['draft', { kind: 'session' }],
         ['draft', { kind: 'mcp' }],
+        ['draft', { kind: 'session' }],
         ['draft', { kind: 'send' }],
         ['draft', { kind: 'model' }],
         ['draft', null]

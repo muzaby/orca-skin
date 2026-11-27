@@ -19,6 +19,7 @@ import type { SettingsStore } from '../../../../infra/settings-store'
 import { readMcpFile, writeMcpFile } from './file'
 import type { SecretStore } from '../../../../infra/config/secret-store'
 import type { Resolver } from '../../../../infra/vars'
+import { managedChoiceKey } from '../../../../adapters/common/extension-control'
 import { VAR_RE } from '../../../../infra/vars'
 import { makeResolver } from './resolver'
 import { secretEnvAllowlist } from '../../../../infra/config/oo-config'
@@ -235,7 +236,12 @@ export class McpStore {
     }
     enabled[nextName] = data.enabled ?? wasEnabled
     meta[nextName] = { description: data.description ?? prevDesc }
-    const patched = this.settings.patch({ mcpEnabled: enabled, mcpMeta: meta })
+    const patched = this.settings.patch(
+      { mcpEnabled: enabled, mcpMeta: meta },
+      nextName !== prevName
+        ? { from: managedChoiceKey('user', prevName), to: managedChoiceKey('user', nextName) }
+        : undefined
+    )
 
     return this.toDto(nextName, source, patched)
   }
@@ -257,7 +263,10 @@ export class McpStore {
     const meta = { ...s.mcpMeta }
     delete enabled[id]
     delete meta[id]
-    this.settings.patch({ mcpEnabled: enabled, mcpMeta: meta })
+    this.settings.patch(
+      { mcpEnabled: enabled, mcpMeta: meta },
+      { from: managedChoiceKey('user', id) }
+    )
   }
 
   // 같은 env-var 를 다른 서버가 참조하지 않을 때만 비밀을 삭제(공유 토큰 보호).

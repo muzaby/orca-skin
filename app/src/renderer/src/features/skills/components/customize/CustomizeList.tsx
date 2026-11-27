@@ -1,3 +1,4 @@
+import { catalogResourceKey } from '../../../../../../shared/native-resources'
 import type { McpServer, ProviderInfo, SkillInfo } from '../../../../../../shared/ipc'
 import { useI18n } from '../../../../shared/i18n'
 import { CatalogListRow } from '../../../../shared/ui/CatalogListRow'
@@ -18,7 +19,7 @@ import {
 import { SourceHeading } from './SourceHeading'
 import type { NativeResource } from '../../../../../../shared/native-resources'
 import type { Backend } from '../../../../../../shared/ipc'
-import { CatalogToggle } from './CatalogToggle'
+import { ExtensionChoice, type CatalogEntry } from './ExtensionChoice'
 
 export function CustomizeList({
   tab,
@@ -29,10 +30,10 @@ export function CustomizeList({
   selectedId,
   nativeMcp = [],
   nativeLocked,
-  onNativeMcp,
+  failedWrites,
   onNativeToggle,
   onSkillToggle,
-  onMcpToggle,
+
   suppressEmpty = false,
   onSelect
 }: {
@@ -45,10 +46,13 @@ export function CustomizeList({
   nativeMcp?: { backend: Backend; resource: NativeResource }[]
   /** Harnesses whose native toggle is in flight. */
   nativeLocked?: ReadonlySet<Backend>
-  onNativeMcp?: (backend: Backend, resource: NativeResource) => void
-  onNativeToggle?: (backend: Backend, resource: NativeResource) => void | Promise<void>
+  failedWrites?: ReadonlyMap<string, boolean>
+  onNativeToggle?: (
+    backend: Backend,
+    resource: NativeResource,
+    desired?: boolean
+  ) => void | Promise<void>
   onSkillToggle?: (skill: SkillInfo) => void | Promise<void>
-  onMcpToggle?: (server: McpServer) => void | Promise<void>
   suppressEmpty?: boolean
   onSelect: (id: string, origin: HTMLButtonElement) => void
 }): React.JSX.Element {
@@ -67,7 +71,9 @@ export function CustomizeList({
   const nativeRows = nativeMcp
     .filter(
       ({ resource }) =>
-        tab !== 'skills' && resource.kind === (tab === 'providers' ? 'plugin' : 'mcp')
+        !resource.managedSource &&
+        tab !== 'skills' &&
+        resource.kind === (tab === 'providers' ? 'plugin' : 'mcp')
     )
     .sort((a, b) => Number(a.backend === 'opencode') - Number(b.backend === 'opencode'))
   const emptyKey =
@@ -97,6 +103,22 @@ export function CustomizeList({
       />
     )
 
+  const choice = (entry: CatalogEntry): React.JSX.Element => (
+    <ExtensionChoice
+      key={`${entry.backend}:${entry.resource.kind}:${entry.resource.id}`}
+      entry={entry}
+      locked={nativeLocked?.has(entry.backend)}
+      failedTarget={failedWrites?.get(catalogResourceKey(entry.backend, entry.resource))}
+      onToggle={onNativeToggle}
+    />
+  )
+  const managed = (kind: 'builtin' | 'user', id: string): React.JSX.Element[] =>
+    nativeMcp
+      .filter(
+        ({ resource }) =>
+          resource.managedSource?.kind === kind && resource.managedSource.sourceId === id
+      )
+      .map(choice)
   const nativeList = nativeRows.map(({ backend, resource }, index) => (
     <Fragment key={`${backend}:${resource.id}`}>
       {nativeRows[index - 1]?.backend !== backend && (
@@ -109,8 +131,8 @@ export function CustomizeList({
       <CatalogListRow
         data-extensions-row={`${backend}:${resource.id}`}
         openProps={{
-          disabled: resource.canOpen === false,
-          onClick: () => onNativeMcp?.(backend, resource)
+          onClick: (event) =>
+            onSelect(`native:${backend}:${resource.kind}:${resource.id}`, event.currentTarget)
         }}
         icon={
           <Icon name={resource.kind === 'mcp' ? 'mcp' : 'doc'} size={20} className="text-ink3" />
@@ -123,20 +145,7 @@ export function CustomizeList({
             {resource.name}
           </span>
         }
-        trailing={
-          <span className="text-caption text-ink3">
-            {tr(`chat.nativeResources.${resource.status}`)}
-          </span>
-        }
-        actions={
-          <CatalogToggle
-            name={resource.name}
-            enabled={resource.enabled}
-            canToggle={resource.canToggle}
-            locked={nativeLocked?.has(backend) ?? false}
-            onToggle={() => onNativeToggle?.(backend, resource)}
-          />
-        }
+        actions={choice({ backend, resource })}
       />
     </Fragment>
   ))
@@ -164,17 +173,7 @@ export function CustomizeList({
               detail={
                 <span className="truncate text-caption uppercase text-ink3">{meta.transport}</span>
               }
-              trailing={
-                <span className="shrink-0 text-caption text-ink3">{tr(meta.statusKey)}</span>
-              }
-              actions={
-                <CatalogToggle
-                  name={server.name}
-                  enabled={server.enabled}
-                  canToggle
-                  onToggle={() => onMcpToggle?.(server)}
-                />
-              }
+              actions={managed('user', server.id)}
             />
           )
         })}
@@ -206,6 +205,7 @@ export function CustomizeList({
                   {detail}
                 </span>
               }
+              actions={managed('builtin', provider.id)}
               trailing={
                 <span className="shrink-0 text-caption text-ink3">{tr(meta.statusKey)}</span>
               }

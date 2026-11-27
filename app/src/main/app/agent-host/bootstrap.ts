@@ -13,7 +13,8 @@ import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import type { HostToShell } from '../../../shared/host-protocol'
 import { parseAgentKind } from '../../../shared/agent-kind'
-import type { Backend, DebugMockState, NormalizedEvent, SkillInfo } from '../../../shared/ipc'
+import type { DebugMockState, NormalizedEvent, SkillInfo } from '../../../shared/ipc'
+import { resourceQuery } from '../../adapters/common/resource-query'
 import { loadClaudeSdk } from '../../adapters/claude/sdk'
 import { claudeNativePaths } from '../../adapters/claude/native-paths'
 import {
@@ -47,7 +48,7 @@ import { TypedBus } from '../../infra/bus'
 import { nativeFileMutations } from '../../infra/config/file-mutation'
 import { FingerprintWatch } from '../../infra/config/fingerprint-watch'
 import { managedWorktreesDir, sourcesSkillsDir } from '../../infra/config/paths'
-import { PluginSnapshots } from '../../infra/config/plugin-snapshots'
+import { cleanupLegacyPluginCopies } from '../../infra/config/legacy-plugin-copies'
 import { errorReportHub, reportError } from '../../infra/error-report'
 import { hostEnvironment } from '../../infra/host-environment'
 import {
@@ -68,7 +69,6 @@ import { shellServices } from '../../infra/shell-services'
 import { createBootReportRecorder } from '../boot-report'
 import { resolveWorkProfilePluginDir } from '../builtin-resources'
 import { registerChatHandlers } from '../chat-turn'
-import { discardSessionWork } from '../chat-turn/discard'
 import { createComposerPreparation } from '../composer-preparation'
 import type { ComposerPreparationService } from '../composer-preparation-service'
 import { harnessConfigPort, type AgentContext, type DataPort } from '../context'
@@ -79,7 +79,6 @@ import { registerGitHandlers } from '../handlers/git'
 import { registerMiscHandlers } from '../handlers/misc'
 import { registerSessionResourceHandlers } from '../handlers/session-resources'
 import { createHostHarnessPort } from '../harness-host'
-import { createClaudeProcessReset } from '../harnesses/claude/processes'
 import { OpenCodeGlobalWatch } from '../harnesses/opencode/global-watch'
 import { OpenCodeMcpReconcile } from '../harnesses/opencode/mcp-reconcile'
 import type { PreparedMcpResources } from '../harnesses/opencode/prepared-mcp-resources'
@@ -134,9 +133,6 @@ export class AgentBootstrap implements HostAssembly {
   private readonly remoteTools
   private readonly remoteMcp
   private readonly lifecycle: LifecycleEmitter
-  private readonly pluginSnapshots = new PluginSnapshots(
-    join(this.dataDirectory, 'runtime-plugins')
-  )
   private readonly extensionChoices
   private readonly registry
   private readonly debugMock: DebugMockState = {
@@ -253,14 +249,10 @@ export class AgentBootstrap implements HostAssembly {
     })
     // 설정 사본은 준비 뒤 피어 포트로 온다 — 만들 때 읽지 않고, 사본이 바뀌면 다시 읽는다.
     this.extensionChoices = extensionControl({
+      deploymentRevision: () => this.deployment?.revision ?? 0,
       get: () => this.mirror.getAll().nativeExtensionChoices,
-      set: (choices) => void this.mirror.patch({ nativeExtensionChoices: choices }),
-      onChanged: (listener) => {
-        this.mirror.onReplaced(() => listener())
-        this.mirror.onPatch((_next, changedKeys) => {
-          if (changedKeys.includes('nativeExtensionChoices')) listener()
-        })
-      }
+      setChoice: (backend, key, enabled) =>
+        this.data.write.setNativeExtensionChoice(backend, key, enabled)
     })
     this.registry = createAdapterRegistry({
       managedMcp: {
@@ -272,16 +264,14 @@ export class AgentBootstrap implements HostAssembly {
       preferences: (harnessId) =>
         this.mirror.ready() ? this.mirror.getAll().harnesses?.[harnessId] : undefined,
       fetchImpl: netFetch,
-      extensionControl: this.extensionChoices,
-      pluginSnapshots: this.pluginSnapshots
+      extensionControl: this.extensionChoices
     })
     this.prepareShutdown = nativeSettingsShutdown({
       freeze: () => this.pendingMessages?.freeze(),
       drain: async () => {
         await Promise.all([nativeFileMutations.close(), this.deployment?.close()])
       },
-      shutdown: () => this.stopRuntimes(),
-      cleanup: () => this.pluginSnapshots.close()
+      shutdown: () => this.stopRuntimes()
     })
   }
 
@@ -347,8 +337,9 @@ export class AgentBootstrap implements HostAssembly {
     await this.data.write.extensionsDeployed()
   }
 
-  private async ensureExtensionsDeployedForTurn(): Promise<void> {
+  private async ensureExtensionsDeployedForTurn(backend?: string): Promise<void | (() => void)> {
     await this.refreshDataCopies()
+    if (backend === 'claude') return this.deployment?.acquireForTurn()
     await this.deployment?.ensureDeployed()
   }
 
@@ -402,7 +393,7 @@ export class AgentBootstrap implements HostAssembly {
         appPath: hostEnvironment().appPath
       }),
       deployExtensions: (options) => this.deployExtensions(options),
-      ensureExtensionsDeployedForTurn: () => this.ensureExtensionsDeployedForTurn(),
+      ensureExtensionsDeployedForTurn: (backend) => this.ensureExtensionsDeployedForTurn(backend),
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null,
       data: this.data,
@@ -415,6 +406,7 @@ export class AgentBootstrap implements HostAssembly {
   private extensions?: ExtensionBuilder
 
   async start(): Promise<Extract<HostToShell, { type: 'ready' }>> {
+    await cleanupLegacyPluginCopies(this.dataDirectory)
     const installation = this.bootReport.step(
       'adapter-registry',
       { critical: true, label: '어댑터 설치 상태 갱신' },
@@ -439,8 +431,7 @@ export class AgentBootstrap implements HostAssembly {
         enabledConfig: () => this.mcpResolution.config,
         resolver: () => (name) => this.mcpResolution.values[name]
       },
-      () => this.skillRoots(),
-      (roots) => this.pluginSnapshots.publish(roots)
+      () => this.skillRoots()
     )
     this.register()
     // 데이터 호스트가 필요한 기동 일 — 연결될 때마다(첫 연결에서 배포).
@@ -603,13 +594,12 @@ export class AgentBootstrap implements HostAssembly {
     this.closeComposerCatalog = preparation.close
     const preparedMcp = (this.preparedMcpResources = preparation.resources)
     this.stops.push(
-      this.remoteMcp.subscribe((revision, kind) => {
-        if (kind !== 'connections') {
-          this.registry.get('opencode')?.extensionsChanged?.()
-          this.closeComposerCatalog?.invalidate()
-          preparedMcp.invalidate()
-        } else this.openCodeMcpReconcile?.changed()
+      this.remoteMcp.subscribe((revision) => {
+        // Live directories register new definitions at their own idle boundary.
+        this.openCodeMcpReconcile?.changed()
         broadcastManagedMcpChanged(revision)
+        broadcastExtensionsChanged({ backend: 'claude' })
+        broadcastExtensionsChanged({ backend: 'opencode' })
       })
     )
     const resolveResourceTarget = (request: ResourceRequest): ProjectResourceTarget | undefined => {
@@ -762,29 +752,24 @@ export class AgentBootstrap implements HostAssembly {
     })
     registerExtensionCatalogHandlers(
       this.extensionChoices,
-      createClaudeProcessReset({
-        supervisor,
-        backendOf: (sessionId) => this.sessionMeta.get(sessionId)?.backend as Backend | undefined,
-        // 계획은 동기다 — 계획 전에 이 호스트가 가진 세션의 사본을 채운다.
-        prepare: () => this.sessionMeta.ensure(this.heldSessions()),
-        activity: (sessionId) => activity.current(sessionId),
-        discardSession: (sessionId) =>
-          discardSessionWork(
-            { activity, supervisor, pendingMessages },
-            sessionId,
-            broadcastChatEvent
-          ),
-        failed: (error) =>
-          reportError({
-            event: 'extensions.claude-processes.close-failed',
-            scope: 'native-resources',
-            title: 'claudeSessionsCloseFailed',
-            error
-          })
-      }),
       (backend) => {
         if (backend === 'opencode') this.openCodeMcpReconcile?.changed()
         broadcastExtensionsChanged({ backend })
+      },
+      () => this.data.query.managedExtensionCatalog(),
+      async (backend) => {
+        const entries = supervisor.runtimeEntries()
+        await this.sessionMeta.ensure(entries.map((entry) => entry.sessionId))
+        return Promise.all(
+          entries
+            .filter(({ sessionId }) => this.sessionMeta.get(sessionId)?.backend === backend)
+            .map(async ({ sessionId, runtime }) => ({
+              sessionId,
+              items: (
+                await resourceQuery(async () => runtime.nativeResources?.()).catch(() => undefined)
+              )?.items
+            }))
+        )
       }
     )
     registerGitHandlers({

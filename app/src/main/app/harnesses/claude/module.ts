@@ -22,9 +22,7 @@ export const claudeMainModule: MainHarnessModule = {
   },
   ...claudeConfigModule,
   createAdapter: (options) =>
-    new ClaudeAdapter(options.extensionControl, options.pluginSnapshots, () =>
-      options.preferences('claude')
-    ),
+    new ClaudeAdapter(options.extensionControl, () => options.preferences('claude')),
   globalResources: globalClaudeResources,
   globalResourcePath: globalClaudeResourcePath,
   readUserSettings: readUserClaudeSettings,

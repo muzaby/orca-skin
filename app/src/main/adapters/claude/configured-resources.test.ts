@@ -1,3 +1,4 @@
+import { observeClaudePluginNames } from './plugin-observations'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -52,7 +53,7 @@ describe('configured Claude resources', () => {
     const resources = await globalClaudeResources(paths)
     expect(resources).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: 'docs', enabled: true, canToggle: false }),
+        expect.objectContaining({ name: 'docs', enabled: true, canToggle: true }),
         expect.objectContaining({ name: 'superpowers@market', enabled: false, canToggle: true })
       ])
     )
@@ -242,7 +243,7 @@ it('lists every applicable install independently of flags, uses path boundaries 
   expect(await configuredClaudeResources(cwd, paths)).toEqual([])
 })
 
-it('applies Orcinus orca plugin choices above user defaults and below project selections', async () => {
+it('applies Orcinus orca plugin choices over user, project and local selections', async () => {
   const plugin = join(temp, 'fixture')
   await json(join(plugin, '.claude-plugin/plugin.json'), { name: 'fixture' })
   await json(join(paths.root, 'plugins/installed_plugins.json'), {
@@ -252,7 +253,7 @@ it('applies Orcinus orca plugin choices above user defaults and below project se
   const choice = { 'plugin:fixture@market': false, 'mcp:fixture@market': true }
   expect((await configuredClaudeResources(cwd, paths, false, choice))[0].enabled).toBe(false)
   await json(join(cwd, '.claude/settings.json'), { enabledPlugins: { 'fixture@market': true } })
-  expect((await configuredClaudeResources(cwd, paths, false, choice))[0].enabled).toBe(true)
+  expect((await configuredClaudeResources(cwd, paths, false, choice))[0].enabled).toBe(false)
   await json(join(cwd, '.claude/settings.local.json'), {
     enabledPlugins: { 'fixture@market': false }
   })
@@ -371,4 +372,22 @@ describe('Claude settings read policy at every configured-resource reader site',
     })
     expect(JSON.stringify(report)).not.toContain(SECRET)
   })
+})
+
+it('allows a nameless manifest only after an unambiguous SDK observation of that installation', async () => {
+  const path = join(temp, 'v1')
+  const other = join(temp, 'v2')
+  await json(join(path, '.claude-plugin/plugin.json'), {})
+  await json(join(other, '.claude-plugin/plugin.json'), {})
+  const registry = join(paths.root, 'plugins/installed_plugins.json')
+  const install = (installPath: string) => [{ scope: 'user', installPath }]
+  await json(registry, { plugins: { 'a@registry': install(path) } })
+  expect((await globalClaudeResources(paths))[0].canToggle).toBe(false)
+  observeClaudePluginNames([{ name: 'sdk-name', path }])
+  expect((await globalClaudeResources(paths))[0].canToggle).toBe(true)
+  await json(registry, { plugins: { 'a@registry': install(other) } })
+  expect((await globalClaudeResources(paths))[0].canToggle).toBe(false)
+  await json(registry, { plugins: { 'a@registry': install(path), 'b@registry': install(other) } })
+  observeClaudePluginNames([{ name: 'sdk-name', path: other }])
+  expect((await globalClaudeResources(paths)).map((row) => row.canToggle)).toEqual([false, false])
 })

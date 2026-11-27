@@ -794,11 +794,13 @@ const NativeExtensionChoicesSchema = z.object({
 export const GlobalNativeResourcesSchema = z.object({ backend: BackendSchema })
 export const GlobalNativeResourceTargetSchema = GlobalNativeResourcesSchema.extend({
   id: z.string().min(1).max(4096),
-  kind: z.enum(['mcp', 'plugin'])
+  kind: z.enum(['mcp', 'plugin']),
+  managedSource: z
+    .object({ kind: z.enum(['builtin', 'user']), sourceId: z.string().min(1).max(4096) })
+    .optional()
 })
 export const SetGlobalNativeResourceSchema = GlobalNativeResourceTargetSchema.extend({
-  enabled: z.boolean(),
-  confirmed: z.literal(true).optional()
+  enabled: z.boolean()
 })
 
 export const SettingsSchema = z.object({
@@ -831,6 +833,7 @@ export const SettingsSchema = z.object({
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),
   nativeExtensionChoices: NativeExtensionChoicesSchema.optional(),
+  nativeExtensionRevision: z.number().int().nonnegative().optional(),
   authBypass: z.boolean().default(false),
   // 선호 언어 — LLM 응답 언어. 시스템 프롬프트 '# User' 헤더의 Preferred language 로
   // 매 턴 주입된다(ExtensionBuilder). UI 표시 언어(uiLocale)와 별개 개념.

@@ -247,6 +247,7 @@ export async function handleChatSend(
 
   let leaderTurn: TurnContext<ClientRef> | null = null
   let leaderRuntime: SessionRuntime | null = null
+  let releaseExtensions: void | (() => void) = undefined
   let cleanupDone = false
   let initialBatches: SteerFlushBatch[] = []
   let onOwnerGone: (() => void) | null = null
@@ -515,7 +516,7 @@ export async function handleChatSend(
     // ── 9. 확장 배포 보장 + owner 소멸 감시 교체 ────────────────────────────
     // plugin 배포는 query 호출 전 최신성을 멱등 보장한다. 활성/비활성 토글은 파일 삭제가
     // 아니라 런타임 options.skills 필터로 반영한다.
-    await ctx.ensureExtensionsDeployedForTurn()
+    releaseExtensions = await ctx.ensureExtensionsDeployedForTurn(activeAdapter.id)
     if (lease.controller.signal.aborted) return
 
     const wc = event.sender
@@ -750,10 +751,11 @@ export async function handleChatSend(
           if (pendingMessages.cancel(finalSessionId ?? queueKey, id)) returnedIds.push(id)
         }
       }
-      if (finalSessionId && returnedIds.length > 0) {
+      const returnKey = finalSessionId ?? payload.clientKey
+      if (returnKey && returnedIds.length > 0) {
         sendChatEvent(wc, {
           type: 'message.cancelled',
-          sessionId: finalSessionId,
+          sessionId: returnKey,
           ids: returnedIds
         })
       }
@@ -773,6 +775,7 @@ export async function handleChatSend(
     })
   } finally {
     // 등록 뒤 요청 조립이 실패해 실행 try에 못 들어가도 체인 스코프에서 회수한다.
+    releaseExtensions?.()
     unwatchOwner()
     unwatchPreparing()
     unlinkResponseAbort()
@@ -783,10 +786,11 @@ export async function handleChatSend(
         pendingMessages.rollback(key, batch.uuid)
       }
       const restored = pendingMessages.cancelAllHeld(key)
-      if (restored.length > 0 && payload.sessionId) {
+      const returnKey = payload.sessionId ?? payload.clientKey
+      if (restored.length > 0 && returnKey) {
         sendChatEvent(event.sender, {
           type: 'message.cancelled',
-          sessionId: payload.sessionId,
+          sessionId: returnKey,
           ids: restored.map((item) => item.id)
         })
       }

@@ -6,7 +6,8 @@ import { expect, it } from 'vitest'
 import {
   configuredOpenCodePluginSkillDirectories,
   configuredOpenCodeResources,
-  globalOpenCodeResources
+  globalOpenCodeResources,
+  openCodeMcpScope
 } from './configured-resources'
 import { openCodeDiscovery } from './discovery-cache'
 
@@ -19,7 +20,7 @@ it('discovers global config.json and excludes the default workspace and its .ope
     await writeFile(
       join(global, 'config.json'),
       JSON.stringify({
-        mcp: { docs: { enabled: false, url: 'PRIVATE_URL' } },
+        mcp: { docs: { type: 'remote', enabled: false, url: 'PRIVATE_URL' } },
         plugin: ['plugin-global']
       })
     )
@@ -111,6 +112,70 @@ it('retains plugin skill roots through cached metadata and refreshes removed ins
     await rm(plugin, { recursive: true })
     openCodeDiscovery.invalidate()
     expect(await configuredOpenCodePluginSkillDirectories(root, env)).toEqual([])
+  } finally {
+    openCodeDiscovery.invalidate()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+it('compares global and directory targets before the startup override, including enabled-only and ambiguous declarations', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mcp-provenance-'))
+  try {
+    const env = { XDG_CONFIG_HOME: join(root, 'config') }
+    const global = join(env.XDG_CONFIG_HOME, 'opencode', 'config.json')
+    await mkdir(dirname(global), { recursive: true })
+    await writeFile(
+      global,
+      JSON.stringify({
+        mcp: {
+          docs: { type: 'remote', url: 'https://G', headers: { Authorization: 'private-token' } },
+          helper: { type: 'local', command: ['native', '--G'], environment: { variant: 'A' } },
+          ambiguous: { enabled: false }
+        }
+      })
+    )
+    const cwdA = join(root, 'A'),
+      cwdB = join(root, 'B')
+    for (const cwd of [cwdA, cwdB]) await mkdir(join(cwd, '.git'), { recursive: true })
+    await writeFile(
+      join(cwdA, 'opencode.json'),
+      JSON.stringify({
+        mcp: {
+          docs: { type: 'remote', url: 'https://P' },
+          helper: { environment: { variant: 'B' } }
+        }
+      })
+    )
+    await writeFile(
+      join(cwdB, 'opencode.json'),
+      JSON.stringify({
+        mcp: {
+          docs: { enabled: false },
+          helper: { enabled: true }
+        }
+      })
+    )
+    const a = await openCodeMcpScope(cwdA, env, {})
+    const b = await openCodeMcpScope(cwdB, env, {})
+    expect(a.defaults).toEqual({})
+    expect(a.restricted).toEqual(new Set(['docs', 'helper', 'ambiguous']))
+    expect(b.defaults).toEqual({ docs: false, helper: true })
+    expect(b.restricted).toEqual(new Set(['ambiguous']))
+    expect(
+      (
+        await openCodeMcpScope(cwdB, env, {
+          mcp: { docs: { type: 'remote', url: 'https://profile' } }
+        })
+      ).defaults
+    ).toEqual({ helper: true })
+    expect(
+      (
+        await openCodeMcpScope(cwdB, env, {
+          mcp: { docs: { type: 'remote', url: 'https://G', enabled: true } }
+        })
+      ).defaults
+    ).toEqual({ docs: true, helper: true })
+    expect(JSON.stringify(b)).not.toContain('private-token')
   } finally {
     openCodeDiscovery.invalidate()
     await rm(root, { recursive: true, force: true })

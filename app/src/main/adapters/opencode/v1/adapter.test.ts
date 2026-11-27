@@ -81,12 +81,12 @@ it('projects disabled global MCP overrides and connects them through the directo
     expect(f.children).toHaveLength(1)
     expect(f.configs[0].mcp).toEqual({
       native: { enabled: false },
+      disabled: { enabled: false },
       [alias]: { enabled: false },
       [good]: expect.objectContaining({ enabled: false, type: 'local' }),
       [bad]: expect.objectContaining({ enabled: false, type: 'local' })
     })
     expect(f.configs[0].mcp).not.toHaveProperty('projectOnly')
-    expect(f.configs[0].mcp).not.toHaveProperty('disabled')
     expect(await a.mcp(new AbortController().signal)).toEqual([])
     await f.adapter.reconcileConnections()
     expect(f.requests.filter((entry) => entry.path.startsWith('/mcp'))).toEqual([])
@@ -97,12 +97,20 @@ it('projects disabled global MCP overrides and connects them through the directo
     await vi.waitFor(() => expect(a.mcpControl!.connected(good)).toBe(true))
     expect(a.managedMcpMentions).toEqual({ [good]: good })
     snapshot = { ...snapshot, revision: snapshot.revision + 1 }
-    expect(a.managedMcpMentions).toEqual({})
+    expect(a.managedMcpMentions).toEqual({ [good]: good })
     expect(
       a.mapMcpResources!([
         { id: good, name: good, kind: 'mcp', status: 'connected', enabled: true, canToggle: false }
       ])
-    ).toEqual([])
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: good, origin: 'orcinus-orca', status: 'connected' }),
+        expect.objectContaining({
+          managedSource: { kind: 'user', sourceId: 'collision' },
+          controlReason: expect.any(String)
+        })
+      ])
+    )
     snapshot = { ...snapshot, revision: snapshot.revision - 1 }
     expect(a.managedMcpReferences).toEqual({ [good]: good, [bad]: bad })
     expect(
@@ -122,8 +130,7 @@ it('projects disabled global MCP overrides and connects them through the directo
         `/mcp/${alias}/connect`,
         `/mcp/${good}/connect`,
         `/mcp/${bad}/connect`,
-        '/mcp/native/connect',
-        '/mcp/projectOnly/connect'
+        '/mcp/native/connect'
       ].sort()
     )
     expect(
@@ -131,7 +138,9 @@ it('projects disabled global MCP overrides and connects them through the directo
     ).toEqual([])
     f.failMutation(true)
     unblock()
-    await a.mcpControl!.submit(new AbortController().signal, async () => {}, [bad])
+    await expect(
+      a.mcpControl!.submit(new AbortController().signal, async () => {}, [bad])
+    ).rejects.toThrow('연결')
     expect(a.managedMcpMentions).toEqual({ [good]: good })
     const live = f.adapter.sendMessage({
       sessionId: 's1',
@@ -142,20 +151,12 @@ it('projects disabled global MCP overrides and connects them through the directo
     })
     const iterator = live.eventBatches[Symbol.asyncIterator]()
     try {
-      await iterator.next()
-      await vi.waitFor(() =>
-        expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(1)
-      )
-      const prompt = f.requests.find((entry) => entry.path.endsWith('/prompt_async'))!.body as {
-        system: string
-      }
-      expect(prompt.system).toContain(good)
-      expect(prompt.system).not.toContain(bad)
-      f.finish()
       for (;;) {
         const batch = await iterator.next()
-        if (batch.done || batch.value.events.some((entry) => entry.type === 'turn.ended')) break
+        if (batch.done) throw new Error('expected MCP failure')
+        if (batch.value.events.some((entry) => entry.type === 'error')) break
       }
+      expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
     } finally {
       live.close()
       await iterator.return?.()
@@ -168,6 +169,7 @@ it('projects disabled global MCP overrides and connects them through the directo
       const onlyNative = await unmanaged.adapter.client({}, env, bPath)
       expect(unmanaged.configs[0].mcp).toEqual({
         native: { enabled: false },
+        disabled: { enabled: false },
         [alias]: { enabled: false }
       })
       onlyNative.activate?.()
@@ -309,16 +311,28 @@ function fixture(
   return result
 }
 it('applies SDK MCP choices before the first prompt, rejects unsafe project controls and retains partial observations safely', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-docs-'))
+  const directory = join(root, 'opencode')
+  await mkdir(directory)
+  await writeFile(
+    join(directory, 'opencode.json'),
+    JSON.stringify({
+      mcp: {
+        docs: { type: 'remote', url: 'https://docs.test' }
+      }
+    })
+  )
   const f = fixture({
     global: () => ({ 'mcp:docs': false })
   })
-  const live = f.adapter.sendMessage(request({ sessionId: null }))
+  const live = f.adapter.sendMessage(request({ sessionId: null, env: { XDG_CONFIG_HOME: root } }))
   const iterator = live.eventBatches[Symbol.asyncIterator]()
   await iterator.next()
   await vi.waitFor(() =>
     expect(f.requests.some((req) => new URL(req.url).pathname.endsWith('/prompt_async'))).toBe(true)
   )
   const paths = f.requests.map((req) => new URL(req.url).pathname)
+  expect(paths).toContain('/mcp/docs/disconnect')
   expect(paths.indexOf('/mcp/docs/disconnect')).toBeLessThan(
     paths.indexOf('/session/s1/prompt_async')
   )
@@ -352,6 +366,7 @@ it('applies SDK MCP choices before the first prompt, rejects unsafe project cont
   expect(f.release).not.toHaveBeenCalled()
   f.adapter.close()
   expect(f.release).toHaveBeenCalledOnce()
+  await rm(root, { recursive: true, force: true })
   vi.useRealTimers()
 })
 it('shares prepared and live inventory slots until freshness expiry and retries failed reads', async () => {

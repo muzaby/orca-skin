@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   mkdtempSync,
   mkdirSync,
@@ -40,9 +40,40 @@ function seedProviderSettings(provider: string, settings = '{"env":{}}'): void {
   writeFile(join(root, 'sources', 'settings', 'claude', provider, 'settings.json'), settings)
 }
 
+const publicationFault = vi.hoisted(() => ({ locked: false }))
+vi.mock('node:fs/promises', async (load) => {
+  const fs = await load<typeof import('node:fs/promises')>()
+  return {
+    ...fs,
+    rename: async (...args: Parameters<typeof fs.rename>) => {
+      if (publicationFault.locked && String(args[0]).includes('-staging-'))
+        throw Object.assign(new Error('sharing violation'), { code: 'EBUSY' })
+      return fs.rename(...args)
+    }
+  }
+})
 const dist = (): string => join(root, 'dist', 'claude')
 
 describe('deploy', () => {
+  it('restores the complete previous dist after a Windows sharing violation, then publishes and scrubs the backup', async () => {
+    seedSources()
+    const mcpPath = join('plugins', PRODUCT_SLUG, '.mcp.json')
+    await deploy('claude', { mcpConfig: { old: { command: 'old-command' } } }, root)
+    const before = readFileSync(join(dist(), mcpPath), 'utf8')
+    publicationFault.locked = true
+    try {
+      await expect(
+        deploy('claude', { mcpConfig: { next: { command: 'new-command' } } }, root)
+      ).rejects.toThrow('sharing violation')
+    } finally {
+      publicationFault.locked = false
+    }
+    expect(readFileSync(join(dist(), mcpPath), 'utf8')).toBe(before)
+    await deploy('claude', { mcpConfig: { next: { command: 'new-command' } } }, root)
+    expect(readFileSync(join(dist(), mcpPath), 'utf8')).toContain('new-command')
+    expect(existsSync(join(dist() + '.bak', mcpPath))).toBe(false)
+    expect(existsSync(join(root, 'runtime-plugins'))).toBe(false)
+  })
   it('skills 와 mcp 를 Claude plugin 패키지로 렌더하고 구 dist 거울은 만들지 않는다', async () => {
     seedSources('{"mcpServers":{"gh":{"command":"${GH_MCP}"}}}')
     const r = await deploy('claude', {}, root)

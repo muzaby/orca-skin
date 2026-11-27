@@ -50,6 +50,28 @@ describe('VP-12 chatStore message.cancelled indexed lookup (EP-6 ⑩)', () => {
           session,
           live: { text: '', reasoning: '', reasoningVisible: false },
           pendingSteer: [{ id: 'steer-2', text: 'cancelled steer', createdAt: 2 }],
+          unsubmittedAttachments: {
+            'draft-1': [
+              {
+                kind: 'path',
+                path: '/pick/a.txt',
+                name: 'a.txt',
+                sizeBytes: 1,
+                mimeType: 'text/plain',
+                sourceKind: 'dialog'
+              }
+            ],
+            'steer-2': [
+              {
+                kind: 'inline',
+                data: 'YWJj',
+                name: 'paste.png',
+                sizeBytes: 3,
+                mimeType: 'image/png',
+                sourceKind: 'clipboard'
+              }
+            ]
+          },
           subagentMeta: {}
         }
       }
@@ -66,6 +88,12 @@ describe('VP-12 chatStore message.cancelled indexed lookup (EP-6 ⑩)', () => {
     expect(after.session.messages.find((m) => m.id === userMessageId(['draft-1']))).toBeUndefined()
     expect(after.pendingSteer ?? []).toHaveLength(0)
     expect(useChatStore.getState().draftRestore?.text).toBe('cancelled prompt\n\ncancelled steer')
+    expect(after.unsubmittedAttachments).toEqual({})
+    expect(
+      useChatStore
+        .getState()
+        .draftRestore?.attachments?.map((item) => (item.kind === 'path' ? item.path : item.data))
+    ).toEqual(['/pick/a.txt', 'YWJj'])
     expect(historyReads).not.toHaveBeenCalled()
   })
 })

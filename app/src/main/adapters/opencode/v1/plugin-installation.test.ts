@@ -1,9 +1,12 @@
 import type { OpencodeClient } from '@opencode-ai/sdk/v2/client'
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { globalOpenCodeResources } from './configured-resources'
+import { nativeOpenCodeEnvironment } from './native-storage'
+import { openCodeDiscovery } from './discovery-cache'
 import { openCodeNativePlugins } from './native-resources'
 import { openCodePluginId, openCodePluginInstallation } from './plugin-installation'
 
@@ -63,4 +66,49 @@ it('reads real file and npm installations in the native cache environment withou
     items.map((item) => item.id).reverse()
   )
   expect(openCodePluginId('@vendor/skills')).not.toBe(openCodePluginId('@vendor/skills@2'))
+})
+
+it('reads the current native installation after the harness upgrades and never reinjects or restores a saved version', async () => {
+  const env = { XDG_CACHE_HOME: join(root, 'cache'), XDG_CONFIG_HOME: join(root, 'config') }
+  const directory = join(env.XDG_CONFIG_HOME, 'opencode')
+  await mkdir(directory, { recursive: true })
+  const declaration = join(directory, 'opencode.json')
+  const settings = { plugin: ['example@1'], model: 'p/m' }
+  const metadata = (v: number): string =>
+    join(
+      env.XDG_CACHE_HOME,
+      'opencode',
+      'packages',
+      'example@' + v,
+      'node_modules',
+      'example',
+      'package.json'
+    )
+  for (const version of [1, 2]) {
+    const config = JSON.stringify({ plugin: ['example@' + version] })
+    await writeFile(declaration, config)
+    const path = metadata(version)
+    await mkdir(join(path, '..'), { recursive: true })
+    await writeFile(path, JSON.stringify({ description: 'feature-' + version }))
+    openCodeDiscovery.invalidate()
+    expect(await openCodePluginInstallation('example@' + version, root, env)).toMatchObject({
+      description: 'feature-' + version
+    })
+    expect(JSON.parse(nativeOpenCodeEnvironment(settings, env).OPENCODE_CONFIG_CONTENT!)).toEqual({
+      model: 'p/m',
+      share: 'disabled',
+      snapshot: false
+    })
+    expect(
+      (await globalOpenCodeResources(env, root)).map((item) => ({
+        id: item.id,
+        status: item.status,
+        canToggle: item.canToggle
+      }))
+    ).toEqual([
+      { id: openCodePluginId('example@' + version), status: 'configured', canToggle: false }
+    ])
+    expect(await readFile(declaration, 'utf8')).toBe(config)
+    expect(await readFile(path, 'utf8')).toBe(JSON.stringify({ description: 'feature-' + version }))
+  }
 })

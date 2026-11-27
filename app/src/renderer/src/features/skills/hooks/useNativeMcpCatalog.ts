@@ -1,32 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Backend } from '../../../../../shared/ipc'
-import type { NativeResource, NativeResources } from '../../../../../shared/native-resources'
+import {
+  catalogResourceKey,
+  NATIVE_RESOURCE_FRESH_MS,
+  type NativeResource,
+  type NativeResources
+} from '../../../../../shared/native-resources'
 import { sessionApi } from '../../../shared/api/ipc'
 import { reportError } from '../../../shared/errors'
-import { useI18n } from '../../../shared/i18n'
-import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 
 /** Native global navigation. Never owns a composer/server/project lease. */
 export function useNativeMcpCatalog(): {
   list: { backend: Backend; resource: NativeResource }[]
+  failedWrites: ReadonlyMap<string, boolean>
   failed: boolean
   loading: boolean
   refresh(): Promise<void>
   open(backend: Backend, resource: NativeResource): Promise<void>
   /** Harnesses whose toggle is in flight — every native row of them is locked meanwhile. */
   locked: ReadonlySet<Backend>
-  toggle(backend: Backend, resource: NativeResource): Promise<void>
+  toggle(backend: Backend, resource: NativeResource, desired?: boolean): Promise<void>
 } {
-  const { tr } = useI18n()
   const [list, setList] = useState<{ backend: Backend; resource: NativeResource }[]>([])
   const [failed, setFailed] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [failedWrites, setFailedWrites] = useState<ReadonlyMap<string, boolean>>(new Map())
   const loaded = useRef(new Set<Backend>())
   const versions = useRef({ claude: 0, opencode: 0 })
   const failures = useRef(new Set<Backend>())
   const busy = useRef(new Set<Backend>())
-  // One toggle per harness: a Claude plugin change closes every Claude session, and the reply
-  // replaces the harness's rows, so a second toggle could only race the first.
+  // Each write replies with the harness's complete refreshed inventory.
   const locks = useRef(new Set<Backend>())
   const [locked, setLocked] = useState<ReadonlySet<Backend>>(new Set())
   const mounted = useRef(false)
@@ -38,7 +41,7 @@ export function useNativeMcpCatalog(): {
       [
         ...previous.filter((item) => item.backend !== backend),
         ...value.items
-          .filter((resource) => resource.origin !== 'orcinus-orca')
+          .filter((resource) => resource.origin !== 'orcinus-orca' || resource.managedSource)
           .map((resource) => ({ backend, resource }))
       ].sort((a, b) => a.backend.localeCompare(b.backend))
     )
@@ -108,12 +111,22 @@ export function useNativeMcpCatalog(): {
       window.removeEventListener('focus', focus)
     }
   }, [refresh, refreshBackend])
+  const hasObservations = list.some(({ resource }) => resource.observations?.length)
+  useEffect(() => {
+    if (!hasObservations) return
+    const timer = setInterval(() => void refresh(), NATIVE_RESOURCE_FRESH_MS)
+    return () => clearInterval(timer)
+  }, [hasObservations, refresh])
   const setLock = (backend: Backend, held: boolean): void => {
     if (held) locks.current.add(backend)
     else locks.current.delete(backend)
     if (mounted.current) setLocked(new Set(locks.current))
   }
-  const toggle = async (backend: Backend, resource: NativeResource): Promise<void> => {
+  const toggle = async (
+    backend: Backend,
+    resource: NativeResource,
+    desired?: boolean
+  ): Promise<void> => {
     if (!resource.canToggle || locks.current.has(backend)) return
     setLock(backend, true)
     const version = ++versions.current[backend]
@@ -121,30 +134,22 @@ export function useNativeMcpCatalog(): {
       backend,
       id: resource.id,
       kind: resource.kind,
-      enabled: !resource.enabled
+      ...(resource.managedSource ? { managedSource: resource.managedSource } : {}),
+      enabled: desired ?? !(resource.selected ?? resource.enabled)
     }
     try {
-      let value = await sessionApi.setGlobalExtension(request)
-      if (value.status === 'confirm') {
-        const sessions = value.sessions
-        // main counts busy Claude sessions; the dialog only shows that count.
-        // The lock holds until the dialog resolves, so a second dialog can never replace it.
-        const confirmed = await new Promise<boolean>((resolve) =>
-          openConfirmDialog({
-            title: tr('chat.nativeResources.claudeCloseTitle'),
-            message: tr('chat.nativeResources.claudeCloseBody', { count: sessions }),
-            confirmLabel: tr('chat.nativeResources.claudeCloseConfirm'),
-            cancelLabel: tr('common.cancel'),
-            onConfirm: () => resolve(true),
-            onCancel: () => resolve(false)
-          })
-        )
-        if (!confirmed) return
-        value = await sessionApi.setGlobalExtension({ ...request, confirmed: true })
-      }
+      const value = await sessionApi.setGlobalExtension(request)
+      setFailedWrites((previous) => {
+        const next = new Map(previous)
+        next.delete(catalogResourceKey(backend, resource))
+        return next
+      })
       if (value.status === 'applied' && mounted.current && version === versions.current[backend])
         accept(backend, value.resources)
     } catch (error) {
+      setFailedWrites((previous) =>
+        new Map(previous).set(catalogResourceKey(backend, resource), request.enabled)
+      )
       reportError({
         event: 'skills.native.toggle-failed',
         scope: 'native-resources',
@@ -158,6 +163,7 @@ export function useNativeMcpCatalog(): {
   }
   return {
     list,
+    failedWrites,
     failed,
     loading,
     locked,

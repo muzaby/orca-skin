@@ -38,11 +38,7 @@ beforeEach(() => {
   write(join(home, '.claude/plugins/installed_plugins.json'), {
     plugins: { 'docs@m': [{ scope: 'user', installPath: plugin }] }
   })
-  registerExtensionCatalogHandlers(extensionControl(), {
-    prepare: async () => undefined,
-    plan: () => ({ targets: [], busy: 0 }),
-    close: vi.fn()
-  })
+  registerExtensionCatalogHandlers(extensionControl())
 })
 afterEach(() => {
   vi.unstubAllEnvs()

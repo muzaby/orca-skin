@@ -2,7 +2,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 상태 | plan / **READY** · V1 + ΔV1 · 라운드 1 · 2026-11-26 |
+| 상태 | impl / **IMPL_DONE** · V1 + ΔV1 · 라운드 1 · 2026-11-27 |
 | 설계 | Codex · 사용자 요청에 따른 새 핸드오프 |
 | 기준 트리 | `ccr-59ce68d5-h1xutf`의 `28f79eaf` |
 | 추적 | V1 설계 `8fb06d6d` → ΔV1. PR #656의 0333 리뷰 다섯 항목을 §7·§8–11에 반영했다. [리뷰 원문](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7193458574) |
@@ -212,6 +212,96 @@ nav → **플러그인**의 **플러그인**·**MCP** 탭에서 한 번 바꾼 �
 
 §8의 2개 하네스 × 4개 대상이 AC1·5–7에, 저장·응답 경계와 세대 사본 제거가 AC2–4·8–9에 각각 대응한다. §11의 실제 테스트명은 기준 트리에서 확인했다. §9.2의 입력 없는 SDK 탐침과 §19의 모델 요청 인수는 서로 다른 관측이다.
 
-**구현자 기록** — WU별 변경·§10 자리별 테스트 및 결과·설계 차이·미검증 항목을 구현 턴에 기입한다.
+## [구현자 기입] 설계 리뷰
+
+r1은 D1–D7을 적용했다. 영속 선호의 식별자는 하네스·종류·출처이며, 실행 상태의 식별자는 세션과 실제 SDK 항목이다. 이름만 같은 OpenCode 프로젝트 서버나 인증 전 내장 서버는 연결 대상에서 제외한다. 설치·삭제와 자격증명 관리는 기존 소유자에게 맡긴다.
+
+## [구현자 기입] 강제 지점 전수
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+| --- | --- | --- | --- | --- | --- | --- |
+| R1 ↔ AT1 | 선택에서 모델·기능까지 | E1·E3·E4·E5 | 두 하네스 실제 CLI, React 목록·상세 및 등록 IPC | `claude-input.cli.integration.test.ts` 7가지와 `managed-mcp.cli.integration.test.ts` | 명령 본문, 훅 파일, 서버별 핸들러, OFF 강제 호출 | 설치본 클릭에서 실제 모델까지 연결하는 Windows 인수 |
+| SD1 ↔ ST1 | 응답 연속성과 새 입력 | E2·E3·E4·E5 | 잔여 작업, directory 활동, cold/warm 입장 | `post-turn.schedules.test.ts`의 background/mcp 두 경우. OpenCode `session-context.test.ts`의 A/A/B | B 후속 입력이 A 해제 전 진행, A 응답 결과 뒤 다음 UUID | 앱·data host 재시작을 포함한 A/A/B 실제 CLI 조합 |
+| AR1 ↔ IT1 | 영속 저장과 통지 | E1·E2·E5 | 창 IPC·agent/data 실제 peer·디스크 재개방 | `extension-control.test.ts`가 파일에 형제 하네스와 외부 편집을 남기고 revision 3 확인. 쓰기 실패 후에도 3 유지 | 같은 이름의 native/builtin/user 키, 세션별 actual·pending | Windows 두 실제 창 + 재접속, 세부 분기 변이 |
+| AR2 ↔ IT2 | 배포와 SDK root | E3·E6 | 원본 재조회, dist 게시와 복구, 구 사본 정리 | `adapter.native-plugins.test.ts`의 current installation, `plugin-installation.test.ts`, `deployer.test.ts`의 EBUSY | V1→V2 설치 메타데이터, 원본/링크 보존, 유효 dist 유지 | Windows 설치본 파일 이벤트·첫 배포/재배포의 사용자 스킬 실행 |
+| MD1 ↔ UT1 | 유효 선호와 제출 허가 | E2·E3·E4·E5 | 부모·인증·출처 판정, 취소·실패·재시도 | `mcp-control.test.ts`, `mcp-connection.test.ts`, `managed-mcp-projection.test.ts`, `adapter.native-plugins.test.ts` | SDK status와 실제 전송 횟수. 연결 실패·취소 중 0, 성공 후 1 | 규칙 칸의 모든 조기 반환·합성 항에 대한 개별 제거 변이 |
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+| --- | --- | --- | --- | --- |
+| R1 ↔ AT1 | REQUIRED | SELF_BLOCKED | 실제 SDK 두 종과 React 카탈로그 | OFF root 재주입 검출. Windows 미실행 |
+| SD1 ↔ ST1 | REQUIRED | SELF_BLOCKED | SessionRuntime 스케줄·OpenCode directory 입장 | 조기 모델 제출 검출. 프로세스 재시작 조합 미실행 |
+| AR1 ↔ IT1 | REGRESSION | SELF_BLOCKED | `extension-control.test.ts` 파일·peer loopback | 형제 항목 소거 검출. 전체 분기 sweep 대기 |
+| AR2 ↔ IT2 | REQUIRED | SELF_BLOCKED | deploy/legacy-cleanup 및 양 어댑터 설치 경계 | 응답 보유 중 게시 검출. Windows 설치본 대기 |
+| MD1 ↔ UT1 | REQUIRED | SELF_BLOCKED | 연결 상태 기반 submit·네이티브 출처 구분 | 우선순위 역전 검출. 나머지 개별 분기 sweep 대기 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+아래 좌표는 격리된 소스에서 변이를 넣고 실제로 실패를 관측한 결과다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+| --- | --- | --- | --- | --- |
+| 꺼진 네이티브 설치 root도 Query에 추가 | §19 · E3 | 최초 | `adapter.native-plugins.test.ts` OFF root 부재 1건 | 잠김 |
+| 프로젝트 기본값을 전역 명시 선택보다 먼저 채택 | §19 · E4 | 최초 | `mcp-control.test.ts` A의 disabled-default connect 1건 | 잠김 |
+| 명시 ON 등록이 pending인 동안 submit 허용 | §19 · E4 | 최초 | `mcp-connection.test.ts` ordinary input SDK send 1건 | 잠김 |
+| 선택 변경 통지에서 모든 runtime.close 실행 | §19 · E1/E3 | 최초 | `host-assemblies.order.test.ts` 기존 런타임 보존 1건 | 잠김 |
+| data host가 하네스 맵 전체를 덮어씀 | E2 · 항목 병합 | 최초 | `extension-control.test.ts` 같은 하네스 형제 키 상실 1건 | 잠김 |
+| active dist reader를 무시하고 게시 | E6 · 배포 경계 | 최초 | `extension-deployment-service.test.ts` 두 응답 종료 전 publish가 2회 1건 | 잠김 |
+| 실제 상태로 선호 스위치를 그림 | E1 · 선택/관측 | 최초 | `ExtensionsCatalogView.interaction.test.ts` pending 중 aria-checked 불일치 1건 | 잠김 |
+| 취소한 입력의 원래 첨부 복구를 생략 | E5 · composer | 최초 | `chatStore.cancelled.test.ts` 경로·인라인 첨부 수거 실패 1건 | 잠김 |
+
+§19 지정 변이 4/4 · 추가 단일 자리 변이 4건 = 표 8행이다. §10의 E1–E6 여섯 분류에는 모두 직접 관측이 있다. §10 검색어 27개 전체에 대한 개별 변이·pair path edge·규칙 칸 분기까지의 sweep은 미완이다. 특히 재접속 통지, 정책 제한, 세션별 미등록, 준비/메뉴/재시도 진입, 인증 철회, 배포 복원 각각을 제거한 결과가 남았다. 첫 구현이므로 이전 verify의 red 이력은 없다.
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+| --- | --- | --- |
+| 문구·상태를 어디에서 읽는가 | 목록·상세에 저장한 선택, 실제 상태, 대기 수, 제한 사유를 표시한다. 상세에는 세션별 관측을 표시한다. | 한국어·영어 번역과 공통 스위치 사용 |
+| 취소·실패가 사용자에게 보이는가 | 새 입력의 원문·경로 첨부·붙여넣기 첨부가 작성창으로 돌아온다. 저장 실패와 연결 실패는 행에서 해당 선택을 재시도할 수 있다. | 원래 선택을 보존한 재시도와 렌더러의 `message.cancelled` 경로 확인 |
+| 늦은 응답이 도착하면 어떻게 되는가 | 하네스별 쓰기·읽기 순번이 이전 응답을 무시한다. 서버 대기 중 최신 선택과 취소 신호를 재확인한다. | `useNativeMcpCatalog.test.ts`와 `mcp-connection.test.ts` |
+| 정리·부분 실패는 어느 상태에 해당하는가 | §4–6의 ON 대기·실패에 대응한다. 배포 읽기 권한은 턴 체인의 finally에서 반환한다. | 재배포가 기다리는 동안 다른 응답의 결과 수신 유지 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+| --- | --- | --- | --- |
+| 1 | SDK의 첫 MCP 목록이 빈 배열이어서 연결이 끝나기 전에 전송될 수 있음 | 입력 직전의 실제 등록·status 확인과 취소/변경 재확인 | Claude 실제 native·builtin·external 세 종류, OpenCode 느린 연결 |
+| 2 | 사용자 소유 원본 업데이트 뒤 기존 cwd가 이전 root를 붙들 수 있음 | 각 새 Query가 현행 설치·dist를 읽고 성공한 배포 revision을 다음 입력에서 확인 | T5 두 하네스 테스트 |
+| 3 | Windows 파일 잠금 중 원래 dist 손실 | 같은 볼륨의 비공개 임시 경로에서 렌더링·검증 후 교체하고 실패하면 복구 | `deployer.test.ts`의 첫 rename 실패와 마지막 정상 파일 |
+| 4 | 특정 세션의 연결 실패·출처 불명이 다른 세션의 권한으로 잘못 전파됨 | 관측을 세션별로 유지하고 영속 쓰기 권한은 출처가 일치하는 전역 행에서 판정 | `extension-catalog.test.ts`, T3·T4 |
+
+### 설계 대비 명시적 차이
+
+배포는 같은 파일시스템의 임시 디렉터리 및 rename을 사용한다. 만료 축은 성공한 배포 revision, 공유 축은 현재 Claude 턴 체인의 읽기 권한 두 개와 대기 게시, 재진입 축은 게시 중 들어온 세 번째 Query의 대기, 다른 무효화 축은 설치 소유 하네스의 V1→V2 갱신으로 확인했다. 세대 디렉터리의 생성자·서비스·세션 pin은 제거했다. `legacy-plugin-copies.ts`는 구 세대 정리에만 사용한다.
+
+## [구현자 기입] 구현 보고
+
+| AC | 자기 판정 | 이번 턴의 관측 |
+| --- | --- | --- |
+| AC1 | ✅ | Claude의 명령·훅·번들·복합·native·builtin·external 7종과 OpenCode CLI의 native G·내장 Jira·외장 HTTP가 같은 native 대화에서 ON/OFF/ON을 수행했다. 고유 결과, OFF 강제 호출의 핸들러 0회와 대조군을 확인했다. |
+| AC2 | ⚠️ | Claude의 잔여 서브에이전트/MCP 결과 뒤 새 입력 1회, OpenCode A/A/B의 directory별 대기/독립성은 제어 가능한 SDK 경계에서 확인했다. OpenCode 실제 CLI에서도 S1/S3의 기존 도구 호출, A가 점유된 동안 B의 OFF 적용, 해제 전 S2 모델 요청 0회를 확인했다. Claude의 실제 CLI A/A/B 전체 조합은 남았다. |
+| AC3 | ⚠️ | 파일 저장소 재개방과 Claude 3턴의 native ID·이력 보존을 확인했다. 앱·data host를 재시작하고 같은/다른 폴더에서 S4/S5를 함께 여는 인수는 남았다. |
+| AC4 | ✅ | 실 peer 쓰기 세 건 후 revision 3과 형제 키가 남고 디스크 실패 시 그대로였다. OpenCode G를 OFF한 채 다른 폴더에서 같은 이름의 P 핸들러만 호출했고 P에 connect/disconnect가 없었다. |
+| AC5 | ✅ | 기능별 CLI 4종의 명령 본문·훅·MCP 고유 결과를 확인했다. nameless·충돌·미등록은 adapter fixture가 구별한다. 실제 Git-root 탐침에서 A connected→disabled, 같은 Git root B 첫 관측 disabled를 확인했다. |
+| AC6 | ✅ | 고정 OpenCode CLI에서 선택 전환·외장 추가·내장 첫 인증 후에도 PID와 세션 경로가 같고 선택으로 인한 dispose가 0회였다. permission 응답과 실제 핸들러를 확인했다. 세 동시 세션의 이전/후속 요청과 외부 P/G도 CLI에서 확인했고 SDK 등록 불가·충돌은 별도 fixture로 확인했다. |
+| AC7 | ✅ | 목록·상세의 고정 ON/OFF 스위치를 클릭하거나 키보드로 활성화해도 write가 없었고, 등록 IPC에 직접 금지된 종류·대상을 보내면 거부했다. 별도 세션 두 개가 서로 다른 실제 상태 및 pending 수를 반환했다. |
+| AC8 | ⚠️ | Linux에서 구 사본 정리·링크 보존, V1→V2 원본 재조회, 배포 실패 복구를 확인했다. Windows 설치본의 파일 이벤트, 재배포 전후 실제 사용자 스킬·Jira 호출 연속 검증은 남았다. |
+| AC9 | ✅ | 늦은 ON, 대기 중 OFF, 실패·해제 실패·취소는 SDK 전송을 보류했다. 성공 뒤 한 차례 제출했고 취소 UUID는 제출하지 않았다. React store가 원문과 경로/인라인 첨부를 복원했다. |
+
+**✅ 6 · ⚠️ 3 · ❌ 0 = 총 9.**
+
+| 항목 | 결과 |
+| --- | --- |
+| 변경 경로 | 전용 data write·카탈로그와 창 통지, Claude/OpenCode 입력 경계, deployer·레거시 정리, 작성창·목록·상세, SDK/CLI/IPC/React 테스트, 현재 구조 문서 |
+| 기능 실행 | 저장·목록·배포·복구 12파일 179케이스, OpenCode 어댑터 8파일 42케이스, Claude 어댑터 4파일 58케이스, 후속 준비·T5·AC9 2파일 20케이스. 실제 Claude CLI·React 3파일 28케이스, 후속 읽기 전용 클릭·키보드 2파일 23케이스, 호스트 조립 23케이스도 통과했다. 각기 별도 실행으로 일부 겹친다. |
+| 실제 CLI | Claude Agent SDK 0.3.296 동봉 CLI와 OpenCode 1.18.27 Linux 실행 파일 / 격리된 홈 / 로컬 모델·MCP endpoint. OpenCode 실측 파일 1/1, 243.53초. A/A/B 추가 후 같은 파일 1/1, 251.10초. |
+| 운영 게이트 | 마이그레이션 39+2개, 목록 주체 3개, v0.3.1 이후 append-only. 문서 인벤토리 9항목·127채널과 링크, 제품 표기, process boundary, 실-git 18스위트 예산 가드 통과. electron-vite 빌드와 data→agent 호스트·preload smoke 통과. 500 kB chunk 경고 발생. |
+| 추가·수정 테스트 | 변경·삭제한 테스트/fixture는 git diff 기준 42개. CLI는 io 풀, 임시 홈·로컬 서버를 쓰며 실제 Git·시간 예산은 저장소 가드로 확인했다. |
+| 블로커 / 재검증 | 통합 브랜치의 lint·typecheck·파일 필터 없는 테스트와 최신 트리 빌드는 합치는 작업에서 실행한다. Windows 설치본은 Linux 작업 환경에서 실행할 수 없었다. |
+| V / 대상 커밋 | SELF_PASS 0 / SELF_BLOCKED 5. §10 분류별 구현 6/6. (r1 구현 — 좌표는 INDEX) |
+
+## [구현자 기입] Review Signals
+
+r1 첫 구현이다. 실제 Claude SDK는 시작 직후 빈 MCP status를 반환할 수 있고, OpenCode SDK의 서버 이름은 서로 다른 프로젝트 선언에서 같을 수 있다. D1·D2·D5·D7에서 정한 실제 상태와 입력 제출 경계에서 두 경우를 재현했다. Linux 실측과 Windows 설치본에서만 재현할 수 있는 작업을 구분했다.
+
 
 **검증자 기록** — 기준 커밋·V pair 판정·실제 CLI/Windows 증거·파생 이슈를 검증 턴에 기입한다.

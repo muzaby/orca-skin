@@ -76,7 +76,7 @@ describe('Claude output style', () => {
     preferences?: () => import('../../../shared/harness').ClaudePreferences,
     providerStyle = 'Learning'
   ): Promise<LiveTurn> => {
-    const channel = await sendPrepared(new ClaudeAdapter(undefined, undefined, preferences), {
+    const channel = await sendPrepared(new ClaudeAdapter(undefined, preferences), {
       ...baseReq(),
       providerSettings: {
         providerKey: 'fixture',
@@ -118,7 +118,7 @@ describe('Claude output style', () => {
     expect(applyFlagSettings).toHaveBeenLastCalledWith({ outputStyle: 'Concise' })
   })
   it('leaves the one-shot completion without a style', async () => {
-    await new ClaudeAdapter(undefined, undefined, () => ({
+    await new ClaudeAdapter(undefined, () => ({
       instructions: '',
       outputStyle: 'Learning'
     })).complete({ prompt: 'title' })

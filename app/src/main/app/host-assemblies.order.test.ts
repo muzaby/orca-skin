@@ -59,11 +59,17 @@ describe('에이전트 호스트 조립 — 사본과 보류의 배선', () => {
     ])
   })
 
-  it('동기 판정 3자리는 사본을 읽고, 세션 종류는 데이터 호스트에 묻고, Claude 리셋 계획 전에 사본을 채운다', () => {
+  it('세션 관측 전에 메타 사본을 채우고 하네스를 확인하며 선택 변경은 기존 런타임을 보존한다', () => {
     expect(agent).not.toContain('sessionRows')
     expect(agent).toContain('this.sessionMeta.get(request.sessionId)')
-    expect(agent).toContain('backendOf: (sessionId) => this.sessionMeta.get(sessionId)?.backend')
-    expect(agent).toContain('prepare: () => this.sessionMeta.ensure(this.heldSessions())')
+    const catalog = body(agent, '    registerExtensionCatalogHandlers(')
+    expectOrder(catalog, [
+      'const entries = supervisor.runtimeEntries()',
+      'await this.sessionMeta.ensure(entries.map((entry) => entry.sessionId))',
+      'this.sessionMeta.get(sessionId)?.backend === backend',
+      'runtime.nativeResources?.()'
+    ])
+    expect(catalog).not.toMatch(/\.close(?:All)?\(/)
     expect(agent).toContain('await this.data.query.sessionAgentKind(sessionId)')
     // 사본이 바뀌면 그 사본을 읽는 동기 판정을 다시 돌린다.
     expect(agent).toContain('changed: () => this.projectResourceSync?.leasesChanged()')

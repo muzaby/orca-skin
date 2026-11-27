@@ -7,12 +7,12 @@ import {
 } from './settings-migration'
 
 describe('settings migration', () => {
-  it('clears legacy native extension choices once when upgrading to settings version 2', () => {
+  it('retains explicit per-harness native choices across settings versions', () => {
     const choices = { claude: { 'plugin:one': false }, opencode: { 'mcp:two': true } }
     for (const settingsVersion of [undefined, 0, 1]) {
       const input = { settingsVersion, nativeExtensionChoices: choices, language: 'retained' }
       const upgraded = migrateRawSettings(input, '1.100.0')
-      expect(upgraded.settings.nativeExtensionChoices).toBeUndefined()
+      expect(upgraded.settings.nativeExtensionChoices).toEqual(choices)
       expect(upgraded.raw.settingsVersion).toBe(2)
       expect(upgraded.settings.language).toBe('retained')
       expect(input.nativeExtensionChoices).toEqual(choices)

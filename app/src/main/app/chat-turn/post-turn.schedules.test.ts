@@ -1180,3 +1180,61 @@ describe('0239 — 포그라운드 태스크와 턴 후 판정', () => {
     }
   })
 })
+
+it.each(['background', 'mcp'] as const)(
+  'delivers the original %s result before a changed Claude selection admits a held input',
+  async (owner) => {
+    const f = fixture()
+    const atAdmission: string[][] = []
+    let changed = false
+    f.live.inputResourcesChanged = () => changed
+    const push = f.live.pushTurn!
+    f.live.pushTurn = async (input) => {
+      atAdmission.push(
+        f.events
+          .filter(
+            (event) => event.type === 'tool.call.completed' && event.toolRunId === 'original-call'
+          )
+          .map((event) => event.type)
+      )
+      changed = false
+      return push(input)
+    }
+    if (owner === 'background') seedLiveBackgroundTask(f.backgroundTasks, 's1', 'original-task')
+    const running = f.run()
+    try {
+      await vi.waitFor(() => expect(f.sendMessage).toHaveBeenCalledOnce())
+      f.emit({
+        type: 'tool.call.started',
+        sessionId: 's1',
+        toolRunId: 'original-call',
+        toolName: owner === 'background' ? 'Agent' : 'mcp__fixture__echo',
+        args: {}
+      })
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await vi.waitFor(() => expect(f.listenRelease.has('s1')).toBe(true))
+      changed = true
+      f.queueHeld('next with selection', 'next-input')
+      await tick()
+      expect(f.pushed).toEqual([])
+      expect(f.runtime.channelAlive).toBe(true)
+      if (owner === 'background') seedLiveBackgroundSnapshot(f.backgroundTasks, 's1', [])
+      f.emit(
+        {
+          type: 'tool.call.completed',
+          sessionId: 's1',
+          toolRunId: 'original-call',
+          result: 'original result',
+          isError: false
+        },
+        { type: 'telemetry', sessionId: 's1' }
+      )
+      await vi.waitFor(() => expect(f.pushed).toEqual(['next with selection']))
+      expect(atAdmission).toHaveLength(1)
+      expect(atAdmission[0].length).toBeGreaterThan(0)
+    } finally {
+      f.cleanup()
+      await running
+    }
+  }
+)

@@ -1075,7 +1075,8 @@ it('exposes native resources from the live channel client and its directory with
           id: openCodePluginId('@native/plugin@1'),
           name: '@native/plugin@1',
           kind: 'plugin',
-          status: 'enabled',
+          status: 'configured',
+          controlReason: 'OpenCode SDK에서 플러그인 실행 상태를 확인하거나 전환할 수 없습니다.',
           enabled: true,
           canToggle: false
         }

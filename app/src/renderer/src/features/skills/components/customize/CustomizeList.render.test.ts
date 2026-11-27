@@ -121,9 +121,7 @@ describe('plugin catalog list', () => {
     expect(rows(markup)).toEqual(ids)
     expect(markup.match(/<ul\b/g)).toHaveLength(1)
     expect(markup.match(/<li\b/g)).toHaveLength(tab === 'skills' ? 4 : 3)
-    expect(markup.match(/<button\b/g)).toHaveLength(
-      tab === 'providers' ? 2 : tab === 'skills' ? 3 : 4
-    )
+    expect(markup.match(/<button\b/g)).toHaveLength(tab === 'skills' ? 3 : 2)
     expect(markup.match(/aria-pressed="true"/g)).toHaveLength(1)
     expect(markup).not.toMatch(/<(?:table|thead|th|h[1-6])(?:\s|>)/)
     expect(markup).not.toContain('aria-expanded')
@@ -143,8 +141,25 @@ describe('plugin catalog list', () => {
     expect(skills).not.toContain('aria-pressed="true"')
     const mcp = render({ tab: 'mcp' })
     expect(mcp).toContain('>http<')
-    expect(mcp).toContain('>활성<')
-    expect(mcp).toContain('>비활성<')
+    expect(mcp).not.toContain('role="switch"')
+    const managed = render({
+      tab: 'mcp',
+      nativeMcp: (['claude', 'opencode'] as const).map((backend) => ({
+        backend,
+        resource: {
+          id: 'managed:user:active',
+          name: 'active',
+          kind: 'mcp',
+          status: 'configured',
+          enabled: false,
+          selected: backend === 'opencode',
+          canToggle: true,
+          managedSource: { kind: 'user', sourceId: 'active' }
+        }
+      }))
+    })
+    const switches = load(managed)('[data-extensions-row="active"] [role="switch"]')
+    expect(switches.map((_, node) => node.attribs['aria-checked']).get()).toEqual(['false', 'true'])
     const providers = render({ tab: 'providers' })
     expect(providers).toContain('앱 로그인 · API 키')
     expect(providers).toContain('>연결됨<')

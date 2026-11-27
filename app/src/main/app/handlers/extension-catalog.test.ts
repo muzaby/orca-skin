@@ -60,69 +60,73 @@ beforeEach(() => {
 const invoke = async (channel: string, payload: unknown): Promise<NativeResources> =>
   (await invokeChannel(channel, payload)) as NativeResources
 
-it('reads native defaults without copying them and keeps supported explicit choices only in memory', async () => {
-  const backend = { store: {} as Record<string, unknown> }
-  const settings = new SettingsStore('test', backend)
-  settings.patch({ language: 'sentinel-language' })
-  const control = extensionControl()
-  const processes = {
-    prepare: vi.fn(async () => undefined),
-    plan: vi.fn(() => ({ targets: [], busy: 0 })),
-    close: vi.fn()
-  }
-  registerExtensionCatalogHandlers(control, processes)
-  expect((await invoke(CHANNELS.extensionCatalog, { backend: 'claude' })).items[0].enabled).toBe(
-    false
+it('stores a preference only after durable write and keeps observations per session', async () => {
+  const disk = { store: {} as Record<string, unknown> }
+  const store = new SettingsStore('test', disk)
+  const save = vi.fn(async (backend: 'claude' | 'opencode', key: string, enabled: boolean) =>
+    store.setNativeExtensionChoice(backend, key, enabled)
   )
-  expect(backend.store.nativeExtensionChoices).toBeUndefined()
-  f.native = true
-  expect((await invoke(CHANNELS.extensionCatalog, { backend: 'claude' })).items[0].enabled).toBe(
-    true
-  )
-  const result = (await invokeChannel(CHANNELS.extensionSetEnabled, {
-    backend: 'claude',
-    id: 'plugin-id',
-    kind: 'plugin',
-    enabled: false
-  })) as { status: 'applied'; resources: NativeResources }
-  expect(result.status).toBe('applied')
-  expect(processes.close).toHaveBeenCalledWith([])
-  expect(result.resources.items[0]).toMatchObject({
-    enabled: false,
-    canToggle: true
+  const changed = vi.fn()
+  const control = extensionControl({
+    get: () => store.getAll().nativeExtensionChoices,
+    setChoice: save
   })
-  expect(backend.store.nativeExtensionChoices).toBeUndefined()
-  expect(control.global('claude')).toEqual({ 'plugin:superpowers@market': false })
-  expect(backend.store.language).toBe('sentinel-language')
-  await expect(
-    invoke(CHANNELS.extensionSetEnabled, {
-      backend: 'claude',
-      id: 'docs',
-      kind: 'mcp',
-      enabled: false
-    })
-  ).rejects.toThrow('제어')
-  await expect(
-    invoke(CHANNELS.extensionSetEnabled, {
-      backend: 'opencode',
-      id: 'plugin-id',
-      kind: 'plugin',
-      enabled: false
-    })
-  ).rejects.toThrow('제어')
-  await expect(
-    invoke(CHANNELS.extensionOpen, { backend: 'opencode', id: 'docs', kind: 'mcp' })
-  ).rejects.toThrow('위치')
-  expect(f.open).not.toHaveBeenCalled()
-  await invoke(CHANNELS.extensionOpen, { backend: 'claude', id: 'plugin-id', kind: 'plugin' })
+  registerExtensionCatalogHandlers(
+    control,
+    changed,
+    async () => [],
+    async () =>
+      [true, false].map((enabled, i) => ({
+        sessionId: `S${i}`,
+        items: [
+          {
+            id: 'plugin-id',
+            kind: 'plugin',
+            name: 'superpowers@market',
+            enabled,
+            status: enabled ? 'enabled' : 'disabled',
+            canToggle: true
+          }
+        ]
+      }))
+  )
+  const request = { backend: 'claude', kind: 'plugin', id: 'plugin-id', enabled: false }
+  save.mockRejectedValueOnce(new Error('disk full'))
+  await expect(invoke(CHANNELS.extensionSetEnabled, request)).rejects.toThrow('disk full')
+  expect(changed).not.toHaveBeenCalled()
+  expect(control.global('claude')).toEqual({})
+  await expect(invoke(CHANNELS.extensionSetEnabled, request)).resolves.toMatchObject({
+    status: 'applied',
+    resources: {
+      items: expect.arrayContaining([
+        expect.objectContaining({
+          selected: false,
+          pendingSessions: 1,
+          observations: [
+            { sessionId: 'S0', status: 'enabled' },
+            { sessionId: 'S1', status: 'disabled' }
+          ]
+        })
+      ])
+    }
+  })
+  expect(changed).toHaveBeenCalledExactlyOnceWith('claude')
+  expect(new SettingsStore('test', disk).getAll().nativeExtensionChoices?.claude).toEqual({
+    'plugin:superpowers@market': false
+  })
+  for (const [backend, kind, id] of [
+    ['opencode', 'plugin', 'plugin-id'],
+    ['claude', 'mcp', 'docs']
+  ])
+    await expect(
+      invoke(CHANNELS.extensionSetEnabled, { backend, kind, id, enabled: true })
+    ).rejects.toThrow('제어')
+  expect(save).toHaveBeenCalledTimes(2)
+  await invoke(CHANNELS.extensionOpen, { backend: 'claude', kind: 'plugin', id: 'plugin-id' })
   expect(f.open).toHaveBeenCalledWith('/installed/plugin')
-  expect(f.reveal).not.toHaveBeenCalled()
-  const reloaded = new SettingsStore('test', { store: JSON.parse(JSON.stringify(backend.store)) })
-  expect(reloaded.getAll().nativeExtensionChoices).toBeUndefined()
-  expect(extensionControl().global('claude')).toEqual({})
 })
 
-it('does not reactivate legacy choice bytes or accept writes through settings.patch', () => {
+it('retains saved native choices, discards project choices and rejects direct settings patches', () => {
   // `projectMcpChoices` 는 스키마에서 사라진 구 키다 — 남은 바이트가 로드를 막거나 다른 키를
   // 지우면 안 되고, patch 로 되살아나서도 안 된다.
   const legacy = {
@@ -137,81 +141,15 @@ it('does not reactivate legacy choice bytes or accept writes through settings.pa
   expect(extensionControl().global('claude')).toEqual({})
   settings.patch({ nativeExtensionChoices: {} } as never)
   settings.patch({ projectMcpChoices: { '/B': { docs: true } } } as never)
-  expect(backend.store.nativeExtensionChoices).toBeUndefined()
+  expect(backend.store.nativeExtensionChoices).toEqual(legacy.nativeExtensionChoices)
   expect(settings.getAll()).not.toHaveProperty('projectMcpChoices')
   expect(settings.getAll().language).toBe('English')
   expect(JSON.stringify(backend.store)).not.toContain('/B')
 })
 
-it('saves and closes in the same synchronous section as the busy check', async () => {
-  const order: string[] = []
-  const control = extensionControl()
-  const save = control.setGlobal.bind(control)
-  vi.spyOn(control, 'setGlobal').mockImplementation((...args) => {
-    order.push('save')
-    save(...args)
-  })
-  const targets = [{ sessionId: 'claude-idle', busy: false }]
-  const processes = {
-    // 계획이 읽는 세션 정보는 계획 전에 채운다(0324) — 그 뒤 계획→닫기 사이에는 await 가 없다.
-    prepare: vi.fn(async () => {
-      order.push('prepare')
-    }),
-    plan: vi.fn(() => {
-      order.push('plan')
-      queueMicrotask(() => order.push('intruder'))
-      return { targets, busy: 0 }
-    }),
-    close: vi.fn(() => {
-      order.push('close')
-    })
-  }
-  registerExtensionCatalogHandlers(control, processes)
-  await expect(
-    invoke(CHANNELS.extensionSetEnabled, {
-      backend: 'claude',
-      id: 'plugin-id',
-      kind: 'plugin',
-      enabled: false
-    })
-  ).resolves.toMatchObject({ status: 'applied' })
-  expect(order).toEqual(['prepare', 'plan', 'save', 'close', 'intruder'])
-  expect(processes.close).toHaveBeenCalledExactlyOnceWith(targets)
-  expect(control.global('claude')).toEqual({ 'plugin:superpowers@market': false })
-})
-
-it('rejects confirmed: false before planning or saving', async () => {
-  const control = extensionControl()
-  const save = vi.spyOn(control, 'setGlobal')
-  const processes = {
-    prepare: vi.fn(async () => undefined),
-    plan: vi.fn(() => ({ targets: [], busy: 1 })),
-    close: vi.fn()
-  }
-  registerExtensionCatalogHandlers(control, processes)
-  const request = { backend: 'claude', id: 'plugin-id', kind: 'plugin', enabled: false }
-  await expect(
-    invoke(CHANNELS.extensionSetEnabled, { ...request, confirmed: false })
-  ).rejects.toThrow()
-  expect(processes.prepare).not.toHaveBeenCalled()
-  expect(processes.plan).not.toHaveBeenCalled()
-  expect(save).not.toHaveBeenCalled()
-  expect(processes.close).not.toHaveBeenCalled()
-  expect(control.global('claude')).toEqual({})
-  await expect(
-    invoke(CHANNELS.extensionSetEnabled, { ...request, confirmed: true })
-  ).resolves.toMatchObject({ status: 'applied' })
-  expect(processes.plan).toHaveBeenCalledTimes(1)
-  expect(save).toHaveBeenCalledExactlyOnceWith('claude', 'plugin:superpowers@market', false)
-})
-
 it('MCP 항목은 설정 파일을 탐색기에서 보여 주고 열지 않는다 (0324 EP-10)', async () => {
   f.mcpOpen = true
-  registerExtensionCatalogHandlers(extensionControl(), {
-    prepare: vi.fn(async () => undefined),
-    plan: vi.fn(() => ({ targets: [], busy: 0 })),
-    close: vi.fn()
-  })
+  registerExtensionCatalogHandlers(extensionControl())
   await invoke(CHANNELS.extensionOpen, { backend: 'claude', id: 'docs', kind: 'mcp' })
   expect(f.reveal).toHaveBeenCalledExactlyOnceWith('/installed/plugin')
   expect(f.open).not.toHaveBeenCalled()

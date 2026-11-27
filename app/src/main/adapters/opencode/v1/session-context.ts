@@ -16,7 +16,8 @@ import {
   waitForOpenCode,
   type OpenCodeInstance
 } from './instance-lifecycle'
-import { OpenCodeMcpControl } from './mcp-control'
+import { OpenCodeManagedConnections } from './managed-connections'
+import { OpenCodeMcpControl, type DirectoryMcpSettings } from './mcp-control'
 import { openCodeNativeCommands } from './native-resources'
 import { nativePathKey, sameNativePath } from './native-storage'
 
@@ -24,10 +25,6 @@ interface ServerIdentity {
   url: string
   headers: Record<string, string>
   retire?: () => void
-}
-export interface ManagedConnectionChoices {
-  choices(): Record<string, boolean>
-  defaults?: Record<string, boolean>
 }
 
 interface DirectoryState {
@@ -39,6 +36,7 @@ interface DirectoryState {
   commandFlight?: Promise<NativeCommand[]>
   commandRevision: number
   composer: OpenCodeComposerCache
+  managedConnections?: OpenCodeManagedConnections
   mcpControl?: OpenCodeMcpControl
   discoveryHeld?: boolean
 }
@@ -55,6 +53,7 @@ export interface OpenCodeClientLease {
   managedMcpMentions?: Record<string, string>
   managedMcpReferences?: Record<string, string>
   mapMcpResources?(items: NativeResource[]): NativeResource[]
+  managedConnections?: OpenCodeManagedConnections
   mcpControl?: OpenCodeMcpControl
   readonly signal: AbortSignal
   readonly generation: string
@@ -98,7 +97,6 @@ class ServerContext {
       releaseDependencies(): void
       idleRetentionMs?: number
       cleanupFailed?: () => void
-      managed?: ManagedConnectionChoices
       idle(cwd: string, beforeSubmit: boolean): boolean
     }
   ) {
@@ -126,7 +124,7 @@ class ServerContext {
     })
   }
 
-  directory(scope: OpenCodeInstance): DirectoryState {
+  directory(scope: OpenCodeInstance, managed?: DirectoryMcpSettings): DirectoryState {
     let state = this.directories.get(scope)
     if (!state) {
       const fetchScoped: typeof fetch = async (input, init) => {
@@ -165,8 +163,18 @@ class ServerContext {
         AbortSignal.any([this.controller.signal, scope.controller.signal]),
         scope.id
       )
+      const connections = managed instanceof OpenCodeManagedConnections ? managed : undefined
+      if (connections)
+        scope.controller.signal.addEventListener(
+          'abort',
+          () => {
+            void connections.release().catch(() => undefined)
+          },
+          { once: true }
+        )
       state = {
         client,
+        managedConnections: connections,
         callerClient: (signal) =>
           createOpencodeClient({
             baseUrl: this.options.server.url,
@@ -185,9 +193,9 @@ class ServerContext {
           this.options.extensionControl ?? { global: () => ({}) },
           scope.controller.signal,
           composer,
-          this.options.managed,
+          managed,
           (beforeSubmit) => this.options.idle(scope.directory, beforeSubmit),
-          this.options.managed?.defaults
+          managed?.defaults
         ),
         controller: scope.controller,
         composer,
@@ -465,7 +473,7 @@ export class OpenCodeSessionContexts {
     server: ServerIdentity,
     directory: string,
     releaseDependencies: () => void = () => undefined,
-    managed?: ManagedConnectionChoices,
+    managed?: DirectoryMcpSettings,
     discoveryKey?: string
   ): Promise<OpenCodeClientLease> {
     if (this.closed) throw new Error('OpenCode 연결 관리자가 종료되었습니다.')
@@ -488,7 +496,6 @@ export class OpenCodeSessionContexts {
         },
         idleRetentionMs: this.idleRetentionMs,
         cleanupFailed: this.cleanupFailed,
-        managed: managed,
         idle: (cwd, beforeSubmit) => this.idle(cwd, beforeSubmit)
       })
       this.entries.set(key, created)
@@ -509,7 +516,7 @@ export class OpenCodeSessionContexts {
       finish()
       throw error
     }
-    const metadata = owned.directory(scope)
+    const metadata = owned.directory(scope, managed)
     if (discoveryKey && !metadata.discoveryHeld) {
       metadata.discoveryHeld = true
       const releaseDiscovery = openCodeDiscovery.hold(discoveryKey, () => {
@@ -525,6 +532,7 @@ export class OpenCodeSessionContexts {
     return {
       activate: () => metadata.mcpControl?.activate(),
       mcpControl: metadata.mcpControl,
+      managedConnections: metadata.managedConnections,
       signal: combined(metadata.composer.signal),
       generation: metadata.composer.generation,
       client: metadata.callerClient(caller.signal),

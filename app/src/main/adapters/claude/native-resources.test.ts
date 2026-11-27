@@ -1,8 +1,14 @@
 import type { McpServerStatus } from '@anthropic-ai/claude-agent-sdk'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nativePluginId } from './configured-resources'
 import { claudeNativeResources } from './native-resources'
 
+beforeEach(() => {
+  vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+})
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 describe('Claude native resources', () => {
   it('projects exact supported slash commands and descriptions while excluding builtins and injected plugins', async () => {
     const resources = claudeNativeResources(
@@ -86,7 +92,7 @@ describe('Claude native resources', () => {
         name: 'auth',
         kind: 'mcp',
         status: 'needs-auth',
-        enabled: true,
+        enabled: false,
         canToggle: false
       },
       {

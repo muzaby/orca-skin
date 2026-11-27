@@ -14,6 +14,7 @@ export class ClaudeProjectReconciliation {
   private applied: ClaudeProjectSettings
   constructor(
     private readonly deps: {
+      explicit?(): Record<string, boolean>
       cwd: string
       root: string
       configDirSpecified?: boolean
@@ -34,6 +35,15 @@ export class ClaudeProjectReconciliation {
     return readClaudeProjectSettings(this.deps.cwd, this.deps.root, this.deps.configDirSpecified)
   }
   private desired(item: NativeResource, next: ClaudeProjectSettings): boolean {
+    // An existing Query finishes with its startup choices. Its own SDK settings write
+    // or a sibling Query's write cannot apply an explicit selection in the watcher.
+    if (
+      Object.hasOwn(
+        this.deps.explicit?.() ?? {},
+        `${item.kind}:${item.kind === 'plugin' ? item.name : item.id}`
+      )
+    )
+      return item.enabled
     if (item.kind === 'plugin') {
       if (
         JSON.stringify(next.plugins[item.name]) === JSON.stringify(this.applied.plugins[item.name])

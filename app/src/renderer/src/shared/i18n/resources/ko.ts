@@ -707,15 +707,13 @@ export const ko = {
       more: '더 보기'
     },
     nativeResources: {
-      claudeCloseTitle: 'Claude 세션 종료',
-      claudeCloseBody_one:
-        '응답 중이거나 작업이 진행 중인 Claude 세션이 {{count}}개 있습니다. 플러그인 변경을 적용하려면 실행 중인 Claude 세션을 모두 종료합니다. 진행 중인 응답과 백그라운드 작업은 중단됩니다.',
-      claudeCloseBody_other:
-        '응답 중이거나 작업이 진행 중인 Claude 세션이 {{count}}개 있습니다. 플러그인 변경을 적용하려면 실행 중인 Claude 세션을 모두 종료합니다. 진행 중인 응답과 백그라운드 작업은 중단됩니다.',
-      claudeCloseConfirm: '변경',
+      nextInput: '다음 입력에 적용 ({{count}}개 세션)',
+      saveFailed: '설정을 저장하지 못했습니다',
+      openLocation: '설정 위치 열기',
+      readOnlyReason: '하네스에서 변경할 수 없는 항목입니다',
       retry: '다시 시도',
       useMcp: '{{name}} MCP 도구를 사용해 ',
-      configured: '설정에서 활성화',
+      configured: '설정됨 · 실행 미확인',
       installed: '설치됨',
       error: '목록을 갱신하지 못했습니다. 메뉴를 다시 열어 주세요.',
       connected: '연결됨',

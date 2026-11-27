@@ -1175,6 +1175,7 @@ export interface Settings {
   // Skill enabled on/off (키 = sourceId/name). 부재 ⇒ enabled=true.
   skillEnabled: Record<string, boolean>
   /** Main-owned global SDK choices, persisted across restarts; excluded from SettingsPatch. */
+  nativeExtensionRevision?: number
   nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>
   // 인증 게이트 우회(0157 — 구 ssoBypass). true 면 앱 시작 시 로그인 화면을 건너뛴다
   // (디버그 패널에서 토글, DEV 전용).
@@ -1197,7 +1198,7 @@ export interface Settings {
 
 export type SettingsPatch = Omit<
   Partial<Settings>,
-  'scheduler' | 'harnesses' | 'nativeExtensionChoices'
+  'scheduler' | 'harnesses' | 'nativeExtensionChoices' | 'nativeExtensionRevision'
 > & {
   harnesses?: {
     [K in keyof import('./harness').HarnessSettings]?: Partial<

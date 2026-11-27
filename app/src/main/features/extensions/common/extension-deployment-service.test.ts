@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ExtensionDeploymentService } from './extension-deployment-service'
 import type { DeployResult } from '../claude/deployer'
 
@@ -126,4 +126,25 @@ describe('ExtensionDeploymentService — 비동기 직렬화 (0109)', () => {
     expect(await service.ensureDeployed()).toBeNull() // 성공 후 no-op
     expect(runs).toBe(2)
   })
+})
+
+it('waits for both reading responses, blocks a third query during publication and preserves the dist on a failed publish', async () => {
+  const publish = vi.fn(async () => result(1))
+  const service = new ExtensionDeploymentService({ deploy: publish })
+  const releaseA = await service.acquireForTurn()
+  const releaseB = await service.acquireForTurn()
+  const gate = Promise.withResolvers<DeployResult>()
+  publish.mockReturnValueOnce(gate.promise)
+  const write = service.deployNow({ throwOnFailure: true })
+  const next = service.acquireForTurn()
+  const settled = Promise.allSettled([write, next])
+  releaseB()
+  expect(publish).toHaveBeenCalledTimes(1)
+  releaseA()
+  await vi.waitFor(() => expect(publish).toHaveBeenCalledTimes(2))
+  gate.reject(new Error('publish failed'))
+  for (const outcome of await settled) expect(outcome.status).toBe('rejected')
+  const recovered = await service.acquireForTurn()
+  recovered()
+  expect(publish).toHaveBeenCalledTimes(3)
 })

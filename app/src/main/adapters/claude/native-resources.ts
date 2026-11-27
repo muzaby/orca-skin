@@ -13,7 +13,8 @@ export function claudeNativeResources(
   injectedServers: readonly string[] = [],
   installations: readonly { key: string; name: string; path: string; enabled: boolean }[] = [],
   initialFlags: Record<string, boolean> = {},
-  persistPluginState?: (key: string, enabled: boolean) => void | Promise<void>
+  persistPluginState?: (key: string, enabled: boolean) => void | Promise<void>,
+  managed: ReadonlyMap<string, NonNullable<NativeResource['managedSource']>> = new Map()
 ): {
   observePlugins(plugins: readonly { name: string; path: string }[]): void
   observeCommands(names: readonly string[]): void
@@ -73,6 +74,8 @@ export function claudeNativeResources(
     }
   }
   observePlugins(installations.filter((plugin) => plugin.enabled))
+  // A prepared root is a startup choice. Only SDK init/reload establishes that it ran.
+  plugins = plugins.map((plugin) => ({...plugin, status: 'configured'}))
   const isNative = (server: McpServerStatus): boolean =>
     !injectedServers.includes(server.name) &&
     ![...injectedNames].some((name) => server.name.startsWith(`plugin:${name}:`))
@@ -117,7 +120,9 @@ export function claudeNativeResources(
         ...servers
           .filter(
             (server) =>
-              isNative(server) || (server.source === 'plugin' && !!injectedPrefix(server.name))
+              managed.has(server.name) ||
+              isNative(server) ||
+              (server.source === 'plugin' && !!injectedPrefix(server.name))
           )
           .map((server): NativeResource => ({
             id: server.name,
@@ -127,9 +132,12 @@ export function claudeNativeResources(
             kind: 'mcp',
             status: server.status,
             ...(server.source ? { source: server.source } : {}),
-            enabled: server.status !== 'disabled',
+            enabled: server.status === 'connected',
             canToggle: false,
-            ...(injectedPrefix(server.name) ? { origin: 'orcinus-orca' as const } : {})
+            ...(injectedPrefix(server.name) ? { origin: 'orcinus-orca' as const } : {}),
+            ...(managed.has(server.name)
+              ? { origin: 'orcinus-orca' as const, managedSource: managed.get(server.name) }
+              : {})
           })),
         ...(await Promise.all(
           plugins.map(async (plugin) => {

@@ -10,36 +10,20 @@ const f = vi.hoisted(() => ({
 }))
 vi.mock('../../../features/extensions/claude/deployer', () => ({ deploy: f.deploy }))
 import { createClaudeDeploymentService } from './extensions'
-it('finishes immutable publication inside the serialized deployment and drains it before close', async () => {
-  const gate = Promise.withResolvers<void>()
-  const entered = Promise.withResolvers<void>()
-  const publish = vi.fn(async () => {
-    entered.resolve()
-    await gate.promise
-  })
+it('blocks new queries behind publication and propagates the final deployment failure', async () => {
+  const gate = Promise.withResolvers<Awaited<ReturnType<typeof f.deploy>>>()
   const service = createClaudeDeploymentService(
-    { enabledConfig: () => ({ mcpServers: {} }), resolver: () => () => undefined } as never,
-    () => [],
-    publish
+    { enabledConfig: () => ({}), resolver: () => () => undefined },
+    () => []
   )
-  const first = service.deployNow({ throwOnFailure: true })
-  let firstFinished = false
-  void first.then(() => {
-    firstFinished = true
-  })
-  await entered.promise
-  const second = service.deployNow({ throwOnFailure: true })
-  let closed = false
-  const close = service.close().then(() => {
-    closed = true
-  })
-  for (let i = 0; i < 20; i++) await Promise.resolve()
-  expect(f.deploy).toHaveBeenCalledTimes(1)
-  expect(firstFinished).toBe(false)
-  expect(closed).toBe(false)
-  gate.resolve()
-  await Promise.all([first, second, close])
-  expect(f.deploy).toHaveBeenCalledTimes(2)
-  expect(publish).toHaveBeenCalledTimes(2)
-  await expect(service.deployNow({ throwOnFailure: true })).rejects.toThrow()
+  await service.ensureDeployed()
+  f.deploy.mockReturnValueOnce(gate.promise)
+  const publishing = service.deployNow({ throwOnFailure: true })
+  const opening = service.ensureDeployed()
+  const results = Promise.allSettled([publishing, opening])
+  gate.reject(new Error('locked directory'))
+  for (const result of await results)
+    expect(result).toMatchObject({ status: 'rejected', reason: expect.any(Error) })
+  await service.ensureDeployed()
+  expect(f.deploy).toHaveBeenCalledTimes(3)
 })

@@ -3,7 +3,7 @@ export function nativeSettingsShutdown(deps: {
   freeze(): void
   drain(): Promise<void>
   shutdown(): void
-  cleanup(): Promise<void>
+  cleanup?(): Promise<void>
 }): () => Promise<void> {
   let pending: Promise<void> | undefined
   return () => {
@@ -11,7 +11,7 @@ export function nativeSettingsShutdown(deps: {
       deps.freeze()
       await deps.drain()
       deps.shutdown()
-      await deps.cleanup()
+      await deps.cleanup?.()
     })()
     return pending
   }

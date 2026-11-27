@@ -262,3 +262,21 @@ it('0293 turns OpenCode auto-approve on by default while keeping saved choices',
       expect(store.getAll().harnesses?.opencode?.instructions).toBe('keep')
   }
 })
+
+it('moves and removes only user source preferences when a server is renamed or deleted', () => {
+  const store = new SettingsStore('test', countingBackend({}))
+  store.setNativeExtensionChoice('claude', 'managed:user:a', false)
+  store.setNativeExtensionChoice('opencode', 'managed:user:a', true)
+  store.setNativeExtensionChoice('claude', 'mcp:a', true)
+  store.setNativeExtensionChoice('claude', 'managed:builtin:a', true)
+  store.patch({ mcpEnabled: { b: true } }, { from: 'managed:user:a', to: 'managed:user:b' })
+  expect(store.getAll().nativeExtensionChoices).toEqual({
+    claude: { 'managed:user:b': false, 'managed:builtin:a': true, 'mcp:a': true },
+    opencode: { 'managed:user:b': true }
+  })
+  store.patch({ mcpEnabled: {} }, { from: 'managed:user:b' })
+  expect(store.getAll().nativeExtensionChoices).toEqual({
+    claude: { 'managed:builtin:a': true, 'mcp:a': true },
+    opencode: {}
+  })
+})

@@ -57,11 +57,22 @@ export async function runTurnWithContinuations(
   // held 예약 경로다. 공급자 pump에서 자동 응답이 시작되면 다음 post-turn까지 기다리지 않는다.
   let listenPhaseSessionId: string | null = null
   let receiving = false
+  const mustDrain = (sessionId: string): boolean =>
+    runtime.hasPendingMcpCalls ||
+    (runtime.nativeInputChangePending && backgroundTasks.hasPending(sessionId))
+
   const syncTransport = (): void => {
     if (!listenPhaseSessionId) return
     const ready =
       receiving && runtime.channelAlive && !runtime.channelBusy && !runtime.hasUnframedBacklog
     activity.setTransport(listenPhaseSessionId, ready ? 'ready' : 'listening')
+    if (
+      receiving &&
+      ready &&
+      pendingMessages.pending(listenPhaseSessionId).length &&
+      !mustDrain(listenPhaseSessionId)
+    )
+      runtime.endListenFrame()
   }
   const unsubscribeChannelActivity = runtime.subscribeChannelActivity(syncTransport)
   const beginListenPhase = (sessionId: string, isReceiving: boolean): void => {
@@ -114,10 +125,10 @@ export async function runTurnWithContinuations(
         (deps.getInitialBatches?.() ?? []).some((batch) => batch.ids.some((id) => heldIds.has(id)))
       let step = decidePostTurnStep({
         havePending: pendingMessageCount > 0,
-        haveTasks,
+        haveTasks: haveTasks || runtime.hasPendingMcpCalls,
         haveSchedules: runtime.hasSchedules,
         channelAlive: runtime.channelAlive,
-        channelBusy,
+        channelBusy: channelBusy || mustDrain(sessionId),
         hasBacklog,
         haveUnconfirmed
       })
@@ -170,7 +181,8 @@ export async function runTurnWithContinuations(
           // 소모한 중단은 재개하되 await 중 새로 들어온 Stop은 새 정책으로 다시 정착한다.
           return abortResumePolicy(preparedTurn.abortContinuation).resume ? 'continue' : 'break'
         }
-        if (continuation.shouldRespawn) runtime.teardownChannel()
+        if (step === 'flush' && continuation.shouldRespawn && !mustDrain(sessionId))
+          runtime.teardownChannel()
         return continuation
       }
 
@@ -190,9 +202,11 @@ export async function runTurnWithContinuations(
           pendingMessages.pending(sessionId).length > 0 &&
           runtime.channelAlive &&
           !runtime.channelBusy &&
-          !runtime.hasUnframedBacklog
+          !runtime.hasUnframedBacklog &&
+          !mustDrain(sessionId)
         ) {
           step = 'flush'
+          if (continuation.shouldRespawn) runtime.teardownChannel()
           preparedContinuation = continuation
         } else {
           const listenTurn = makeContinuationTurn(deps.getActiveTurn())
@@ -206,7 +220,9 @@ export async function runTurnWithContinuations(
           })
           // busy send 릴리즈 밸브 — 예약(held) 적재 직후 listen 프레임을 닫아 즉시 전환(0136).
           // CLI 가 자동 턴 진행 중이면 no-op(0143 유예) — terminal 자연 마감 후 루프가 flush.
-          deps.listenRelease.set(sessionId, () => runtime.endListenFrame())
+          deps.listenRelease.set(sessionId, () => {
+            if (!mustDrain(sessionId)) runtime.endListenFrame()
+          })
           try {
             await coordinator.run(listenTurn, listenRequest, {
               sharedPathProjectId,
@@ -225,7 +241,7 @@ export async function runTurnWithContinuations(
       // teardown — 아래 channelAlive 분기가 채널-사망 경로(takeForRespawn)로 자연 전환된다.
       const continuation = preparedContinuation ?? (await prepareNext())
       if (continuation === 'break') break
-      if (continuation === 'continue') continue
+      if (continuation === 'continue' || (runtime.channelAlive && mustDrain(sessionId))) continue
       let contPreludes: SteerFlushBatch[] = []
       let batch: SteerFlushBatch | undefined
       if (runtime.channelAlive) {

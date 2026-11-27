@@ -1,64 +1,79 @@
-import { expect, it, vi } from 'vitest'
-import type { Settings } from '../../shared/ipc'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, expect, it, vi } from 'vitest'
 import { extensionControl } from './extension-control'
+import { createSettingsMirror } from './agent-host/settings-mirror'
+import { createAgentLink } from './data-host/agent-link'
+import { createDataWriteOps } from './data-host/data-ops'
+import { createPeerLink } from '../infra/ipc/peer-link'
+import { createPeerLoopback } from '../infra/ipc/peer-loopback.testfixture'
+import { SettingsStore } from '../infra/settings-store'
+import type { DbQueries } from '../infra/db'
 
-it('persists explicit global choices and restores them in a new control', () => {
-  let saved: Settings['nativeExtensionChoices']
-  const store = {
-    get: () => saved,
-    set: vi.fn((value) => {
-      saved = value
-    })
+vi.mock('electron-store', () => ({ default: class {} }))
+
+const dirs: string[] = []
+afterEach(() => {
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
+})
+
+it('merges concurrent per-harness saves on the data host and publishes each durable revision before replying', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oo-choice-store-'))
+  dirs.push(dir)
+  const file = join(dir, 'settings.json')
+  writeFileSync(file, JSON.stringify({ settingsVersion: 2, language: 'before' }))
+  let fail = false
+  const backend = {
+    get store(): Record<string, unknown> {
+      return JSON.parse(readFileSync(file, 'utf8'))
+    },
+    set store(next: Record<string, unknown>) {
+      if (fail) throw new Error('disk full')
+      writeFileSync(file, JSON.stringify(next))
+    }
   }
-  const first = extensionControl(store)
-  first.setGlobal('claude', 'plugin:shared', false)
-  first.setGlobal('opencode', 'mcp:shared', true)
-  first.setGlobal('opencode', 'mcp:disabled', false)
-  expect(store.set).toHaveBeenCalledTimes(3)
-  expect(saved).toEqual({
-    claude: { 'plugin:shared': false },
-    opencode: { 'mcp:shared': true, 'mcp:disabled': false }
+  const settings = new SettingsStore('test', backend)
+  const db = {} as DbQueries
+  const host = createAgentLink({
+    settings,
+    queryOps: {},
+    writeOps: createDataWriteOps({ settings, db, defaultCwd: () => '' }),
+    ensureAgent: vi.fn()
   })
-  const restored = extensionControl(store)
-  expect(restored.global('claude')).toEqual({ 'plugin:shared': false })
-  expect(restored.global('opencode')).toEqual({ 'mcp:shared': true, 'mcp:disabled': false })
-  restored.global('claude')['plugin:shared'] = true
-  expect(restored.global('claude')['plugin:shared']).toBe(false)
-})
-
-it('keeps the last saved choices when persistence fails and allows a retry', () => {
-  const set = vi.fn().mockImplementationOnce(() => {
-    throw new Error('disk full')
-  })
-  const control = extensionControl({ get: () => ({ claude: { 'plugin:one': true } }), set })
-  expect(() => control.setGlobal('claude', 'plugin:one', false)).toThrow('disk full')
-  expect(control.global('claude')).toEqual({ 'plugin:one': true })
-  control.setGlobal('claude', 'plugin:one', false)
-  expect(control.global('claude')).toEqual({ 'plugin:one': false })
-})
-
-// 0324 EP-17 — 정본(에이전트 호스트의 설정 사본)이 아직 없을 때 만들어도 던지지 않고, 처음 읽을 때
-// 가져온다. 사본이 바뀌면 다음 읽기에서 다시 가져온다.
-it('does not read the store until first use and rereads after a change notice', () => {
-  let source: { claude?: Record<string, boolean> } | null = null
-  let changed!: () => void
-  const get = vi.fn(() => {
-    if (!source) throw new Error('settings copy not received')
-    return source
-  })
-  const control = extensionControl({
-    get,
-    set: vi.fn(),
-    onChanged: (listener) => {
-      changed = listener
+  const mirror = createSettingsMirror({ requestWrite: vi.fn() })
+  const agent = createPeerLink({
+    side: 'agent',
+    onRequest: vi.fn(),
+    onNotify(method, value) {
+      if (method === 'settings.snapshot') mirror.applySnapshot(value)
+      if (method === 'settings.patch') mirror.applyPatch(value)
     }
   })
-  expect(get).not.toHaveBeenCalled()
-  source = { claude: { 'plugin:a': true } }
-  expect(control.global('claude')).toEqual({ 'plugin:a': true })
-  source = { claude: { 'plugin:a': false } }
-  expect(control.global('claude')).toEqual({ 'plugin:a': true })
-  changed()
-  expect(control.global('claude')).toEqual({ 'plugin:a': false })
-  expect(get).toHaveBeenCalledTimes(2)
+  const control = extensionControl({
+    get: () => mirror.getAll().nativeExtensionChoices,
+    setChoice: (backend, key, enabled) =>
+      agent.request('data.write', { op: 'setNativeExtensionChoice', args: [backend, key, enabled] })
+  })
+  const ports = createPeerLoopback()
+  host.attach(ports.data)
+  agent.attach(ports.agent)
+  await vi.waitFor(() => expect(mirror.ready()).toBe(true))
+  backend.store = { ...backend.store, language: 'external edit' }
+  await Promise.all([
+    control.setGlobal('claude', 'mcp:same', true),
+    control.setGlobal('opencode', 'mcp:same', false),
+    control.setGlobal('claude', 'managed:user:same', false)
+  ])
+  expect(mirror.getAll().nativeExtensionRevision).toBe(3)
+  expect(control.global('claude')).toEqual({ 'mcp:same': true, 'managed:user:same': false })
+  fail = true
+  await expect(control.setGlobal('claude', 'mcp:same', false)).rejects.toThrow('disk full')
+  expect(backend.store.nativeExtensionRevision).toBe(3)
+  fail = false
+  expect(new SettingsStore('test', backend).getAll()).toMatchObject({
+    language: 'external edit',
+    nativeExtensionRevision: 3,
+    nativeExtensionChoices: { claude: control.global('claude'), opencode: { 'mcp:same': false } }
+  })
 })

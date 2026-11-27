@@ -1,11 +1,10 @@
 import { loadClaudeSdk } from './sdk'
-import type { Options, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { McpServerStatus, Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { SkillInfo } from '../../../shared/ipc'
-import { PluginSnapshots } from '../../infra/config/plugin-snapshots'
 import type { LiveTurn } from '../common/types'
 import { ClaudeAdapter } from './adapter'
 import { nativePluginId } from './configured-resources'
@@ -27,7 +26,8 @@ const fixture = vi.hoisted(() => ({
         mcpServers: [],
         error_count: 0
       })),
-      mcpServerStatus: async () => [],
+      mcpServerStatus: vi.fn<() => Promise<McpServerStatus[]>>(async () => []),
+      toggleMcpServer: vi.fn(async (_name: string, _enabled: boolean) => {}),
       close: vi.fn()
     }
   })
@@ -46,6 +46,7 @@ const write = (path: string, value: unknown): void => {
   writeFileSync(path, typeof value === 'string' ? value : JSON.stringify(value))
 }
 beforeEach(() => {
+  vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
   fixture.query.mockClear()
   fixture.messages.length = 0
   temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-native-spawn-'))
@@ -67,7 +68,10 @@ beforeEach(() => {
     plugins: { 'frontend@market': [{ scope: 'user', installPath: plugin }] }
   })
 })
-afterEach(() => rmSync(temp, { recursive: true, force: true }))
+afterEach(() => {
+  vi.restoreAllMocks()
+  rmSync(temp, { recursive: true, force: true })
+})
 
 it('applies current global plugin choices to every new query while live queries keep theirs', async () => {
   write(join(root, 'settings.json'), { enabledPlugins: { 'frontend@market': false } })
@@ -111,6 +115,9 @@ it('applies current global plugin choices to every new query while live queries 
   enabled = false
   const peer = await sendPrepared(adapter, request)
   expect(flag()).toBe(false)
+  const off = (fixture.query.mock.calls.at(-1)![0] as { options: Options }).options
+  expect(off.plugins?.some((entry) => entry.path === plugin) ?? false).toBe(false)
+  expect(off.skills).not.toContain('frontend-design:frontend-design')
   const other = await sendPrepared(adapter, { ...request, cwd: join(temp, 'other') })
   expect(flag()).toBe(false)
   first.close()
@@ -284,7 +291,7 @@ it('exposes runtime-native watch files and applies external project choices only
     const bytes = readFileSync(file, 'utf8')
     expect((await live.nativeResources!()).items[0]).toMatchObject({
       enabled: false,
-      status: 'enabled'
+      status: 'configured'
     })
     const { revision } = await policy.read(cwd)
     expect(await live.reconcileNativeResources!(revision, () => false)).toBe('pending')
@@ -356,59 +363,46 @@ it('preserves externally selected plugin states across follow-up turns, new adap
   restarted.close()
 })
 
-it('pins deployed MCP files for same-cwd peers and reloads until the final owner closes', async () => {
-  const injected = join(temp, 'deployed')
-  write(join(injected, '.claude-plugin/plugin.json'), { name: 'orcinus-orca' })
-  write(join(injected, '.mcp.json'), { mcpServers: { old: {} } })
-  const snapshots = new PluginSnapshots(join(temp, 'private'))
-  await snapshots.publish([injected])
-  const adapter = new ClaudeAdapter(undefined, snapshots)
+it('reads the published dist and the current harness installation for every new Query', async () => {
+  const dist = join(temp, 'dist')
+  write(join(dist, '.claude-plugin/plugin.json'), { name: 'orcinus-orca' })
+  const registry = join(root, 'plugins/installed_plugins.json')
+  const v1 = readFileSync(registry, 'utf8')
   const request = {
     sessionId: null,
     cwd,
     text: 'hello',
     env: { CLAUDE_CONFIG_DIR: root },
-    extensions: { pluginRoots: [injected], skills: [], hooks: { normalized: {} } }
+    extensions: { pluginRoots: [dist], skills: [skill('active', true)], hooks: { normalized: {} } }
   }
-  const files = (): string[] =>
-    ((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.plugins ?? [])
-      .filter((entry) => entry.type === 'local')
-      .map((entry) => entry.path)
+  let revision = 1
+  const adapter = new ClaudeAdapter({global:()=>({}), deploymentRevision:()=>revision})
   const first = await sendPrepared(adapter, request)
-  const oldPath = files()[0]
-  write(join(injected, '.mcp.json'), { mcpServers: { next: {} } })
-  await snapshots.publish([injected])
-  await first.pushTurn!({ text: 'next turn' })
-  const peer = await sendPrepared(adapter, { ...request, sessionId: 'cold-resume' })
-  expect(files()[0]).toBe(oldPath)
-  expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
-    mcpServers: { old: {} }
-  })
-  const sdk = fixture.query.mock.results.at(-1)!.value
-  sdk.reloadPlugins.mockImplementation(async () => {
-    expect(JSON.parse(readFileSync(join(oldPath, '.mcp.json'), 'utf8'))).toEqual({
-      mcpServers: { old: {} }
-    })
-    return { plugins: [], commands: [], agents: [], mcpServers: [], error_count: 0 }
-  })
-  await selectPlugin(peer, false)
-  const other = await sendPrepared(adapter, { ...request, cwd: join(temp, 'other') })
-  expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
-    mcpServers: { next: {} }
-  })
+  const paths = (): string[] =>
+    ((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.plugins ?? []).map(
+      (entry) => entry.path
+    )
+  const options = (): Options => (fixture.query.mock.calls.at(-1)![0] as { options: Options }).options
+  expect(paths()).toEqual([dist, plugin])
+  expect(options().skills).toContain('frontend-design:frontend-design')
+  expect((await first.pushTurn!({text:'same deployment'})).kind).toBe('accepted')
+  revision++
+  expect(first.inputResourcesChanged?.()).toBe(true)
+  expect((await first.pushTurn!({text:'updated deployment'})).kind).toBe('restartBeforeAccept')
+  expect(readFileSync(registry, 'utf8')).toBe(v1)
+  const v2 = join(temp, 'market-updated')
+  write(join(v2, '.claude-plugin/plugin.json'), { name: 'frontend-design' })
+  write(join(v2, 'commands/v2-only.md'), 'v2-only-body')
+  write(registry, { plugins: { 'frontend@market': [{ scope: 'user', installPath: v2 }] } })
+  const updated = readFileSync(registry, 'utf8')
+  const second = await sendPrepared(adapter, { ...request, sessionId: 'resume-id' })
+  expect(paths()).toEqual([dist, v2])
+  expect(options().skills).toContain('frontend-design:v2-only')
+  expect(options().skills).not.toContain('frontend-design:frontend-design')
+  expect(readFileSync(join(v2,'commands/v2-only.md'), 'utf8')).toBe('v2-only-body')
   first.close()
-  const remaining = await sendPrepared(adapter, request)
-  expect(files()[0]).toBe(oldPath)
-  peer.close()
-  remaining.close()
-  const fresh = await sendPrepared(adapter, request)
-  expect(files()[0]).not.toBe(oldPath)
-  expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
-    mcpServers: { next: {} }
-  })
-  other.close()
-  fresh.close()
-  await snapshots.close()
+  second.close()
+  expect(readFileSync(registry, 'utf8')).toBe(updated)
 })
 
 it('reports a reconciled plugin revision as applied but not a later external edit', async () => {
@@ -493,3 +487,50 @@ it('carries the prepared global plugin defaults into the spawned query settings'
   expect(settings.enabledPlugins['frontend-design@inline']).toBe(true)
   live.close()
 })
+
+
+it.each(['off','cancel','fail'] as const)(
+  'holds initial input until the selected MCP is confirmed and handles %s while waiting',
+  async outcome => {
+    let enabled = true
+    const adapter = new ClaudeAdapter({global:()=>({'mcp:docs':enabled})})
+    const controller = new AbortController()
+    const request = { cwd, sessionId:null, text:'ordinary message',promptUuid:'2129a9eb-d199-49b8-8c1b-84fa41fc7db1',
+      env:{CLAUDE_CONFIG_DIR:root},extensions:{skills:[],hooks:{normalized:{}}} }
+    const prepared = await adapter.prepareTurn(request, controller.signal)
+    const live = adapter.sendMessage({...request,prepared})
+    const sdk = fixture.query.mock.results.at(-1)!.value
+    let release!: (rows: McpServerStatus[]) => void
+    const lookup = new Promise<McpServerStatus[]>(resolve=>{release=resolve})
+    let status:McpServerStatus['status']='connected'
+    const row = (): McpServerStatus[] => [{name:'docs',source:'user',status}]
+    sdk.mcpServerStatus.mockImplementationOnce(()=>lookup).mockImplementation(async()=>row())
+    sdk.toggleMcpServer.mockImplementation(async (_id: string, active: boolean)=>{
+      if(outcome==='fail') throw new Error('SDK failed to change connection')
+      status = active ? 'connected' : 'disabled'
+    })
+    const stream = (fixture.query.mock.calls.at(-1)![0] as {prompt:AsyncIterable<SDKUserMessage>}).prompt[Symbol.asyncIterator]()
+    let delivered=false
+    const first = stream.next().then(item=>{delivered=!item.done;return item})
+    try {
+      const admission = live.submitInitial!(controller.signal)
+      await vi.waitFor(()=>expect(sdk.mcpServerStatus).toHaveBeenCalledOnce())
+      expect(delivered).toBe(false)
+      if(outcome==='cancel') controller.abort()
+      else enabled=false
+      release(row())
+      if(outcome==='off'){
+        expect(await admission).toEqual({kind:'accepted'})
+        expect((await first).value).toMatchObject({uuid:request.promptUuid,message:{content:request.text}})
+        expect(sdk.toggleMcpServer).toHaveBeenCalledExactlyOnceWith('docs',false)
+        live.close()
+        expect((await stream.next()).done).toBe(true)
+      }else{
+        await expect(admission).rejects.toThrow()
+        live.close()
+        expect((await first).done).toBe(true)
+        expect(delivered).toBe(false)
+      }
+    }finally {live.close()}
+  }
+)

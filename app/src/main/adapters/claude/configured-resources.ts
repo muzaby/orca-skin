@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
 import { extensionChoices } from '../common/extension-control'
@@ -12,6 +12,8 @@ import {
   readClaudeSettingsObjectAsync
 } from './native-settings-file'
 import { installedClaudePlugins } from './plugin-catalog'
+import { readPluginMcpDeclarations } from './plugin-mcp-declarations'
+import { claudePluginName } from './plugin-observations'
 import { claudePluginEnabled } from './plugin-flag'
 import { claudeLocalSettingsRoot, pluginPathKey } from './project-path'
 
@@ -37,12 +39,6 @@ function configured(
     enabled,
     canToggle: false
   }
-}
-
-function pluginFile(root: string, value: string): string | undefined {
-  const file = resolve(root, value.replaceAll('${CLAUDE_PLUGIN_ROOT}', root))
-  const child = relative(root, file)
-  return child !== '..' && !child.startsWith(`..${sep}`) && !isAbsolute(child) ? file : undefined
 }
 
 /** Metadata discovery only. Never loads a plugin, starts an MCP server or writes settings. */
@@ -85,9 +81,9 @@ async function readConfiguredClaudeResources(
   const current = globalOnly ? {} : { ...projectEntry(nativeRoot), ...projectEntry(cwd) }
   const enabledPlugins = {
     ...record(user.enabledPlugins),
-    ...extensionChoices(choices, 'plugin'),
     ...record(project.enabledPlugins),
-    ...record(local.enabledPlugins)
+    ...record(local.enabledPlugins),
+    ...extensionChoices(choices, 'plugin')
   }
   const disabled = new Set(
     Array.isArray(current.disabledMcpServers) ? current.disabledMcpServers : []
@@ -121,10 +117,16 @@ async function readConfiguredClaudeResources(
           enabled && !disabled.has(id) && !(source === 'project' && deniedProject.has(id))
         )
       })
+      if (globalOnly && (source === 'user' || prefix)) {
+        const row = servers.get(id)!
+        row.canToggle = true
+        row.source = prefix ? 'plugin' : 'user'
+      }
       mcpFiles.set(id, file)
     }
   }
   const plugins: NativeResource[] = []
+  const pluginNames = new Map<string, string[]>()
   const applicable = installedClaudePlugins(cwd, installed.plugins, globalOnly)
   const selected = new Map<string, (typeof applicable)[number]>()
   for (const entry of applicable)
@@ -142,34 +144,36 @@ async function readConfiguredClaudeResources(
     const id = nativePluginId(installPath)
     if (directories.has(id)) continue
     directories.set(id, installPath)
+    const resolvedName = claudePluginName(installPath, manifest)
+    if (resolvedName) pluginNames.set(resolvedName, [...(pluginNames.get(resolvedName) ?? []), id])
     plugins.push({
       ...configured(id, name, 'plugin', enabled, installedOnly),
       ...(globalOnly
-        ? { canToggle: entry.scope === 'user' && typeof manifest.name === 'string' }
+        ? {
+            canToggle: entry.scope === 'user' && !!resolvedName,
+            ...(!resolvedName
+              ? { controlReason: 'SDK에서 플러그인 이름을 확인하지 못했습니다.' }
+              : {})
+          }
         : {}),
       ...(typeof manifest.description === 'string'
         ? { description: manifest.description.trim().slice(0, 4000) }
         : {})
     })
-    const pluginName = typeof manifest.name === 'string' ? manifest.name : name.split('@')[0]
+    const pluginName = resolvedName ?? name.split('@')[0]
     const prefix = `plugin:${pluginName}:`
-    const bundledMcp = await readClaudeSettingsObjectAsync(join(installPath, '.mcp.json'))
-    addServers(bundledMcp.mcpServers ?? bundledMcp, join(installPath, '.mcp.json'), prefix, enabled)
-    const declarations = Array.isArray(manifest.mcpServers)
-      ? manifest.mcpServers
-      : [manifest.mcpServers]
-    for (const declaration of declarations) {
-      if (typeof declaration === 'string') {
-        const file = pluginFile(installPath, declaration)
-        if (file) {
-          const extra = await readClaudeSettingsObjectAsync(file)
-          addServers(extra.mcpServers ?? extra, file, prefix, enabled)
-        }
-      } else
-        addServers(declaration, join(installPath, '.claude-plugin', 'plugin.json'), prefix, enabled)
+    for (const { value, file } of await readPluginMcpDeclarations(installPath, manifest))
+      addServers(value, file, prefix, enabled)
+  }
+  if (globalOnly) {
+    const ambiguous = new Set([...pluginNames.values()].filter((ids) => ids.length > 1).flat())
+    for (const plugin of plugins) {
+      if (!ambiguous.has(plugin.id)) continue
+      plugin.canToggle = false
+      plugin.controlReason = '같은 SDK 이름을 쓰는 설치가 둘 이상입니다.'
     }
   }
-  addServers(global.mcpServers, paths.globalConfig)
+  addServers(global.mcpServers, paths.globalConfig, '', true, 'user')
   addServers(mcp.mcpServers, join(root, '.mcp.json'), '', true, 'project')
   addServers(current.mcpServers, paths.globalConfig)
   return { items: [...servers.values(), ...plugins], directories, mcpFiles }

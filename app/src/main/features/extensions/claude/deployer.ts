@@ -18,8 +18,7 @@
 // 동기 fs 금지(0109) — 배포는 부팅 스텝과 스킬/MCP CRUD invoke 핸들러 안에서 돌므로,
 // 재귀 복사/삭제가 sync 면 그 동안 이벤트 루프(=모든 IPC·프로토콜 응답)가 멈춘다.
 import { existsSync } from 'node:fs'
-import { getLogger } from '../../../infra/log/registry'
-import { readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { readFile, readdir, rename, rm, writeFile, mkdir, mkdtemp, chmod } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../../../shared/ipc'
@@ -149,27 +148,7 @@ export async function deploy(
     return { engine, dryRun, actions, backedUp: false, validation }
   }
 
-  // backup-then-write: 기존 dist 를 .bak(롤링 1개)으로 옮긴 뒤 새로 렌더.
-  let backedUp = false
-  if (existsSync(dist)) {
-    const bak = `${dist}.bak`
-    try {
-      await rm(bak, { recursive: true, force: true })
-      await rename(dist, bak)
-      backedUp = true
-      // 0157 — 해석된 MCP 비밀의 **2차 사본 제거**. .bak 은 배포 구조 롤백용이지 비밀 보관용이
-      // 아닌데, dist 를 통째로 rename 하면 평문 .mcp.json 이 무기한 남는다(보고서 위험 #2).
-      // 남는 1차 사본(dist 쪽)은 claude CLI 가 읽어야 해서 제거할 수 없다 — 요구명세
-      // §소비자 경계의 문서화된 잔여 노출이며, 최종 제거는 MCP proxy 단계 몫이다.
-      await rm(join(bak, 'plugins', OO_PLUGIN_NAME, '.mcp.json'), { force: true })
-      actions.push('backup dist → .bak (mcp secret 스크럽)')
-    } catch (e) {
-      getLogger()
-        .child('extensions')
-        .warn('extensions.deploy.backup-failed', { message: String(e), overwrite: true })
-      await rm(dist, { recursive: true, force: true })
-    }
-  }
+  if (!validation.ok) return { engine, dryRun, actions, backedUp: false, validation }
 
   let mcpConfig: ClaudeMcpConfig = {}
   if (opts.mcpConfig) {
@@ -187,34 +166,64 @@ export async function deploy(
     actions.push(`render empty mcp → plugins/${PRODUCT_SLUG}/.mcp.json`)
   }
 
-  await renderClaudeHarnessPlugin({
-    engine,
-    root,
-    skillRoots: opts.skillRoots ?? [
-      {
-        sourceId: 'orcinus-orca',
-        sourceLabel: `${PRODUCT_DISPLAY_NAME} 스킬`,
-        sourceKind: 'orcinus-orca',
-        rootDir: join(sources, 'skills')
-      }
-    ],
-    mcpConfig
-  })
-  actions.push(`render Orcinus orca plugin → dist/plugins/${PRODUCT_SLUG}`)
+  // Stage on the same volume; the current SDK roots remain intact throughout rendering.
+  await mkdir(join(root, 'dist'), { recursive: true })
+  const stage = await mkdtemp(join(root, 'dist', `.${engine}-staging-`))
+  const rendered = join(stage, 'dist', engine)
+  let backedUp = false
+  try {
+    await renderClaudeHarnessPlugin({
+      engine,
+      root: stage,
+      skillRoots: opts.skillRoots ?? [
+        {
+          sourceId: 'orcinus-orca',
+          sourceLabel: `${PRODUCT_DISPLAY_NAME} 스킬`,
+          sourceKind: 'orcinus-orca',
+          rootDir: join(sources, 'skills')
+        }
+      ],
+      mcpConfig
+    })
+    actions.push(`render Orcinus orca plugin → dist/plugins/${PRODUCT_SLUG}`)
 
-  // 사용자 ~/.claude/skills 래퍼 플러그인(0117) — 대상 부재/링크 실패는 렌더러가 null 로 강등.
-  const userPluginRoot = adapterSkillsRoot
-    ? await renderClaudeUserSkillsPlugin({ root, engine, skillsTarget: adapterSkillsRoot })
-    : null
-  actions.push(userSkillsAction(userPluginRoot !== null))
-  actions.push('skip commands/settings dist copy')
+    // 사용자 ~/.claude/skills 래퍼 플러그인(0117) — 대상 부재/링크 실패는 렌더러가 null 로 강등.
+    const userPluginRoot = adapterSkillsRoot
+      ? await renderClaudeUserSkillsPlugin({ root: stage, engine, skillsTarget: adapterSkillsRoot })
+      : null
+    actions.push(userSkillsAction(userPluginRoot !== null))
+    actions.push('skip commands/settings dist copy')
 
-  // 배포 마커(드리프트 식별·디버깅용).
-  await writeFile(
-    join(dist, `.${PRODUCT_SLUG}-deploy.json`),
-    JSON.stringify({ engine, at: Date.now() }, null, 2),
-    'utf8'
-  )
+    // 배포 마커(드리프트 식별·디버깅용).
+    await writeFile(
+      join(rendered, `.${PRODUCT_SLUG}-deploy.json`),
+      JSON.stringify({ engine, at: Date.now() }, null, 2),
+      'utf8'
+    )
 
-  return { engine, dryRun, actions, backedUp, validation }
+    const validationResult = await validateMcp(
+      join(rendered, 'plugins', OO_PLUGIN_NAME, '.mcp.json')
+    )
+    if (!validationResult.ok) throw new Error(validationResult.errors.join(' / '))
+    await chmod(rendered, 0o700)
+    const bak = `${dist}.bak`
+    if (existsSync(dist)) {
+      await rm(bak, { recursive: true, force: true })
+      await rename(dist, bak)
+      backedUp = true
+    }
+    try {
+      await rename(rendered, dist)
+    } catch (error) {
+      if (backedUp) await rename(bak, dist)
+      throw error
+    }
+    if (backedUp) {
+      await rm(join(bak, 'plugins', OO_PLUGIN_NAME, '.mcp.json'), { force: true })
+      actions.push('backup dist → .bak (mcp secret 스크럽)')
+    }
+    return { engine, dryRun, actions, backedUp, validation }
+  } finally {
+    await rm(stage, { recursive: true, force: true })
+  }
 }

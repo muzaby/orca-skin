@@ -23,7 +23,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 ### 1.2 등록된 백엔드 (현재 — Phase 3 SDK)
 
-내장·사용자 MCP의 공통 계약은 `adapters/common/managed-mcp.ts`다. `app/managed-mcp.ts`가 등록 소스와 인증 binding을 조립하며 `ExtensionBuilder`는 snapshot을 턴에 싣는다. OpenCode client 획득은 같은 세대의 bridge와 native 프로필을 재사용하고 마지막 owner만 반납한다. 사용자 턴·자동 연속 턴은 adapter의 restartRevision 정책으로 spawn 기록을 비교한다. OpenCode는 실행 정의 revision, Claude는 전체 revision을 사용한다. 전체 정의와 enabled 사용자 목록·desired 선택을 분리하며 정의·인증 변경과 연결 선택 변경을 별도로 통지한다. 스킬 허용과 MCP 허용은 별도 Composer 능력이다.
+내장·사용자 MCP의 공통 계약은 `adapters/common/managed-mcp.ts`다. `app/managed-mcp.ts`가 등록 소스와 인증 binding을 조립하며 `ExtensionBuilder`는 snapshot을 턴에 싣는다. OpenCode client 획득은 같은 세대의 bridge와 native 프로필을 재사용하고 마지막 owner만 반납한다. 사용자 턴·자동 연속 턴은 adapter의 restartRevision 정책으로 spawn 기록을 비교한다. OpenCode는 directory 안에서 정의·연결 변경을 반영한다. Claude는 Query 입력 경계에서 선택을 검사한다. 전체 정의와 enabled 사용자 목록·desired 선택을 분리하며 정의·인증 변경과 연결 선택 변경을 별도로 통지한다. 스킬 허용과 MCP 허용은 별도 Composer 능력이다.
 
 | Backend | 어댑터 파일 | 구현 방식 | 상태 |
 |---|---|---|---|
@@ -77,13 +77,15 @@ native user의 synthetic text만 공통 `input.received`로 기록하고, 모델
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 
-nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. Claude plugin과 OpenCode MCP는 가변 토글·일반 폰트이며, OpenCode plugin과 Claude MCP는 실제 상태의 고정 토글·회색 폰트다. 기본 경로 스킬은 항상 활성으로 취급하며 토글을 제공하지 않는다. 미지정 항목은 native 기본값을 따르고 명시 선택만 `Settings.nativeExtensionChoices`에 저장한다. app의 control은 시작 시 이를 복원하고 변경 시 main 전용 setter를 거쳐 저장한다. renderer의 일반 settings patch는 선택을 바꿀 수 없다. 설정 버전 업그레이드 시 예전 선택을 한 번 비우고 이후 저장값은 재시작에도 유지한다.
+nav의 확장 카탈로그는 하네스별 전역 선언, Orcinus orca 관리 서버와 기존 세션의 관측을 결합한다. 선택은 지원 여부와 실제 실행 상태와 독립적이다. 데이터 호스트는 하네스·출처·항목 하나를 설정 정본에 병합한 뒤 revision과 사본을 발행한다. 외장 서버에 하네스별 선택이 없으면 기존 MCP 설정의 활성값을 따른다.
 
-Claude plugin 전역 선택은 새 Query마다 SDK inline plugin flags로 반영한다. 살아 있는 Query는 자기 flag를 바꾸지 않으므로 nav 전역 토글이 실행 중인 Claude 프로세스를 모두 닫고(동작 중 세션이 있으면 먼저 확인), 다음 메시지가 새 프로세스로 같은 대화를 resume한다(`app/harnesses/claude/processes.ts`). 초안·미실행 세션도 user 설정보다 Orcinus orca 선택, 그보다 project·local 설정을 우선해 명령과 리소스를 읽는다. 설치 폴더가 없는 플러그인은 실행·카탈로그에서 제외한다. 같은 작업경로의 살아 있는 Query들은 Orcinus orca 스킬 선택·배포 사본을 공유하며 마지막 Query 해제 후 새 값을 읽는다. 배포기는 직렬화된 배포 안에서 immutable 사본을 발행하고, 기존 owner가 참조하는 사본은 후속 배포나 재로드로 바뀌지 않는다. 프로젝트 plugin 선택은 이 기본값보다 우선한다. Claude native MCP는 SDK 저장이 Git 루트와 하위 작업폴더에 전파되므로 전역·프로젝트 제어를 제공하지 않는다. Windows Claude 플러그인만 실제 cwd의 `.claude/settings.local.json`에 `enabledPlugins` 키를 병합 저장하며 다른 키는 보존한다.
+Claude 네이티브 플러그인은 하네스 registry의 현재 설치 경로에서 읽는다. Query는 같은 대화의 새 입력 경계에서 선택을 반영한다. Orcinus orca 플러그인과 사용자 스킬 래퍼는 검증 후 게시한 dist 경로에서 로드하고, 배포 서비스는 진행 중인 응답과 배포를 직렬화한다. 옛 runtime-plugins 실행 사본은 부팅 시 정리한다.
 
 Claude 설정·manifest 읽기는 spawn과 목록이 같은 정책을 쓴다(`claude/native-settings-file.ts`, 빈 내용 규칙은 `infra/config/json-file.ts`의 `parseJsonObject`). 파일이 없거나 내용이 비었으면(0바이트·공백·BOM만·`null`) 설정 없음으로 보고 알리지 않는다. 내용이 있는데 읽거나 파싱할 수 없으면 CLI처럼 그 파일만 빼고 계속하며, `plugin.json`이면 그 플러그인만 실행·목록에서 제외한다. 경로와 사유만 담은 경고 토스트(`claude.native-settings.skipped`)를 같은 파일 상태당 한 번 내고 파일 내용은 싣지 않는다. 쓰기를 지배하는 읽기(`plugin-state.ts`·`project-settings.ts`)는 빈 내용 규칙만 공유하고, 내용이 있는 깨진 파일에서는 저장을 거부해 파일을 덮어쓰지 않는다(0301).
 
-OpenCode 서버 기동 설정은 같은 환경의 전역 파일에서 켜진 MCP 이름만 `{enabled:false}`로 덮어쓴다. 정의를 복사하거나 native 파일을 쓰지 않으며 프로젝트 전용 이름과 꺼진 전역 이름은 제외한다. MCP 전역 선택은 저장 성공 후 활성 directory에 SDK `connect`/`disconnect`로 재조정한다. 프로젝트의 명시 선택을 우선하며 관리 MCP 전체 정의는 native config에 `enabled:false`로 투영하고 desired 항목만 연결한다. 정의 세대가 같은 토글은 서버·bridge·모델·agent 세대를 유지한다. 기존 인스턴스의 설정 파일을 갱신하거나 서버를 재시작하지 않는다. 활성화의 초기 연결은 MCP별로 독립 진행하고 응답 중에도 완료할 수 있다. 사용자 토글과 최초·후속·slash 제출은 같은 직렬 큐에서 해제 장벽을 지킨다. 자동 토글 적용은 공유 경로의 전체 activity 유휴를 기다리며 제출 직전 적용은 자신의 대기 입력을 기다리지 않는다. 해제 실패는 desired를 유지하고 전송을 막는다. 제출은 명시한 @멘션 MCP의 정착을 취소 가능하게 기다린 뒤 다른 진행 중 연결은 최대 2초만 기다린다. 연결 실패는 전송을 막지 않으며 실제 connected 관리 MCP만 시스템 멘션 매핑에 포함한다. 대기 중 선택이 바뀌면 해제 장벽부터 다시 확인한다. 프로젝트 네이티브 파일은 하위 작업폴더도 상속하므로 MCP·플러그인 제어는 모니터링으로 제한한다. 파일 변경은 UI에 바로 관측하고 기존 인스턴스는 정상 자원 회수 후 새로 생성할 때 읽는다. OpenCode plugin은 사용자 전역 설정의 실효 `plugin` 배열을 읽기 전용으로 표시한다. `config.json` → `opencode.json` → `opencode.jsonc` 순서에서 마지막으로 `plugin`을 선언한 파일이 유효하다. 전역 파일 감시는 plugin 변경을 관측하면 서버 pool을 먼저 retire하고 전용 전역 revision 이벤트를 모든 창에 보낸다. active owner는 유지하고 idle 세대는 즉시 회수하며 새 연결부터 새 서버를 쓴다.
+OpenCode는 작업 폴더별로 전역 MCP와 유효 선언의 전송 방식·대상을 대조한다. 같은 서버에 대해서만 기동 시 연결을 보류하고 사용자 선택을 적용한다. 프로젝트에서 켜짐만 덮어썼으면 명시한 전역 선택을 따른다. 다른 대상을 쓰거나 대상을 확인할 수 없는 작업 폴더에는 그 서버의 연결 명령을 보내지 않는다. 관리형 MCP에는 출처별 alias를 사용하고 내장의 호출에는 인증이 필요하다.
+
+각 directory의 활성화·재시도·설정 적용·입력 제출은 같은 직렬 큐를 쓴다. 공유 응답과 잔여 작업이 끝나면 최신 선택으로 SDK 연결과 해제를 확인한다. 사용자가 명시적으로 켠 서버가 연결되지 않으면 일반 메시지도 전송을 보류하고, 뒤늦게 추가된 정의는 SDK의 인스턴스 등록 API로 적용한다. 이름이 충돌하거나 SDK가 등록을 지원하지 않으면 해당 세션에 제한 사유를 표시한다. 전송에는 실제 연결된 관리형 MCP만 멘션 매핑에 포함한다. 파일 변경은 UI에 바로 관측하고 기존 인스턴스는 정상 자원 회수 후 새로 생성할 때 읽는다. OpenCode plugin은 사용자 전역 설정의 실효 `plugin` 배열을 읽기 전용으로 표시한다. `config.json` → `opencode.json` → `opencode.jsonc` 순서에서 마지막으로 `plugin`을 선언한 파일이 유효하다. 전역 파일 감시는 plugin 변경을 관측하면 서버 pool을 먼저 retire하고 전용 전역 revision 이벤트를 모든 창에 보낸다. active owner는 유지하고 idle 세대는 즉시 회수하며 새 연결부터 새 서버를 쓴다.
 
 네이티브 파일 저장은 canonical 파일별 비동기 FIFO에서 최신 파일 읽기→키 병합→동일 디렉터리 임시 파일 fsync→원자 rename으로 처리한다. 일시적 Windows 공유 잠금은 제한 시간 안에서 재시도하며, 실패한 요청 뒤에도 큐는 진행한다. 외부 편집을 감지하면 최신 바이트로 재병합한다. 외부 프로세스와의 원자 compare-and-swap은 제공하지 않는다. 정상 종료는 신규 저장을 막고 접수된 저장·배포를 drain한 뒤 runtime과 배포 사본을 정리한다.
 
@@ -253,7 +255,7 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 네이티브 스킬 메뉴는 실행 채널이 있으면 SDK의 실제 명령을, 없으면 활성 설치 플러그인의 skill/command 파일에서 얻은 이름·설명·힌트를 사용한다. 설치 metadata는 매 조회/새 spawn에서 읽으며 사용자 호출 금지 스킬은 메뉴에서 제외한다. 메뉴의 `plugin::skill` 표시와 전송의 `/plugin:skill` 이름은 구분한다.
 
-Claude 프로젝트 확장은 `project-settings.ts`가 MCP/plugin 대상 키의 revision을 계산하고 `project-reconciliation.ts`가 시작 시 기본값과 외부 프로젝트 선택을 대조한다. Windows 프로젝트 settings/local 파일은 현재 cwd를 사용하며 native MCP 상태는 SDK의 Git 프로젝트 항목도 읽는다. 외부 plugin 재적용은 파일을 역으로 저장하지 않고, MCP on/off의 native 저장은 SDK에 맡긴다. `.mcp.json` 승인·거부는 프로젝트 출처에만 적용하며 일반 MCP의 disabledMcpServers와 구분한다. 다음 실행은 전역/provider 기본값 위에 프로젝트·local 선택을 순서대로 적용한다. Orcinus orca가 실행 중 Query에 적용하고 저장한 plugin 선택은 그 런타임이 `nativeResourcesApplied(revision)`로 적용됨을 보고해 감시자가 미적용 설정으로 표시하지 않는다(파일에 외부 편집이 섞이면 그 revision은 미적용이다). 감시 방송은 같은 프로젝트 변경 큐 뒤에서 나간다(0284).
+Claude 프로젝트 확장은 `project-settings.ts`가 MCP/plugin 대상 키의 revision을 계산하고 `project-reconciliation.ts`가 시작 시 기본값과 외부 프로젝트 선택을 대조한다. Windows 프로젝트 settings/local 파일은 현재 cwd를 사용하며 native MCP 상태는 SDK의 Git 프로젝트 항목도 읽는다. 외부 plugin 재적용은 파일을 역으로 저장하지 않고, MCP on/off의 native 저장은 SDK에 맡긴다. `.mcp.json` 승인·거부는 프로젝트 출처에만 적용하며 일반 MCP의 disabledMcpServers와 구분한다. 다음 실행은 provider 기본값과 프로젝트·local 설정을 해석한 뒤 하네스별 전역 명시 선택을 적용한다. Orcinus orca가 실행 중 Query에 적용하고 저장한 plugin 선택은 그 런타임이 `nativeResourcesApplied(revision)`로 적용됨을 보고해 감시자가 미적용 설정으로 표시하지 않는다(파일에 외부 편집이 섞이면 그 revision은 미적용이다). 감시 방송은 같은 프로젝트 변경 큐 뒤에서 나간다(0284).
 
 컴포저의 slash 자동완성·강조도 같은 세션 native 명령 관측을 사용한다. 전역 스킬 탭은 기본 경로 스킬과 Orcinus orca 스킬을 표시하고 native 플러그인 출처 스킬은 제외한다. 네이티브 플러그인은 플러그인 탭에서 관리하며 세션의 호출 가능 명령 목록과 구별한다.
 

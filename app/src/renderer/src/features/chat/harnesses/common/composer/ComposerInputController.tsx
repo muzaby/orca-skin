@@ -138,6 +138,7 @@ export function ComposerInputController({
     setDraggingAttachment,
     pickAttachments,
     removeAttachment,
+    addAttachments,
     addDroppedFiles,
     onPaste,
     resetIfUnchanged: resetAttachmentsIfUnchanged
@@ -205,9 +206,18 @@ export function ComposerInputController({
     if (!restoredDraft || restoredRef.current === restoredDraft.id) return
     if (restoredDraft.mode === 'append' && !active) return
     restoredRef.current = restoredDraft.id
+    if (restoredDraft.attachments) addAttachments(restoredDraft.attachments)
     updateSnapshot((current) => applyDraftUpdate(current, restoredDraft))
     if (active) focus(snapshotRef.current.text.length)
-  }, [active, compositionActive, focus, restoredDraft, snapshot.composing, updateSnapshot])
+  }, [
+    active,
+    compositionActive,
+    focus,
+    restoredDraft,
+    snapshot.composing,
+    updateSnapshot,
+    addAttachments
+  ])
 
   useEffect(() => {
     if (active || !compositionActive()) return

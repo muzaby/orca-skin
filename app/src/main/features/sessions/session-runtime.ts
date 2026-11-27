@@ -8,7 +8,7 @@ import {
   type ResolvedHarnessSettings
 } from '../../adapters/common/harness-config'
 import type { RuntimeToolContext } from '../../adapters/common/runtime-tools'
-import type { TurnRequest } from '../../adapters/common/turn'
+import { McpAdmissionError, type TurnRequest } from '../../adapters/common/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
 import {
@@ -294,6 +294,16 @@ export class SessionRuntime implements ManagedRuntime {
 
   // 0143 — CLI mid-turn 여부(자동/알림 턴 포함). chat-turn 턴-후 루프가 "held flush(pushTurn)는
   // 유휴 채널에서만" 을 판정한다.
+  private readonly activeMcpCalls = new Set<string>()
+
+  get nativeInputChangePending(): boolean {
+    return this.live?.inputResourcesChanged?.() === true
+  }
+
+  get hasPendingMcpCalls(): boolean {
+    return this.activeMcpCalls.size > 0
+  }
+
   get channelBusy(): boolean {
     return this.cliBusy || this.draining
   }
@@ -440,13 +450,16 @@ export class SessionRuntime implements ManagedRuntime {
     const live = this.live
     if (live?.pushTurn && this.pumpRunning) {
       const frame = this.openFrame(false)
+      let restart = false
       try {
         if (req.canSubmitInitial && !req.canSubmitInitial()) {
           throw new Error('submission_stale:before-continuation')
         }
         const outcome = await live.pushTurn({
+          ...(req.canSubmitInitial ? { canSubmit: req.canSubmitInitial } : {}),
           ...(req.harnessAgent !== undefined ? { harnessAgent: req.harnessAgent } : {}),
           ...(req.modelVariant !== undefined ? { modelVariant: req.modelVariant } : {}),
+          ...(req.signal ? { signal: req.signal } : {}),
           text: req.text,
           ...(req.attachmentTexts ? { attachmentTexts: req.attachmentTexts } : {}),
           ...(req.attachmentImages ? { attachmentImages: req.attachmentImages } : {}),
@@ -456,23 +469,28 @@ export class SessionRuntime implements ManagedRuntime {
           ...(req.effort !== undefined ? { effort: req.effort } : {}),
           ...(req.permissionMode !== undefined ? { permissionMode: req.permissionMode } : {})
         })
+        restart = outcome.kind === 'restartBeforeAccept'
+        if (restart) this.teardownChannel()
         if (outcome.kind === 'rejectedBeforeAccept') {
           this.teardownChannel()
           throw new Error(`submission_rejected:${outcome.reason}`)
         }
-        if (req.commitInitialSubmission && !req.commitInitialSubmission()) {
+        if (!restart && req.commitInitialSubmission && !req.commitInitialSubmission()) {
           this.teardownChannel()
           throw new Error('submission_stale:continuation')
         }
       } catch (err) {
-        this.teardownChannel()
+        if (err instanceof McpAdmissionError) req.rollbackInitialSubmission?.()
+        else this.teardownChannel()
         if (this.frame === frame) this.frame = null
         frame.end()
         if (!this.cancelled) this.status.markError(null)
         throw err
       }
-      yield* this.consumeFrame(frame)
-      return
+      if (!restart) {
+        yield* this.consumeFrame(frame)
+        return
+      }
     }
 
     // 스폰 — 채널이 없거나 죽었거나 pushTurn 미지원(mock). 콜백은 delegate 래퍼로 치환해
@@ -480,10 +498,12 @@ export class SessionRuntime implements ManagedRuntime {
     // sendMessage 동기 호출이 spawn 경계이며, 이후 스트림 실패는 chat.turn.failed 가 담당한다.
     // admission 은 spawn 기록·도구 컨텍스트보다 먼저다 — 띄우지 않은 시도를 started 로 남기지 않는다.
     // 준비는 판정보다 앞이다 — 준비 중 바뀐 상태를 판정이 보고, 판정과 spawn 사이에는 await 가 없다.
-    const prepared = await this.prepareSpawn(req)
-    if (req.canSubmitInitial && !req.canSubmitInitial()) {
+    let prepared: unknown
+    try {
+      prepared = await this.prepareSpawn(req)
+    } catch (error) {
       req.rollbackInitialSubmission?.()
-      throw new Error('submission_stale:before-spawn')
+      throw error
     }
     const log = getLogger().child('engine')
     log.info('engine.spawn.started', { provider: this.adapter.id })
@@ -495,9 +515,23 @@ export class SessionRuntime implements ManagedRuntime {
     })
     this.runtimeToolContext = toolContext
     try {
-      spawned = this.adapter.sendMessage(
-        this.wrapRequest(prepared === undefined ? req : { ...req, prepared })
-      )
+      while (true) {
+        spawned = this.adapter.sendMessage(
+          this.wrapRequest(prepared === undefined ? req : { ...req, prepared })
+        )
+        if (!spawned.submitInitial) break
+        try {
+          const outcome = await spawned.submitInitial(req.signal)
+          if (outcome.kind === 'accepted') break
+          if (outcome.kind === 'rejectedBeforeAccept')
+            throw new Error(`submission_rejected:${outcome.reason}`)
+        } catch (error) {
+          spawned.close()
+          throw error
+        }
+        spawned.close()
+        prepared = await this.prepareSpawn(req)
+      }
       if (req.commitInitialSubmission && !req.commitInitialSubmission()) {
         spawned.close()
         throw new Error('submission_stale:initial')
@@ -543,17 +577,12 @@ export class SessionRuntime implements ManagedRuntime {
   // 어댑터의 비동기 준비 단계. 취소(턴 중단·채널 회수·런타임 폐기)는 신호로 전달하고, 끝났을 때
   // 취소돼 있으면 띄우지 않는다. 실패·취소 모두 최초 제출을 되돌리고 던진다.
   private async prepareSpawn(req: TurnRequest): Promise<unknown> {
-    if (!this.adapter.prepareTurn) return undefined
     // 턴 중단(채널 없음)·채널 회수·런타임 폐기는 모두 이 신호를 abort 한다(`markAborted`·`retireChannel`).
     const signal = this.channelController.signal
-    try {
-      const prepared = await this.adapter.prepareTurn(req, signal)
-      if (signal.aborted || this.cancelled) throw new Error('submission_cancelled:before-spawn')
-      return prepared
-    } catch (err) {
-      req.rollbackInitialSubmission?.()
-      throw err
-    }
+    const prepared = await this.adapter.prepareTurn?.(req, signal)
+    if (signal.aborted || this.cancelled) throw new Error('submission_cancelled:before-spawn')
+    if (req.canSubmitInitial && !req.canSubmitInitial()) throw new Error('submission_stale:before-spawn')
+    return prepared
   }
 
   // 턴-스코프 소비(0067 이전 동작 보존) — terminal 에서 핸들을 닫는다(mock/oneshot).
@@ -653,6 +682,13 @@ export class SessionRuntime implements ManagedRuntime {
     this.routeProviderEvents(batch)
     if (batch.events.length === 0) return
     for (const event of batch.events) {
+      if (this.adapter.id === 'claude') {
+        if (event.type === 'tool.call.started' && event.toolName.startsWith('mcp__'))
+          this.activeMcpCalls.add(event.toolRunId)
+        else if (event.type === 'tool.call.completed') this.activeMcpCalls.delete(event.toolRunId)
+        else if (event.type === 'tool.call.retracted')
+          for (const id of event.toolRunIds) this.activeMcpCalls.delete(id)
+      }
       if (event.type === 'session.schedules') {
         this.schedules = event.schedules
         this.pendingWakeup = event.pendingWakeup === true
@@ -809,6 +845,7 @@ export class SessionRuntime implements ManagedRuntime {
         live?.close()
       } finally {
         this.live = null
+        this.activeMcpCalls.clear()
         this.spawnedSettings = undefined
         this.spawnedFingerprint = undefined
         this.spawnedModelValue = undefined

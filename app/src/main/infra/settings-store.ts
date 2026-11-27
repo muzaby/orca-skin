@@ -7,6 +7,7 @@
 // 트레이드오프: 앱 실행 중 설정 파일 수동 편집은 반영되지 않는다(쓰기는 앱 UI 단일 경로).
 
 import Store from 'electron-store'
+import type { Backend } from '../../shared/ipc'
 import {
   SettingsSchema,
   SettingsPatchSchema,
@@ -64,6 +65,28 @@ export class SettingsStore {
     this.save(next)
   }
 
+  setNativeExtensionChoice(backend: Backend, key: string, enabled: boolean): number {
+    this.load()
+    const raw = this.store.store
+    const current = migrateRawSettings(raw, this.currentAppVersion).settings
+    const choices = current.nativeExtensionChoices ?? {}
+    const revision = (current.nativeExtensionRevision ?? 0) + 1
+    const next = {
+      ...current,
+      nativeExtensionChoices: { ...choices, [backend]: { ...choices[backend], [key]: enabled } },
+      nativeExtensionRevision: revision
+    }
+    this.store.store = {
+      ...raw,
+      nativeExtensionChoices: next.nativeExtensionChoices,
+      nativeExtensionRevision: revision
+    }
+    this.cached = next
+    for (const listener of this.listeners)
+      listener(next, ['nativeExtensionChoices', 'nativeExtensionRevision'])
+    return revision
+  }
+
   private save(next: Settings): Settings {
     const migrated = migrateRawSettings(
       { ...next, [SETTINGS_VERSION_KEY]: SETTINGS_VERSION },
@@ -84,14 +107,27 @@ export class SettingsStore {
     this.listeners.push(listener)
   }
 
-  patch(input: unknown): Settings {
+  patch(input: unknown, movedChoice?: { from: string; to?: string }): Settings {
     const patch: SettingsPatch = SettingsPatchSchema.parse(input)
     const current = this.load()
     const next = mergeSettings(current, patch)
+    const changedKeys = Object.keys(patch)
+    if (movedChoice && next.nativeExtensionChoices) {
+      let changed = false
+      for (const choices of Object.values(next.nativeExtensionChoices)) {
+        if (!Object.hasOwn(choices, movedChoice.from)) continue
+        if (movedChoice.to) choices[movedChoice.to] = choices[movedChoice.from]
+        delete choices[movedChoice.from]
+        changed = true
+      }
+      if (changed) {
+        next.nativeExtensionRevision = (current.nativeExtensionRevision ?? 0) + 1
+        changedKeys.push('nativeExtensionChoices', 'nativeExtensionRevision')
+      }
+    }
     assertValidCron(next.scheduler.usageRecompute.cron)
     const saved = this.save(next)
     // 키 목록은 **입력 patch** 에서 뽑는다 — 병합 결과와 비교하면 값이 같은 재지정이 빠진다.
-    const changedKeys = Object.keys(patch)
     for (const listener of this.listeners) listener(saved, changedKeys)
     return saved
   }

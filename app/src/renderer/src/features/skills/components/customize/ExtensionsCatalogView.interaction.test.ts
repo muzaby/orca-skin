@@ -67,6 +67,13 @@ const resource = (name: string, kind: 'plugin' | 'mcp' = 'plugin'): NativeResour
 })
 beforeEach(() => {
   vi.useFakeTimers()
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe(): void {}
+      disconnect(): void {}
+    }
+  )
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 900 })
   api.read.mockReset().mockImplementation(async (backend: string) => ({
     state: 'disconnected',
@@ -118,6 +125,7 @@ afterEach(async () => {
   dom.unmount()
   useConfirmStore.getState().close()
   vi.useRealTimers()
+  vi.unstubAllGlobals()
   vi.clearAllMocks()
   await i18n.changeLanguage('ko')
 })
@@ -141,104 +149,57 @@ const renderWithDialog = (): void => {
     )
   )
 }
-const dialogButton = (label: string): void => {
-  const button = dom.queryAll('[type="button"]').find((node) => node.textContent === label)
-  expect(button).toBeDefined()
-  dom.click(button!)
-}
-const dialogTitle = (): string | undefined =>
-  dom
-    .query('[role="dialog"]')
-    ?.querySelectorAll('[class]')
-    .find((node) => node.tag === 'span' && String(node.props.className).includes('font-serif'))
-    ?.textContent
-const dialogBody = (): string | undefined =>
-  dom
-    .query('[role="dialog"]')
-    ?.querySelectorAll('[class]')
-    .find((node) => node.tag === 'p')?.textContent
-
-const dialogButtonBackground = (label: string): string[] => {
-  const button = dom
-    .query('[role="dialog"]')
-    ?.querySelectorAll('[type="button"]')
-    .find((node) => node.textContent === label)
-  const background = button
-    ?.querySelectorAll('[class]')
-    .find(
-      (node) =>
-        node.tag === 'span' && String(node.props.className).split(/\s+/).includes('btn-squish')
-    )
-  expect(background).toBeDefined()
-  return String(background!.props.className).split(/\s+/)
-}
-
-it('renders the Claude close confirmation as a default primary button', async () => {
-  api.write.mockResolvedValue({ status: 'confirm', reason: 'claude-processes', sessions: 2 })
+it('keeps the current response active and shows the persisted preference beside pending session state', async () => {
+  api.write.mockResolvedValue({
+    status: 'applied',
+    resources: {
+      state: 'connected',
+      items: [
+        {
+          ...resource('claude'),
+          status: 'enabled',
+          selected: false,
+          enabled: true,
+          pendingSessions: 1
+        }
+      ]
+    }
+  })
   renderWithDialog()
   await flush()
   dom.click(dom.queryAll('[role="switch"]')[0])
   await flush()
-
-  const confirmation = dialogButtonBackground('변경')
-  expect(confirmation).toContain('bg-ink')
-  expect(confirmation).not.toContain('bg-rust')
-  expect(dialogButtonBackground('취소')).toContain('bg-fill-contained')
+  expect(api.write).toHaveBeenCalledTimes(1)
+  expect(dom.query('[role="dialog"]')).toBeNull()
+  expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(false)
+  expect(dom.queryAll('[role="tabpanel"]')[0].textContent).toContain('다음 입력에 적용')
 })
 
-it('confirms a busy Claude plugin change through the shared dialog', async () => {
-  api.write.mockImplementation(async (request) =>
-    request.confirmed
-      ? {
-          status: 'applied',
-          resources: { state: 'disconnected', items: [{ ...resource('claude'), enabled: false }] }
-        }
-      : { status: 'confirm', reason: 'claude-processes', sessions: 2 }
+it('retries a failed live connection without flipping the saved selection', async () => {
+  const item: NativeResource = {
+    ...resource('server', 'mcp'),
+    status: 'failed',
+    selected: true,
+    enabled: false
+  }
+  const result: NativeResources = { state: 'connected', items: [item] }
+  api.read.mockImplementation(async (backend) =>
+    backend === 'claude' ? result : { state: 'disconnected', items: [] }
   )
-  renderWithDialog()
+  api.write.mockResolvedValue({ status: 'applied', resources: result })
+  dom.render(createElement(ExtensionsCatalogView))
   await flush()
-  dom.click(dom.queryAll('[role="switch"]')[0])
+  tab(2)
+  const retry = dom.queryAll('[type="button"]').find((node) => node.textContent === '다시 시도')
+  expect(retry).toBeDefined()
+  dom.click(retry!)
   await flush()
   expect(api.write).toHaveBeenCalledExactlyOnceWith({
     backend: 'claude',
-    kind: 'plugin',
-    id: 'claude',
-    enabled: false
+    kind: 'mcp',
+    id: 'server',
+    enabled: true
   })
-  expect(dialogTitle()).toBe('Claude 세션 종료')
-  expect(dialogBody()).toContain('Claude 세션이 2개 있습니다.')
-  expect(dom.queryAll('[type="button"]').map((node) => node.textContent)).toEqual(
-    expect.arrayContaining(['변경', '취소'])
-  )
-  expect(useConfirmStore.getState().request?.danger).toBeUndefined()
-  dialogButton('취소')
-  await flush()
-  expect(dom.query('[role="dialog"]')).toBeNull()
-  expect(api.write).toHaveBeenCalledTimes(1)
-  expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(true)
-
-  dom.click(dom.queryAll('[role="switch"]')[0])
-  await flush()
-  dom.click(dom.query('[data-context="overlay"]')!)
-  await flush()
-  expect(dom.query('[role="dialog"]')).toBeNull()
-  expect(api.write).toHaveBeenCalledTimes(2)
-  expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(true)
-
-  dom.click(dom.queryAll('[role="switch"]')[0])
-  await flush()
-  dialogButton('변경')
-  await flush()
-  expect(api.write).toHaveBeenCalledTimes(4)
-  expect(api.write).toHaveBeenLastCalledWith({
-    backend: 'claude',
-    kind: 'plugin',
-    id: 'claude',
-    enabled: false,
-    confirmed: true
-  })
-  expect(dom.query('[role="dialog"]')).toBeNull()
-  expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(false)
 })
 
 it('locks every native plugin switch of the toggling harness in the catalog view', async () => {
@@ -275,32 +236,6 @@ it('locks every native plugin switch of the toggling harness in the catalog view
     true,
     true
   ])
-})
-
-it('renders the Claude close dialog in English with singular and plural counts', async () => {
-  await i18n.changeLanguage('en')
-  api.write
-    .mockResolvedValueOnce({ status: 'confirm', reason: 'claude-processes', sessions: 1 })
-    .mockResolvedValueOnce({ status: 'confirm', reason: 'claude-processes', sessions: 2 })
-  renderWithDialog()
-  await flush()
-  for (const [count, prefix] of [
-    [1, '1 Claude session is'],
-    [2, '2 Claude sessions are']
-  ] as const) {
-    dom.click(dom.queryAll('[role="switch"]')[0])
-    await flush()
-    expect(dialogTitle()).toBe('Close Claude sessions')
-    expect(dialogBody()?.startsWith(prefix)).toBe(true)
-    expect(dom.queryAll('[type="button"]').map((node) => node.textContent)).toEqual(
-      expect.arrayContaining(['Change', 'Cancel'])
-    )
-    expect(useConfirmStore.getState().request?.danger).toBeUndefined()
-    dialogButton('Cancel')
-    await flush()
-    expect(api.write).toHaveBeenCalledTimes(count)
-    expect(dom.queryAll('[role="switch"]')[0].props['aria-checked']).toBe(true)
-  }
 })
 
 it('moves native plugins to the plugin tab after provider groups', async () => {
@@ -351,6 +286,40 @@ it('scopes native loading and failure to plugin and MCP tabs', async () => {
     expect(dom.queryAll('[role="status"]')).toHaveLength(0)
   }
 })
+
+it.each([false, true])(
+  'locks the observed %s plugin state in the list and detail for pointer and keyboard activation',
+  async (enabled) => {
+    const item = {
+      ...resource('fixed'),
+      status: enabled ? 'enabled' : 'disabled',
+      enabled,
+      canToggle: false
+    }
+    api.read.mockImplementation(async (backend) => ({
+      state: 'connected',
+      items: backend === 'opencode' ? [item] : []
+    }))
+    dom.render(createElement(ExtensionsCatalogView))
+    await flush()
+    const fixedRow = dom.query('[data-extensions-row="opencode:fixed"]')!
+    dom.click(fixedRow.querySelectorAll('[aria-pressed]')[0])
+    await flush()
+    expect(dom.query('[data-extension-detail-id="native:opencode:plugin:fixed"]')).not.toBeNull()
+    const switches = dom.queryAll('[role="switch"]')
+    expect(switches).toHaveLength(2)
+    for (const button of switches) {
+      expect(button.props.disabled).toBe(true)
+      expect(button.props['aria-checked']).toBe(enabled)
+      dom.click(button)
+      button.focus()
+      expect(dom.activeElement).not.toBe(button)
+      dom.key('Enter')
+      dom.key(' ')
+    }
+    expect(api.write).not.toHaveBeenCalled()
+  }
+)
 
 it('shows OpenCode plugin rows as fixed native state and sends no toggle', async () => {
   dom.render(createElement(ExtensionsCatalogView))

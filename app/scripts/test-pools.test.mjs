@@ -428,7 +428,10 @@ describe('partitionTestFiles — 실제 트리', () => {
     for (const forced of Object.keys(FORCED_IO)) assert.ok(io.includes(forced), forced)
   })
   test('FORCED_IO 는 프로세스 격리가 필요한 파일만 남기고 Git 조회를 대체한 send 검사는 unit 이다', () => {
-    assert.deepEqual(Object.keys(FORCED_IO).sort(), ['src/main/infra/loopback-callback.test.ts'])
+    assert.deepEqual(Object.keys(FORCED_IO).sort(), [
+      'src/main/app/claude-input.cli.integration.test.ts',
+      'src/main/infra/loopback-callback.test.ts'
+    ])
     const profile = 'src/main/app/chat-turn/send.agent-profile.test.ts'
     assert.equal(classifyTestSource(readFileSync(join(APP, profile), 'utf8'), profile).pool, 'unit')
   })

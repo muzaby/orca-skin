@@ -10,6 +10,8 @@ import {
   readClaudeSettingsObject,
   readClaudeSettingsObjectAsync
 } from './native-settings-file'
+import { readPluginMcpDeclarations } from './plugin-mcp-declarations'
+import { claudePluginName } from './plugin-observations'
 import { claudePluginEnabled } from './plugin-flag'
 import { claudeLocalSettingsRootAsync, pluginPathKey } from './project-path'
 
@@ -76,7 +78,7 @@ export function selectClaudePlugins(
   cwd: string,
   installed: unknown,
   enabledPlugins: Record<string, unknown>
-): Array<{ key: string; path: string; enabled: boolean; installedOnly: boolean }> {
+): Array<{ key: string; path: string; scope: string; enabled: boolean; installedOnly: boolean }> {
   const selected = new Map<string, ReturnType<typeof installedClaudePlugins>[number]>()
   const rank = (scope: string): number => ['user', 'project', 'local', 'managed'].indexOf(scope)
   for (const entry of installedClaudePlugins(cwd, installed)) {
@@ -95,6 +97,7 @@ export function selectClaudePlugins(
     return {
       key: entry.key,
       path: entry.path,
+      scope: entry.scope,
       enabled: claudePluginEnabled(flag),
       installedOnly: flag === undefined
     }
@@ -136,13 +139,20 @@ export interface ClaudePluginCatalog {
     text: string
     meta: Record<string, string>
   }>
-  installations: Array<{ key: string; name: string; path: string; enabled: boolean }>
+  installations: Array<{
+    key: string
+    name: string
+    path: string
+    enabled: boolean
+    bundledMcp?: string[]
+  }>
 }
 
 type PluginEntry = ReturnType<typeof selectClaudePlugins>[number]
 interface LoadedPlugin {
   entry: PluginEntry
   manifest: Record<string, unknown>
+  bundledMcp?: string[]
   files: Array<{ file: string; text: string }>
 }
 
@@ -151,7 +161,8 @@ function catalogSelection(
   documents: Record<string, unknown>[],
   overrides: Record<string, unknown>,
   includeDisabled: boolean,
-  capturedDefaults?: Record<string, boolean>
+  capturedDefaults?: Record<string, boolean>,
+  explicit: Record<string, boolean> = {}
 ): { defaults: Record<string, unknown>; entries: PluginEntry[] } {
   const [global, project, local, installed] = documents
   const defaults = capturedDefaults ?? pluginDefaults(global, overrides)
@@ -162,7 +173,7 @@ function catalogSelection(
   }
   const roots = new Set<string>()
   const entries = selectClaudePlugins(cwd, installed.plugins, enabled).filter((entry) => {
-    if ((!includeDisabled && !entry.enabled) || !isAbsolute(entry.path)) return false
+    if ((!includeDisabled && !entry.enabled && !explicit[entry.key]) || !isAbsolute(entry.path)) return false
     const key = pluginPathKey(entry.path)
     if (roots.has(key)) return false
     roots.add(key)
@@ -186,18 +197,40 @@ function declaredPaths(manifest: Record<string, unknown>, kind: 'commands' | 'sk
 /** File I/O is outside this projection so menu reads and synchronous SDK spawn agree. */
 function projectCatalog(
   defaults: Record<string, unknown>,
-  loaded: LoadedPlugin[]
+  loaded: LoadedPlugin[],
+  explicit: Record<string, boolean>,
+  includeDisabled: boolean
 ): ClaudePluginCatalog {
   const roots: string[] = []
   const skills = new Set<string>()
   const commands = new Map<string, NativeCommand>()
   const filesByName = new Map<string, Omit<ClaudePluginCatalog['files'][number], 'name'>>()
   const installations: ClaudePluginCatalog['installations'] = []
-  for (const { entry, manifest, files } of loaded) {
+  const named = new Map<string, number>()
+  for (const {entry,manifest} of loaded) {
+    const name = claudePluginName(entry.path,manifest) ?? basename(entry.path)
+    named.set(name,(named.get(name) ?? 0)+1)
+  }
+  for (const { entry, manifest, files, bundledMcp } of loaded) {
     const root = resolve(entry.path)
-    roots.push(root)
-    const pluginName = typeof manifest.name === 'string' ? manifest.name : basename(root)
-    installations.push({ key: entry.key, name: pluginName, path: root, enabled: entry.enabled })
+    const resolvedName = claudePluginName(root, manifest)
+    const pluginName = resolvedName ?? basename(root)
+    // An explicitly disabled installation can be omitted by path even before this
+    // process has observed the SDK's optional manifest name.
+    const identified = !!resolvedName || explicit[entry.key] === false
+    const selection = identified && named.get(pluginName) === 1 && entry.scope === 'user'
+      ? explicit[entry.key] : undefined
+    const enabled = selection ?? entry.enabled
+    if (!includeDisabled && !enabled) continue
+    if (selection !== false) roots.push(root)
+    installations.push({
+      key: entry.key,
+      name: pluginName,
+      path: root,
+      enabled,
+      ...(bundledMcp?.length ? { bundledMcp } : {})
+    })
+    if (selection === false) continue
     for (const { file, text } of files) {
       const meta = skillMetadata(text)
       const localName =
@@ -206,7 +239,7 @@ function projectCatalog(
       const name = pluginName + ':' + localName
       skills.add(name)
       if (meta['user-invocable'] === 'false') continue
-      filesByName.set(name, { file, enabled: entry.enabled, text, meta })
+      filesByName.set(name, { file, enabled, text, meta })
       commands.set(name, {
         name,
         description: (meta.description ?? '').slice(0, 4000),
@@ -242,7 +275,8 @@ export async function readClaudePluginCatalogAsync(
   nativeRoot = claudeNativePaths().root,
   overrides: Record<string, unknown> = {},
   includeDisabled = false,
-  capturedDefaults?: Record<string, boolean>
+  capturedDefaults?: Record<string, boolean>,
+  explicit: Record<string, boolean> = {}
 ): Promise<ClaudePluginCatalog> {
   const projectRoot = await claudeLocalSettingsRootAsync(cwd)
   const documents = await Promise.all(
@@ -255,7 +289,8 @@ export async function readClaudePluginCatalogAsync(
     documents,
     overrides,
     includeDisabled,
-    capturedDefaults
+    capturedDefaults,
+    explicit
   )
   const loaded = await Promise.all(
     entries.map(async (entry): Promise<LoadedPlugin | null> => {
@@ -285,12 +320,24 @@ export async function readClaudePluginCatalogAsync(
           }
         })
       )
-      return { entry, manifest, files }
+      const bundledMcp =
+        explicit[entry.key] === true
+          ? [
+              ...new Set(
+                (await readPluginMcpDeclarations(root, manifest)).flatMap(({ value }) =>
+                  Object.keys(value)
+                )
+              )
+            ]
+          : undefined
+      return { entry, manifest, files, bundledMcp }
     })
   )
   return projectCatalog(
     defaults,
-    loaded.filter((entry): entry is LoadedPlugin => entry !== null)
+    loaded.filter((entry): entry is LoadedPlugin => entry !== null),
+    explicit,
+    includeDisabled
   )
 }
 
@@ -299,8 +346,13 @@ export async function configuredClaudeCommands(
   choices: Record<string, boolean>
 ): Promise<NativeCommand[]> {
   return (
-    await readClaudePluginCatalogAsync(cwd, undefined, {
-      enabledPlugins: extensionChoices(choices, 'plugin')
-    })
+    await readClaudePluginCatalogAsync(
+      cwd,
+      undefined,
+      {},
+      false,
+      undefined,
+      extensionChoices(choices, 'plugin')
+    )
   ).commands
 }

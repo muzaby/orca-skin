@@ -66,7 +66,7 @@ export interface AgentContext {
   // 비동기 배포(0109) — invoke 핸들러가 await 해도 재귀 복사가 이벤트 루프를 막지 않는다.
   deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void>
   // 턴 시작 게이트 — query 호출 전 sources→dist plugin 배포 최신성을 멱등 보장한다.
-  ensureExtensionsDeployedForTurn(): Promise<void>
+  ensureExtensionsDeployedForTurn(backend?: string): Promise<void | (() => void)>
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null
   data: DataPort

@@ -109,7 +109,7 @@ it.each(['opencode', 'claude'] as const)(
         definitionRevision: 11,
         connectionRevision: 23
       })
-      expect(runtime.spawnedManagedMcpRevision).toBe(backend === 'opencode' ? 11 : 37)
+      expect(runtime.spawnedManagedMcpRevision).toBe(backend === 'opencode' ? undefined : 37)
       expect((await continuation()).shouldRespawn).toBe(false)
       expect((await acquireTurnRuntime(deps, turn, input)).ok).toBe(true)
       expect(runtime.channelAlive).toBe(true)
@@ -120,12 +120,12 @@ it.each(['opencode', 'claude'] as const)(
       if (backend === 'claude') await start()
       expect(spawned.length).toBe(backend === 'opencode' ? 1 : 2)
       snapshot = { ...snapshot, revision: 39, definitionRevision: 12 }
-      expect((await continuation()).shouldRespawn).toBe(true)
+      expect((await continuation()).shouldRespawn).toBe(backend === 'claude')
       await acquireTurnRuntime(deps, turn, input)
-      expect(runtime.channelAlive).toBe(false)
+      expect(runtime.channelAlive).toBe(backend === 'opencode')
       expect(runtime.spawnedManagedMcpRevision).toBeUndefined()
-      await start()
-      expect(runtime.spawnedManagedMcpRevision).toBe(backend === 'opencode' ? 12 : 39)
+      if (backend === 'claude') await start()
+      expect(runtime.spawnedManagedMcpRevision).toBe(backend === 'opencode' ? undefined : 39)
       expect(
         decideRespawn(
           respawnInputs({

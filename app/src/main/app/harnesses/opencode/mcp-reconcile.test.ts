@@ -134,8 +134,11 @@ beforeEach(async () => {
   managed = createManagedMcp(mcp, [plugin])
   const control = extensionControl({
     get: () => settings.nativeExtensionChoices,
-    set: (value) => {
-      store.patch({ nativeExtensionChoices: value })
+    setChoice: (backend, key, value) => {
+      const choices = settings.nativeExtensionChoices
+      store.patch({
+        nativeExtensionChoices: { ...choices, [backend]: { ...choices?.[backend], [key]: value } }
+      })
     }
   })
   f = retentionTransport(
@@ -204,11 +207,7 @@ beforeEach(async () => {
       managed.source.refresh()
     }
   })
-  registerExtensionCatalogHandlers(
-    control,
-    { prepare: async () => undefined, plan: () => ({ busy: 0, targets: [] }), close: () => {} },
-    () => reconcile.changed()
-  )
+  registerExtensionCatalogHandlers(control, () => reconcile.changed())
 })
 afterEach(async () => {
   reconcile?.close()
@@ -222,7 +221,7 @@ afterEach(async () => {
   await rm(boundary.root, { recursive: true, force: true })
 })
 
-it('applies saved managed and native choices across idle peers with stable definitions and project precedence', async () => {
+it('applies saved managed and native choices across idle peers with stable definitions and global precedence', async () => {
   const [a, b] = await Promise.all([
     f.adapter.client({}, undefined, cwd),
     f.adapter.client({}, undefined, peerCwd)
@@ -256,7 +255,7 @@ it('applies saved managed and native choices across idle peers with stable defin
   })
   await vi.waitFor(() => expect(f.status(cwd, 'native')).toBe('disabled'))
   await vi.waitFor(() => expect(f.status(peerCwd, 'project')).toBe('connected'))
-  expect(f.status(cwd, 'project')).toBe('disabled')
+  await vi.waitFor(() => expect(f.status(cwd, 'project')).toBe('connected'))
   expect(await readFile(join(cwd, 'opencode.json'), 'utf8')).toBe(
     '{"mcp":{"project":{"enabled":false}}}'
   )
@@ -327,28 +326,16 @@ it('defers busy/background peers and admits queued input only after successful d
   )
   expect(await a.mcpControl!.pending()).toBe(true)
   f.failMutation(false)
-  expect(await live.pushTurn!({ text: 'closed channel' })).toMatchObject({
-    kind: 'rejectedBeforeAccept'
-  })
-  await iterator.return?.()
-  const retry = f.adapter.sendMessage({
-    sessionId: 's1',
-    cwd,
-    text: 'explicit retry',
-    extensions: { skills: [], hooks: { normalized: {} }, managedMcp: managed.source.snapshot() }
-  })
-  const retryIterator = retry.eventBatches[Symbol.asyncIterator]()
-  const retried = nextTurn(retryIterator)
-  await vi.waitFor(() =>
-    expect(f.requests.filter((request) => request.path.endsWith('/prompt_async'))).toHaveLength(
-      prompts + 1
-    )
+  const retried = nextTurn(iterator)
+  expect(await live.pushTurn!({ text: 'explicit retry' })).toEqual({ kind: 'accepted' })
+  expect(f.requests.filter((request) => request.path.endsWith('/prompt_async'))).toHaveLength(
+    prompts + 1
   )
   f.finish()
   await retried
   expect(f.status(cwd, alias)).toBe('disabled')
-  retry.close()
-  await retryIterator.return?.()
+  live.close()
+  await iterator.return?.()
   await a.release()
 })
 
@@ -470,7 +457,13 @@ it('traces warmup navigation two sends toggle expiry and quit through the real a
   expect(f.children.map((child) => child.kill.mock.calls.length)).toEqual([1, 1])
 })
 
-it('sends the first prompt within the bound while a global MCP connection hangs', async () => {
+it('holds the first ordinary prompt until explicit global ON succeeds', async () => {
+  await call(CHANNELS.extensionSetEnabled, {
+    backend: 'opencode',
+    kind: 'mcp',
+    id: 'native',
+    enabled: true
+  })
   const unblock = f.holdMutation('native')
   const live = f.adapter.sendMessage({
     sessionId: 's1',
@@ -485,16 +478,16 @@ it('sends the first prompt within the bound while a global MCP connection hangs'
   )
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   const completed = nextTurn(iterator)
-  await vi.advanceTimersByTimeAsync(2000)
+  await vi.advanceTimersByTimeAsync(3000)
+  expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
+  unblock()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(f.status(cwd, 'native')).toBe('connected')
   expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(1)
-  expect(f.status(cwd, 'native')).toBe('disabled')
   f.finish()
   expect(
     (await completed).flatMap((batch) => batch.events).some((event) => event.type === 'turn.ended')
   ).toBe(true)
-  unblock()
-  await vi.advanceTimersByTimeAsync(0)
-  expect(f.status(cwd, 'native')).toBe('connected')
   live.close()
   await iterator.return?.()
 })
@@ -532,9 +525,10 @@ it.each(['failed', 'cancelled'] as const)(
       f.failMutation(true)
       unblock()
       await vi.advanceTimersByTimeAsync(0)
-      expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(1)
-      f.finish()
-      await completed
+      expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
+      expect(
+        (await completed).flatMap((batch) => batch.events).some((event) => event.type === 'error')
+      ).toBe(true)
     }
     live.close()
     await iterator.return?.()

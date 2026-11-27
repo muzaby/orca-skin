@@ -3,8 +3,6 @@ import { Icon } from '../../../../shared/ui/Icon'
 import { MenuItem } from '../../../../shared/ui/MenuItem'
 import { Modal, ModalActions } from '../../../../shared/ui/Modal'
 import { Popover } from '../../../../shared/ui/Popover'
-import { Dot } from '../../../../shared/ui/Status'
-import { Toggle } from '../../../../shared/ui/Toggle'
 import type { McpServer } from '../../../../../../shared/ipc'
 import { useI18n } from '../../../../shared/i18n'
 
@@ -13,12 +11,12 @@ import { useI18n } from '../../../../shared/i18n'
 // 일상 동작과 같은 무게로 보인다.
 export function McpDetail({
   server,
-  onToggle,
+  choices,
   onEdit,
   onRemove
 }: {
   server: McpServer
-  onToggle: () => void
+  choices: React.ReactNode
   onEdit: () => void
   onRemove: () => Promise<void>
 }): React.JSX.Element {
@@ -52,19 +50,9 @@ export function McpDetail({
           <h2 className="m-0 break-words text-heading text-ink">{server.name}</h2>
           <div className="mt-g1 flex flex-wrap items-center gap-g3 text-footnote text-ink3">
             <span className="font-mono uppercase">{server.transport}</span>
-            <span>·</span>
-            <Dot tone={server.enabled ? 'green' : 'slate'} />
-            <span>
-              {server.enabled ? tr('skills.mcpDetail.active') : tr('skills.mcpDetail.inactive')}
-            </span>
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Toggle
-            on={server.enabled}
-            onClick={onToggle}
-            label={tr('skills.mcpDetail.toggleAria', { name: server.name })}
-          />
           <button
             ref={menuRef}
             type="button"
@@ -79,6 +67,7 @@ export function McpDetail({
         </div>
       </div>
 
+      {choices}
       <Popover
         open={menuOpen}
         anchorRef={menuRef}

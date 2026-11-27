@@ -17,6 +17,27 @@ export class ExtensionDeploymentService {
   private inflight: Promise<DeployResult> | null = null
   private rerun = false
   private closed = false
+  private publishedRevision = 0
+  get revision(): number {
+    return this.publishedRevision
+  }
+
+  private readers = 0
+  private drained?: ReturnType<typeof Promise.withResolvers<void>>
+
+  /** Live response chains (including their background continuations) read the published roots. */
+  async acquireForTurn(): Promise<() => void> {
+    await this.ensureDeployed()
+    while (this.inflight) await this.inflight
+    if (this.closed) throw new Error('확장 배포가 종료 중입니다.')
+    this.readers++
+    let held = true
+    return () => {
+      if (!held) return
+      held = false
+      if (--this.readers === 0) this.drained?.resolve()
+    }
+  }
 
   constructor(private readonly opts: ExtensionDeploymentServiceOptions) {}
 
@@ -40,6 +61,12 @@ export class ExtensionDeploymentService {
     for (;;) {
       this.rerun = false
       try {
+        if (this.readers) {
+          this.drained = Promise.withResolvers<void>()
+          await this.drained.promise
+          this.drained = undefined
+          if (this.closed) throw new Error('확장 배포가 종료 중입니다.')
+        }
         const result = await this.attempt()
         if (!this.rerun) return result
       } catch (error) {
@@ -52,7 +79,8 @@ export class ExtensionDeploymentService {
   private async attempt(): Promise<DeployResult> {
     try {
       const result = await this.opts.deploy()
-      this.deployedOnce = true
+      if (result.validation.ok) this.publishedRevision++
+      this.deployedOnce = result.validation.ok
       if (!result.validation.ok) {
         for (const err of result.validation.errors) {
           this.opts.onWarning?.(`[deploy] validation warning: ${err}`)
@@ -60,6 +88,7 @@ export class ExtensionDeploymentService {
       }
       return result
     } catch (e) {
+      this.deployedOnce = false
       // 모든 실패는 기록한다. 기본 호출의 warn/null과 엔진의 reject는 deployNow에서 구분한다.
       getLogger()
         .child('extensions')
@@ -70,12 +99,14 @@ export class ExtensionDeploymentService {
   }
 
   ensureDeployed(): Promise<DeployResult | null> {
+    if (this.inflight) return this.inflight
     if (this.deployedOnce) return Promise.resolve(null)
-    return this.deployNow()
+    return this.deployNow({ throwOnFailure: true })
   }
 
   async close(): Promise<void> {
     this.closed = true
+    this.drained?.resolve()
     await this.inflight?.catch(() => undefined)
   }
 }

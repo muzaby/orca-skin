@@ -5,7 +5,7 @@ import type {
   SetGlobalNativeResourceResult
 } from '../../../../../shared/native-resources'
 import { errorToastStore } from '../../../shared/errors/errorToastStore'
-import { openConfirmDialog, useConfirmStore } from '../../../shared/ui/confirmDialogStore'
+import { useConfirmStore } from '../../../shared/ui/confirmDialogStore'
 import { installFakeDom } from '../../../shared/ui/renderHarness.testfixture'
 import { CustomizeList } from '../components/customize/CustomizeList'
 import { useNativeMcpCatalog } from './useNativeMcpCatalog'
@@ -361,50 +361,6 @@ it('applies a Claude plugin change without a dialog when no Claude session is bu
   expect(result().list.find((item) => item.backend === 'claude')!.resource.enabled).toBe(false)
 })
 
-it('confirms before closing busy Claude sessions and applies only after the change is confirmed', async () => {
-  vi.useFakeTimers()
-  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
-  const confirm: SetGlobalNativeResourceResult = {
-    status: 'confirm',
-    reason: 'claude-processes',
-    sessions: 2
-  }
-  const { write, result } = claudePluginHarness([confirm, confirm])
-  await flush()
-  const claude = (): NonNullable<ReturnType<typeof useNativeMcpCatalog>['list'][number]> =>
-    result().list.find((item) => item.backend === 'claude')!
-  const request = { backend: 'claude', id: 'superpowers', kind: 'plugin', enabled: false }
-
-  // The toggle stays pending while the dialog is open.
-  void result().toggle('claude', claude().resource)
-  await flush()
-  expect(write).toHaveBeenCalledExactlyOnceWith(request)
-  expect(useConfirmStore.getState().request).toMatchObject({
-    title: 'chat.nativeResources.claudeCloseTitle',
-    message: 'chat.nativeResources.claudeCloseBody(2)',
-    confirmLabel: 'chat.nativeResources.claudeCloseConfirm',
-    cancelLabel: 'common.cancel'
-  })
-  expect(claude().resource.enabled).toBe(true)
-  expect([...result().locked]).toEqual(['claude'])
-  // [취소] — the host cancels the store; no second request, the row stays and the lock lifts.
-  useConfirmStore.getState().cancel()
-  await flush()
-  expect(write).toHaveBeenCalledTimes(1)
-  expect(claude().resource.enabled).toBe(true)
-  expect([...result().locked]).toEqual([])
-
-  void result().toggle('claude', claude().resource)
-  await flush()
-  expect(write).toHaveBeenCalledTimes(2)
-  useConfirmStore.getState().request!.onConfirm()
-  useConfirmStore.getState().close()
-  await flush()
-  expect(write).toHaveBeenCalledTimes(3)
-  expect(write).toHaveBeenLastCalledWith({ ...request, confirmed: true })
-  expect(claude().resource.enabled).toBe(false)
-})
-
 it('never opens the Claude dialog for OpenCode MCP toggles', async () => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
@@ -423,8 +379,8 @@ it('never opens the Claude dialog for OpenCode MCP toggles', async () => {
   expect(result().list.find((item) => item.backend === 'opencode')!.resource.enabled).toBe(false)
 })
 
-/** Stateful main: global choices per harness, busy Claude sessions that a confirmed change closes. */
-function nativeMain(sessions = 0): {
+/** Persist choices per harness after its save completes. */
+function nativeMain(): {
   read: ReturnType<typeof vi.fn>
   write: ReturnType<typeof vi.fn>
   choices: Record<string, boolean>
@@ -436,7 +392,6 @@ function nativeMain(sessions = 0): {
     'claude:b': true,
     'opencode:c': true
   }
-  let busy = sessions
   let holding = false
   const held: (() => void)[] = []
   const rows = (backend: string): NativeResources => ({
@@ -453,16 +408,11 @@ function nativeMain(sessions = 0): {
       }))
   })
   const read = vi.fn(async (backend: string) => rows(backend))
-  const write = vi.fn(
-    async (request: { backend: string; id: string; enabled: boolean; confirmed?: true }) => {
-      if (holding) await new Promise<void>((resolve) => held.push(resolve))
-      if (request.backend === 'claude' && busy > 0 && !request.confirmed)
-        return { status: 'confirm', reason: 'claude-processes', sessions: busy }
-      choices[`${request.backend}:${request.id}`] = request.enabled
-      if (request.backend === 'claude') busy = 0
-      return applied(rows(request.backend))
-    }
-  )
+  const write = vi.fn(async (request: { backend: string; id: string; enabled: boolean }) => {
+    if (holding) await new Promise<void>((resolve) => held.push(resolve))
+    choices[`${request.backend}:${request.id}`] = request.enabled
+    return applied(rows(request.backend))
+  })
   Object.assign(window, {
     oo: { session: { globalExtensions: read, setGlobalExtension: write } }
   })
@@ -549,49 +499,6 @@ it('ignores toggles for a locked harness and keeps the other harness available',
   expect(main.choices['claude:b']).toBe(false)
 })
 
-it('keeps the harness locked through the Claude confirmation and releases it on every resolution', async () => {
-  vi.useFakeTimers()
-  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
-  const main = nativeMain(2)
-  const { result } = renderCatalog()
-  await flush()
-  const requests = (): string[] =>
-    main.write.mock.calls.map(([request]) => `${request.id}${request.confirmed ? '!' : ''}`)
-
-  void result().toggle('claude', row(result(), 'a'))
-  await flush()
-  expect(useConfirmStore.getState().request).not.toBeNull()
-  expect([...result().locked]).toEqual(['claude'])
-  useConfirmStore.getState().cancel()
-  await flush()
-  expect([...result().locked]).toEqual([])
-
-  void result().toggle('claude', row(result(), 'a'))
-  await flush()
-  expect([...result().locked]).toEqual(['claude'])
-  // Another feature's dialog replaces this one: the replaced request counts as cancelled.
-  openConfirmDialog({ title: 'other', message: 'other', onConfirm: vi.fn() })
-  await flush()
-  expect([...result().locked]).toEqual([])
-  useConfirmStore.getState().close()
-
-  void result().toggle('claude', row(result(), 'a'))
-  await flush()
-  main.hold(true)
-  useConfirmStore.getState().request!.onConfirm()
-  useConfirmStore.getState().close()
-  await flush()
-  // The confirmed request runs under the same lock.
-  expect([...result().locked]).toEqual(['claude'])
-  main.hold(false)
-  main.release()
-  await flush()
-  expect([...result().locked]).toEqual([])
-  expect(requests()).toEqual(['a', 'a', 'a', 'a!'])
-  expect(main.choices['claude:a']).toBe(false)
-  expect(row(result(), 'a').enabled).toBe(false)
-})
-
 it('disables every native switch of the toggling harness until the write settles', async () => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
@@ -621,27 +528,17 @@ it('disables every native switch of the toggling harness until the write settles
 it('applies consecutive Claude plugin toggles one at a time without disturbing other rows', async () => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
-  const main = nativeMain(2)
+  const main = nativeMain()
   const { renders } = renderCatalog()
   await flush()
   const click = (index: number): void => dom.click(dom.queryAll('[role="switch"]')[index])
 
   click(0)
   await flush()
-  expect(useConfirmStore.getState().request).not.toBeNull()
-  // B is locked while A's dialog is open: no second request, no second dialog.
-  click(1)
-  await flush()
-  expect(main.write).toHaveBeenCalledTimes(1)
-  useConfirmStore.getState().request!.onConfirm()
-  useConfirmStore.getState().close()
-  await flush()
   click(1)
   await flush()
   expect(useConfirmStore.getState().request).toBeNull()
-  expect(
-    main.write.mock.calls.map(([request]) => `${request.id}${request.confirmed ? '!' : ''}`)
-  ).toEqual(['a', 'a!', 'b'])
+  expect(main.write.mock.calls.map(([request]) => request.id)).toEqual(['a', 'b'])
   expect(main.choices).toEqual({ 'claude:a': false, 'claude:b': false, 'opencode:c': true })
   // Every rendered list: OpenCode untouched, and B never changes before A.
   const states = renders
