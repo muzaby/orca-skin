@@ -6,7 +6,8 @@ import {
 } from '../../../../../../shared/history-page'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
 import { computeClient } from '../../../../shared/compute/client'
-import type { HistoryBodyRequest } from '../../../../shared/compute/protocol'
+import { rememberHistoryLayout } from '../../../../shared/markdown/historyLayout'
+import type { ComputeResults, HistoryBodyRequest } from '../../../../shared/compute/protocol'
 import type { Message } from '../../reducer/chatReducer'
 
 export interface DeferredBlock {
@@ -54,44 +55,68 @@ export async function readDeferredParts(
   current: () => boolean,
   signal?: AbortSignal
 ): Promise<AppMessagePart[]> {
-  const chunks: HistoryBodyRequest['chunks'] = []
+  const sequence = ++bodySequence
+  const request = (packet: HistoryBodyRequest['packet']) =>
+    computeClient().request<'historyBody'>(
+      { kind: 'historyBody', sequence, bytes: ref.bytes, packet },
+      { cacheable: false }
+    )
   let offset = 0
-  while (offset < ref.bytes && current()) {
-    const reply = await page({ kind: 'body', sessionId: ref.session, ref, openGeneration, offset })
-    if (
-      !current() ||
-      reply.status !== 'body' ||
-      reply.sessionId !== ref.session ||
-      reply.openGeneration !== openGeneration ||
-      reply.offset !== offset
-    )
-      throw Error('Stale history body')
-    const bytes = reply.nextOffset - offset
-    const padding = reply.base64.endsWith('==') ? 2 : reply.base64.endsWith('=') ? 1 : 0
-    if (
-      bytes <= 0 ||
-      bytes > HISTORY_BODY_BYTES ||
-      reply.base64.length !== 4 * Math.ceil(bytes / 3) ||
-      (reply.base64.length * 3) / 4 - padding !== bytes ||
-      reply.nextOffset > ref.bytes ||
-      reply.done !== (reply.nextOffset === ref.bytes)
-    )
-      throw Error('Invalid history body range')
-    chunks.push({ base64: reply.base64, bytes })
-    offset = reply.nextOffset
-  }
-  if (!current() || offset !== ref.bytes) throw Error('Incomplete history body')
-  const job = computeClient().request<'historyBody'>(
-    { kind: 'historyBody', sequence: ++bodySequence, chunks, bytes: ref.bytes },
-    { cacheable: false }
-  )
-  const cancel = (): void => job.cancel()
+  let job: ReturnType<typeof request> | undefined
+  let completed = false
+  let started = false
+  let result: ComputeResults['historyBody'] | undefined
+  const cancel = (): void => job?.cancel()
   signal?.addEventListener('abort', cancel, { once: true })
   try {
-    const { parts } = await job.promise
-    if (!current()) throw Error('Stale history body')
-    return parts
+    while (offset < ref.bytes && current() && !signal?.aborted) {
+      const reply = await page({
+        kind: 'body',
+        sessionId: ref.session,
+        ref,
+        openGeneration,
+        offset
+      })
+      if (
+        !current() ||
+        signal?.aborted ||
+        reply.status !== 'body' ||
+        reply.sessionId !== ref.session ||
+        reply.openGeneration !== openGeneration ||
+        reply.offset !== offset
+      )
+        throw Error('Stale history body')
+      const bytes = reply.nextOffset - offset
+      const padding = reply.base64.endsWith('==') ? 2 : reply.base64.endsWith('=') ? 1 : 0
+      if (
+        bytes <= 0 ||
+        bytes > HISTORY_BODY_BYTES ||
+        reply.base64.length !== 4 * Math.ceil(bytes / 3) ||
+        (reply.base64.length * 3) / 4 - padding !== bytes ||
+        reply.nextOffset > ref.bytes ||
+        reply.done !== (reply.nextOffset === ref.bytes)
+      )
+        throw Error('Invalid history body range')
+
+      started = true
+      job = request({ offset, base64: reply.base64 })
+      result = await job.promise
+      job = undefined
+      if (result.nextOffset !== reply.nextOffset)
+        throw Error('Invalid history body acknowledgement')
+      offset = result.nextOffset
+    }
+    if (!result || !current() || signal?.aborted || offset !== ref.bytes)
+      throw Error('Incomplete history body')
+    completed = true
+    for (const { index, segments } of result.layouts ?? []) {
+      const part = result.parts[index]
+      if (part?.type === 'text' || part?.type === 'reasoning')
+        rememberHistoryLayout(part, part.text, segments)
+    }
+    return result.parts
   } finally {
     signal?.removeEventListener('abort', cancel)
+    if (started && !completed) void request(null).promise.catch(() => {})
   }
 }

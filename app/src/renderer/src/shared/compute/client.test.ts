@@ -524,14 +524,17 @@ it('AC14 historyBody round trip uses the worker result and rejects a cancelled g
   const input = {
     kind: 'historyBody' as const,
     sequence: 1,
-    chunks: [{ base64: bytes.toString('base64'), bytes: bytes.length }],
+    packet: { offset: 0, base64: bytes.toString('base64') },
     bytes: bytes.length
   }
   const first = client.request(input, { cacheable: false })
   const ran = await handleMessage(last().posted[0])
   if (ran.ok !== true) throw Error('history worker failed')
   last().onmessage?.({ data: ran })
-  await expect(first.promise).resolves.toEqual({ parts: [{ type: 'text', text: '본문' }] })
+  await expect(first.promise).resolves.toEqual({
+    parts: [{ type: 'text', text: '본문' }],
+    nextOffset: bytes.length
+  })
   const second = client.request({ ...input, sequence: 2 }, { cacheable: false })
   second.cancel()
   last().onmessage?.({ data: { ...ran, id: last().posted[1].id } })

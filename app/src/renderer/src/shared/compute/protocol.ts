@@ -97,7 +97,7 @@ export interface ImageThumbRequest {
 export interface HistoryBodyRequest {
   kind: 'historyBody'
   sequence: number
-  chunks: { base64: string; bytes: number }[]
+  packet: { offset: number; base64: string } | null
   bytes: number
 }
 
@@ -162,7 +162,11 @@ export interface ComputeResults {
   tokens: { rows: TokenRows }
   markdown: { hast: Root }
   markdownLayout: { segments: MarkdownSegmentRange[] }
-  historyBody: { parts: AppMessagePart[] }
+  historyBody: {
+    parts: AppMessagePart[]
+    nextOffset: number
+    layouts?: { index: number; segments: MarkdownSegmentRange[] }[]
+  }
   highlight: { html: string }
   diffTokens: { old: TokenRows | null; new: TokenRows | null }
   diffLines: { lines: DiffLine[] }
@@ -185,8 +189,9 @@ const SEP = '\u0000'
 export function requestKey(request: ComputeRequest): string {
   switch (request.kind) {
     case 'markdownLayout':
-    case 'historyBody':
       return [request.kind, request.sequence].join(SEP)
+    case 'historyBody':
+      return [request.kind, request.sequence, request.packet?.offset ?? 'close'].join(SEP)
     case 'imageThumb':
       return ['imageThumb', request.attachmentId].join(SEP)
     case 'tokens':
@@ -265,7 +270,7 @@ export function requestSize(
     case 'markdownLayout':
       return request.source.length
     case 'historyBody':
-      return request.bytes
+      return request.packet?.base64.length ?? 0
     case 'imageThumb':
       return request.pixels
     case 'diffContext':
