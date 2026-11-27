@@ -560,8 +560,8 @@ describe('wait phases', () => {
       expect(coldPhases).toEqual([
         { kind: 'server' },
         { kind: 'project' },
-        { kind: 'session' },
         { kind: 'mcp' },
+        { kind: 'session' },
         { kind: 'send' },
         { kind: 'model' },
         null
@@ -570,7 +570,7 @@ describe('wait phases', () => {
       await close(live1, iter1)
     }
 
-    // I2: warm server, new session -> [project, session, mcp, send, model, null]
+    // I2: warm server, new session -> [project, mcp, session, send, model, null]
     const live2 = f.adapter.sendMessage({
       sessionId: null,
       text: 'Warm turn',
@@ -583,8 +583,8 @@ describe('wait phases', () => {
       await frame(iter2)
       expect(warmPhases).toEqual([
         { kind: 'project' },
-        { kind: 'session' },
         { kind: 'mcp' },
+        { kind: 'session' },
         { kind: 'send' },
         { kind: 'model' },
         null
@@ -696,8 +696,8 @@ describe('wait phases', () => {
       expect(phases).toEqual([
         { kind: 'server' },
         { kind: 'project' },
-        { kind: 'session' },
         { kind: 'mcp' },
+        { kind: 'session' },
         { kind: 'send' },
         { kind: 'model' },
         { kind: 'retry', attempt: 1 },
@@ -831,7 +831,7 @@ describe('wait phases', () => {
     }
   })
 
-  it('I9: slash command turn emits [server, project, session, mcp, send, model, null] with 1 /command POST and 0 /prompt_async', async () => {
+  it('I9: slash command turn emits [server, project, mcp, session, send, model, null] with 1 /command POST and 0 /prompt_async', async () => {
     const f = waitPhaseFixture()
     const phases: Array<ChatWaitPhase | null> = []
     const live = f.adapter.sendMessage({
@@ -847,8 +847,8 @@ describe('wait phases', () => {
       expect(phases).toEqual([
         { kind: 'server' },
         { kind: 'project' },
-        { kind: 'session' },
         { kind: 'mcp' },
+        { kind: 'session' },
         { kind: 'send' },
         { kind: 'model' },
         null
@@ -910,8 +910,8 @@ describe('wait phases', () => {
       expect(phases).toEqual([
         { kind: 'server' },
         { kind: 'project' },
-        { kind: 'session' },
         { kind: 'mcp' },
+        { kind: 'session' },
         { kind: 'send' },
         { kind: 'model' },
         null
