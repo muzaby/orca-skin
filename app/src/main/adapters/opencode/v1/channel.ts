@@ -181,7 +181,7 @@ export function openCodeChannel(
       !models.find((item) => item.id === next.model)?.variants.includes(next.modelVariant)
         ? undefined
         : next.modelVariant
-    const dispatch = () =>
+    const dispatch = (): Promise<void> =>
       submitPrepared(next, initial, submittingSignal, {
         command: command?.name,
         args: slash?.[2],

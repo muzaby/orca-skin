@@ -58,14 +58,14 @@ async function readConfiguredOpenCode(
           continue
         }
         const prior = definitions.get(id)
-        const { enabled: _enabled, ...definition } = value
+        const { enabled: configuredEnabled, ...definition } = value
         // An enabled-only declaration inherits its target. An invalid nearer target
         // must never be mistaken for the previously read global one.
         if (Object.keys(definition).length > 0 || prior === undefined) {
           definitions.set(id, { ...prior, ...definition })
         }
         declarations.set(id, file)
-        const enabled = value.enabled !== false
+        const enabled = configuredEnabled !== false
         servers.set(id, {
           id,
           name: id,

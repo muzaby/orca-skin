@@ -4,8 +4,20 @@ import { expect } from 'vitest'
 import type { LiveTurn, ProviderMessageBatch } from '../adapters/common/types'
 import type { TurnRequest } from '../adapters/common/turn'
 
+interface SharedMcpResponses {
+  hold(text: string): Promise<void>
+  verify(
+    root: string,
+    open: (cwd: string, text: string, phase?: TurnRequest['onWaitPhase']) => LiveTurn,
+    select: (enabled: boolean) => void,
+    called: string[],
+    modelRequests: Record<string, unknown>[],
+    observe: () => { pids: (number | undefined)[]; disposals: number }
+  ): Promise<void>
+}
+
 /** Pause the mock model after tool discovery, before a running response requests its tools. */
-export function sharedMcpResponses() {
+export function sharedMcpResponses(): SharedMcpResponses {
   const gates = new Map(
     ['A', 'B'].map((key) => [
       key,
@@ -13,7 +25,7 @@ export function sharedMcpResponses() {
     ])
   )
   return {
-    async hold(text: string): Promise<void> {
+    async hold(text) {
       for (const [key, gate] of gates) {
         if (text.includes('0333-probe-held-' + key)) {
           gate.started.resolve()
@@ -21,14 +33,7 @@ export function sharedMcpResponses() {
         }
       }
     },
-    async verify(
-      root: string,
-      open: (cwd: string, text: string, phase?: TurnRequest['onWaitPhase']) => LiveTurn,
-      select: (enabled: boolean) => void,
-      called: string[],
-      modelRequests: Record<string, unknown>[],
-      observe: () => { pids: (number | undefined)[]; disposals: number }
-    ): Promise<void> {
+    async verify(root, open, select, called, modelRequests, observe) {
       const other = join(root, 'parallel')
       await mkdir(other)
       const ended = async (stream: AsyncIterator<ProviderMessageBatch>): Promise<void> => {
