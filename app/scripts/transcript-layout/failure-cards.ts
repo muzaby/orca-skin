@@ -110,7 +110,7 @@ export async function measureAccepted(
 ): Promise<{ ok: boolean; stages: CardMeasurement[]; hasSuccess: boolean }> {
   const { id, steps, success } = capture
   const failed = steps.filter((s) => s.fault)
-  const stages = []
+  const stages: CardMeasurement[] = []
   if (reopened) {
     const initialUsers = useChatStore
       .getState()
