@@ -1,0 +1,486 @@
+{
+  "sha": "source-sha256:4fccf734a9066c8f0d0d1e35ec1c06bded01863aea94e87324763b723aef0207",
+  "bundleSha256": "c877e341dbe45eb1fdfd9c6fb1e255d529a18a1f33f1fc33ee8a5a30258cdcce",
+  "meta": {
+    "input": "B2",
+    "screen": "claude-code",
+    "run": 0,
+    "bytes": 1086789,
+    "fixtureSha": "6d931a9706ff708c6e067f2dd2ef41f8d7bd3c4a8934ea6dbcef63b6c2f1a43e",
+    "characters": 1048576,
+    "utf8Bytes": 1048580,
+    "electron": "39.8.10",
+    "chrome": "142.0.7444.265",
+    "os": "linux"
+  },
+  "semantic": {
+    "formattedBodyMatches": true,
+    "sourceMatches": true,
+    "bodyCounts": {
+      "paragraphs": 3004,
+      "regular": 3000,
+      "fences": 40,
+      "tables": 2,
+      "list": 30000,
+      "structure": 1,
+      "cells": 1,
+      "footnote": 1
+    }
+  },
+  "searchTarget": true,
+  "initial": {
+    "ancestors": [
+      {
+        "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+        "height": 872364,
+        "overflow": "auto",
+        "top": 47,
+        "viewport": 600
+      }
+    ],
+    "at": 34868.5,
+    "connected": true,
+    "label": "after-app-reveal",
+    "rect": {
+      "height": 18,
+      "width": 24.84375,
+      "x": 39,
+      "y": 872205.25
+    },
+    "scHeight": 872364,
+    "top": 47,
+    "viewport": 600
+  },
+  "marker": {
+    "x": 39,
+    "y": 872205.25,
+    "width": 24.84375,
+    "height": 18,
+    "top": 872205.25,
+    "right": 63.84375,
+    "bottom": 872223.25,
+    "left": 39,
+    "scrollTop": 47,
+    "scrollLeft": 0,
+    "scrollViewport": {
+      "x": 0,
+      "y": 0,
+      "width": 1000,
+      "height": 600,
+      "top": 0,
+      "right": 1000,
+      "bottom": 600,
+      "left": 0
+    },
+    "viewportWidth": 1000,
+    "viewportHeight": 600
+  },
+  "t0": 34950.79999999888,
+  "first": {
+    "requestId": 1,
+    "matches": 1,
+    "selectionArea": {
+      "x": 39,
+      "y": 498,
+      "width": 25,
+      "height": 19
+    },
+    "activeMatchOrdinal": 1,
+    "finalUpdate": true
+  },
+  "finalAt": 36220.29999999888,
+  "after": {
+    "x": 39,
+    "y": 498.21875,
+    "width": 24.84375,
+    "height": 18,
+    "top": 498.21875,
+    "right": 63.84375,
+    "bottom": 516.21875,
+    "left": 39,
+    "scrollTop": 871764,
+    "scrollLeft": 0,
+    "scrollViewport": {
+      "x": 0,
+      "y": 0,
+      "width": 1000,
+      "height": 600,
+      "top": 0,
+      "right": 1000,
+      "bottom": 600,
+      "left": 0
+    },
+    "viewportWidth": 1000,
+    "viewportHeight": 600
+  },
+  "confirmed": {
+    "native": {
+      "requestId": 1,
+      "matches": 1,
+      "selectionArea": {
+        "x": 39,
+        "y": 498,
+        "width": 25,
+        "height": 19
+      },
+      "activeMatchOrdinal": 1,
+      "finalUpdate": true
+    },
+    "dom": {
+      "x": 39,
+      "y": 498.21875,
+      "width": 24.84375,
+      "height": 18,
+      "top": 498.21875,
+      "right": 63.84375,
+      "bottom": 516.21875,
+      "left": 39,
+      "scrollTop": 871764,
+      "scrollLeft": 0,
+      "scrollViewport": {
+        "x": 0,
+        "y": 0,
+        "width": 1000,
+        "height": 600,
+        "top": 0,
+        "right": 1000,
+        "bottom": 600,
+        "left": 0
+      },
+      "viewportWidth": 1000,
+      "viewportHeight": 600
+    },
+    "ok": true
+  },
+  "nativeEvents": [
+    {
+      "sinceRequestMs": 1190.1682389999987,
+      "requestId": 1,
+      "matches": 1,
+      "selectionArea": {
+        "x": 39,
+        "y": 498,
+        "width": 25,
+        "height": 19
+      },
+      "activeMatchOrdinal": 1,
+      "finalUpdate": true
+    }
+  ],
+  "selectedAndCopied": true,
+  "events": [
+    {
+      "at": 34531.39999999851,
+      "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+      "trusted": true,
+      "value": 853217,
+      "what": "scroll event"
+    },
+    {
+      "actual": 853217,
+      "at": 34551.5,
+      "before": 853217,
+      "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+      "requested": [
+        {
+          "behavior": "instant",
+          "top": 853217
+        }
+      ],
+      "stack": [
+        "    at http://127.0.0.1:42415/probe.js:79:75374",
+        "    at Mz (http://127.0.0.1:42415/probe.js:79:39571)",
+        "    at mr (http://127.0.0.1:42415/probe.js:79:75275)",
+        "    at Object.write (http://127.0.0.1:42415/probe.js:160:33817)",
+        "    at ps (http://127.0.0.1:42415/probe.js:79:42995)",
+        "    at y5 (http://127.0.0.1:42415/probe.js:79:77650)",
+        "    at Np (http://127.0.0.1:42415/probe.js:8:48419)"
+      ],
+      "what": "JS scrollTo"
+    },
+    {
+      "actual": 47,
+      "at": 34564.39999999851,
+      "before": 853217,
+      "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+      "requested": 47.125,
+      "stack": [
+        "    at http://127.0.0.1:42415/probe.js:79:75414",
+        "    at Mz (http://127.0.0.1:42415/probe.js:79:39571)",
+        "    at mr (http://127.0.0.1:42415/probe.js:79:75275)",
+        "    at http://127.0.0.1:42415/probe.js:79:80709",
+        "    at E (http://127.0.0.1:42415/probe.js:79:41389)"
+      ],
+      "what": "JS scrollTop"
+    },
+    {
+      "at": 34574.89999999851,
+      "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+      "trusted": true,
+      "value": 47,
+      "what": "scroll event"
+    },
+    {
+      "at": 35862.79999999888,
+      "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+      "trusted": true,
+      "value": 871764,
+      "what": "scroll event"
+    }
+  ],
+  "samples": [
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872364,
+          "overflow": "auto",
+          "top": 47,
+          "viewport": 600
+        }
+      ],
+      "at": 34868.5,
+      "connected": true,
+      "label": "after-app-reveal",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 872205.25
+      },
+      "scHeight": 872364,
+      "top": 47,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872364,
+          "overflow": "auto",
+          "top": 47,
+          "viewport": 600
+        }
+      ],
+      "at": 34950.79999999888,
+      "connected": true,
+      "label": "before-native-request",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 872205.25
+      },
+      "scHeight": 872364,
+      "top": 47,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872389,
+          "overflow": "auto",
+          "top": 871764,
+          "viewport": 600
+        }
+      ],
+      "at": 36220.29999999888,
+      "connected": true,
+      "label": "after-native-final",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 498.21875
+      },
+      "scHeight": 872389,
+      "top": 871764,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872389,
+          "overflow": "auto",
+          "top": 871764,
+          "viewport": 600
+        }
+      ],
+      "at": 36354.39999999851,
+      "connected": true,
+      "label": "native+100ms",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 498.21875
+      },
+      "scHeight": 872389,
+      "top": 871764,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872389,
+          "overflow": "auto",
+          "top": 871764,
+          "viewport": 600
+        }
+      ],
+      "at": 36471.79999999888,
+      "connected": true,
+      "label": "native+250ms",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 498.21875
+      },
+      "scHeight": 872389,
+      "top": 871764,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872389,
+          "overflow": "auto",
+          "top": 871764,
+          "viewport": 600
+        }
+      ],
+      "at": 36720.39999999851,
+      "connected": true,
+      "label": "native+500ms",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 498.21875
+      },
+      "scHeight": 872389,
+      "top": 871764,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872389,
+          "overflow": "auto",
+          "top": 871764,
+          "viewport": 600
+        }
+      ],
+      "at": 37220.09999999963,
+      "connected": true,
+      "label": "native+1000ms",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 498.21875
+      },
+      "scHeight": 872389,
+      "top": 871764,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872389,
+          "overflow": "auto",
+          "top": 871764,
+          "viewport": 600
+        }
+      ],
+      "at": 37720.79999999888,
+      "connected": true,
+      "label": "native+1500ms",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 498.21875
+      },
+      "scHeight": 872389,
+      "top": 871764,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872389,
+          "overflow": "auto",
+          "top": 871764,
+          "viewport": 600
+        }
+      ],
+      "at": 38220.59999999963,
+      "connected": true,
+      "label": "native+2000ms",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 498.21875
+      },
+      "scHeight": 872389,
+      "top": 871764,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872389,
+          "overflow": "auto",
+          "top": 871764,
+          "viewport": 600
+        }
+      ],
+      "at": 38720.29999999888,
+      "connected": true,
+      "label": "native+2500ms",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 498.21875
+      },
+      "scHeight": 872389,
+      "top": 871764,
+      "viewport": 600
+    },
+    {
+      "ancestors": [
+        {
+          "el": "DIV::app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] [--trans",
+          "height": 872389,
+          "overflow": "auto",
+          "top": 871764,
+          "viewport": 600
+        }
+      ],
+      "at": 39221,
+      "connected": true,
+      "label": "native+3000ms",
+      "rect": {
+        "height": 18,
+        "width": 24.84375,
+        "x": 39,
+        "y": 498.21875
+      },
+      "scHeight": 872389,
+      "top": 871764,
+      "viewport": 600
+    }
+  ]
+}
