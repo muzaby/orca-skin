@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV2·ΔV3) · Codex (ΔV1 추가 요구) |
 | 일자 | 2026-11-26 |
 | 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
-| 상태 | impl/IN_PROGRESS · r1. Chromium 일반·축소 실측 127/130. AC8의 17개 진입점 검증을 마쳤다. §10-A의 50ms 예산과 일반 모션 설정 창 진입 실측이 남았다. |
+| 상태 | impl/IMPL_DONE · r1 · 독립 검증 대기. AC 13/14. Chromium 일반·축소 실측 128/130이며 §10-A의 50ms 예산이 남았다. |
 | V mode | `Delta V` |
 | 기준 V | 0332 V1 + ΔV1 + ΔV2 (`09d8b2ae`) |
 | 이번 V revision | `ΔV3` — 2차 리뷰 보완: VP-01 누락 기본값(Work 360·Code 520) · 닫힌 패널의 산출물 성공은 `navigate` 일반 규칙의 예외 |
@@ -606,7 +606,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 04′·05·14 | EP-5 전환 | ① 열기 ② 닫기 ③ 모드·host ④ 드래그 | ①② `framePhase`·프레임의 outgoing/타이머, ③ `targetWidth`, ④ 프레임의 drag/finish | `rightPanelFrameState.test.ts`, Electron `pairedWidth`·`mode-width`·`resize-persistence` | 기본 360/520, host 690 시 450, 64px 드래그와 저장, 축소 모션 즉시 | — |
 | 07′·15 | EP-6′ 폐기 | 기준 60파일 421줄. src/scripts 전체 | 구 grid 로직·계약·액션·수명 테스트 대체 | §20-G 명령 0줄. 테스트 fixture에 sentinel을 심어 같은 명령 정확히 1줄 | production·테스트·시나리오 3경로 포함 | — |
 | 10·17·18 | EP-7·8 경계·깊이 | transcript/패널 공통 flex, 양방향 navigation, 중단/세션 이동 | 프레임만 폭 보간, 콘텐츠 층별 transform, 구 층 inert·aria-hidden | `check-right-panel.mjs`, `Panel.lifecycle.test.ts` | 읽기 위치·하단·폭·도착층 x·inactive·원점 버튼 | 일반 열기 2·닫기 9·종류별 폭 10/9 중간 표본. 136.78px에서 폭 반전. 읽던 글줄/하단 오차 0px. 두 모드 모두 외곽 경계와 폭 합 오차 0px |
-| 19 | EP-9 앱 전환 | 앱 셸·라우트, 페이지, 공통 UI, 기능별 소유자 | 아래 소유자 표 | `scripts/right-panel/surfaces.tsx`가 실제 컴포넌트를 그리고 계산값을 수집 | 일반/축소별 opacity, sidebar/disclosure 폭·높이, 스위치 thumb 위치 | 33개 표면 × 2모드 중 65/66. 일반 설정 창 진입 중간값 미관측, §10-A 장기 작업은 일반 12건·축소 4건 |
+| 19 | EP-9 앱 전환 | 앱 셸·라우트, 페이지, 공통 UI, 기능별 소유자 | 아래 소유자 표 | `scripts/right-panel/surfaces.tsx`가 실제 컴포넌트를 그리고 계산값을 수집 | 일반/축소별 opacity, sidebar/disclosure 폭·높이, 스위치 thumb 위치 | 33개 표면 × 2모드 66/66. 일반 설정 창은 중간값 3회. §10-A 장기 작업은 일반 6건·축소 2건 |
 | 20′ | EP-10 산출물 | 카드 클릭, 활성 검사, 취소, 세션 정리, 검색, 뷰어/닫기 버튼 | 7자리, 카탈로그의 기존 독립 호스트 유지 | `artifactViewerStore.test.ts` A1~A7, `rightPanelStore.test.ts` A2/A8/A9, `Panel.lifecycle.test.ts` | 늦은 완료·실패 시 스택 불변, 정상 완료 시 원 세션에만 push. 재시도 실패 시 뒷면 복귀 | 실제 카드 A1~A9 모두 양 모드 통과 |
 
 - §10 밖 운반 자리. `scripts/fixtures/harness-entry/main.tsx`, OpenCode 시나리오·settings mock도 신규 경계로 이관했다.
@@ -632,7 +632,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | VP-16 | REGRESSION | SELF_PASS | Panel.lifecycle, ArtifactViewer.actions, ResizableSidePane | 초점·스크롤·가려진 상세·확대 복귀 |
 | VP-17 | REQUIRED | SELF_PASS | Electron pairedWidth·읽던 글줄·하단 | 일반/축소 각 63 프레임에서 seam·외곽·폭 합 오차 모두 0px. transcript 고정폭 변이에서는 seam=0이지만 외곽/폭 합 오차 520px로 검출. §10-A 운영 예산은 별도 실패 |
 | VP-18 | REQUIRED | SELF_PASS | Electron depth-forward/back/interrupt | 일반에서 진입 x=+505.5px, 복귀 −505.5px부터 수렴했다. 스냅 변이에서는 양쪽 x 표본 모두 0, 두 케이스 red |
-| VP-19 | REQUIRED | SELF_BLOCKED | Electron surface-* 및 long-task-observation | 경로 9종 포함 66건 중 65건 통과. 일반 설정 창은 0→1 중간값을 관측하지 못했다. 긴 transcript 조작은 두 모드에서 50ms 예산을 넘었다 |
+| VP-19 | REQUIRED | SELF_BLOCKED | Electron surface-* 및 long-task-observation | 경로 9종 포함 표면 66/66 통과. 긴 대화를 연 상태에서 50ms 이상 작업이 일반 6건·축소 2건이었다 |
 | VP-20′ | REQUIRED | SELF_PASS | 실제 카드·뷰어 A1~A9 × 2모드, artifactViewerStore 및 rightPanelStore | 활성 세션 검사 제거 1 red, 닫힌 산출물 예외 제거 2 red. A8에서 뒤로/Escape 후 두 번째 카드 초점 복귀 |
 | VP-21 | REQUIRED | SELF_PASS | Panel.render AC7의 두 registry 계약, Panel.lifecycle AC2의 한 프레임 | 선택 증거 없음 |
 
@@ -778,9 +778,9 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 변경 파일 | settings/IPC, TweakProvider, chat store와 reducer, 새 stack/frame, 두 하네스 화면, 진입점과 테스트, UI 모션 소유자, Electron gate, 아키텍처 문서와 인벤토리 |
 | 실행 명령 | `vitest run --maxWorkers=1` 대상 스위트, §20-G rg, `node scripts/check-doc-inventory.mjs --check`, `node scripts/check-test-budgets.mjs`, Electron right-panel gate |
 | **관측한 게이트 산출** | 주요 13파일 106개, 메뉴/셸 42개, 뷰어/CSS/composer 42개, store/초점·수명 22개, 세션/턴 정책 34개, 마지막 프레임 알림 수정의 수명/Work 17개, 점프 버튼 숨김 시 세션 전환 렌더/표시 동작을 포함한 ChatTile 9개 통과. 전체 실행에서 실패했던 네 스위트 중 세 개는 통합 브랜치에서 재실행 시 통과했다. DOM이 없는 작업 알림 검사에서 모션 구독이 window를 참조하던 문제를 수정한 뒤, ChatTile·store·작업 알림·Panel 수명·모션 구독 5파일이 시간 배율 6으로 29/29 통과했다. 전체 문서 가드 9항목·127채널·링크 통과, test-budgets 18 real-git suites 위반 0. 통합 스냅숏의 Node 스크립트 1,176/1,176, 앱 빌드와 호스트/preload smoke 통과 |
-| **Electron 실측** | `69528a12` 통합 코드와 `check-right-panel.mjs`의 동일 Electron main/판정을 사용했다. Chromium CPU 3–4, 다른 무거운 작업 CPU 0. 일반 63/65·축소 64/65, 총 127/130, exit 1. A1~A9, 다섯 세션 교체 방향, 폭·깊이·스크롤, native drag 및 창 재기동이 양 모드 통과. 일반 폭은 136.78px에서 되돌았고, 깊이는 x=437.45px에서 되돌았다 |
-| **UI 표면** | 경로 9종 포함 33개 표면을 일반·축소로 점검해 65/66 통과. 일반 `surface-settings-open`은 18개 표본에서 시작 0과 끝 1만 기록했다. 같은 번들에서 UI만 독립 재실행하면 설정 진입은 중간값 1회로 통과했고 이번에는 설정 탭 중간값이 누락됐다. 이전 `5dd5d237` 실행에서는 표면 66/66을 관측했다 |
-| **§10-A 운영 예산** | `long-task-observation` 양 모드 실패. 일반 모션에서 장기 작업 12건(최대 296ms, 세션 전환 중 3건), 축소 모션에서 4건(최대 83ms, 세션 전환 중 3건). 앞선 `c9e3028e`의 결과는 일반 6건/102ms·축소 3건/215ms였다. 미확대 패널 알림과 숨은 점프 버튼의 중복 렌더를 제거한 뒤에도 50ms 예산을 충족하지 못했다 |
+| **Electron 실측** | `xvfb-run -a node scripts/check-right-panel.mjs`에서 일반·축소 각각 64/65, 총 128/130, 종료 코드 1. Chromium CPU 3–4, 동시 타입 검사 CPU 0. A1~A9·다섯 방향 세션 교체·폭·깊이·읽기·실제 포인터 드래그·창 재기동이 두 모드에서 통과했다. 일반 모션에서 폭 137.42px, 깊이 437.56px에서 역전되었고 양 모드 모두 읽던 문단의 이동과 하단 오차는 0px였다 |
+| **UI 표면** | 경로 9종을 포함한 33개 표면이 일반·축소 모두 통과했다(66/66). 일반 설정 창이 열리는 동안 시작 0, 중간값 3회, 끝 1을 18개 프레임에서 확인했다. 이전 127/130 실행에서 누락된 표본이었다 |
+| **§10-A 운영 예산** | 일반 모션에서 50ms 이상 작업이 6건이었다. 폭 저장 113ms, Work 폭 전환 86ms, 네 세션 교체에서 93·172·67·127ms였다. 축소 모션에서는 읽기 위치 변경 74ms와 Claude Code→Work 세션 교체 82ms였다. 각 조작에서 판정이 사용하는 실제 경계만 읽고 같은 글·블록 키와 2px 기준을 보존했다. 이전 계측의 일반 12건(최대 296ms)·축소 4건(최대 83ms)도 같은 예산을 초과했다 |
 | **§10-A 렌더러 프로파일** | `769f74be` 제품 번들의 일반 모션을 CDP로 1회 기록했다. 384ms에 걸친 장기 작업 6건(폭 저장 71ms, Work 51ms, 세션 교체 55·79·61·67ms)마다 React 행 ref → 가상 목록 → `TranscriptViewport.measureElement` → `getBoundingClientRect`가 표본에 나왔다. 이 제품 호출의 합은 97.8ms, 가장 긴 작업에서 32.0ms였다. 이 작업의 Chromium Layout 26.0ms와 CPU 표본은 겹친다. 대조한 읽기 구간에서는 장기 작업이 재현되지 않았다 |
 | **시간대 조회** | `MessageMeta`는 렌더마다 OS 시간대를 한 번 읽어 표시 시각과 툴팁에 전달한다. 뉴욕→서울 모의 전환 후 두 값이 갱신됐다. 관련 5파일 25/25. Node에서 실제 포맷 함수로 200행을 7회 교대 측정한 중앙값은 기존 112.13ms, 변경 뒤 56.19ms였다. 이는 패널 조작의 실측값과 별도다 |
 | **추가·수정 테스트의 subtree 규칙** | 구현 전 기준 `99048270`과 대조해 현재 존재하는 추가·수정 테스트 51개. 직접 exe/native SQLite 사용 검색 0건. 실시간 기한 추가 0, 경계는 fake timer·메모리 fixture와 기존 store 규칙 사용 |
@@ -788,7 +788,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 강제 지점 전수 | EP-1′~10 및 EP-4″ 9분기·EP-5 4지점을 위 표에 고정 |
 | **AC 자기보고**(`Criteria-Met`) | 13/14. AC1~12·14 통과. AC8은 17개 진입점에서 개별 소거를 검출하고 원복 후 8개 스위트 57개가 통과했다. AC11·12의 경계·깊이·스크롤은 통과했으나 §10-A의 장기 작업 운영 예산이 실패해 AC13 전체 적용을 닫지 않았다. AC14 산출물은 A1~A9가 양 모드 통과 |
 | **합계 검산** | ✅ 13 · ❌ 1(AC13/§10-A 예산) = 14 |
-| 블로커 / 역질문 | 설계 결정 요청 없음. §10-A 장기 작업과 통합 게이트의 일반 설정 창 진입 실측이 남았다 |
+| 블로커 / 역질문 | §10-A의 50ms 예산을 초과했다. 네 세션 전환에서 일반 93·172·67·127ms를 기록했다 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
