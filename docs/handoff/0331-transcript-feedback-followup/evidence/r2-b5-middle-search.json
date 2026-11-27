@@ -1,0 +1,386 @@
+[
+  {
+    "observation": "two-observations",
+    "originalLogSha256": "406f4bc5d7ed11d1a13b1de8cc7cf68dcc8e8fbd6f94a000b1559fac9e562af6",
+    "screen": "claude-code",
+    "characters": 40000000,
+    "utf8Bytes": 40000004,
+    "bytes": 40004941,
+    "fixtureSha": "2ea0b3e88218c6f46f59842634daa17e0cf5a0cfe73b6ba1d15f1c158cce53d8",
+    "electron": "39.8.10",
+    "chrome": "142.0.7444.265",
+    "os": "linux",
+    "viewport": [
+      1000,
+      600
+    ],
+    "dpr": 1,
+    "start": 2005.2999999988824,
+    "end": 454570,
+    "stable": 10,
+    "complete": true,
+    "error": "AssertionError [ERR_ASSERTION]: {\"nativeMatches\":1,\"findRect\":{\"x\":482,\"y\":90667,\"width\":208,\"height\":19},\"markerRect\":{\"x\":482.328125,\"y\":290.125,\"width\":207.5,\"height\":18,\"top\":290.125,\"right\":689.828125,\"bottom\":308.125,\"left\":482.328125},\"nativeFind\":false,\"findSamples\":[{\"before\":{\"x\":482.328125,\"y\":1129372,\"width\":207.5,\"height\":18,\"top\":1129372,\"right\":689.828125,\"bottom\":1129390,\"left\":482.328125},\"native\":{\"x\":482,\"y\":90667,\"width\":208,\"height\":19},\"after\":{\"x\":482.328125,\"y\":90667.125,\"width\":207.5,\"height\":18,\"top\":90667.125,\"right\":689.828125,\"bottom\":90685.125,\"left\":482.328125},\"matches\":1},{\"before\":{\"x\":482.328125,\"y\":90667.125,\"width\":207.5,\"height\":18,\"top\":90667.125,\"right\":689.828125,\"bottom\":90685.125,\"left\":482.328125},\"native\":{\"x\":482,\"y\":90667,\"width\":208,\"height\":19},\"after\":{\"x\":482.328125,\"y\":290.125,\"width\":207.5,\"height\":18,\"top\":290.125,\"right\":689.828125,\"bottom\":308.125,\"left\":482.328125},\"matches\":1}]}\n\nfalse !== true\n"
+  },
+  {
+    "observation": "two-observations",
+    "originalLogSha256": "406f4bc5d7ed11d1a13b1de8cc7cf68dcc8e8fbd6f94a000b1559fac9e562af6",
+    "screen": "opencode-code",
+    "characters": 40000000,
+    "utf8Bytes": 40000004,
+    "bytes": 40004941,
+    "fixtureSha": "2ea0b3e88218c6f46f59842634daa17e0cf5a0cfe73b6ba1d15f1c158cce53d8",
+    "electron": "39.8.10",
+    "chrome": "142.0.7444.265",
+    "os": "linux",
+    "viewport": [
+      1000,
+      600
+    ],
+    "dpr": 1,
+    "start": 601.3000000007451,
+    "end": 97356.30000000075,
+    "stable": 10,
+    "complete": true,
+    "variant": "middle-source-parts",
+    "paragraphIndex": 1221,
+    "sourceMatches": true,
+    "formattedBodyMatches": true,
+    "bodyCounts": {
+      "paragraphs": 2443,
+      "checked": 2443
+    },
+    "searchTarget": true,
+    "middleRange": {
+      "paragraphs": 2443,
+      "first": "message:text:0",
+      "last": "message:text:1",
+      "range": "OrcaMiddle2026SelectionMarker",
+      "rect": {
+        "x": 482.328125,
+        "y": 787705.9375,
+        "width": 207.5,
+        "height": 18,
+        "top": 787705.9375,
+        "right": 689.828125,
+        "bottom": 787723.9375,
+        "left": 482.328125
+      }
+    },
+    "nativeMatches": 1,
+    "nativeFind": true,
+    "findSamples": [
+      {
+        "before": {
+          "x": 482.328125,
+          "y": 787705.9375,
+          "width": 207.5,
+          "height": 18,
+          "top": 787705.9375,
+          "right": 689.828125,
+          "bottom": 787723.9375,
+          "left": 482.328125
+        },
+        "native": {
+          "x": 482,
+          "y": 290,
+          "width": 208,
+          "height": 19
+        },
+        "after": {
+          "x": 482.328125,
+          "y": 290.9375,
+          "width": 207.5,
+          "height": 18,
+          "top": 290.9375,
+          "right": 689.828125,
+          "bottom": 308.9375,
+          "left": 482.328125
+        },
+        "matches": 1
+      }
+    ],
+    "findRect": {
+      "x": 482,
+      "y": 290,
+      "width": 208,
+      "height": 19
+    },
+    "markerRect": {
+      "x": 482.328125,
+      "y": 290.9375,
+      "width": 207.5,
+      "height": 18,
+      "top": 290.9375,
+      "right": 689.828125,
+      "bottom": 308.9375,
+      "left": 482.328125
+    },
+    "first": "message:text:0",
+    "last": "message:text:1",
+    "selected": "OrcaMiddle2026SelectionMarker",
+    "copied": "OrcaMiddle2026SelectionMarker",
+    "detectedDomOmissions": [
+      "missingParagraph",
+      "missingFormatting"
+    ],
+    "ok": true
+  },
+  {
+    "observation": "distance-to-viewport",
+    "originalLogSha256": "ad555532f8e56b393f269f6592862c9607ac7a01a242d8f8eecfbb3b3617ee9e",
+    "screen": "claude-code",
+    "characters": 40000000,
+    "utf8Bytes": 40000004,
+    "bytes": 40004941,
+    "fixtureSha": "2ea0b3e88218c6f46f59842634daa17e0cf5a0cfe73b6ba1d15f1c158cce53d8",
+    "electron": "39.8.10",
+    "chrome": "142.0.7444.265",
+    "os": "linux",
+    "viewport": [
+      1000,
+      600
+    ],
+    "dpr": 1,
+    "start": 1126.9000000003725,
+    "end": 90481.80000000075,
+    "stable": 10,
+    "complete": true,
+    "variant": "middle-source-parts",
+    "paragraphIndex": 1221,
+    "sourceMatches": true,
+    "formattedBodyMatches": true,
+    "bodyCounts": {
+      "paragraphs": 2443,
+      "checked": 2443
+    },
+    "searchTarget": true,
+    "middleRange": {
+      "paragraphs": 2443,
+      "first": "message:text:0",
+      "last": "message:text:1",
+      "range": "OrcaMiddle2026SelectionMarker",
+      "rect": {
+        "x": 482.328125,
+        "y": 1056630.125,
+        "width": 207.5,
+        "height": 18,
+        "top": 1056630.125,
+        "right": 689.828125,
+        "bottom": 1056648.125,
+        "left": 482.328125
+      }
+    },
+    "nativeMatches": 1,
+    "nativeFind": true,
+    "findSamples": [
+      {
+        "before": {
+          "x": 482.328125,
+          "y": 1056630.125,
+          "width": 207.5,
+          "height": 18,
+          "top": 1056630.125,
+          "right": 689.828125,
+          "bottom": 1056648.125,
+          "left": 482.328125
+        },
+        "native": {
+          "x": 482,
+          "y": 15720,
+          "width": 208,
+          "height": 19
+        },
+        "after": {
+          "x": 482.328125,
+          "y": 15720.234375,
+          "width": 207.5,
+          "height": 18,
+          "top": 15720.234375,
+          "right": 689.828125,
+          "bottom": 15738.234375,
+          "left": 482.328125
+        },
+        "matches": 1
+      },
+      {
+        "before": {
+          "x": 482.328125,
+          "y": 15720.234375,
+          "width": 207.5,
+          "height": 18,
+          "top": 15720.234375,
+          "right": 689.828125,
+          "bottom": 15738.234375,
+          "left": 482.328125
+        },
+        "native": {
+          "x": 482,
+          "y": 15720,
+          "width": 208,
+          "height": 19
+        },
+        "after": {
+          "x": 482.328125,
+          "y": 290.234375,
+          "width": 207.5,
+          "height": 18,
+          "top": 290.234375,
+          "right": 689.828125,
+          "bottom": 308.234375,
+          "left": 482.328125
+        },
+        "matches": 1
+      },
+      {
+        "before": {
+          "x": 482.328125,
+          "y": 290.234375,
+          "width": 207.5,
+          "height": 18,
+          "top": 290.234375,
+          "right": 689.828125,
+          "bottom": 308.234375,
+          "left": 482.328125
+        },
+        "native": {
+          "x": 482,
+          "y": 290,
+          "width": 208,
+          "height": 19
+        },
+        "after": {
+          "x": 482.328125,
+          "y": 290.234375,
+          "width": 207.5,
+          "height": 18,
+          "top": 290.234375,
+          "right": 689.828125,
+          "bottom": 308.234375,
+          "left": 482.328125
+        },
+        "matches": 1
+      }
+    ],
+    "findRect": {
+      "x": 482,
+      "y": 290,
+      "width": 208,
+      "height": 19
+    },
+    "markerRect": {
+      "x": 482.328125,
+      "y": 290.234375,
+      "width": 207.5,
+      "height": 18,
+      "top": 290.234375,
+      "right": 689.828125,
+      "bottom": 308.234375,
+      "left": 482.328125
+    },
+    "first": "message:text:0",
+    "last": "message:text:1",
+    "selected": "OrcaMiddle2026SelectionMarker",
+    "copied": "OrcaMiddle2026SelectionMarker",
+    "detectedDomOmissions": [
+      "missingParagraph",
+      "missingFormatting"
+    ],
+    "ok": true
+  },
+  {
+    "observation": "distance-to-viewport",
+    "originalLogSha256": "ad555532f8e56b393f269f6592862c9607ac7a01a242d8f8eecfbb3b3617ee9e",
+    "screen": "opencode-code",
+    "characters": 40000000,
+    "utf8Bytes": 40000004,
+    "bytes": 40004941,
+    "fixtureSha": "2ea0b3e88218c6f46f59842634daa17e0cf5a0cfe73b6ba1d15f1c158cce53d8",
+    "electron": "39.8.10",
+    "chrome": "142.0.7444.265",
+    "os": "linux",
+    "viewport": [
+      1000,
+      600
+    ],
+    "dpr": 1,
+    "start": 700.1999999992549,
+    "end": 63642.199999999255,
+    "stable": 10,
+    "complete": true,
+    "variant": "middle-source-parts",
+    "paragraphIndex": 1221,
+    "sourceMatches": true,
+    "formattedBodyMatches": true,
+    "bodyCounts": {
+      "paragraphs": 2443,
+      "checked": 2443
+    },
+    "searchTarget": true,
+    "middleRange": {
+      "paragraphs": 2443,
+      "first": "message:text:0",
+      "last": "message:text:1",
+      "range": "OrcaMiddle2026SelectionMarker",
+      "rect": {
+        "x": 482.328125,
+        "y": 686308.25,
+        "width": 207.5,
+        "height": 18,
+        "top": 686308.25,
+        "right": 689.828125,
+        "bottom": 686326.25,
+        "left": 482.328125
+      }
+    },
+    "nativeMatches": 1,
+    "nativeFind": false,
+    "findSamples": [
+      {
+        "before": {
+          "x": 482.328125,
+          "y": 686308.25,
+          "width": 207.5,
+          "height": 18,
+          "top": 686308.25,
+          "right": 689.828125,
+          "bottom": 686326.25,
+          "left": 482.328125
+        },
+        "native": {
+          "x": 482,
+          "y": -779992,
+          "width": 208,
+          "height": 19
+        },
+        "after": {
+          "x": 482.328125,
+          "y": -779991.5625,
+          "width": 207.5,
+          "height": 18,
+          "top": -779991.5625,
+          "right": 689.828125,
+          "bottom": -779973.5625,
+          "left": 482.328125
+        },
+        "matches": 1
+      }
+    ],
+    "findRect": {
+      "x": 482,
+      "y": -779992,
+      "width": 208,
+      "height": 19
+    },
+    "markerRect": {
+      "x": 482.328125,
+      "y": -779991.5625,
+      "width": 207.5,
+      "height": 18,
+      "top": -779991.5625,
+      "right": 689.828125,
+      "bottom": -779973.5625,
+      "left": 482.328125
+    },
+    "error": "AssertionError [ERR_ASSERTION]: {\"nativeMatches\":1,\"findRect\":{\"x\":482,\"y\":-779992,\"width\":208,\"height\":19},\"markerRect\":{\"x\":482.328125,\"y\":-779991.5625,\"width\":207.5,\"height\":18,\"top\":-779991.5625,\"right\":689.828125,\"bottom\":-779973.5625,\"left\":482.328125},\"nativeFind\":false,\"findSamples\":[{\"before\":{\"x\":482.328125,\"y\":686308.25,\"width\":207.5,\"height\":18,\"top\":686308.25,\"right\":689.828125,\"bottom\":686326.25,\"left\":482.328125},\"native\":{\"x\":482,\"y\":-779992,\"width\":208,\"height\":19},\"after\":{\"x\":482.328125,\"y\":-779991.5625,\"width\":207.5,\"height\":18,\"top\":-779991.5625,\"right\":689.828125,\"bottom\":-779973.5625,\"left\":482.328125},\"matches\":1}]}\n\nfalse !== true\n"
+  }
+]
