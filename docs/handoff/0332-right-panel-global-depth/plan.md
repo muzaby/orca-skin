@@ -893,6 +893,8 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs --search "rg -n -H '$
 | 축소 | 4 | 81·56·196·69ms | 닫기·반전, 읽기 위치 조작, OpenCode 전환 |
 
 
+별도 CDP 1회에서 일반 모션의 닫기 구간은 최대 5.4ms였고 정본의 298ms 작업은 재현되지 않았다. 읽기 설정부터 다시 열기까지의 최대 작업은 31.7ms였다. 69ms 세션 전환 작업에서는 미측정 행의 첫 실제 높이 조회가 25.9ms, Chromium Layout이 23.7ms로 겹쳤다. 읽기 구간의 앵커·문자 오프셋 탐색은 CPU 표본에서 관측되지 않았다. [CDP 관측과 재현 절차](evidence/cdp-reading-2034f86d.md)
+
 
 | 항목 | 내용 |
 |---|---|
