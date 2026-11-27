@@ -751,7 +751,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     }
   })
   const needsInitialBottom = useRef(startAtEnd)
-  const virtualizer = useVirtualizer({
+  const virtualizer = useVirtualizer<HTMLDivElement, Element>({
     count: virtualized ? snapshot.count : 0,
     directDomUpdates: true,
     onChange: () => {
