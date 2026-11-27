@@ -1127,7 +1127,7 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 | 사용자 원문 (2026-11-27) | 형태 | 관측 | 원인 |
 |---|---|---|---|
 | “추가적으로 이전 요청에서 work 모드에서 도구 호출 시 dot 아이콘이 섞여 출력되고 있다고 보고했었다. 도구 카드에서 노트 출력이 실패한 케이스일 수 있으니 관련하여 버그가 있으면 수정하라” | 링크 참조 정의만 있는 메모(`[ref]: https://…`) | Chromium(`evidence/dv6` 프로브 `workNotes`): 메모 행 7.3px · 본문 높이 0 · 점 20px이 다음 셸 행 위로 겹침 — 원래 보고와 같은 모양 | `parts.ts:120` `trim() !== ''`가 참이라 메모가 되지만 Markdown 출력은 비어 있다 |
-| 같음 | 보이지 않는 문자만 있는 메모(`​` · `⁠﻿` · `&nbsp;`) | 같은 프로브: 점 + 빈 줄(본문 22.3px, 보이는 글자 0) | `trim()`이 `​`·`⁠`을 지우지 않고 `&nbsp;`는 문자열로 남는다 |
+| 같음 | 보이지 않는 문자만 있는 메모(`\u200b` · `\u2060\ufeff` · `&nbsp;`) | 같은 프로브: 점 + 빈 줄(본문 22.3px, 보이는 글자 0) | `trim()`이 `\u200b`·`\u2060`을 지우지 않고 `&nbsp;`는 문자열로 남는다 |
 | 같음 | 4,000자 초과 메모의 워커 대기 | 코드: 레이아웃 대기 중 `MarkdownDocument.tsx:273` `<span data-md-block-pending />`(높이 0) · 블록 대기 중 `:173` 빈 `<pre>`. 워커가 느리거나 멈추면 점만 남는다(ΔV6 D-032가 다루는 멈춤과 겹침) | 메모 경로가 `showPendingText`를 넘기지 않는다 |
 
 - 65,536자를 넘는 글은 `parts.ts:117`이 `ChunkedText.hasContent`(`chunkedText.ts:12` `/\S/u`)로 판정한다 — 같은 규칙이 두 곳에 갈라져 있다.
@@ -1136,12 +1136,12 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
-| D-034 | Work 펼침 목록의 메모 점은 보이는 메모 글이 있을 때만 있다. ① 보이는 글 판정(D-003의 정본 `hasSegmentText`)은 공백과 보이지 않는 서식 문자(Unicode `Cf` — `​`·`⁠`·`﻿`·`­` 등)를 글자로 세지 않는다. 글 전체가 공백 엔티티(`&nbsp;`·`&#160;`·`&#xA0;`·`&ensp;`·`&emsp;`·`&thinsp;`·`&ZeroWidthSpace;`·`&zwnj;`·`&zwj;`·`&lrm;`·`&rlm;`·`&#8203;`·`&#x200B;`)와 링크 참조 정의 줄로만 되어 있어도 보이지 않는 글이다 ② 65,536자를 넘는 글의 판정도 같은 글자 규칙을 쓴다(규칙의 정본은 `shared/markdown/visibleText.ts` 하나) ③ 워커 결과를 기다리는 4,000자 초과 메모는 원문을 보이다가 결과가 오면 서식으로 바꾼다 | 원문 “dot 아이콘이 섞여 출력 … 노트 출력이 실패한 케이스”. ③의 대기 원문은 산출물 보기(`VirtualMarkdownView.tsx:47`)와 같은 표시이며 최종 표시는 D-009대로 Markdown이다 | 사용자 추가 요청 + 조사 | ACTIVE | D-003 보완 |
+| D-034 | Work 펼침 목록의 메모 점은 보이는 메모 글이 있을 때만 있다. ① 보이는 글 판정(D-003의 정본 `hasSegmentText`)은 공백과 보이지 않는 서식 문자(Unicode `Cf` — `\u200b`·`\u2060`·`\ufeff`·`\u00ad` 등)를 글자로 세지 않는다. 글 전체가 공백 엔티티(`&nbsp;`·`&#160;`·`&#xA0;`·`&ensp;`·`&emsp;`·`&thinsp;`·`&ZeroWidthSpace;`·`&zwnj;`·`&zwj;`·`&lrm;`·`&rlm;`·`&#8203;`·`&#x200B;`)와 링크 참조 정의 줄로만 되어 있어도 보이지 않는 글이다 ② 65,536자를 넘는 글의 판정도 같은 글자 규칙을 쓴다(규칙의 정본은 `shared/markdown/visibleText.ts` 하나) ③ 워커 결과를 기다리는 4,000자 초과 메모는 원문을 보이다가 결과가 오면 서식으로 바꾼다 | 원문 “dot 아이콘이 섞여 출력 … 노트 출력이 실패한 케이스”. ③의 대기 원문은 산출물 보기(`VirtualMarkdownView.tsx:47`)와 같은 표시이며 최종 표시는 D-009대로 Markdown이다 | 사용자 추가 요청 + 조사 | ACTIVE | D-003 보완 |
 
 - 판정은 보수 쪽으로 닫는다: 목록에 없는 엔티티·정의 형태는 보이는 글로 본다(놓치면 지금처럼 점이 남을 뿐 글이 사라지지 않는다).
 - ①은 D-002·D-003과 같은 정본을 바꾸므로 Code 묶음(보이지 않는 글은 도구 묶음을 가르지 않는다)·실시간 표시·OpenCode에도 적용된다. 앞 세그먼트가 text면 원문에 이어 붙는 D-003 규칙은 그대로다.
 
-**AC2″** (CHANGED — AC2′ 대체, 공백뿐 text 입력과 공백 아닌 메모 점 유지는 그대로): Work 펼친 목록에서 다음 입력은 메모 행·점 0이고 `noteCount`에 들지 않는다 — 링크 참조 정의만 · `​` · `⁠﻿` · `­` · `&nbsp;` · `&#160; &#xA0;` · `&ZeroWidthSpace;`. 대조로 `visible note`·`` `&nbsp;` ``(인라인 코드)·`&amp;`·정의 + 본문 한 줄·`👍`은 메모 1이다. 4,000자 초과 메모는 워커 응답 전에도 메모 행에 원문 글자가 보이고(점과 같은 행), 응답 뒤 서식으로 바뀐다. 검증: 판정 단위 + 투영 단위 + 렌더 단위(워커 응답을 붙잡은 상태). AC 분모 20 그대로(CHANGED).
+**AC2″** (CHANGED — AC2′ 대체, 공백뿐 text 입력과 공백 아닌 메모 점 유지는 그대로): Work 펼친 목록에서 다음 입력은 메모 행·점 0이고 `noteCount`에 들지 않는다 — 링크 참조 정의만 · `\u200b` · `\u2060\ufeff` · `\u00ad` · `&nbsp;` · `&#160; &#xA0;` · `&ZeroWidthSpace;`. 대조로 `visible note`·`` `&nbsp;` ``(인라인 코드)·`&amp;`·정의 + 본문 한 줄·`👍`은 메모 1이다. 4,000자 초과 메모는 워커 응답 전에도 메모 행에 원문 글자가 보이고(점과 같은 행), 응답 뒤 서식으로 바뀐다. 검증: 판정 단위 + 투영 단위 + 렌더 단위(워커 응답을 붙잡은 상태). AC 분모 20 그대로(CHANGED).
 
 ### 24-C. V 변경 (ΔV7)
 
@@ -1157,7 +1157,7 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 | Pair | left ↔ right | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
 |---|---|---|---|---|---|---|
 | VP-60 | R-02 ↔ AT-02″ | REQUIRED (VP-02 대체 — 기존 좌표 유지) | 메시지 → `createWorkProjector` → `ActivityDisclosure` | `workActivity.test.ts` 새 `AC2″ invisible notes form no note between tools`(보이지 않는 입력 7종 각각 `noteCount` 0 · 대조 5종 각각 1) · `WorkActivity.render.test.ts` 새 `AC2″ renders no note dot for invisible text`(`[data-work-note]` 0) | not selected — 입력별 양성·음성 단언 | EP-24 ①② |
-| VP-61 | MD-01′ ↔ UT-01′ | REQUIRED (VP-17 연장) | `hasVisibleText`·`hasVisibleChar` → `hasSegmentText`·`ChunkedText` | 새 `shared/markdown/visibleText.test.ts`(입력 = §24-D EP-24 ①② 규칙 칸 분기 전부) · `parts.test.ts` 새 `D-034 invisible text is transparent like whitespace`(앞 text → 이어붙임 · 앞 tools → 없음) · `chunkedText` 단위 `D-034 hasContent ignores invisible characters` | required — `Cf` 항 제거 변이(`​` 입력 red) · 엔티티 목록 제거 변이(`&nbsp;` red) · 정의 줄 규칙 제거 변이(정의만 입력 red) | EP-24 ①② |
+| VP-61 | MD-01′ ↔ UT-01′ | REQUIRED (VP-17 연장) | `hasVisibleText`·`hasVisibleChar` → `hasSegmentText`·`ChunkedText` | 새 `shared/markdown/visibleText.test.ts`(입력 = §24-D EP-24 ①② 규칙 칸 분기 전부) · `parts.test.ts` 새 `D-034 invisible text is transparent like whitespace`(앞 text → 이어붙임 · 앞 tools → 없음) · `chunkedText` 단위 `D-034 hasContent ignores invisible characters` | required — `Cf` 항 제거 변이(`\u200b` 입력 red) · 엔티티 목록 제거 변이(`&nbsp;` red) · 정의 줄 규칙 제거 변이(정의만 입력 red) | EP-24 ①② |
 | VP-62 | MD-16 ↔ UT-16 | REQUIRED | 메모 → `TranscriptMarkdown pendingText` → `WorkerDocumentRows` → `MarkdownRowView` | `WorkActivity.render.test.ts` 새 `AC2″ shows a long note's source while the worker is pending`(레이아웃 대기 · 블록 대기 두 입력에서 메모 행 글자 = 원문 앞부분) · `MarkdownDocument` 단위 `D-034 pendingText reaches every pending branch`(`pendingText` 없음 → 빈 표시 유지 — transcript 본문 회귀) | required — `:273` 분기의 원문 출력 제거 변이(레이아웃 대기 입력 red) | EP-24 ③ |
 | VP-63 | R-01 ↔ AT-01′ | REGRESSION | Code 묶음 | VP-01·VP-17·VP-18 기존 좌표 재실행 + `claudeBlocks.test.ts` 새 `D-034 invisible text does not split a tool group`(대조: 공백 아닌 text는 가른다) | not selected | EP-1(판정 변경) |
 
@@ -1168,7 +1168,7 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 | # | 자리 | 규칙 (분기) | 분기 입력 → 직접 oracle |
 |---|---|---|---|
 | ① | `parts.ts:120` `hasSegmentText` | 65,536자 이하: `hasVisibleText` — 공백·`Cf`만 → 거짓 · 공백 엔티티·공백만 → 거짓 · 링크 정의 줄·공백만 → 거짓 · 그 밖 → 참 | 입력 4갈래 + 대조 → VP-61 `visibleText.test.ts` · `parts.test.ts` |
-| ② | `chunkedText.ts:12` `hasContent` | 조각 글자 규칙 = `hasVisibleChar`(공백·`Cf` 아닌 글자 하나) | `​`만 · `a​` → VP-61 `chunkedText` 단위 |
+| ② | `chunkedText.ts:12` `hasContent` | 조각 글자 규칙 = `hasVisibleChar`(공백·`Cf` 아닌 글자 하나) | `\u200b`만 · `a\u200b` → VP-61 `chunkedText` 단위 |
 | ③ | `WorkActivity.tsx:126` 메모 행 | 메모 본문에 대기 원문 표시를 켠다(`pendingText`) — Work 메모만 | 메모 4,000자 이하 · 초과 → VP-62 |
 | ④ | `MarkdownDocument.tsx:298` `<TranscriptRows` | `pendingText`를 행 묶음에 전달 | 블록 대기 입력 → VP-62 |
 | ⑤ | `MarkdownDocument.tsx:203` `<MarkdownRowView` | `showPendingText = pendingText` | 블록 대기 입력 → VP-62 |
