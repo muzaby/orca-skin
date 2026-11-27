@@ -103,20 +103,21 @@ export function runElectron(
   origin,
   probeDirectory = 'transcript-selection',
   screens = SCREENS,
-  runs = RUNS
+  runs = RUNS,
+  spawnProcess = spawn
 ) {
   return new Promise((resolve, reject) => {
     const args = [fileURLToPath(new URL(`./${probeDirectory}/electron-main.mjs`, import.meta.url))]
     // Root containers cannot use the setuid sandbox helper.
     if (process.platform === 'linux' && process.getuid?.() === 0) args.unshift('--no-sandbox')
-    const child = spawn(binary, [...args, origin, screens.join(','), String(runs)], {
+    const child = spawnProcess(binary, [...args, origin, screens.join(','), String(runs)], {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, ELECTRON_ENABLE_LOGGING: '0' }
     })
     let out = ''
     let err = ''
-    child.stdout.on('data', (chunk) => (out += chunk))
-    child.stderr.on('data', (chunk) => (err += chunk))
+    child.stdout.setEncoding('utf8').on('data', (chunk) => (out += chunk))
+    child.stderr.setEncoding('utf8').on('data', (chunk) => (err += chunk))
     child.on('error', reject)
     child.on('close', (code) => {
       const line = out.split('\n').find((l) => l.startsWith('OO_RESULT '))

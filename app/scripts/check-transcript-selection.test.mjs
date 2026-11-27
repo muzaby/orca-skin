@@ -1,6 +1,8 @@
 // `check-transcript-selection.mjs` 의 순수 판정부 (0326 ΔV2 · VP-41 · EP-24 · k1~k10).
 // Electron 없이 기록을 주입해 판정이 무엇을 실패로 세는지 잠근다.
 import { strict as assert } from 'node:assert'
+import { EventEmitter } from 'node:events'
+import { PassThrough } from 'node:stream'
 import { test } from 'node:test'
 import {
   RUNS,
@@ -10,6 +12,7 @@ import {
   launchFailure,
   main,
   pasteMatches,
+  runElectron,
   selectionExitCode
 } from './check-transcript-selection.mjs'
 
@@ -264,3 +267,30 @@ test('k10 E5 the records are judged — a passing grid exits 0, one failing reco
   assert.ok(fail.failures.length >= 1)
   assert.equal(selectionExitCode(fail), 1)
 })
+
+for (const channel of ['stdout', 'stderr']) {
+  test(`runElectron preserves UTF-8 split between ${channel} chunks`, async () => {
+    const child = Object.assign(new EventEmitter(), {
+      stdout: new PassThrough(),
+      stderr: new PassThrough()
+    })
+    const result = runElectron(
+      'electron',
+      'http://localhost',
+      'transcript-history',
+      SCREENS,
+      1,
+      () => child
+    )
+    const message = 'Question 2 — fixture'
+    const bytes = Buffer.from(
+      channel === 'stdout' ? 'OO_RESULT ' + JSON.stringify({ message }) + '\n' : message
+    )
+    const split = bytes.indexOf(Buffer.from('—')) + 2
+    child[channel].write(bytes.subarray(0, split))
+    child[channel].end(bytes.subarray(split))
+    child.emit('close', channel === 'stdout' ? 0 : 1)
+    if (channel === 'stdout') assert.deepEqual(await result, { message })
+    else await assert.rejects(result, { message: 'electron exited 1 without result: ' + message })
+  })
+}
