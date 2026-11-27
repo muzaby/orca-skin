@@ -59,7 +59,7 @@ function classify(source: string, start: number, end: number): DocumentBlock {
 }
 
 export function markdownDocumentBlocks(source: string): DocumentBlock[] {
-  if (/^ {0,3}\[\^[^\]]+\]:/m.test(source)) return [{ start: 0, end: source.length }]
+  const firstFootnote = /^ {0,3}\[\^[^\]]+\]:/m.test(source) ? source.indexOf('[^') : -1
   const terminated = source.endsWith('\n')
   const { stable, tail } = splitStableBlocks(terminated ? source : source + '\n')
   const parts = [...stable, terminated ? tail : tail.slice(0, -1)]
@@ -89,5 +89,15 @@ export function markdownDocumentBlocks(source: string): DocumentBlock[] {
     cursor = end
   }
   ranges.push({ start: groupStart, end: source.length })
+  // All references and definitions share one GFM numbering/backlink context. Fully
+  // independent leading blocks can be parsed and painted before that context.
+  if (firstFootnote >= 0) {
+    const first = ranges.findIndex((range) => range.end > firstFootnote)
+    if (first >= 0) {
+      const start = ranges[first].start
+      ranges.length = first
+      ranges.push({ start, end: source.length })
+    }
+  }
   return ranges.map(({ start, end }) => classify(source, start, end))
 }

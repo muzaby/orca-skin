@@ -44,6 +44,9 @@ it('VP-40 rejects a skipped frame and releases queued work when the owner closes
   const sender = createCreditWire((value) => pending.push(value), consume)
   sender.send('x'.repeat(WIRE_FRAME_CHARS * 2), true)
   const receiver = createCreditWire(vi.fn(), consume)
+  expect(() => receiver.receive({ channel: 'unexpected', id: 1 })).toThrow(
+    'Unknown worker frame channel'
+  )
   expect(() => receiver.receive({ ...(pending[0] as object), index: 1 })).toThrow('Out-of-order')
   sender.send('stale', false)
   sender.close()
@@ -138,4 +141,27 @@ it('VP-41 reads registered Markdown ranges and whitespace from the credited orig
   expect(markdownSegments(text.text, registered!.layout, registered!.pieces)[0].text).toBe(source)
   expect(findHistoryLayout(reasoning.text)?.pieces?.hasContent).toBe(false)
   expect(registered?.pieces?.hasContent).toBe(true)
+})
+
+it('VP-40 the Markdown worker renders the extended revision and forgets the old one', async () => {
+  const post = vi.fn()
+  const scope = {
+    postMessage: post,
+    onmessage: null as ((event: { data: WireControl | WireRequest }) => void) | null
+  }
+  vi.stubGlobal('self', scope)
+  try {
+    vi.resetModules()
+    await import('./worker/markdown.worker')
+    const from = { id: 'live', revision: 7 }
+    const ref = { id: 'live', revision: 8 }
+    scope.onmessage!({ data: { type: 'doc.open', ref: from, text: '**보' } })
+    scope.onmessage!({ data: { type: 'doc.extend', from, ref, offset: 3, suffix: '임**' } })
+    scope.onmessage!({ data: { id: 1, kind: 'markdown', doc: ref, start: 0, end: 6 } })
+    scope.onmessage!({ data: { id: 2, kind: 'markdown', doc: from, start: 0, end: 3 } })
+    expect(post.mock.calls[0][0].result).toStrictEqual(parseMarkdown('**보임**'))
+    expect(post.mock.calls[1][0]).toEqual({ id: 2, ok: false, error: 'unknown-doc' })
+  } finally {
+    vi.unstubAllGlobals()
+  }
 })

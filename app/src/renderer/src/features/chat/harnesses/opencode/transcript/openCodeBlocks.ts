@@ -41,6 +41,7 @@ import { isTurnStart } from '../../../lib/transcript/turnStart'
 import {
   assertUniqueBlockKeys,
   carryPartKeys,
+  partEntryText,
   nextPartKey,
   PartKeyTracker,
   representativePart,
@@ -356,7 +357,7 @@ export function createOpenCodeBlockModel(
           entry.partIndex < projection.cache.firstSegmentStart &&
           entry.kind === 'text'
         ) {
-          leadingWhitespace += entry.signature?.slice('text:'.length) ?? ''
+          leadingWhitespace += partEntryText(entry)
         }
         if (entry.kind === 'tool' && entry.toolRunId) {
           if (!callMessageById.has(entry.toolRunId)) {

@@ -105,7 +105,12 @@ export interface PartKeyEntry {
   readonly kind: string
   readonly key: string
   readonly signature: string | null
+  readonly sourceText?: string
   readonly toolRunId?: string
+}
+
+export function partEntryText(entry: PartKeyEntry): string {
+  return entry.sourceText ?? entry.signature?.slice(entry.kind.length + 1) ?? ''
 }
 
 /** The segment renderer concatenates consecutive text contributions before Markdown parsing. */
@@ -115,7 +120,7 @@ export function textPartGroups(entries: readonly PartKeyEntry[]): MarkdownSource
   let start = 0
   for (const entry of entries) {
     if (entry.kind === 'text') {
-      const text = entry.signature?.slice('text:'.length) ?? ''
+      const text = partEntryText(entry)
       if (text && (group.length > 0 || hasSegmentText(text))) {
         group.push({ key: entry.key, start })
         start += text.length
@@ -124,7 +129,7 @@ export function textPartGroups(entries: readonly PartKeyEntry[]): MarkdownSource
       entry.kind !== 'boundary' &&
       entry.kind !== 'artifact' &&
       entry.kind !== 'attachment' &&
-      !(entry.kind === 'reasoning' && !entry.signature?.slice('reasoning:'.length).trim())
+      !(entry.kind === 'reasoning' && !hasSegmentText(partEntryText(entry)))
     ) {
       if (group.length) groups.push(group)
       group = []
@@ -194,14 +199,15 @@ export function carryPartKeys(
   nextMessage: Message
 ): PartKeyEntry[] {
   const prevList = prevEntries ?? []
-  const prevBySig = new Map<string, PartKeyEntry[]>()
+  // Hashing a prefixed 40M-character string just to discover an empty bucket can
+  // block Chromium for hundreds of milliseconds. Match full signatures only where
+  // the previous version actually has a candidate of the same kind and length.
+  const shape = (kind: string, signature: string): string => kind + ':' + signature.length
+  const previousShapes = new Set<string>()
   for (const entry of prevList) {
-    if (entry.signature === null) continue
-    const list = prevBySig.get(entry.signature)
-    if (list) list.push(entry)
-    else prevBySig.set(entry.signature, [entry])
+    if (entry.signature !== null) previousShapes.add(shape(entry.kind, entry.signature))
   }
-
+  const matchingShapes = new Set<string>()
   const nextParts: { partIndex: number; part: AppMessagePart; kind: string; sig: string | null }[] =
     []
   const nextCountBySig = new Map<string, number>()
@@ -212,9 +218,19 @@ export function carryPartKeys(
     if (!kind) continue
     const sig = part.type === 'tool_call' ? null : partContentSignature(part)
     nextParts.push({ partIndex: i, part, kind, sig })
-    if (sig !== null) {
+    if (sig !== null && previousShapes.has(shape(kind, sig))) {
+      matchingShapes.add(shape(kind, sig))
       nextCountBySig.set(sig, (nextCountBySig.get(sig) ?? 0) + 1)
     }
+  }
+
+  const prevBySig = new Map<string, PartKeyEntry[]>()
+  for (const entry of prevList) {
+    if (entry.signature === null || !matchingShapes.has(shape(entry.kind, entry.signature)))
+      continue
+    const list = prevBySig.get(entry.signature)
+    if (list) list.push(entry)
+    else prevBySig.set(entry.signature, [entry])
   }
 
   const consumedSigIndex = new Map<string, number>()
@@ -234,7 +250,7 @@ export function carryPartKeys(
     }
 
     let key: string | undefined
-    if (item.sig !== null) {
+    if (item.sig !== null && matchingShapes.has(shape(item.kind, item.sig))) {
       const prevGroup = prevBySig.get(item.sig)
       const nextCount = nextCountBySig.get(item.sig) ?? 0
       if (prevGroup && prevGroup.length > 0) {
@@ -260,7 +276,10 @@ export function carryPartKeys(
       partIndex: item.partIndex,
       kind: item.kind,
       key,
-      signature: item.sig
+      signature: item.sig,
+      ...((item.part.type === 'text' || item.part.type === 'reasoning') && {
+        sourceText: item.part.text
+      })
     })
   }
 

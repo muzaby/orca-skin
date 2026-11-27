@@ -101,12 +101,14 @@ class FrameReader {
     else {
       if (parent.key === undefined || Object.hasOwn(parent.value, parent.key))
         throw Error('Invalid worker property')
-      Object.defineProperty(parent.value, parent.key, {
-        value,
-        configurable: true,
-        enumerable: true,
-        writable: true
-      })
+      if (parent.key === '__proto__') {
+        Object.defineProperty(parent.value, parent.key, {
+          value,
+          configurable: true,
+          enumerable: true,
+          writable: true
+        })
+      } else parent.value[parent.key] = value
       parent.key = undefined
     }
   }
@@ -263,6 +265,8 @@ export function createCreditWire(
         }
         post({ channel: 'oo-credit', id: msg.id, index: msg.index } satisfies Ack)
       } else {
+        if (value && typeof value === 'object' && 'channel' in value)
+          throw Error('Unknown worker frame channel')
         if (reader) throw Error('Interrupted worker stream')
         consume(value)
       }

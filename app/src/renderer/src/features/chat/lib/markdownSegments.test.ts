@@ -42,3 +42,19 @@ it('prefers complete blocks, then the last newline, and keeps a surrogate pair i
   expect(segments.map((s) => s.text.length)).toEqual([head.length, 10, limit - 1, 6])
   expect(segments.at(-1)?.text).toBe('🦦tail')
 })
+
+it('VP-41 packs thousands of short paragraphs while preserving their source and independent footer', () => {
+  const paragraph = 'unique paragraph'.repeat(12)
+  const source = (paragraph + '\n\n').repeat(3000) + 'last[^1]\n\n[^1]: footnote'
+  const segments = markdownSegments(source)
+  const blocks = segments.flatMap((segment) =>
+    segment.blocks.map((block) => segment.text.slice(block.start, block.end))
+  )
+  expect(blocks.length).toBeLessThan(100)
+  expect(blocks.join('')).toBe(source)
+  expect(blocks.every((block) => block.length <= 16384)).toBe(true)
+  expect(
+    blocks.flatMap((block) => block.split('\n\n')).filter((item) => item === paragraph)
+  ).toHaveLength(3000)
+  expect(blocks.at(-1)).toContain('last[^1]\n\n[^1]: footnote')
+})

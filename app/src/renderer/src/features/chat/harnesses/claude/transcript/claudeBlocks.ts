@@ -42,6 +42,7 @@ import { isTurnStart } from '../../../lib/transcript/turnStart'
 import {
   assertUniqueBlockKeys,
   carryPartKeys,
+  partEntryText,
   liveBlockKey,
   partKeyKind,
   PartKeyTracker,
@@ -279,8 +280,8 @@ function segmentPartKeys(
       entry.kind === 'boundary' ||
       entry.kind === 'artifact' ||
       entry.kind === 'attachment' ||
-      (entry.kind === 'text' && !entry.signature?.slice('text:'.length).trim()) ||
-      (entry.kind === 'reasoning' && !entry.signature?.slice('reasoning:'.length).trim())
+      (entry.kind === 'text' && !hasSegmentText(partEntryText(entry))) ||
+      (entry.kind === 'reasoning' && !hasSegmentText(partEntryText(entry)))
     ) {
       cursor.index++
     } else {
@@ -473,6 +474,7 @@ export function createClaudeBlockModel(
           partIndex: i,
           kind,
           key,
+          ...((part.type === 'text' || part.type === 'reasoning') && { sourceText: part.text }),
           signature:
             part.type === 'text'
               ? `text:${part.text}`

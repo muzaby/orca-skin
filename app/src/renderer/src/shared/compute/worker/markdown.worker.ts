@@ -13,7 +13,12 @@ function processMessage(data: WireRequest | WireControl): void {
   if ('type' in data) {
     const key = docKey(data.ref)
     if (data.type === 'doc.open') documents.set(key, { text: data.text })
-    else documents.delete(key)
+    else if (data.type === 'doc.extend') {
+      const previous = documents.get(docKey(data.from))
+      documents.delete(docKey(data.from))
+      if (data.ref.id === data.from.id && previous?.text.length === data.offset)
+        documents.set(key, { text: previous.text + data.suffix })
+    } else documents.delete(key)
     return
   }
   let response: WireResponse

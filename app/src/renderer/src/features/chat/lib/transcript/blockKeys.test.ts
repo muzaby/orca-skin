@@ -463,3 +463,36 @@ it('y15 resumes a carried sequence in a fresh tracker before allocating the next
   )
   expect(entries.map((e) => e.key)).toEqual(['m:text:7', 'm:text:8'])
 })
+
+it('VP-41 a freshly hydrated text keeps part offsets without hashing the entire original for key carry', () => {
+  const text = '가'.repeat(100000)
+  const row = msg('history', 'assistant', [{ type: 'text', text }])
+  const tracker = new PartKeyTracker()
+  const originalSet = Map.prototype.set
+  const originalGet = Map.prototype.get
+  let fullReads = 0
+  let fullWrites = 0
+  try {
+    Map.prototype.set = function (key: unknown, value: unknown) {
+      if (typeof key === 'string' && key.length >= text.length) fullWrites++
+      return originalSet.call(this, key, value)
+    }
+    Map.prototype.get = function (key: unknown) {
+      if (typeof key === 'string' && key.length >= text.length) fullReads++
+      return originalGet.call(this, key)
+    }
+    const keys = carryPartKeys(tracker, row.id, undefined, row)
+    expect(keys[0].sourceText).toBe(text)
+    expect(textPartGroups(keys)).toEqual([[{ key: keys[0].key, start: 0 }]])
+    const replaced = carryPartKeys(tracker, row.id, keys, {
+      ...row,
+      parts: [{ type: 'text', text: 'short' }]
+    })
+    expect(replaced[0].key).not.toBe(keys[0].key)
+  } finally {
+    Map.prototype.set = originalSet
+    Map.prototype.get = originalGet
+  }
+  expect(fullReads).toBe(0)
+  expect(fullWrites).toBe(0)
+})

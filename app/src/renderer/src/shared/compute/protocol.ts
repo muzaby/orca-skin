@@ -79,6 +79,7 @@ export type TokensRequest = TokenSource & {
 }
 export type WireControl =
   | { type: 'doc.open'; ref: DocRef; text: string; lines?: LineNumbers }
+  | { type: 'doc.extend'; ref: DocRef; from: DocRef; offset: number; suffix: string }
   | { type: 'doc.close'; ref: DocRef }
 export const docKey = (ref: DocRef): string => `${ref.id}@${ref.revision}`
 export function laneOf(kind: ComputeRequest['kind']): Lane {

@@ -81,3 +81,10 @@ it('mb2 keeps a following indented paragraph in the same worker block', () => {
   const source = 'one\n\n item'
   expect(texts(source)).toEqual([source])
 })
+
+it('VP-41 isolates independent prose and keeps references, numbering and backlinks together', () => {
+  const introduction = 'intro paragraph\n\n'
+  const footnotes = 'first[^b]\n\nsecond[^a] and again[^b]\n\n[^a]: alpha\n\n[^b]: beta'
+  const source = introduction + footnotes
+  expect(texts(source)).toEqual([introduction, footnotes])
+})

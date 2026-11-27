@@ -3,8 +3,10 @@ import { createCreditWire, WIRE_FRAME_CHARS } from './creditWire'
 import type { WireRequest, WireControl } from './protocol'
 
 function needsFrames(message: WireRequest | WireControl): boolean {
-  if ('type' in message)
+  if ('type' in message) {
+    if (message.type === 'doc.extend') return message.suffix.length > WIRE_FRAME_CHARS
     return message.type === 'doc.open' && message.text.length > WIRE_FRAME_CHARS
+  }
   return message.kind === 'markdownLayout' && message.source.length > WIRE_FRAME_CHARS
 }
 

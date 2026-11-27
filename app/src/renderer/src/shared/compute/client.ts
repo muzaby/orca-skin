@@ -79,6 +79,7 @@ export interface DocumentLease {
   readonly available: boolean
   onAvailable(listener: () => void): () => void
   release(): void
+  replace?(ref: DocRef, text: string): DocumentLease
 }
 
 export interface ComputeClient {
@@ -167,6 +168,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       ref: DocRef
       text: string
       lines?: LineNumbers
+      handoff?: { from: DocRef; offset: number }
       sample: DocumentSample
       leases: number
       available: boolean
@@ -246,7 +248,8 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
         continue
       documents.delete(key)
       if (doc.available) reserved -= doc.text.length
-      if (doc.sent) worker?.postMessage({ type: 'doc.close', ref: doc.ref })
+      if (doc.sent || doc.handoff)
+        worker?.postMessage({ type: 'doc.close', ref: doc.handoff?.from ?? doc.ref })
     }
     for (const doc of documents.values()) {
       if (doc.available || reserved + doc.text.length > capacity) continue
@@ -265,7 +268,10 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     worker.onmessageerror = null
     worker.terminate()
     worker = null
-    for (const doc of documents.values()) doc.sent = false
+    for (const doc of documents.values()) {
+      doc.sent = false
+      doc.handoff = undefined
+    }
   }
 
   // 워커 수준 실패 — 실행 중 요청을 실패시키고, 한도에 닿았으면 대기열도 비운다.
@@ -310,12 +316,24 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       for (const ref of requestDocs(job.request)) {
         const doc = documents.get(docKey(ref))!
         if (!doc.sent) {
-          target.postMessage({
-            type: 'doc.open',
-            ref: doc.ref,
-            text: doc.text,
-            ...(doc.lines && { lines: doc.lines })
-          })
+          if (doc.handoff) {
+            const { from, offset } = doc.handoff
+            target.postMessage({
+              type: 'doc.extend',
+              ref: doc.ref,
+              from,
+              offset,
+              suffix: doc.text.slice(offset)
+            })
+            doc.handoff = undefined
+          } else {
+            target.postMessage({
+              type: 'doc.open',
+              ref: doc.ref,
+              text: doc.text,
+              ...(doc.lines && { lines: doc.lines })
+            })
+          }
           doc.sent = true
         }
       }
@@ -447,53 +465,82 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     pump()
   }
 
-  return {
-    openDocument(ref, payload) {
-      const key = docKey(ref)
-      let entry = documents.get(key)
-      if (!entry) {
-        const available = reserved + payload.text.length <= capacity
-        entry = {
-          ref,
-          ...payload,
-          sample: sampleDocument(payload.text),
-          available,
-          sent: false,
-          leases: 0,
-          listeners: new Set()
-        }
-        if (available) reserved += payload.text.length
-        documents.set(key, entry)
-      }
-      const doc = entry
-      doc.leases++
-      let released = false
-      const subscriptions = new Set<() => void>()
-      return {
+  function openDocument(
+    ref: DocRef,
+    payload: { text: string; lines?: LineNumbers }
+  ): DocumentLease {
+    const key = docKey(ref)
+    let entry = documents.get(key)
+    if (!entry) {
+      const available = reserved + payload.text.length <= capacity
+      entry = {
         ref,
-        get available() {
-          return doc.available && !released
-        },
-        onAvailable(listener) {
-          const notify = (): void => listener()
-          if (!released && !doc.available) {
-            subscriptions.add(notify)
-            doc.listeners.add(notify)
-          }
-          return () => {
-            subscriptions.delete(notify)
-            doc.listeners.delete(notify)
-          }
-        },
-        release() {
-          if (released) return
-          released = true
-          for (const listener of subscriptions) doc.listeners.delete(listener)
-          doc.leases--
-          collectDocuments()
-        }
+        ...payload,
+        sample: sampleDocument(payload.text),
+        available,
+        sent: false,
+        leases: 0,
+        listeners: new Set()
       }
-    },
+      if (available) reserved += payload.text.length
+      documents.set(key, entry)
+    }
+    const doc = entry
+    doc.leases++
+    let released = false
+    const subscriptions = new Set<() => void>()
+    return {
+      ref,
+      get available() {
+        return doc.available && !released
+      },
+      onAvailable(listener) {
+        const notify = (): void => listener()
+        if (!released && !doc.available) {
+          subscriptions.add(notify)
+          doc.listeners.add(notify)
+        }
+        return () => {
+          subscriptions.delete(notify)
+          doc.listeners.delete(notify)
+        }
+      },
+      release,
+      replace(nextRef, text) {
+        const existingWorker = worker
+        const handoff =
+          !released &&
+          lane === 'markdown' &&
+          doc.leases === 1 &&
+          doc.sent &&
+          doc.ref.id === nextRef.id &&
+          !documents.has(docKey(nextRef)) &&
+          ![...jobs.values()].some(({ request }) =>
+            requestDocs(request).some((r) => docKey(r) === key)
+          ) &&
+          text.startsWith(doc.text)
+        if (handoff) doc.sent = false
+        release()
+        const next = openDocument(nextRef, { text })
+        if (handoff && existingWorker && existingWorker === worker) {
+          if (next.available)
+            documents.get(docKey(nextRef))!.handoff = { from: doc.ref, offset: doc.text.length }
+          else existingWorker.postMessage({ type: 'doc.close', ref: doc.ref })
+        }
+        return next
+      }
+    }
+    function release(): void {
+      if (released) return
+      released = true
+      for (const listener of subscriptions) doc.listeners.delete(listener)
+      doc.leases--
+      collectDocuments()
+    }
+  }
+
+  return {
+    openDocument,
     peek(request) {
       return readCache(requestKey(request)) as never
     },

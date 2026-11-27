@@ -1,6 +1,10 @@
 import { useActiveSessionKey } from '../../store/chatStore'
 import { useEffect, useState, useRef, useId, useMemo } from 'react'
-import { computeClient, type ComputeHandle } from '../../../../shared/compute/client'
+import {
+  computeClient,
+  type ComputeHandle,
+  type DocumentLease
+} from '../../../../shared/compute/client'
 import { revisionOf } from '../../../../shared/compute/documents'
 import { MARKDOWN_DOC_SEGMENT_MAX_CHARS } from '../../../../shared/compute/limits'
 import type { ComputeResults } from '../../../../shared/compute/protocol'
@@ -55,13 +59,21 @@ function SessionTail({ tail, className, parts }: TailProps): React.JSX.Element {
     let running: ComputeHandle<Result> | undefined
     let latest: string | undefined
     let stopWaiting: (() => void) | undefined
-    function pump(): void {
-      if (!mounted || running || latest === undefined) return
+    function pump(previous?: DocumentLease): void {
+      if (!mounted || running || latest === undefined) {
+        previous?.release()
+        return
+      }
       const text = latest
       latest = undefined
       const client = computeClient()
       const doc = { id: 'tail:' + id, revision: revisionOf({}) }
-      const lease = client.openDocument(doc, { text }, 'markdown')
+      let lease: DocumentLease
+      if (previous?.replace) lease = previous.replace(doc, text)
+      else {
+        previous?.release()
+        lease = client.openDocument(doc, { text }, 'markdown')
+      }
       function start(): void {
         stopWaiting = undefined
         running = client.request(
@@ -76,9 +88,8 @@ function SessionTail({ tail, className, parts }: TailProps): React.JSX.Element {
             () => {}
           )
           .finally(() => {
-            lease.release()
             running = undefined
-            pump()
+            pump(lease)
           })
       }
       if (lease.available) start()

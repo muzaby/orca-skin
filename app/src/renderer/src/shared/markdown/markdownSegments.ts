@@ -1,10 +1,33 @@
-import { MARKDOWN_DOC_SEGMENT_MAX_CHARS } from '../compute/limits'
+import { MARKDOWN_DOC_SEGMENT_MAX_CHARS, MARKDOWN_WORKER_MIN_CHARS } from '../compute/limits'
 import { markdownDocumentBlocks, type DocumentBlock } from './markdownDocumentBlocks'
 
 export interface MarkdownSegmentRange {
   start: number
   end: number
   blocks: DocumentBlock[]
+}
+
+// A 3,000-paragraph history message should not need a separate worker round trip and
+// React mount for every short paragraph. Keep large nodes and table chunks independent.
+function* parseRanges(source: string): Generator<DocumentBlock> {
+  const blocks = markdownDocumentBlocks(source)
+  if (source.length <= 65536) {
+    yield* blocks
+    return
+  }
+  let held: DocumentBlock | undefined
+  for (const block of blocks) {
+    const small = !block.table && block.end - block.start <= MARKDOWN_WORKER_MIN_CHARS
+    if (held && small && block.end - held.start <= 16384) {
+      held.end = block.end
+      continue
+    }
+    if (held) yield held
+    held = undefined
+    if (small) held = { ...block }
+    else yield block
+  }
+  if (held) yield held
 }
 
 // Keep neighbouring blocks in one document so ordinary cross-block references still resolve.
@@ -18,7 +41,7 @@ export function markdownLayout(source: string): MarkdownSegmentRange[] {
     start = end
     blocks = []
   }
-  for (const block of markdownDocumentBlocks(source)) {
+  for (const block of parseRanges(source)) {
     if (block.end - start > MARKDOWN_DOC_SEGMENT_MAX_CHARS && blocks.length) finish(block.start)
     while (block.end - start > MARKDOWN_DOC_SEGMENT_MAX_CHARS) {
       let end = start + MARKDOWN_DOC_SEGMENT_MAX_CHARS
@@ -46,6 +69,7 @@ export function markdownLayout(source: string): MarkdownSegmentRange[] {
 
 export interface MarkdownSegment extends MarkdownSegmentRange {
   text: string
+  read?(start: number, end: number): string
 }
 
 export function markdownSegments(
@@ -53,5 +77,11 @@ export function markdownSegments(
   layout = markdownLayout(source),
   ranges: Pick<string, 'slice'> = source
 ): MarkdownSegment[] {
-  return layout.map((range) => ({ ...range, text: ranges.slice(range.start, range.end) }))
+  return layout.map((range) => ({
+    ...range,
+    text: ranges.slice(range.start, range.end),
+    ...(ranges !== source && {
+      read: (start: number, end: number) => ranges.slice(range.start + start, range.start + end)
+    })
+  }))
 }

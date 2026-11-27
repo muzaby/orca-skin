@@ -261,3 +261,41 @@ it('d11 uses the registered prefix sample for dispatch, including empty document
     for (const lease of [duplicate, empty, y, x]) lease.release()
   }
 })
+
+it('VP-40 transfers a live revision in one lease, sends only the suffix and resets replaced text', async () => {
+  const { client, ports } = harness(16)
+  const first = { id: 'tail', revision: 1 }
+  const second = { id: 'tail', revision: 2 }
+  const reset = { id: 'tail', revision: 3 }
+  const once = client.openDocument(first, { text: 'old prefix' }, 'markdown')
+  const initial = client.request(markdown(first), { cacheable: false })
+  const port = ports.get('markdown')!
+  port.reply()
+  await initial.promise
+
+  const extended = once.replace!(second, 'old prefix +')
+  expect(once.available).toBe(false)
+  expect(extended.available).toBe(true)
+  const next = client.request(markdown(second), { cacheable: false })
+  expect(port.messages.at(-2)).toEqual({
+    type: 'doc.extend',
+    ref: second,
+    from: first,
+    offset: 10,
+    suffix: ' +'
+  })
+  port.reply()
+  await next.promise
+
+  const replaced = extended.replace!(reset, 'new prefix')
+  expect(extended.available).toBe(false)
+  const last = client.request(markdown(reset), { cacheable: false })
+  expect(port.messages.slice(-3, -1)).toEqual([
+    { type: 'doc.close', ref: second },
+    { type: 'doc.open', ref: reset, text: 'new prefix' }
+  ])
+  port.reply()
+  await last.promise
+  replaced.release()
+  expect(port.messages.at(-1)).toEqual({ type: 'doc.close', ref: reset })
+})

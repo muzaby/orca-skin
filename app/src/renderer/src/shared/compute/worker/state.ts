@@ -87,7 +87,9 @@ export function createWorkerState(
       }
       for (const [id, model] of models) if (model.refs.includes(key)) models.delete(id)
       if (message.type === 'doc.close') documents.delete(key)
-      else documents.set(key, { text: message.text, lines: message.lines, chains: new Map() })
+      else if (message.type === 'doc.open')
+        documents.set(key, { text: message.text, lines: message.lines, chains: new Map() })
+      else throw Error('Wrong lane for a Markdown source extension')
       return
     }
     for (const id of message.discard ?? []) suspended.delete(id)
