@@ -1,3 +1,9 @@
+import {
+  createComputeClient,
+  setComputeClient,
+  type WorkerLike
+} from '../../../../shared/compute/client'
+import { handleMessage } from '../../../../shared/compute/worker/handler'
 import { installHistoryWorker } from '../../../../shared/compute/historyWorker.testfixture'
 import { describe, it, expect, vi } from 'vitest'
 import { readDeferredParts } from './deferredBody'
@@ -137,4 +143,59 @@ describe('deferred history bodies', () => {
       ])
     }
   )
+})
+
+it('waits for the worker to accept the current bytes before requesting the next SQLite page', async () => {
+  const replies: (() => Promise<void>)[] = []
+  setComputeClient(
+    createComputeClient({
+      createWorker: () => {
+        const port: WorkerLike = {
+          onmessage: null,
+          onerror: null,
+          onmessageerror: null,
+          terminate: vi.fn(),
+          postMessage(message) {
+            if ('id' in message)
+              replies.push(async () => {
+                const data = await handleMessage(message)
+                port.onmessage?.({ data })
+              })
+          }
+        }
+        return port
+      }
+    })
+  )
+  const parts = [{ type: 'text', text: 'abc' }]
+  const bytes = Buffer.from(JSON.stringify(parts).padEnd(HISTORY_BODY_BYTES + 2))
+  const offsets: number[] = []
+  const reading = readDeferredParts(
+    { ...ref, bytes: bytes.length },
+    3,
+    async (query) => {
+      if (query.kind !== 'body') throw Error(query.kind)
+      offsets.push(query.offset)
+      const packet = bytes.subarray(query.offset, query.offset + HISTORY_BODY_BYTES)
+      const nextOffset = query.offset + packet.length
+      return {
+        status: 'body',
+        sessionId: 's',
+        openGeneration: 3,
+        requestId: 1,
+        offset: query.offset,
+        nextOffset,
+        done: nextOffset === bytes.length,
+        base64: packet.toString('base64')
+      }
+    },
+    () => true
+  )
+  await vi.waitFor(() => expect(replies).toHaveLength(1))
+  expect(offsets).toEqual([0])
+  await replies.shift()!()
+  await vi.waitFor(() => expect(replies).toHaveLength(1))
+  expect(offsets).toEqual([0, HISTORY_BODY_BYTES])
+  await replies.shift()!()
+  await expect(reading).resolves.toEqual(parts)
 })
