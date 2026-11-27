@@ -105,3 +105,23 @@ it('AC6 pop-to, toggle close, idempotent back at root and AC14 A9 close all laye
   panel.close()
   expect(stack()).toEqual([])
 })
+
+it('returns focus to the control that opened a tile or a closed-panel artifact', () => {
+  class FocusControl {}
+  vi.stubGlobal('HTMLElement', FocusControl)
+  const control = new FocusControl() as HTMLElement
+  vi.stubGlobal('document', { activeElement: control })
+  try {
+    panel.switchSession(code, false)
+    panel.tile('plan')
+    panel.tile('diff')
+    panel.back()
+    expect(useRightPanelStore.getState().returnFocus).toBe(control)
+    panel.close()
+    panel.navigate({ kind: 'artifact', viewer, origin: control })
+    panel.close()
+    expect(useRightPanelStore.getState().returnFocus).toBe(control)
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})

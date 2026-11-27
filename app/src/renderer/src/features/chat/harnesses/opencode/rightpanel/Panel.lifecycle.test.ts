@@ -89,9 +89,13 @@ function entry(kind: 'diff' | 'subagent' | 'process' | 'source'): FakeNode {
     )!
   )[0]
 }
-function mount(): void {
+function mount(onExpandedChange?: (key: string, expanded: boolean) => void): void {
   dom.render(
-    createElement('div', { 'data-side-pane-host': '' }, createElement(RightPanelFrame, {}))
+    createElement(
+      'div',
+      { 'data-side-pane-host': '' },
+      createElement(RightPanelFrame, { onExpandedChange })
+    )
   )
 }
 beforeEach(() => {
@@ -166,7 +170,8 @@ afterEach(() => {
 
 describe('OpenCode summary lifecycle', () => {
   it('AC2 four session switch pairs retain the frame and replace its content layer', () => {
-    mount()
+    const onExpandedChange = vi.fn()
+    mount(onExpandedChange)
     const frame = dom.query('[data-right-panel-frame]')!
     let layer = dom.query('[data-right-panel-layer]')!
     const nextSessions = [
@@ -195,6 +200,7 @@ describe('OpenCode summary lifecycle', () => {
       expect(frame.props['data-phase']).toBe('open')
       layer = arrival
     }
+    expect(onExpandedChange).not.toHaveBeenCalled()
   })
   it('AC5 retains the inert outgoing content until the 200ms width transition settles', () => {
     ui.reduced = false

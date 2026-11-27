@@ -7,12 +7,13 @@ const complete = [false, true].flatMap((reduced) =>
 )
 
 test('requires every measurement in both motion modes', () => {
+  assert.equal(new Set(requiredMeasurements).size, requiredMeasurements.length)
   assert.equal(passesRightPanel({ records: complete }), true)
   for (const reduced of [false, true]) {
-    const missing = complete.filter(
-      (row) => row.reduced !== reduced || row.name !== 'artifact-A6-session-change'
-    )
-    assert.equal(passesRightPanel({ records: missing }), false)
+    for (const name of requiredMeasurements) {
+      const missing = complete.filter((row) => row.reduced !== reduced || row.name !== name)
+      assert.equal(passesRightPanel({ records: missing }), false, name)
+    }
   }
 })
 

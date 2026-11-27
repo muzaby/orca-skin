@@ -27,7 +27,7 @@ flushSync(() =>
   )
 )
 type Measurement = { name: string; ok: boolean; [field: string]: unknown }
-type FrameSample = { width: number; seam: number; x: number }
+type FrameSample = { width: number; seam: number; hostError: number; x: number }
 
 const frame = (): Promise<number> =>
   new Promise<number>((resolve) => requestAnimationFrame(resolve))
@@ -50,17 +50,30 @@ function setKind(agentKind: 'code' | 'work'): void {
 async function geometry(
   action: () => void,
   reverse?: () => void
-): Promise<{ samples: FrameSample[]; first: number; last: number; seam: number }> {
+): Promise<{
+  samples: FrameSample[]
+  first: number
+  last: number
+  seam: number
+  hostError: number
+}> {
   const f = frameNode(),
-    pane = find('[data-chat-pane-content]')
+    pane = find('[data-chat-pane-content]'),
+    host = find('[data-side-pane-host]')
   const samples: FrameSample[] = []
   const read = (): void => {
     const a = pane.getBoundingClientRect(),
-      b = f.getBoundingClientRect()
+      b = f.getBoundingClientRect(),
+      outer = host.getBoundingClientRect()
     const target = active()
     samples.push({
       width: b.width,
       seam: b.left - a.right,
+      hostError: Math.max(
+        Math.abs(outer.left - a.left),
+        Math.abs(outer.right - b.right),
+        Math.abs(outer.width - a.width - b.width)
+      ),
       x: target
         ? target.getBoundingClientRect().x - (target.parentElement?.getBoundingClientRect().x ?? 0)
         : 0
@@ -84,7 +97,8 @@ async function geometry(
     samples,
     first: samples[0].width,
     last: samples.at(-1)!.width,
-    seam: Math.max(...samples.map((row) => Math.abs(row.seam)))
+    seam: Math.max(...samples.map((row) => Math.abs(row.seam))),
+    hostError: Math.max(...samples.map((row) => row.hostError))
   }
 }
 function scroller(): HTMLElement {
@@ -284,11 +298,17 @@ Object.assign(window, {
       const motion = reverse ? reduced || moved : reduced ? intermediates === 0 : intermediates > 0
       records.push({
         name,
-        ok: frameElement === frameNode() && near(m.last, target) && m.seam <= 1 && motion,
+        ok:
+          frameElement === frameNode() &&
+          near(m.last, target) &&
+          m.seam <= 1 &&
+          m.hostError <= 1 &&
+          motion,
         frames: m.samples.length,
         first: m.first,
         last: m.last,
         intermediates,
+        hostError: m.hostError,
         seam: m.seam
       })
     }

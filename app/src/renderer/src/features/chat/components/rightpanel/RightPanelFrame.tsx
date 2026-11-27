@@ -176,7 +176,10 @@ export function RightPanelFrame({ onExpandedChange, ...header }: Props): React.J
   const expanded =
     !!top && (top.kind === 'artifact' ? !!selection?.expanded : expandedKey === displayKey)
   useLayoutEffect(() => {
-    onExpandedChange?.(sessionKey, expanded)
+    // Switching ordinary, unexpanded panels must not render the entire transcript
+    // a second time just to publish another false expansion to its parent.
+    if (!expanded) return
+    onExpandedChange?.(sessionKey, true)
     return () => onExpandedChange?.(sessionKey, false)
   }, [onExpandedChange, expanded, sessionKey])
   const previousSearch = useRef(search)

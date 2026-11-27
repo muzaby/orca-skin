@@ -215,7 +215,7 @@ Orcinus orca 본문·버블·의미 상태 토큰을 사용한다. 메시지별 
 | [features/chat/harnesses/common/rightpanel/TaskTileSections.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/TaskTileSections.tsx) — `TileSection`, `SectionPlaceholder` | 작업의 진행·출력·컨텍스트 구획 header와 접힘·개수를 일치시킨다. |
 | [features/chat/harnesses/common/rightpanel/PanelScreen.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/PanelScreen.tsx) — `PanelScreen` | 타일·상세 층의 본문과 머리를 같은 하네스 registry에서 조립한다. |
 | [features/chat/harnesses/common/rightpanel/PanelBackButton.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/PanelBackButton.tsx) — `PanelBackButton` | 이전 층이 있으면 뒤로 버튼을 제공한다. |
-| [features/chat/harnesses/common/rightpanel/RightPanelFrame.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/RightPanelFrame.tsx) — `RightPanelFrame` | 대화 옆의 폭과 한 화면 스택을 소유한다. 층이 바뀌면 도착 층만 조작할 수 있다. |
+| [features/chat/components/rightpanel/RightPanelFrame.tsx](../../../app/src/renderer/src/features/chat/components/rightpanel/RightPanelFrame.tsx) — `RightPanelFrame` | 대화 옆의 폭과 한 화면 스택을 소유한다. 층이 바뀌면 도착 층만 조작할 수 있다. |
 | [features/chat/harnesses/common/rightpanel/WorkTaskProgress.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/WorkTaskProgress.tsx) — `WorkTaskProgress` | Work 진행 단계를 같은 상태 아이콘·읽기 순서로 표시한다. |
 
 ## Claude 전용 표면

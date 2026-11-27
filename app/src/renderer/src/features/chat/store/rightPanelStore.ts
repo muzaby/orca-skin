@@ -66,7 +66,22 @@ export const panelActions = {
   },
   navigate(entry: PanelEntry, toggle = false): void {
     const { session, memory, stack } = useRightPanelStore.getState()
-    const next = navigateStack(stack, entry, initialLayer(session, memory[session.kind]), toggle)
+    // Callers that supply an origin keep it (including transcript cards). For
+    // keyboard activation through shared rows, remember the focused control.
+    const focused = typeof document === 'undefined' ? null : document.activeElement
+    const origin =
+      entry.origin ??
+      (typeof HTMLElement !== 'undefined' &&
+      focused instanceof HTMLElement &&
+      focused !== document.body
+        ? focused
+        : undefined)
+    const next = navigateStack(
+      stack,
+      origin ? { ...entry, origin } : entry,
+      initialLayer(session, memory[session.kind]),
+      toggle
+    )
     if (entry.kind === 'tile' && !next.length) {
       // Closing with the title-bar toggle retains the last viewed tile.
       return commit([], 'back', stack.at(-1)?.origin)
@@ -86,7 +101,7 @@ export const panelActions = {
   },
   close(): void {
     const { stack } = useRightPanelStore.getState()
-    if (stack.length) commit([], 'back', stack[0].origin)
+    if (stack.length) commit([], 'back', stack[0].origin ?? stack.at(-1)?.origin)
   },
   updateDetail(entry: PanelEntry): void {
     const { stack } = useRightPanelStore.getState()
