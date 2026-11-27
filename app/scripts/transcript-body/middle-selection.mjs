@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { findVisibleTarget } from './find-target.mjs'
 
-const left = 'OrcaMiddle2026'
+const left = 'TextMiddle2026'
 const right = 'SelectionMarker'
 const needle = left + right
 
