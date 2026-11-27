@@ -157,6 +157,37 @@ export const MarkdownRowView = memo(function MarkdownRowView({
   )
 })
 
+// Finishing a new paragraph must not visit every previously painted paragraph. A
+// completed group keeps its elements and DOM while the last group grows by one row.
+const ROWS_PER_GROUP = 64
+const TranscriptRows = memo(function TranscriptRows({
+  rows,
+  start,
+  end,
+  parts,
+  onComplete
+}: {
+  rows: MarkdownRow[]
+  start: number
+  end: number
+  parts?: readonly MarkdownSourcePart[]
+  onComplete?: () => void
+}): React.JSX.Element {
+  return (
+    <>
+      {rows.slice(start, end).map((row, i) => (
+        <MarkdownRowView
+          key={start + i}
+          row={row}
+          priority="visible"
+          parts={parts}
+          onComplete={start + i === end - 1 ? onComplete : undefined}
+        />
+      ))}
+    </>
+  )
+})
+
 function WorkerDocument({ source, sourceParts, className }: MarkdownProps): React.JSX.Element {
   const id = useId()
   const rows = useMarkdownRows(source, id)
@@ -191,15 +222,20 @@ function WorkerDocument({ source, sourceParts, className }: MarkdownProps): Reac
       }
       data-md-block-pending={count < rows.length ? '' : undefined}
     >
-      {rows.slice(0, count).map((row, i) => (
-        <MarkdownRowView
-          key={i}
-          row={row}
-          priority="visible"
-          parts={sourceParts}
-          onComplete={i === count - 1 ? advance : undefined}
-        />
-      ))}
+      {Array.from({ length: Math.ceil(Math.min(count, rows.length) / ROWS_PER_GROUP) }, (_, i) => {
+        const start = i * ROWS_PER_GROUP
+        const end = Math.min(start + ROWS_PER_GROUP, count, rows.length)
+        return (
+          <TranscriptRows
+            key={start}
+            rows={rows}
+            start={start}
+            end={end}
+            parts={sourceParts}
+            onComplete={end === count ? advance : undefined}
+          />
+        )
+      })}
     </div>
   )
 }

@@ -39,3 +39,28 @@ it('AC14′ splits 25,000 inline nodes inside one paragraph and preserves every 
   expect(previous).toBe(25000)
   expect(html.match(/<p\b/g)).toHaveLength(1)
 })
+
+it('leaves already published partial child groups immutable for the React reconciler', () => {
+  const hast: Root = {
+    type: 'root',
+    children: [
+      {
+        type: 'element',
+        tagName: 'p',
+        properties: {},
+        children: Array.from({ length: 301 }, (_, i) => ({
+          type: 'element',
+          tagName: 'strong',
+          properties: {},
+          children: [{ type: 'text', value: String(i) }]
+        }))
+      }
+    ]
+  }
+  const frames = markdownFrames({ hast, source: '' }, 37, Infinity)
+  const saved: { value: React.ReactNode; original: string }[] = []
+  for (let step = frames.next(); !step.done; step = frames.next()) {
+    saved.push({ value: step.value, original: renderToStaticMarkup(step.value) })
+  }
+  for (const frame of saved) expect(renderToStaticMarkup(frame.value)).toBe(frame.original)
+})

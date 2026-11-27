@@ -155,7 +155,9 @@ export function* markdownFrames(
     const groups: ReactNode[] = []
     let group: ReactNode[] = []
     const prefix = (child?: ReactNode): ReactNode => {
-      const tail = child == null ? group : [...group, child]
+      // React can retain this snapshot across multiple yields. A later append to the
+      // same array would also change the previous props and skip real DOM insertions.
+      const tail = child == null ? group.slice() : [...group, child]
       if (node.children.length < 128) return tail.length === 1 ? tail[0] : tail
       return [...groups, <Fragment key={groups.length}>{tail}</Fragment>]
     }

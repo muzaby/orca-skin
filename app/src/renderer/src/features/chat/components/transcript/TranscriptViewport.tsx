@@ -570,10 +570,13 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
 
   const measureElement = useCallback(
     (element: Element, entry?: ResizeObserverEntry) => {
-      const height = entry?.borderBoxSize?.[0]?.blockSize ?? element.getBoundingClientRect().height
       const key = element.getAttribute('data-block-key')
+      const prevHeight = key ? sizeCache.get(key) : undefined
+      // The ref callback already attached ResizeObserver. Outside an active correction,
+      // a remounted row can reuse its last measured height until the next resize delivery.
+      if (!entry && prevHeight !== undefined && !activeAnchorRef.current) return prevHeight
+      const height = entry?.borderBoxSize?.[0]?.blockSize ?? element.getBoundingClientRect().height
       if (key && height > 0) {
-        const prevHeight = sizeCache.get(key)
         sizeCache.set(key, height)
         const changed = prevHeight !== height
         const correcting = changed && noteCorrectionLayout(scrollRef.current)
