@@ -122,6 +122,20 @@ export function createPersistenceReceiver(deps: PersistenceReceiverDeps): Persis
             return null
           }
         }
+        case 'turn.failureEvent': {
+          const input = payload as {
+            turnKey: string
+            fields?: Record<string, unknown>
+            ev: Extract<NormalizedEvent, { type: 'error' }>
+          }
+          const turn = turnOf(input)
+          try {
+            return writer.commitFailure(turn, input.ev)
+          } catch (error) {
+            if (turn) fail(input.turnKey, error)
+            return null
+          }
+        }
         case 'turn.artifactEvent': {
           const input = payload as {
             turnKey: string

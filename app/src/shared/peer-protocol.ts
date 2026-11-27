@@ -42,6 +42,7 @@ export const PEER_METHODS = {
   'turn.event': { from: 'agent', kind: 'notify' },
   // 산출물 참조를 싣는 턴 이벤트(도구 완료의 게시 영수증 · 출력 파일 담기) — DB 가 확인한 참조만 화면에
   // 실을 수 있어 응답(확인된 참조)을 기다린다. 같은 턴의 뒤 이벤트 중계는 그 뒤로 줄을 선다(구현 보고 PLAN_GAP).
+  'turn.failureEvent': { from: 'agent', kind: 'request' },
   'turn.artifactEvent': { from: 'agent', kind: 'request' },
   // 질문 도구의 답.
   'turn.askAnswers': { from: 'agent', kind: 'notify' },

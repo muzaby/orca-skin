@@ -748,6 +748,12 @@ it('w16 keeps a replay from closing the current assistant row before a persisted
       type: 'error',
       sessionId: 's',
       messageKey: 'a:1',
+      failure: {
+        failureId: 'fault-1',
+        ownerUserMessageKey: 'u:1',
+        assistantMessageKey: 'a:1',
+        occurredAt: 4
+      },
       error: { category: 'stream_error', message: 'failed', retryable: false }
     })
     expect(loadSession(db, 's', () => '/fallback')?.messages).toMatchObject([
@@ -1054,6 +1060,7 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
         loaded.messages[1].parts.some((p) => p.type === 'tool_result' && p.toolRunId === 'tool-a')
       ).toBe(true)
 
+      writer.commitUserMessage(t, { text: 'question', messageKey: 'u:input', createdAt: 5 })
       // w4: all 8 event kinds persist message_key
       const kinds: Array<[string, NormalizedEvent]> = [
         [
@@ -1120,7 +1127,13 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
             type: 'error',
             sessionId: 's1',
             error: { category: 'stream_error', message: 'e', retryable: false },
-            messageKey: 'a:k8'
+            messageKey: 'a:k8',
+            failure: {
+              failureId: 'fault-8',
+              ownerUserMessageKey: 'u:input',
+              assistantMessageKey: 'a:k8',
+              occurredAt: 10
+            }
           }
         ]
       ]

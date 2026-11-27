@@ -41,8 +41,9 @@ import migration0034 from './migrations/0034_native_snapshot_raw.sql?raw'
 import migration0035 from './migrations/0035_scheduled_tasks.sql?raw'
 import migration0036 from './migrations/0036_message_key.sql?raw'
 import migration0037 from './migrations/0037_turn_history_index.sql?raw'
-import migration0039 from './migrations/0039_history_fork_prefix.sql?raw'
 import migration0038 from './migrations/0038_history_panels.sql?raw'
+import migration0039 from './migrations/0039_history_fork_prefix.sql?raw'
+import migration0040 from './migrations/0040_turn_failures.sql?raw'
 
 interface Migration {
   name: string
@@ -88,7 +89,8 @@ const MIGRATIONS: Migration[] = [
   { name: '0036_message_key', sql: migration0036 },
   { name: '0037_turn_history_index', sql: migration0037 },
   { name: '0038_history_panels', sql: migration0038 },
-  { name: '0039_history_fork_prefix', sql: migration0039 }
+  { name: '0039_history_fork_prefix', sql: migration0039 },
+  { name: '0040_turn_failures', sql: migration0040 }
 ]
 
 export const MIGRATION_NAMES = MIGRATIONS.map((m) => m.name)

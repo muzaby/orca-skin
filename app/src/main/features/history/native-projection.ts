@@ -37,6 +37,148 @@ export function localMessages(
   return [...messages.values()]
 }
 
+// Insert locally authoritative error rows at their original turn. A native refresh can
+// cover a turn without including its terminal error, or collapse several user batches.
+function restoreFailureTurns(
+  native: LoadedMessage[],
+  rows: readonly LoadedPartRow[],
+  headers: readonly HistoryMessageHeader[] | undefined,
+  targets: ReadonlyMap<number, number[]>,
+  frontier: number
+): { messages: LoadedMessage[]; restored: Set<number> } {
+  const restored = new Set<number>()
+  if (!rows.some((row) => row.type === 'error')) return { messages: native, restored }
+  const ordered = [...new Map((headers ?? rows).map((row) => [row.message_id, row])).values()]
+  const localKeys = ordered.map((row) => row.message_key ?? localRowMessageId(row.message_id))
+  const failureOwners = new Map<number, string | undefined>()
+  for (const row of rows) {
+    if (row.type !== 'error') continue
+    const part = partFromRow(row)
+    if (part.type === 'error') failureOwners.set(row.message_id, part.failure?.ownerUserMessageKey)
+  }
+  const userPositions = new Map<string, number>()
+  const errorGroups: Array<{ assistant: number; owner: number }> = []
+  const needed = new Set<number>()
+  let legacyOwner = -1
+  for (const [i, row] of ordered.entries()) {
+    if (row.role === 'user') {
+      legacyOwner = i
+      userPositions.set(localKeys[i], i)
+    }
+    if (!failureOwners.has(row.message_id)) continue
+    const ownerKey = failureOwners.get(row.message_id)
+    const owner = ownerKey === undefined ? legacyOwner : (userPositions.get(ownerKey) ?? -1)
+    if (row.message_id > frontier && (owner < 0 || ordered[owner].message_id > frontier)) continue
+    errorGroups.push({ assistant: i, owner })
+    needed.add(row.message_id)
+    if (owner >= 0) needed.add(ordered[owner].message_id)
+  }
+  if (!errorGroups.length) return { messages: native, restored }
+  const local = new Map(
+    localMessages(
+      rows.filter((row) => needed.has(row.message_id)),
+      headers?.filter((row) => needed.has(row.message_id))
+    ).map((message) => [message.id, message])
+  )
+  const before = new Map<number, LoadedMessage[]>()
+  function insert(index: number, position: number): void {
+    const id = ordered[index].message_id
+    if (restored.has(id)) return
+    restored.add(id)
+    const list = before.get(position) ?? []
+    list.push(local.get(localKeys[index])!)
+    before.set(position, list)
+  }
+  // The next bound local row anchors an entirely missing local turn without guessing
+  // identity from text or time. Keep every unrelated native-only turn in native order.
+  const nextTargets = new Array<number>(ordered.length)
+  let next = native.length
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    nextTargets[i] = next
+    const bound = targets.get(ordered[i].message_id)?.[0]
+    if (bound !== undefined) next = bound
+  }
+  const nextUser = new Array<number>(native.length)
+  next = native.length
+  for (let i = native.length - 1; i >= 0; i--) {
+    nextUser[i] = next
+    if (native[i].role === 'user') next = i
+  }
+  for (const { assistant, owner } of errorGroups) {
+    const assistantId = ordered[assistant].message_id
+    const target = targets.get(assistantId)?.at(-1)
+    const userTarget = owner < 0 ? undefined : targets.get(ordered[owner].message_id)?.at(-1)
+    const atOwner =
+      target !== undefined &&
+      native[target].role === 'assistant' &&
+      native[target].id === localKeys[assistant] &&
+      (userTarget === undefined || (target > userTarget && target < nextUser[userTarget]))
+    const position = atOwner
+      ? target
+      : userTarget === undefined
+        ? nextTargets[assistant]
+        : nextUser[userTarget]
+    if (owner >= 0 && (userTarget === undefined || native[userTarget].id !== localKeys[owner]))
+      insert(owner, position)
+    const localParts = local.get(localKeys[assistant])!.parts
+    if (atOwner) {
+      // This binding proves which native response slot already carries the terminal.
+      // Historical raw errors have no occurrence ID; preserve distinct local occurrences.
+      const localIds = new Set(
+        localParts.flatMap((p) => (p.type === 'error' && p.failure ? [p.failure.failureId] : []))
+      )
+      const parts: AppMessagePart[] = native[target].parts.filter(
+        (p) => p.type !== 'error' || (p.failure && !localIds.has(p.failure.failureId))
+      )
+      // Keep a failed Work response inside its own begin/end boundary.
+      for (const [i, part] of localParts.entries()) {
+        if (part.type !== 'error') continue
+        const boundaryId = part.failure?.responseBoundaryId
+        const following =
+          boundaryId === undefined
+            ? localParts.slice(i + 1).find((p) => p.type === 'response_boundary')
+            : localParts.find(
+                (p) =>
+                  p.type === 'response_boundary' &&
+                  p.boundary.id === boundaryId &&
+                  p.boundary.phase === 'end'
+              )
+
+        const end =
+          following?.type === 'response_boundary'
+            ? parts.findIndex(
+                (p) =>
+                  p.type === 'response_boundary' &&
+                  p.boundary.id === following.boundary.id &&
+                  p.boundary.phase === following.boundary.phase
+              )
+            : undefined
+        if (end !== undefined && end >= 0) parts.splice(end, 0, part)
+        else parts.push(part)
+      }
+      native[target].parts = parts
+      restored.add(assistantId)
+    } else {
+      // With only an exact user binding, use the local terminal for that user's response
+      // and retain native text, tools and messages. No raw error from another turn is touched.
+      if (userTarget !== undefined) {
+        for (let i = userTarget + 1; i < nextUser[userTarget]; i++)
+          if (native[i].role === 'assistant' && native[i].id.startsWith('n:'))
+            native[i].parts = native[i].parts.filter(
+              (part) => part.type !== 'error' || part.failure
+            )
+      }
+      insert(assistant, position)
+    }
+  }
+  const messages: LoadedMessage[] = []
+  for (let i = 0; i <= native.length; i++) {
+    for (const message of before.get(i) ?? []) messages.push(message)
+    if (i < native.length) messages.push(native[i])
+  }
+  return { messages, restored }
+}
+
 /** Retains app-owned enrichment without inferring identity from text or timestamps. */
 export function projectNativeHistory(
   snapshot: NativeHistorySnapshot,
@@ -44,7 +186,7 @@ export function projectNativeHistory(
   bindings: readonly NativeMessageBinding[],
   frontier: number,
   headers?: readonly HistoryMessageHeader[]
-): { messages: LoadedMessage[]; orphaned: boolean } {
+): { messages: LoadedMessage[]; nativeKeys: string[]; orphaned: boolean } {
   const messages: LoadedMessage[] = snapshot.messages.map(
     ({ id, role, createdAt, incomplete, parts }) => ({
       id: nativeOnlyMessageId(id),
@@ -181,18 +323,20 @@ export function projectNativeHistory(
     }
     append(target, part)
   }
+  const failures = restoreFailureTurns(messages, rows, headers, localTargets, frontier)
+  const remainingOrphans = orphanRows.filter((row) => !failures.restored.has(row.message_id))
+  const inTail = (row: HistoryMessageHeader): boolean =>
+    row.message_id > frontier && !failures.restored.has(row.message_id)
   return {
+    nativeKeys: messages.map((message) => message.id),
     messages: [
-      ...messages,
-      ...localMessages(orphanRows).map((message) => ({
+      ...failures.messages,
+      ...localMessages(remainingOrphans).map((message) => ({
         ...message,
         id: orphanMessageId(message.id)
       })),
-      ...localMessages(
-        rows.filter((row) => row.message_id > frontier),
-        headers?.filter((row) => row.message_id > frontier)
-      )
+      ...localMessages(rows.filter(inTail), headers?.filter(inTail))
     ],
-    orphaned: orphanRows.length > 0
+    orphaned: remainingOrphans.length > 0
   }
 }

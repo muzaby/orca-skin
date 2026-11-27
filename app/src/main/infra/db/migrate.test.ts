@@ -60,7 +60,8 @@ const EXPECTED_MIGRATIONS = [
   '0036_message_key',
   '0037_turn_history_index',
   '0038_history_panels',
-  '0039_history_fork_prefix'
+  '0039_history_fork_prefix',
+  '0040_turn_failures'
 ]
 
 const APPLIED_SQL = [

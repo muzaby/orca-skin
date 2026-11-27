@@ -90,7 +90,7 @@ export function readHistorySource(
       if (headers)
         native.forEach((message, i) => {
           for (const key of new Set([message.id, ...(message.sourceIds ?? [])]))
-            alias(projection.messages[i].id, 'native', key)
+            alias(projection.nativeKeys[i], 'native', key)
         })
       nativeSync = {
         status: 'ready',

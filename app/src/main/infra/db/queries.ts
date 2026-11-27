@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+import type { ClassifiedError, TurnFailureReceipt } from '../../../shared/ipc'
 import { HistoryIndexQueries } from './history-index-queries'
 import type Database from 'better-sqlite3'
 import { DEFAULT_AGENT_KIND } from '../../../shared/agent-kind'
@@ -366,6 +368,15 @@ export class DbQueries {
         AND s.hidden_at IS NULL
         AND ((m.id <= (SELECT marker_id FROM history_fork_prefix WHERE session_id=s.id)
            AND NOT EXISTS (SELECT 1 FROM native_session_recovery WHERE session_id=s.id))
+          OR (EXISTS (SELECT 1 FROM turn_failures f WHERE f.owner_message_id=m.id)
+            AND m.id > COALESCE((SELECT local_frontier FROM native_session_recovery WHERE session_id=s.id),0)
+            AND NOT EXISTS (SELECT 1 FROM native_message_bindings b
+              JOIN native_history_messages h ON h.session_id=s.id AND h.native_id=b.native_message_id
+              WHERE b.message_id=m.id AND h.content=m.content
+                AND NOT EXISTS (SELECT 1 FROM native_message_bindings previous
+                  JOIN messages owner ON owner.id=previous.message_id
+                  WHERE previous.native_message_id=b.native_message_id AND owner.session_id=s.id
+                    AND owner.role='user' AND owner.id<m.id)))
           OR m.id > MAX(COALESCE((SELECT local_frontier FROM native_history_snapshots
           WHERE session_id = s.id), 0), COALESCE((SELECT local_frontier FROM native_session_recovery
           WHERE session_id = s.id), 0)))
@@ -385,7 +396,7 @@ export class DbQueries {
       WHERE child_session_id = @childSessionId
     `)
     this.listMessagesBySessionStmt = db.prepare(`
-      SELECT id, role, content, created_at, complete, idx
+      SELECT id, role, content, created_at, complete, idx, message_key
       FROM messages
       WHERE session_id = @sessionId
       ORDER BY idx ASC
@@ -393,8 +404,8 @@ export class DbQueries {
     // fork display 복사 — 원본 idx 를 그대로 보존해 이후 appendMessage 의 MAX(idx)+1 이
     // 복사분 뒤로 정렬되게 한다(도착 세션의 첫 user 발화가 이력 뒤에 온다).
     this.insertMessageCopyStmt = db.prepare(`
-      INSERT INTO messages (session_id, role, content, created_at, complete, idx)
-      VALUES (@sessionId, @role, @content, @createdAt, @complete, @idx)
+      INSERT INTO messages (session_id, role, content, created_at, complete, idx, message_key)
+      VALUES (@sessionId, @role, @content, @createdAt, @complete, @idx, @messageKey)
     `)
     this.copyPartsToMessageStmt = db.prepare(`
       INSERT INTO message_parts (message_id, idx, type, tool_run_id, payload_json)
@@ -410,6 +421,7 @@ export class DbQueries {
         content: string
         created_at: number
         complete: 0 | 1
+        message_key: string | null
         idx: number
       }>
       for (const m of rows) {
@@ -419,7 +431,8 @@ export class DbQueries {
           content: m.content,
           createdAt: m.created_at,
           complete: m.complete,
-          idx: m.idx
+          idx: m.idx,
+          messageKey: m.message_key
         })
         this.copyPartsToMessageStmt.run({
           dstMessageId: Number(info.lastInsertRowid),
@@ -542,6 +555,111 @@ export class DbQueries {
       LoadedPartRow,
       'type' | 'payload_json'
     >[]
+  }
+
+  // The part owns the error and its immutable receipt. Its insertion trigger registers the
+  // session-scoped occurrence in the same transaction, including when copying a fork.
+  commitTurnFailure(
+    sessionId: string,
+    failure: TurnFailureReceipt,
+    error: ClassifiedError,
+    allowInsert: boolean,
+    nativeMessageId?: string
+  ): TurnFailureReceipt | null {
+    return this.db
+      .transaction(() => {
+        const saved = this.db
+          .prepare(
+            `
+        SELECT p.payload_json FROM turn_failures f JOIN message_parts p ON p.id = f.part_id
+        WHERE f.session_id = ? AND f.failure_id = ?
+      `
+          )
+          .pluck()
+          .get(sessionId, failure.failureId) as string | undefined
+        const payload = JSON.stringify({ error, failure })
+        if (saved !== undefined) {
+          const part = JSON.parse(saved) as { error: ClassifiedError; failure: TurnFailureReceipt }
+          if (!isDeepStrictEqual(part, JSON.parse(payload)))
+            throw new Error('Conflicting turn failure receipt')
+          return part.failure
+        }
+        if (!allowInsert) return null
+        const owner = this.findMessageByKey(sessionId, failure.ownerUserMessageKey)
+        if (owner?.role !== 'user') throw new Error('Missing committed failure owner')
+        const assistant = this.findMessageByKey(sessionId, failure.assistantMessageKey)
+        let messageId: number
+        if (assistant) {
+          const owningUserId = this.db
+            .prepare(
+              `
+          SELECT u.id FROM messages u JOIN messages a ON a.id = ?
+          WHERE u.session_id = a.session_id AND u.role = 'user' AND u.idx < a.idx
+          ORDER BY u.idx DESC LIMIT 1
+        `
+            )
+            .pluck()
+            .get(assistant.id)
+          if (assistant.role !== 'assistant' || owningUserId !== owner.id)
+            throw new Error('Failure assistant belongs to another input')
+          messageId = assistant.id
+        } else {
+          // An earlier prompt can finish after a steer has already been committed.
+          const next = this.db
+            .prepare(
+              `
+          SELECT MIN(idx) FROM messages WHERE session_id = ? AND role = 'user'
+            AND idx > (SELECT idx FROM messages WHERE id = ?)
+        `
+            )
+            .pluck()
+            .get(sessionId, owner.id) as number | null
+          if (next !== null)
+            this.db
+              .prepare('UPDATE messages SET idx = idx + 1 WHERE session_id = ? AND idx >= ?')
+              .run(sessionId, next)
+          messageId = this.appendMessage({
+            sessionId,
+            role: 'assistant',
+            content: '',
+            createdAt: failure.occurredAt,
+            messageKey: failure.assistantMessageKey
+          })
+          if (next !== null)
+            this.db.prepare('UPDATE messages SET idx = ? WHERE id = ?').run(next, messageId)
+        }
+        let beforeEnd: number | undefined
+        if (failure.responseBoundaryId !== undefined) {
+          const edges = this.db
+            .prepare(
+              `
+            SELECT idx,json_extract(payload_json,'$.boundary.phase') AS phase FROM message_parts
+            WHERE message_id=? AND type='response_boundary'
+              AND json_extract(payload_json,'$.boundary.id')=?
+          `
+            )
+            .all(messageId, failure.responseBoundaryId) as Array<{ idx: number; phase: string }>
+          if (!edges.some((edge) => edge.phase === 'begin'))
+            throw new Error('Missing failure response boundary')
+          beforeEnd = edges.find((edge) => edge.phase === 'end')?.idx
+        }
+        if (beforeEnd !== undefined) {
+          this.db
+            .prepare('UPDATE message_parts SET idx=idx+1 WHERE message_id=? AND idx>=?')
+            .run(messageId, beforeEnd)
+        }
+        const partId = this.appendPart({
+          messageId,
+          type: 'error',
+          toolRunId: null,
+          payloadJson: payload
+        })
+        if (beforeEnd !== undefined)
+          this.db.prepare('UPDATE message_parts SET idx=? WHERE id=?').run(beforeEnd, partId)
+        if (nativeMessageId) this.nativeHistory.bind(messageId, nativeMessageId)
+        return failure
+      })
+      .immediate()
   }
 
   commitUserWrite<T>(write: () => T): T {
@@ -834,7 +952,33 @@ export class DbQueries {
     const fts = toFtsMatch(rawQuery)
     if (!fts) return []
     const local = this.searchMessagesStmt.all({ query: fts, limit }) as SearchHitRow[]
-    return [...this.nativeHistory.search(fts, limit), ...local].slice(0, limit).map((row) => {
+    const native = this.nativeHistory.search(fts, limit)
+    // A merged native prompt may represent several distinct committed inputs. When FTS
+    // found the local owner, select that locator instead of the merged native alias.
+    const superseded = new Map<string, Set<string>>()
+    if (local.length && native.length) {
+      const aliases = this.db
+        .prepare(
+          `
+        SELECT DISTINCT f.session_id,b.native_message_id FROM turn_failures f
+        JOIN native_message_bindings b ON b.message_id=f.owner_message_id
+        WHERE f.owner_message_id IN (SELECT value FROM json_each(?))
+      `
+        )
+        .all(JSON.stringify(local.map((row) => row.message_id))) as Array<{
+        session_id: string
+        native_message_id: string
+      }>
+      for (const alias of aliases) {
+        const ids = superseded.get(alias.session_id) ?? new Set<string>()
+        ids.add(alias.native_message_id)
+        superseded.set(alias.session_id, ids)
+      }
+    }
+    const hits = native.filter(
+      (row) => !row.native_id || !superseded.get(row.session_id)?.has(row.native_id)
+    )
+    return [...hits, ...local].slice(0, limit).map((row) => {
       const recovery = row.native_id && /^orcinus-orca-recovery:(\d+)$/.exec(row.native_id)
       const locator = this.historyIndex.locator(
         row.session_id,

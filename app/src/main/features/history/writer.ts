@@ -13,7 +13,12 @@ import type {
   UserCommitResult
 } from '../../../shared/peer-protocol'
 import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
-import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
+import type {
+  AttachmentView,
+  DiffRequirementAnchor,
+  NormalizedEvent,
+  TurnFailureReceipt
+} from '../../../shared/ipc'
 import { subagentNoticePart } from '../../../shared/ipc'
 import { responseBoundaryPart } from '../../../shared/response-boundary'
 import { planReviewToolInput } from '../../../shared/plan-review-input'
@@ -291,6 +296,33 @@ export class HistoryWriter {
     }
   }
 
+  commitFailure(
+    turn: TurnContext | undefined,
+    ev: Extract<NormalizedEvent, { type: 'error' }>
+  ): TurnFailureReceipt | null {
+    const { failure, sessionId } = ev
+    if (!failure || !sessionId) return null
+    if (
+      (turn && turn.dbSessionId !== sessionId) ||
+      ev.messageKey !== failure.assistantMessageKey ||
+      !failure.failureId ||
+      !/^(u|i):.+/.test(failure.ownerUserMessageKey) ||
+      !/^a:.+/.test(failure.assistantMessageKey) ||
+      !Number.isSafeInteger(failure.occurredAt) ||
+      failure.occurredAt < 0
+    )
+      throw new Error('Invalid turn failure identity')
+    // This write never changes the active assistant cache. A late receipt may belong to
+    // an already closed row; a rollback leaves the current stream untouched.
+    return this.db.commitTurnFailure(
+      sessionId,
+      failure,
+      ev.error,
+      turn !== undefined,
+      ev.nativeMessageId
+    )
+  }
+
   persist(turn: TurnContext, ev: NormalizedEvent): void {
     const now = Date.now()
     let persistedMessageId: number | undefined
@@ -546,18 +578,9 @@ export class HistoryWriter {
         }
         break
       }
-      case 'error': {
-        if (!turn.dbSessionId) break
-        const id = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
-        persistedMessageId = id
-        this.db.appendPart({
-          messageId: id,
-          type: 'error',
-          toolRunId: null,
-          payloadJson: JSON.stringify({ error: ev.error })
-        })
-        break
-      }
+      case 'error':
+        this.commitFailure(turn, ev)
+        return
       case 'session.compacted': {
         // SDK 네이티브 압축 완료 경계(0064) — 재로드 후에도 표시되도록 파트로 영속한다.
         if (!turn.dbSessionId) break

@@ -415,6 +415,14 @@ export type ErrorCategory =
 // cause 는 IPC(wc.send structuredClone) 경계를 넘으므로 직렬화 안전값만 담는다 — Error
 // 인스턴스/함수 금지(반드시 sanitizeCause 로 평탄화). provider 는 optional(표시용) — 어댑터
 // 컨텍스트가 있을 때만 채우고, 세션-이전 오케스트레이션 에러(스키마 검증·활성 백엔드 없음)는 부재(0016).
+export interface TurnFailureReceipt {
+  failureId: string
+  ownerUserMessageKey: string
+  assistantMessageKey: string
+  responseBoundaryId?: string
+  occurredAt: number
+}
+
 export interface ClassifiedError {
   category: ErrorCategory
   message: string
@@ -771,6 +779,9 @@ export type NormalizedEvent =
     }
   | {
       type: 'error'
+      failure?: TurnFailureReceipt
+      nativeMessageId?: string
+      responseInputIds?: string[]
       messageKey?: string
       messageKeySource?: 'owner'
       sessionId?: string
@@ -1603,7 +1614,7 @@ export type AppMessagePart =
     }
   | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
   | { type: 'diff'; patch: string }
-  | { type: 'error'; error: unknown }
+  | { type: 'error'; error: unknown; failure?: TurnFailureReceipt }
   // 컴포저 첨부(user 턴) — 트랜스크립트 버블에 썸네일로 렌더하고 DB 에 영속한다.
   | { type: 'attachment'; attachments: AttachmentView[] }
   // 전송한 diff 코멘트의 불변 스냅샷. 파일 첨부와 별도로 표시하고 재로드에도 보존한다.

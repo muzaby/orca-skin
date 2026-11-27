@@ -379,3 +379,99 @@ describe('VP-05 load identity rules (i1~i8)', () => {
     expect(new Set(prependedIds).size).toBe(prependedIds.length)
   })
 })
+
+it('keeps an old bare error and two same-text occurrences in their own Work boundary and original user group', () => {
+  const boundary = { id: 'b', kind: 'work' as const }
+  const legacy = { type: 'error' as const, error: 'same' }
+  const error = (failureId: string): Extract<AppMessagePart, { type: 'error' }> => ({
+    ...legacy,
+    failure: {
+      failureId,
+      ownerUserMessageKey: 'u:question',
+      assistantMessageKey: 'a:answer',
+      occurredAt: 33
+    }
+  })
+  const parts: AppMessagePart[] = [
+    { type: 'response_boundary', boundary: { ...boundary, phase: 'begin' } },
+    legacy,
+    error('one'),
+    error('two'),
+    { type: 'response_boundary', boundary: { ...boundary, phase: 'end', outcome: 'failed' } }
+  ]
+  const rows = [
+    row(1, { type: 'text', text: 'prompt' }, 'user'),
+    ...parts.map((p) => row(2, p))
+  ].map((r) => ({ ...r, message_key: r.message_id === 1 ? 'u:question' : 'a:answer' }))
+  const source = snapshot([{ type: 'text', text: 'provider response' }, legacy])
+  const projected = projectNativeHistory(
+    source,
+    rows,
+    [
+      { message_id: 1, native_message_id: 'user-native' },
+      { message_id: 2, native_message_id: 'a2' }
+    ],
+    2
+  )
+  expect(projected.messages.map((m) => m.id)).toEqual(['u:question', 'a:answer'])
+  expect(projected.messages[1].parts).toEqual([
+    parts[0],
+    { type: 'text', text: 'provider response' },
+    ...parts.slice(1)
+  ])
+  const fallback = projectNativeHistory(
+    source,
+    rows,
+    [{ message_id: 1, native_message_id: 'user-native' }],
+    2
+  )
+  expect(fallback.messages.map((m) => m.id)).toEqual([
+    'u:question',
+    'n:assistant-native',
+    'a:answer'
+  ])
+  expect(fallback.messages[1].parts).toEqual([{ type: 'text', text: 'provider response' }])
+  expect(fallback.messages[2].parts).toEqual(parts)
+})
+
+it('restores the exact owner of collapsed prelude and prompt aliases before the next native user', () => {
+  const source = snapshot([{ type: 'error', error: 'provider failed' }])
+  source.messages.push({
+    id: 'next',
+    role: 'user',
+    createdAt: 5,
+    parts: [{ type: 'text', text: 'next' }]
+  })
+  const failure = {
+    failureId: 'owned',
+    ownerUserMessageKey: 'u:question',
+    assistantMessageKey: 'a:answer',
+    occurredAt: 7
+  }
+  const rows = [
+    { ...row(1, { type: 'text', text: 'prelude' }, 'user'), message_key: 'u:prelude' },
+    { ...row(2, { type: 'text', text: 'question' }, 'user'), message_key: 'u:question' },
+    { ...row(3, { type: 'error', error: 'local failed', failure }), message_key: 'a:answer' },
+    { ...row(4, { type: 'text', text: 'next' }, 'user'), message_key: 'u:next' }
+  ]
+  const result = projectNativeHistory(
+    source,
+    rows,
+    [
+      { message_id: 1, native_message_id: 'user-native' },
+      { message_id: 2, native_message_id: 'user-native' },
+      { message_id: 4, native_message_id: 'next' }
+    ],
+    4
+  )
+  expect(result.messages.filter((m) => m.parts.length).map((m) => m.id)).toEqual([
+    'u:prelude',
+    'u:question',
+    'a:answer',
+    'u:next'
+  ])
+  expect(result.nativeKeys).toEqual(['u:prelude', 'n:assistant-native', 'u:next'])
+  expect(result.messages.flatMap((m) => m.parts.filter((p) => p.type === 'error'))).toEqual([
+    { type: 'error', error: 'local failed', failure }
+  ])
+})
