@@ -190,6 +190,10 @@ describe('turn retry resends the same reserved input (0301 R-02)', () => {
       await vi.advanceTimersByTimeAsync(0)
       expect(f.sendMessage).toHaveBeenCalledTimes(2)
       expect(promptText(f.sendMessage.mock.calls[1])).toContain('question')
+      expect(f.sendMessage.mock.calls).toMatchObject([
+        [{ signal: { aborted: true } }],
+        [{ signal: { aborted: false } }]
+      ])
       f.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'answer' } }, terminal)
       await vi.runAllTimersAsync()
       await running

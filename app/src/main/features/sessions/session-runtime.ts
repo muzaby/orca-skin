@@ -498,11 +498,18 @@ export class SessionRuntime implements ManagedRuntime {
     // sendMessage 동기 호출이 spawn 경계이며, 이후 스트림 실패는 chat.turn.failed 가 담당한다.
     // admission 은 spawn 기록·도구 컨텍스트보다 먼저다 — 띄우지 않은 시도를 started 로 남기지 않는다.
     // 준비는 판정보다 앞이다 — 준비 중 바뀐 상태를 판정이 보고, 판정과 spawn 사이에는 await 가 없다.
+    const spawnController = this.channelController
+    const rollbackSpawn = (): void => {
+      // A failed spawn has no live handle to retire its signal. The next reserved
+      // input must start on a fresh channel even if this attempt was interrupted.
+      if (this.channelController === spawnController && !this.live) this.retireChannel()
+      req.rollbackInitialSubmission?.()
+    }
     let prepared: unknown
     try {
       prepared = await this.prepareSpawn(req)
     } catch (error) {
-      req.rollbackInitialSubmission?.()
+      rollbackSpawn()
       throw error
     }
     const log = getLogger().child('engine')
@@ -539,7 +546,7 @@ export class SessionRuntime implements ManagedRuntime {
     } catch (err) {
       toolContext.close()
       if (this.runtimeToolContext === toolContext) this.runtimeToolContext = null
-      req.rollbackInitialSubmission?.()
+      rollbackSpawn()
       log.error('engine.spawn.failed', err, { provider: this.adapter.id })
       throw err
     }
