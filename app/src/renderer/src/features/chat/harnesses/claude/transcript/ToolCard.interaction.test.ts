@@ -2,7 +2,7 @@
 // 연 카드는 렌더 중 복사 문자열을 만들지 않고, 복사 버튼을 누를 때 한 번 만든다.
 import { createElement } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { installFakeDom } from '../../../../../shared/ui/renderHarness.testfixture'
+import { installFakeDom, type FakeNode } from '../../../../../shared/ui/renderHarness.testfixture'
 import type { ToolCall } from '../../../reducer/chatReducer'
 import { agentUiPolicy } from '../../../lib/agentPresentation'
 import * as toolCopy from './toolCopyText'
@@ -285,12 +285,13 @@ it('AC11 displays the worker stat on closed oversized Write, Edit and MultiEdit 
       ]
     ] as const) {
       const call: ToolCall = { toolUseId: 'fixture', name, input }
-      const render = () =>
+      const render = (): void =>
         dom.render(
           createElement(ToolCard, { call, transcriptPolicy: agentUiPolicy('code').transcript })
         )
       render()
-      const toggle = () => dom.query('[data-focus-id="toggle"]')!
+      const toggle = (): FakeNode =>
+        dom.query('[data-focus-id="toggle"]')!
       expect(toggle().textContent).not.toContain('+654')
       const request = fake.requests.at(-1)!
       expect(request.kind).toBe('diffStat')

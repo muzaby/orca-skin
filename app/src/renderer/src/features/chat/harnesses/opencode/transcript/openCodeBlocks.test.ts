@@ -821,7 +821,7 @@ it('AC1′ matrix o1-o4 joins adjacent exploration tools through invisible conte
   })
   const a = tool('a'),
     b = tool('b')
-  const project = (parts: AppMessagePart[][]) =>
+  const project = (parts: AppMessagePart[][]): string[][] =>
     buildOpenCodeBlocksOracle(parts.map((p, i) => assistantMsg('m' + i, p))).flatMap((block) =>
       block.kind === 'segment' && block.segment.kind === 'tools'
         ? [block.segment.calls.map((c) => c.toolUseId)]

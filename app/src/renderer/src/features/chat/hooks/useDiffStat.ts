@@ -7,21 +7,23 @@ import type { DiffStat, DiffStatSource } from '../../../shared/compute/diffStats
 
 let sequence = 0
 
+function inlineHeaderStat(sources: readonly DiffStatSource[] | null): DiffStat | null {
+  if (!sources) return null
+  // Large patches use the same header budget as before/after pairs.
+  let chars = 0
+  let lines = 0
+  for (const source of sources) {
+    if (source.kind !== 'patch') continue
+    chars += source.patch.length
+    if (chars > DIFF_INLINE_MAX_CHARS) return null
+    lines += countLinesUpTo(source.patch, DIFF_INLINE_MAX_LINES - lines)
+    if (lines > DIFF_INLINE_MAX_LINES) return null
+  }
+  return diffStatsWithinBudget(sources)
+}
+
 export function useDiffStat(sources: readonly DiffStatSource[] | null): DiffStat | null {
-  const inline = useMemo(() => {
-    if (!sources) return null
-    // Large patches use the same header budget as before/after pairs.
-    let chars = 0
-    let lines = 0
-    for (const source of sources) {
-      if (source.kind !== 'patch') continue
-      chars += source.patch.length
-      if (chars > DIFF_INLINE_MAX_CHARS) return null
-      lines += countLinesUpTo(source.patch, DIFF_INLINE_MAX_LINES - lines)
-      if (lines > DIFF_INLINE_MAX_LINES) return null
-    }
-    return diffStatsWithinBudget(sources)
-  }, [sources])
+  const inline = useMemo(() => inlineHeaderStat(sources), [sources])
   const [computed, setComputed] = useState<{ sources: readonly DiffStatSource[]; stat: DiffStat }>()
   useEffect(() => {
     if (!sources || inline) return

@@ -29,7 +29,7 @@ const msg = (id: string, role: 'user' | 'assistant', parts: AppMessagePart[]): L
   parts,
   createdAt: 1
 })
-const lines = (n: number, prefix: string) =>
+const lines = (n: number, prefix: string): string =>
   Array.from({ length: n }, (_, i) => prefix + i).join('\n')
 const activity = (
   body: AppMessagePart[],
@@ -176,12 +176,13 @@ function LayoutTranscript(): React.JSX.Element {
   )
 }
 flushSync(() => root.render(<LayoutTranscript />))
-const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-const all = (s: string) => Array.from(document.querySelectorAll<HTMLElement>(s))
-const gap = (a: Element, b: Element) =>
+const frame = (): Promise<void> =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+const all = (s: string): HTMLElement[] => Array.from(document.querySelectorAll<HTMLElement>(s))
+const gap = (a: Element, b: Element): number =>
   b.getBoundingClientRect().top - a.getBoundingClientRect().bottom
-const near = (a: number, b: number) => Math.abs(a - b) <= 1
-const statHeads = () =>
+const near = (a: number, b: number): boolean => Math.abs(a - b) <= 1
+const statHeads = (): string[] =>
   all('[data-focus-id="toggle"][aria-expanded="false"]').map((el) => el.textContent || '')
 const startingStats = statHeads()
 Object.assign(window, {
@@ -254,7 +255,7 @@ Object.assign(window, {
       }
     }
     if (scenario === 'editStat') {
-      const ok = (values: string[]) =>
+      const ok = (values: string[]): boolean =>
         backend === 'opencode'
           ? values.some((v) => v.includes('+15000'))
           : values.some((v) => v.includes('+654')) &&

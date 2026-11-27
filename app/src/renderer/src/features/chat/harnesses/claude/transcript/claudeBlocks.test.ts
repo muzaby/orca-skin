@@ -11,7 +11,12 @@ import { liveBlockKey, turnMetaKey, userBlockKey } from '../../../lib/transcript
 import { buildClaudeBlocksOracle, snapshotToArray } from '../../../lib/blockOracle.testfixture'
 import * as segmentCache from '../../../lib/segmentCache'
 import { getDisclosure, setDisclosure } from '../../../store/disclosureStore'
-import { createClaudeBlockModel, type ClaudeBlock, type ClaudeActivityBlock } from './claudeBlocks'
+import {
+  createClaudeBlockModel,
+  type ClaudeBlock,
+  type ClaudeActivityBlock,
+  type ClaudeSegmentBlock
+} from './claudeBlocks'
 
 function userMsg(id: string, text: string, createdAt = 1000): Message {
   return { id, role: 'user', createdAt, parts: [{ type: 'text', text }] }
@@ -850,7 +855,7 @@ describe('0331 tool run boundaries', () => {
   it.each(['code', 'work'] as const)(
     'AC1′ c1-c4, w3 merges visible tool neighbours in %s',
     (mode) => {
-      const project = (parts: AppMessagePart[][]) =>
+      const project = (parts: AppMessagePart[][]): ClaudeSegmentBlock[] =>
         buildClaudeBlocksOracle(
           parts.map((p, i) => assistantMsg('m' + i, p)),
           { mode, sessionKey: 's' }
@@ -875,10 +880,10 @@ describe('0331 tool run boundaries', () => {
     }
   )
   it('retains the error part key after transparent text inside a tool run', () => {
-    const error:AppMessagePart = {type:'error',error:'oops'}
-    const messages=[assistantMsg('m',[a,ws,b,error])]
-    const blocks=buildClaudeBlocksOracle(messages,{mode:'code',sessionKey:'s'})
-    expect(blocks.map(block=>block.key)).toEqual(['m:tool:a','m:error:0','m:meta'])
+    const error: AppMessagePart = { type: 'error', error: 'oops' }
+    const messages = [assistantMsg('m', [a, ws, b, error])]
+    const blocks = buildClaudeBlocksOracle(messages, { mode: 'code', sessionKey: 's' })
+    expect(blocks.map((block) => block.key)).toEqual(['m:tool:a', 'm:error:0', 'm:meta'])
   })
   it('AC10 tool gap is symmetric within and across messages', () => {
     for (const same of [true, false]) {
