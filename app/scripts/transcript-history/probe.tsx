@@ -58,6 +58,7 @@ const realPage = [
 const entryCase = ['openFrames', 'entryPrepend', 'entryCancel'].includes(scenario ?? '')
 const latestFive = [6, 7, 8, 9, 10].flatMap((i) => turn(i, 3))
 let releaseUnit: (() => void) | undefined
+let entryUnitRequest: { time: number; top: number; bottom: number } | undefined
 let expanded = false
 let requestsBeforeUnitInput: string[] | undefined
 let unitPlacement: { top: number; bottom: number } | undefined
@@ -97,6 +98,13 @@ Object.assign(window, {
             height: el.scrollHeight,
             viewport: el.clientHeight,
             rows: el.querySelectorAll('[data-index]').length
+          }
+          if (entryCase && query.kind === 'withinUnit') {
+            entryUnitRequest = {
+              time: performance.now(),
+              top: unitRequestGeometry.top,
+              bottom: unitRequestGeometry.height - unitRequestGeometry.viewport
+            }
           }
           await new Promise<void>((resolve) => {
             releaseUnit = resolve
@@ -420,7 +428,13 @@ Object.assign(window, {
       }
     },
     async entry() {
-      const offsets: { top: number; bottom: number; opacity: number; line: string }[] = []
+      const offsets: {
+        time: number
+        top: number
+        bottom: number
+        opacity: number
+        line: string
+      }[] = []
       const sample = (): void => {
         const el = scroller()
         const body = el.querySelector('[data-transcript-viewport]')
@@ -433,6 +447,7 @@ Object.assign(window, {
           line = ''
         }
         offsets.push({
+          time: performance.now(),
           top: el.scrollTop,
           bottom: Math.max(0, el.scrollHeight - el.clientHeight),
           opacity: Number(getComputedStyle(body).opacity),
@@ -454,7 +469,12 @@ Object.assign(window, {
         const last = offsets.at(-1)
         if (last && last.top > 1 && last.top < last.bottom - 1 && releaseUnit) break
       }
-      return { firstPaint, moving: [...offsets], requests: searchRequests }
+      return {
+        firstPaint,
+        moving: [...offsets],
+        unitRequest: entryUnitRequest,
+        requests: searchRequests
+      }
     },
     async entrySettle() {
       const samples: { top: number; bottom: number; correcting?: boolean; line: number | null }[] =

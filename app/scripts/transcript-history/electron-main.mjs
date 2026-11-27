@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import { setTimeout as delay } from 'node:timers/promises'
+import { completeEntryAttempt, recordMissedEntry } from './entry-window.mjs'
 import { scenarios } from './scenarios.mjs'
 
 const [origin, screens, repetitions] = process.argv.slice(-3)
@@ -29,7 +30,7 @@ async function measure(wc, screen, scenario) {
   if (scenario === 'unitOpen' || scenario === 'framesUnit') return probe('unit')
   if (['openFrames', 'entryPrepend', 'entryCancel'].includes(scenario)) {
     const entry = await probe('entry')
-    if (scenario === 'entryCancel') {
+    const cancel = async () => {
       wc.sendInputEvent({
         type: 'mouseWheel',
         x: 350,
@@ -41,7 +42,7 @@ async function measure(wc, screen, scenario) {
       })
       await probe('waitWheel')
     }
-    return { ...entry, ...(await probe('entrySettle')) }
+    return completeEntryAttempt(scenario, entry, cancel, () => probe('entrySettle'))
   }
   // Reach the head through normal keyboard input so both harnesses release bottom-follow.
   await probe('focusForHome')
@@ -174,6 +175,10 @@ app.whenReady().then(async () => {
           try {
             for (let attempt = 0; ; attempt++) {
               const result = await measure(win.webContents, screen, scenario)
+              if (result.missedEntry) {
+                recordMissedEntry(discarded, { run, screen, scenario, attempt }, result.missedEntry)
+                continue
+              }
               const wheels = result.wheels
               const continuous =
                 (scenario === 'followup' && wheels?.length === 2) ||
