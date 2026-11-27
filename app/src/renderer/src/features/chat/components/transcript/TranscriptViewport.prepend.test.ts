@@ -854,6 +854,8 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
     'native-before-row-resize',
     'native-before-header-resize',
     'passive-range-clamp',
+    'clamp-without-write',
+    'native-before-prepend',
     'header',
     'header-toggle',
     'mixed-prepend-live',
@@ -984,6 +986,29 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
       vi.runAllTimers()
       resize(24)
       expect(writes).toEqual([294])
+      return
+    }
+
+    if (cause === 'native-before-prepend') {
+      resize(15)
+      expect(writes).toEqual([265])
+      scrollTop += 35
+      const reading = dom!.query('[data-block-key="visible"]')!
+      const before = reading.getBoundingClientRect().top
+      blocks.splice(0, 0, [{ key: 'older' }])
+      render()
+      expect(reading.getBoundingClientRect().top).toBe(before)
+      return
+    }
+
+    if (cause === 'clamp-without-write') {
+      Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 630 })
+      scrollTop = 230
+      resize(-20)
+      expect(writes).toEqual([])
+      Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 2000 })
+      resize(24)
+      expect(writes).toEqual([274])
       return
     }
 

@@ -247,7 +247,23 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const anchorScrollTop = useRef<number | null>(null)
   const captureRestingAnchor = useCallback((element: HTMLElement): void => {
     restingAnchorRef.current = captureAnchor(element)
-    anchorScrollTop.current = element.scrollTop
+    anchorScrollTop.current = restingAnchorRef.current ? element.scrollTop : null
+  }, [])
+  const readingPositionMoved = useCallback((el: HTMLElement): boolean => {
+    const expected = anchorScrollTop.current
+    const actual = el.scrollTop
+    if (
+      expected === null ||
+      Math.abs(actual - expected) <= 0.5 ||
+      isCorrecting(el) ||
+      entryMoving(el)
+    )
+      return false
+    // A smaller layout can clamp our last position without a scroll notification.
+    const clamped = Math.min(expected, Math.max(0, el.scrollHeight - el.clientHeight))
+    if (Math.abs(actual - clamped) > 0.5) return true
+    anchorScrollTop.current = actual
+    return false
   }, [])
   const interruptedAnchorLayout = useRef(false)
   const pinnedPrepend = useRef(false)
@@ -351,8 +367,25 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     }
     if (releasedPull || (headChanged && (!isPinned?.() || transitioning))) {
       const el = scrollRef.current
-      const captured = activeAnchorRef.current ?? (el ? captureAnchor(el) : null)
-      const nextAnchor = captured ?? restingAnchorRef.current
+      let nextAnchor: AnchorTarget | null
+      if (el && readingPositionMoved(el)) {
+        // A prepend can arrive before the native scroll notification or the new
+        // rows. If the viewports overlap, preserve the measured glyph at its shifted offset.
+        const previous = activeAnchorRef.current ?? restingAnchorRef.current
+        const delta = el.scrollTop - anchorScrollTop.current!
+        const shifted =
+          previous && Math.abs(delta) < el.clientHeight
+            ? { ...previous, viewportOffsetPx: previous.viewportOffsetPx - delta }
+            : null
+        nextAnchor = captureAnchor(el) ?? shifted
+        restingAnchorRef.current = null
+        activeAnchorRef.current = null
+        anchorController.cancelAnchor()
+        anchorScrollTop.current = nextAnchor ? el.scrollTop : null
+      } else {
+        nextAnchor =
+          activeAnchorRef.current ?? (el ? captureAnchor(el) : null) ?? restingAnchorRef.current
+      }
       if (nextAnchor) {
         activeAnchorRef.current = nextAnchor
         anchorController.setActiveAnchor(nextAnchor)
@@ -601,18 +634,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       return
     // Chromium may move to a find match before delivering its scroll event. A
     // ResizeObserver arriving first must not restore the previous reading position.
-    const expectedTop = anchorScrollTop.current
-    if (
-      expectedTop !== null &&
-      Math.abs(el.scrollTop - expectedTop) > 0.5 &&
-      !isCorrecting(el) &&
-      !entryMoving(el)
-    ) {
-      const clampedTop = Math.min(expectedTop, Math.max(0, el.scrollHeight - el.clientHeight))
-      if (Math.abs(el.scrollTop - clampedTop) > 0.5) {
-        interruptReadingAnchor(el)
-        return
-      }
+    if (readingPositionMoved(el)) {
+      interruptReadingAnchor(el)
+      return
     }
     const snap = snapshotRef.current
     let nextTop = restoreAnchor(el, anchor, () => {
@@ -646,7 +670,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         selfWritingScrollRef.current = false
       }
     }
-  }, [interruptReadingAnchor, scrollRef])
+  }, [interruptReadingAnchor, readingPositionMoved, scrollRef])
 
   // Child refs arrive together in a commit. Measure their actual boxes before
   // resizeItem writes any sibling transforms or the container's total height.
