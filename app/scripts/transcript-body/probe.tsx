@@ -338,6 +338,8 @@ Object.assign(window, {
         : useChatStore
             .getState()
             .sessions[id].session.messages.flatMap((m) => m.parts)
-            .find((p) => p.type === 'text')?.text
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text)
+            .join('')
     )
 })
