@@ -1263,3 +1263,86 @@ describe('0326 message identity', () => {
     ])
   })
 })
+
+it.each(['lost-reply', 'rejected', 'mismatch'] as const)(
+  'uses one occurrence until the canonical failure receipt or a single storage failure (%s)',
+  async (outcome) => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const occurrence = {
+      failureId: 'failure-fixed',
+      occurredAt: 15,
+      ownerUserMessageKey: 'u:question'
+    }
+    const event = {
+      type: 'error',
+      sessionId: 's',
+      error: { category: 'stream_error', message: 'error', retryable: true }
+    } as const
+    const acknowledged = h.sender.commitFailure!(turn, event, occurrence)
+    const payload = h.requests[0].payload as {
+      ev: { messageKey: string; failure: { assistantMessageKey: string; occurredAt: number } }
+    }
+    expect(payload.ev.failure).toEqual({ ...occurrence, assistantMessageKey: 'a:1' })
+    expect(h.payloads('screen')).toEqual([])
+    if (outcome === 'lost-reply') {
+      h.requests[0].reject(new Error('reply lost after commit'))
+      await flush()
+      expect(h.requests[1].payload).toEqual(h.requests[0].payload)
+      h.requests[1].resolve(payload.ev.failure)
+      expect(await acknowledged).toEqual(payload.ev.failure)
+      expect(h.failTurn).not.toHaveBeenCalled()
+    } else {
+      h.requests[0].resolve(
+        outcome === 'rejected' ? null : { ...payload.ev.failure, occurredAt: 16 }
+      )
+      expect(await acknowledged).toBeNull()
+      h.sender.onNotify('turn.persistFailed', { turnKey: 'turn_1', message: 'disk' })
+      expect(h.failTurn).toHaveBeenCalledTimes(1)
+      expect(h.payloads('screen')).toEqual([])
+    }
+  }
+)
+
+it('keeps the two session receipts and outbound event order independent during an artifact ACK', async () => {
+  const h = setup()
+  const turns = [turnOf({ dbSessionId: 'A' }), turnOf({ dbSessionId: 'B' })]
+  const prior: NormalizedEvent = {
+    type: 'output.captured',
+    sessionId: 'A',
+    artifact: { publicationId: 'pub-a' }
+  } as NormalizedEvent
+  h.sender.onTurnEvent(turns[0], prior)
+  h.sender.relay(turns[0], prior)
+  const commits = turns.map(async (turn) => {
+    const sessionId = turn.dbSessionId!
+    const ev = {
+      type: 'error',
+      sessionId,
+      error: { category: 'stream_error', message: 'same', retryable: true }
+    } as const
+    const failure = await h.sender.commitFailure!(turn, ev, {
+      failureId: 'failure-' + sessionId,
+      ownerUserMessageKey: 'u:same',
+      occurredAt: 12
+    })
+    expect(failure).toBeTruthy()
+    h.sender.relay(turn, { ...ev, messageKey: failure!.assistantMessageKey, failure: failure! })
+  })
+  for (const index of [2, 1]) {
+    const request = h.requests[index]
+    const { ev } = request.payload as { ev: Extract<NormalizedEvent, { type: 'error' }> }
+    request.resolve(ev.failure)
+  }
+  await Promise.all(commits)
+  expect(h.payloads('screen').map((p) => p.ev)).toMatchObject([
+    { sessionId: 'B', failure: { failureId: 'failure-B' } }
+  ])
+  h.requests[0].resolve(null)
+  await flush()
+  expect(h.payloads('screen').map((p) => p.ev)).toMatchObject([
+    { sessionId: 'B', failure: { failureId: 'failure-B' } },
+    { sessionId: 'A', type: 'output.captured' },
+    { sessionId: 'A', failure: { failureId: 'failure-A' } }
+  ])
+})

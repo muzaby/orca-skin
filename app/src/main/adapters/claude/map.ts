@@ -7,6 +7,7 @@
 // user(tool_result) → tool.call.completed, result → telemetry.
 // 한 SDKMessage 가 N개 NormalizedEvent 로 분해될 수 있다(assistant = text/tool 블록 순서 보존).
 
+import { claudeResponseInputs } from './input-receipts'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type {
   NormalizedEvent,
@@ -828,12 +829,13 @@ function mapClaudeMessage(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
               : typeof r.error === 'string' && r.error.trim() !== ''
                 ? r.error
                 : `Claude result failed${r.subtype ? ` (${r.subtype})` : ''}`
-      out.push(
-        errorEvent(
-          makeClassifiedError('stream_error', message, { provider: 'claude' }),
-          ctx.sessionId
-        )
+      const terminal = errorEvent(
+        makeClassifiedError('stream_error', message, { provider: 'claude' }),
+        ctx.sessionId
       )
+      const responseIds = claudeResponseInputs(msg)
+      if (responseIds.length) terminal.responseInputIds = responseIds
+      out.push(terminal)
     }
     return out
   }

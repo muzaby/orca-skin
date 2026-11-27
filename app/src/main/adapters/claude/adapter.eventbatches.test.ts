@@ -10,7 +10,10 @@ const { queryMock, messages } = vi.hoisted(() => {
     messages,
     queryMock: vi.fn(() => ({
       async *[Symbol.asyncIterator]() {
-        for (const msg of messages) yield msg
+        for (const msg of messages) {
+          if (msg instanceof Error) throw msg
+          yield msg
+        }
       },
       setPermissionMode: vi.fn(),
       interrupt: vi.fn(),
@@ -33,8 +36,8 @@ const baseReq = (): TurnRequest => ({
   extensions: { skills: [], hooks: { normalized: {} } }
 })
 
-async function collectBatches(): Promise<ProviderMessageBatch[]> {
-  const live = await sendPrepared(new ClaudeAdapter(), baseReq())
+async function collectBatches(req = baseReq()): Promise<ProviderMessageBatch[]> {
+  const live = await sendPrepared(new ClaudeAdapter(), req)
   const out: ProviderMessageBatch[] = []
   for await (const batch of live.eventBatches) out.push(batch)
   return out
@@ -58,6 +61,32 @@ describe('ClaudeAdapter — provider 메시지 원자 배치 (AC5)', () => {
     expect(batches).toHaveLength(1)
     expect(batches[0].events.map((ev) => ev.type)).toEqual(['telemetry', 'error'])
   })
+
+  it.each([true, false])(
+    'retains the query exception and only carries a real consumption receipt after submit (%s)',
+    async (consumed) => {
+      messages.length = 0
+      if (consumed)
+        messages.push({
+          type: 'assistant',
+          uuid: 'answer',
+          session_id: 's1',
+          user_message_uuid: 'accepted',
+          message: { content: [{ type: 'text', text: 'part' }] }
+        })
+      messages.push(new Error('stream interrupted'))
+      const events = (await collectBatches({ ...baseReq(), promptUuid: 'accepted' })).flatMap(
+        (b) => b.events
+      )
+      expect(events.filter((ev) => ev.type === 'input.echo')).toHaveLength(consumed ? 1 : 0)
+      expect(events.filter((ev) => ev.type === 'error')).toMatchObject([
+        {
+          responseInputIds: ['accepted'],
+          error: { message: 'stream interrupted', category: 'stream_error' }
+        }
+      ])
+    }
+  )
 
   it('sequence 는 배치마다 단조 증가한다 — 라우팅이 순서를 신뢰할 수 있어야 한다', async () => {
     messages.length = 0

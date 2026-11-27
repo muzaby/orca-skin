@@ -123,6 +123,8 @@ export class OpenCodeEventMapper {
             {
               type: 'error',
               sessionId: this.sessionId,
+              responseInputIds: [message.parentID],
+              nativeMessageId: message.id,
               error: classifyOpenCodeError(message.error)
             }
           ]

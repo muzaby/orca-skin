@@ -79,6 +79,41 @@ interface ActiveTurnGate {
   end(token: object): void
 }
 
+// This map belongs to one runtime response. A native prompt can represent several local
+// preludes as well as its real input; keep every association until the provider identifies it.
+class ResponseInputs {
+  private readonly inputs = new Map<string, Set<string>>()
+  private readonly received = new Set<string>()
+  private promptKey?: string
+  lastCommittedKey?: string
+
+  constructor(private readonly promptUuid?: string) {}
+
+  committed(key: string, uuid?: string, nativeId?: string): void {
+    this.lastCommittedKey = key
+    if (uuid !== undefined && uuid === this.promptUuid) this.promptKey = key
+    for (const id of [uuid, nativeId]) {
+      if (!id) continue
+      const keys = this.inputs.get(id) ?? new Set<string>()
+      keys.add(key)
+      this.inputs.set(id, keys)
+    }
+  }
+
+  receivedInput(key: string, uuid?: string, nativeId?: string): void {
+    this.received.add(key)
+    this.committed(key, uuid, nativeId)
+  }
+
+  owner(ids: readonly string[]): string | undefined {
+    const keys = new Set(ids.flatMap((id) => [...(this.inputs.get(id) ?? [])]))
+    if (this.promptKey && keys.has(this.promptKey)) return this.promptKey
+    // A steer or prelude does not take over the response opened by an app submit.
+    const only = keys.size === 1 ? keys.values().next().value : undefined
+    return !this.promptUuid || (only && this.received.has(only)) ? only : undefined
+  }
+}
+
 export interface TurnCoordinatorDeps<W> {
   runtime: CoordinatorRuntime
   // 스트리밍/합성 이벤트의 단일 팬아웃 — usage 집계·history 영속·renderer 중계 구독자가 등록순 소비.
@@ -97,6 +132,7 @@ export interface TurnCoordinatorDeps<W> {
   // 갱신하고, chat-turn 의 턴-후 루프가 listen 턴 개시 조건으로 조회한다.
   backgroundTasks: BackgroundTaskPort
   persistResponseBoundaries: (kind: AgentKind) => boolean
+  clock?: () => number
   newId?: () => string
 }
 
@@ -154,10 +190,10 @@ export class TurnCoordinator<W = unknown> {
   // 병합 텍스트 폴백. 매칭 실패(초기 프롬프트 echo 등)는 무시 — 허위 커밋이 구조적으로 불가능하다.
   private markSteerConsumed(
     turn: TurnContext<W>,
-    ev: { uuid?: string; text: string; nativeMessageId?: string }
+    ev: { sessionId: string; uuid?: string; text: string; nativeMessageId?: string }
   ): void {
     const sessionId = turn.dbSessionId
-    if (!sessionId) return
+    if (!sessionId || ev.sessionId !== sessionId) return
     // 0151 — 신호를 종류로 실어 보낸다. 큐가 origin(steer/turn-open)과 대조해 **짝이 맞는 배치만**
     // 확정하므로, 늦게 도착한 턴-시작 echo 가 무해한 것이 우연이 아니라 구조적 거부가 된다.
     // uuid 가 실려 오면 큐는 uuid 로만 판정한다(텍스트 동일 배치 오확정 차단).
@@ -176,12 +212,16 @@ export class TurnCoordinator<W = unknown> {
   // 턴 프롬프트·프렐류드·steer 게이트 배치가 전부 이 단일 경로로 user row 영속 + renderer
   // 승격(message.committed)된다(0067 AC6). 미소비 pending 은 남긴다(D2: 모델이 못 본 텍스트를
   // committed 로 굳히지 않는다).
-  private async commitConsumed(turn: TurnContext<W>, beforeCommit?: () => void): Promise<void> {
+  private async commitConsumed(
+    turn: TurnContext<W>,
+    inputs: ResponseInputs,
+    beforeCommit: () => void
+  ): Promise<void> {
     const sessionId = turn.dbSessionId
     const { pendingMessages, persist, forward } = this.deps
     if (!sessionId || !pendingMessages) return
     for (const batch of pendingMessages.drainConfirmed(sessionId)) {
-      beforeCommit?.()
+      beforeCommit()
       const nativeMessageId = turn.nativeInputIds?.get(batch.uuid)
       turn.nativeInputIds?.delete(batch.uuid)
       const messageKey = userMessageId(batch.ids)
@@ -194,6 +234,7 @@ export class TurnCoordinator<W = unknown> {
         ...(batch.attachmentViews ? { attachmentViews: batch.attachmentViews } : {})
       })
       if (messageId == null) continue
+      inputs.committed(messageKey, batch.uuid, nativeMessageId)
       forward.relay(turn, {
         type: 'message.committed',
         messageKey,
@@ -249,6 +290,43 @@ export class TurnCoordinator<W = unknown> {
       ...(request.promptUuid !== undefined ? [request.promptUuid] : [])
     ]
     let turnOpenConsumed = turnOpenUuids.length === 0
+
+    const inputs = new ResponseInputs(policy.pushesInput ? request.promptUuid : undefined)
+    let publishedFailure = false
+    const boundariesByUser = new Map<string, string>()
+    const now = this.deps.clock ?? Date.now
+    const publishFailure = async (
+      event: Extract<NormalizedEvent, { type: 'error' }>,
+      occurredAt: number
+    ): Promise<void> => {
+      // Neither a provider nor a cached event can supply the data host's receipt.
+      const { responseInputIds, nativeMessageId, error, sessionId } = event
+      const clean = { type: 'error' as const, error, ...(sessionId ? { sessionId } : {}) }
+      const owner =
+        sessionId && turn.dbSessionId === sessionId && !turn.controller.signal.aborted
+          ? inputs.owner(responseInputIds ?? [])
+          : undefined
+      if (!owner || !persist.commitFailure) {
+        this.emit(turn, clean)
+        return
+      }
+      if (publishedFailure) return
+      publishedFailure = true
+      const receipt = await persist.commitFailure(
+        turn,
+        { ...clean, ...(nativeMessageId ? { nativeMessageId } : {}) },
+        {
+          ownerUserMessageKey: owner,
+          occurredAt,
+          failureId: (this.deps.newId ?? randomUUID)(),
+          ...(boundariesByUser.has(owner)
+            ? { responseBoundaryId: boundariesByUser.get(owner) }
+            : {})
+        }
+      )
+      if (receipt)
+        this.emit(turn, { ...clean, messageKey: receipt.assistantMessageKey, failure: receipt })
+    }
 
     let boundaryId: string | undefined
     let boundaryFailed = false
@@ -320,6 +398,7 @@ export class TurnCoordinator<W = unknown> {
       for (let attempt = 0; ; attempt += 1) {
         let eventsReceived = 0
         let sawTerminal = false
+        let streamThrew = false
         try {
           // send() 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
           turn.live = runtime
@@ -329,7 +408,15 @@ export class TurnCoordinator<W = unknown> {
           if (policy.countsAsActive)
             activeTurns.begin(turn, sharedPathProjectId, activeTurnRef(turn))
           try {
-            for await (const rawEv of events) {
+            const observeStream = async function* (): AsyncIterable<NormalizedEvent> {
+              try {
+                yield* events
+              } catch (error) {
+                streamThrew = true
+                throw error
+              }
+            }
+            for await (const rawEv of observeStream()) {
               const coerced =
                 rawEv.type === 'session.updated'
                   ? { ...rawEv, patch: { ...rawEv.patch, agentKind: turn.agentKind } }
@@ -348,6 +435,14 @@ export class TurnCoordinator<W = unknown> {
                 this.deps.backgroundTasks.isAsyncLaunched(turn.dbSessionId, coerced.toolUseId)
                   ? { ...coerced, background: true }
                   : coerced
+              if (
+                ev.type === 'error' &&
+                ev.sessionId &&
+                turn.dbSessionId &&
+                ev.sessionId !== turn.dbSessionId
+              )
+                continue
+              const failureAt = ev.type === 'error' ? now() : 0
               eventsReceived += 1
               // 예약 상태는 채널 pump가 수신/종료 순서대로 activity에 전달한다. 지연된
               // 프레임의 원시 이벤트를 다시 relay하면 채널 종료 뒤 옛 예약이 되살아난다.
@@ -372,7 +467,7 @@ export class TurnCoordinator<W = unknown> {
               // user 커밋 경로로 기록하고, origin을 원문과 함께 보존한다.
               if (ev.type === 'input.received') {
                 if (!turn.dbSessionId || ev.sessionId !== turn.dbSessionId) continue
-                await this.commitConsumed(turn, closeBeforeUser)
+                await this.commitConsumed(turn, inputs, closeBeforeUser)
                 closeBeforeUser()
                 const createdAt = Date.now()
                 const messageKey = receivedMessageId(
@@ -388,6 +483,7 @@ export class TurnCoordinator<W = unknown> {
                   ...(ev.nativeMessageId ? { nativeMessageId: ev.nativeMessageId } : {})
                 })
                 if (messageId != null) {
+                  inputs.receivedInput(messageKey, ev.uuid, ev.nativeMessageId)
                   forward.relay(turn, {
                     type: 'message.committed',
                     messageKey,
@@ -403,7 +499,14 @@ export class TurnCoordinator<W = unknown> {
               }
               // 턴-시작 배치 소비 판정(0069) — 첫 모델 출력 관측 시 프렐류드+프롬프트를 일괄
               // 소비 표시한다. 바로 아래 commitConsumed 가 같은 이벤트의 persist 전에 커밋한다.
-              if (!turnOpenConsumed && turn.dbSessionId && isModelOutputEvent(ev)) {
+              if (
+                !turnOpenConsumed &&
+                turn.dbSessionId &&
+                'sessionId' in ev &&
+                ev.sessionId === turn.dbSessionId &&
+                isModelOutputEvent(ev) &&
+                !('parentToolRunId' in ev && ev.parentToolRunId)
+              ) {
                 this.deps.pendingMessages?.confirm(turn.dbSessionId, {
                   kind: 'model-output',
                   uuids: turnOpenUuids
@@ -426,7 +529,7 @@ export class TurnCoordinator<W = unknown> {
                   this.canonicalBackground(turn)
                 )
               }
-              if (ev.type !== 'telemetry') await this.commitConsumed(turn, closeBeforeUser)
+              if (ev.type !== 'telemetry') await this.commitConsumed(turn, inputs, closeBeforeUser)
               if (
                 this.deps.persistResponseBoundaries(turn.agentKind) &&
                 turn.dbSessionId &&
@@ -435,6 +538,8 @@ export class TurnCoordinator<W = unknown> {
                 isResponseDisplayEvent(ev)
               ) {
                 boundaryId = randomUUID()
+                if (inputs.lastCommittedKey)
+                  boundariesByUser.set(inputs.lastCommittedKey, boundaryId)
                 boundaryFailed = false
                 boundaryAborted = false
                 boundaryTerminal = false
@@ -469,7 +574,8 @@ export class TurnCoordinator<W = unknown> {
               // emit 이라 "forward 후 새-채팅 pending 턴 승격" 순서가 자동 보존된다.
               // 핸드오프 자동 메시지 에코는 send 수리 직후(턴 시작 전)에 처리한다(0064 r4) —
               // SDK init 지연 시 압축 요약이 에코보다 먼저 렌더되는 역순을 구조적으로 차단.
-              this.emit(turn, ev)
+              if (ev.type === 'error') await publishFailure(ev, failureAt)
+              else this.emit(turn, ev)
               if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
                 terminalForwarded = true
               }
@@ -529,7 +635,7 @@ export class TurnCoordinator<W = unknown> {
               }
               // telemetry(턴 종료)는 persist 이후에 소비 확정분을 flush — usage messageId 링크와
               // assistant 마감을 보존한다. 미소비 pending 은 여기서도 flush 하지 않는다(D2).
-              if (ev.type === 'telemetry') await this.commitConsumed(turn, closeBeforeUser)
+              if (ev.type === 'telemetry') await this.commitConsumed(turn, inputs, closeBeforeUser)
             }
           } finally {
             if (policy.countsAsActive) activeTurns.end(turn)
@@ -546,7 +652,7 @@ export class TurnCoordinator<W = unknown> {
             terminalForwarded = true
             // 스트림이 경계 없이 끝났어도 *소비 확정분* 은 flush 한다. 미소비 pending 은 큐에
             // 남긴다 — 모델이 못 본 텍스트를 committed 로 굳히지 않고 다음 chat:send 로 이월(D2).
-            await this.commitConsumed(turn, closeBeforeUser)
+            await this.commitConsumed(turn, inputs, closeBeforeUser)
           }
           deliverAbortTerminal()
           closeBoundary()
@@ -560,11 +666,12 @@ export class TurnCoordinator<W = unknown> {
             log.info('chat.turn.cancelled', turnMeta())
             return
           }
+          const failureAt = now()
           const error = classifyError(err, 'sendMessage')
           const staleSubmission =
             err instanceof Error && err.message.startsWith('submission_stale:')
           // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
-          const fail = (): void => {
+          const fail = async (): Promise<void> => {
             sawTerminal = true
             boundaryFailed = true
             settleOpenToolRuns(
@@ -575,11 +682,17 @@ export class TurnCoordinator<W = unknown> {
             )
             // ClassifiedError 의 category/message 만 — 원문 cause 는 serializeError 경유(redaction 통과).
             log.error('chat.turn.failed', err, { ...turnMeta(), category: error.category })
-            forward.forward(turn.owner, {
-              type: 'error',
+            if (streamThrew) await this.commitConsumed(turn, inputs, closeBeforeUser)
+            const event = {
+              type: 'error' as const,
               ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
               error
-            })
+            }
+            if (streamThrew && request.promptUuid && inputs.owner([request.promptUuid])) {
+              await publishFailure({ ...event, responseInputIds: [request.promptUuid] }, failureAt)
+            } else {
+              forward.forward(turn.owner, event)
+            }
             terminalForwarded = true
             closeAfterFailure()
           }
@@ -616,12 +729,12 @@ export class TurnCoordinator<W = unknown> {
               return
             }
             if (policy.pushesInput && request.reopenInitialSubmission?.() === false) {
-              fail()
+              await fail()
               return
             }
             continue
           }
-          fail()
+          await fail()
           return
         }
       }

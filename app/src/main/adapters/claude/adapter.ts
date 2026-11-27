@@ -625,6 +625,8 @@ export class ClaudeAdapter implements SessionAdapter {
     // iterator's first assistant message. Later responses reopen on main input/output.
     let responseScope = 1
     let responseOpen = true
+    let submittedPrompt = req.promptUuid
+    let completedResponse = false
 
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
     // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 값은 컴포저 참조 경로
@@ -965,6 +967,7 @@ export class ClaudeAdapter implements SessionAdapter {
           if (
             msg.type === 'result' &&
             (provider.source.replay ||
+              receipts.pastResponse(msg) ||
               (typeof msg.uuid === 'string' && ctx.resultUuids?.has(msg.uuid)))
           ) {
             yield { sequence: sequence++, events: [], providerEvents: provider.events }
@@ -980,6 +983,18 @@ export class ClaudeAdapter implements SessionAdapter {
             responseScope++
           }
           const events = claudeToNormalized(msg, ctx).flatMap<NormalizedEvent>((event) => {
+            if (
+              event.type === 'error' &&
+              !event.responseInputIds &&
+              mainMessage &&
+              submittedPrompt
+            ) {
+              // The first response on a Query has no earlier terminal that could be mistaken for it.
+              const prior = receipts.currentResponseInputs()
+              if (prior.length) event.responseInputIds = prior
+              else if (!completedResponse && !req.sessionId)
+                event.responseInputIds = [submittedPrompt]
+            }
             if (event.type === 'tool.call.started') {
               const hunks = buildEditPreview(
                 event.toolName,
@@ -1046,6 +1061,8 @@ export class ClaudeAdapter implements SessionAdapter {
             )
             events.unshift(...drainSchedules())
             responseOpen = false
+            submittedPrompt = undefined
+            completedResponse = true
           }
           // hook 은 다음 SDK 메시지(compact_boundary/result)보다 먼저 완료되므로 메시지 뒤
           // 드레인이 [구분선 → 요약] 순서를 만든다.
@@ -1073,7 +1090,11 @@ export class ClaudeAdapter implements SessionAdapter {
             provider: 'claude',
             phase: 'sendMessage'
           })
-          events.push(errorEvent(classified, ctx.sessionId))
+          const event = errorEvent(classified, ctx.sessionId)
+          // The iterator itself failed during this submitted response, rather than replaying
+          // a provider terminal. A queued/rolled-back input still lacks a committed owner.
+          if (submittedPrompt) event.responseInputIds = [submittedPrompt]
+          events.push(event)
         }
         if (events.length > 0) yield { sequence: sequence++, events }
       } finally {
@@ -1149,7 +1170,11 @@ export class ClaudeAdapter implements SessionAdapter {
           appliedOutputStyle = outputStyle
         }
         return admitInput(
-          () => pushInput(batchContent(next), next.promptUuid),
+          () => {
+            const pushed = pushInput(batchContent(next), next.promptUuid)
+            if (pushed) submittedPrompt = next.promptUuid
+            return pushed
+          },
           next.signal,
           next.canSubmit
         )

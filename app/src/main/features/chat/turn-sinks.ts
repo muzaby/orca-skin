@@ -10,7 +10,7 @@
 // 에 TurnContext 를 들이면 import/no-cycle 이 차단한다. sink 들은 TurnContext 를 참조하므로
 // 사이클 없는 별도 모듈에 둔다.
 
-import type { NormalizedEvent } from '../../../shared/ipc'
+import type { NormalizedEvent, TurnFailureReceipt } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 import type { UserCommitBatch } from '../../../shared/peer-protocol'
 
@@ -24,6 +24,12 @@ export interface TurnPersistSink<W = unknown> {
     turn: TurnContext<W>,
     batch: UserCommitBatch
   ): number | null | Promise<number | null>
+  // Only a committed input may own a failure. Null means the storage failure was reported.
+  commitFailure?(
+    turn: TurnContext<W>,
+    event: Extract<NormalizedEvent, { type: 'error' }>,
+    occurrence: Omit<TurnFailureReceipt, 'assistantMessageKey'>
+  ): Promise<TurnFailureReceipt | null>
   // AskUserQuestion tool_result 합성도 영속 책임(persist.ts) — reduce 가 페어링 시 호출.
   flushAskAnswers(turn: TurnContext<W>, owner: W): void
 }

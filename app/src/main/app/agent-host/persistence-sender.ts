@@ -14,7 +14,7 @@
 //
 // 세션 id 는 하네스가 준다 — 저장이 정하던 `turn.dbSessionId` 를 실행 쪽도 같은 이벤트에서 정한다.
 
-import type { NormalizedEvent } from '../../../shared/ipc'
+import type { NormalizedEvent, TurnFailureReceipt } from '../../../shared/ipc'
 import {
   assistantMessageId,
   PART_EVENT_TYPES,
@@ -68,6 +68,7 @@ interface TurnState {
   queue: NormalizedEvent[]
   failed: boolean
   messageKey?: string
+  currentUserKey?: string
   callKeys: Map<string, string>
   boundaryKeys: Map<string, string>
 }
@@ -164,6 +165,7 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
 
   const relay = (turn: TurnContext<ClientRef>, ev: NormalizedEvent): void => {
     const state = states.get(turn)
+    if (state?.failed && ev.type === 'error' && ev.failure) return
     if (!state || (!state.pending && state.queue.length === 0)) {
       deps.send(turn.owner, ev)
     } else if (!state.failed) {
@@ -191,7 +193,8 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
         }
       }
       const state = stateOf(turn)
-      if (state.failed) return
+      // Receipt-bearing errors were already written by the acknowledged request.
+      if (state.failed || (ev.type === 'error' && ev.failure)) return
       if (ev.type === 'message.delta' || ev.type === 'message.reasoning.delta') {
         ev.messageKey ??= state.messageKey ??= assistantMessageId(deps.newId())
       } else if (isPartEvent(ev)) {
@@ -283,6 +286,49 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
         deps.link.notify('turn.askAnswers', { ...envelope(activeState), answers })
       }
     },
+    async commitFailure(turn, event, occurrence) {
+      const state = stateOf(turn)
+      if (state.failed || !turn.dbSessionId || turn.dbSessionId !== event.sessionId) return null
+      const { ownerUserMessageKey } = occurrence
+      const boundaryKey = occurrence.responseBoundaryId
+        ? state.boundaryKeys.get(occurrence.responseBoundaryId)
+        : undefined
+      const assistantMessageKey =
+        boundaryKey ??
+        (state.currentUserKey === ownerUserMessageKey
+          ? (state.messageKey ??= assistantMessageId(deps.newId()))
+          : assistantMessageId(deps.newId()))
+      const failure: TurnFailureReceipt = {
+        ...occurrence,
+        assistantMessageKey
+      }
+      const payload = {
+        ...envelope(state),
+        ev: { ...event, messageKey: assistantMessageKey, failure }
+      }
+      const request = (): Promise<unknown> => deps.link.request('turn.failureEvent', payload)
+      try {
+        // The previous write can already be committed if only its reply was lost.
+        const receipt = (await request().catch((error: unknown) => {
+          if (state.failed) throw error
+          return request()
+        })) as TurnFailureReceipt | null
+        if (state.failed) return null
+        if (
+          !receipt ||
+          receipt.failureId !== failure.failureId ||
+          receipt.occurredAt !== failure.occurredAt ||
+          receipt.assistantMessageKey !== assistantMessageKey ||
+          receipt.responseBoundaryId !== failure.responseBoundaryId ||
+          receipt.ownerUserMessageKey !== ownerUserMessageKey
+        )
+          throw new Error('대화 실패 영수증을 확인할 수 없습니다.')
+        return receipt
+      } catch (error) {
+        fail(state, error instanceof Error ? error.message : PERSIST_PEER_LOST)
+        return null
+      }
+    },
     async commitUserMessage(turn, batch) {
       const state = stateOf(turn)
       if (state.failed) return null
@@ -290,7 +336,10 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
         ...envelope(state),
         batch
       })) as UserCommitResult | null
-      if (result?.created) delete state.messageKey
+      if (result?.created) {
+        delete state.messageKey
+        state.currentUserKey = batch.messageKey
+      }
       return result?.id ?? null
     },
     finalizeTurn(turn) {

@@ -75,10 +75,12 @@ export function openCodeChannel(
   let iterator: AsyncGenerator<Event> | undefined
   let closed = false
   let ended = false
+  let retiredAfterFailure = false
   let interrupted = false
   let responseOpen = false
   let detachActivity: (() => void) | undefined
   let submissionEpoch = 0
+  let submittedPrompt: string | undefined
   let sequence = 0
   let cleanup: Promise<void> | undefined
   const queue: ProviderMessageBatch[] = []
@@ -251,6 +253,7 @@ export function openCodeChannel(
     const messageID = createOpenCodeMessageId()
     const submission = ++submissionEpoch
     if (initial) req.recovery?.onPrompt(messageID)
+    submittedPrompt = next.promptUuid
     activity.acceptPrompt(messageID)
     trace.bind(sessionId, messageID)
     interrupted = false
@@ -451,6 +454,19 @@ export function openCodeChannel(
           })
         }
         const mapped = activity.map(event)
+        // A session-wide error has no parent message ID. Only the first submitted response
+        // on this channel has no retired response whose late terminal could be mistaken for it.
+        if (
+          event.type === 'session.error' &&
+          !req.sessionId &&
+          submissionEpoch === 1 &&
+          responseOpen &&
+          submittedPrompt
+        ) {
+          for (const terminal of mapped.events) {
+            if (terminal.type === 'error') terminal.responseInputIds = [submittedPrompt]
+          }
+        }
         if (mapped.events.some((value) => value.type === 'input.received')) {
           responseOpen = true
           if (mainApproval.signal.aborted) mainApproval = new AbortController()
@@ -459,9 +475,15 @@ export function openCodeChannel(
           waitPhase.status(event.properties.status)
         }
         waitPhase.observe(mapped.events)
+        if (activity.root.terminal && mapped.events.some((value) => value.type === 'error')) {
+          // The consumer can open the next turn as soon as it sees this batch, before the SSE
+          // cleanup completes. This channel will accept no more inputs.
+          retiredAfterFailure = true
+          publish(mapped.events, mapped.providerEvents)
+          return
+        }
         if (mapped.events.length || mapped.providerEvents.length)
           publish(mapped.events, mapped.providerEvents)
-        if (activity.root.terminal && mapped.events.some((value) => value.type === 'error')) return
         const idle =
           event.type === 'session.idle' ||
           (event.type === 'session.status' && event.properties.status.type === 'idle')
@@ -585,6 +607,7 @@ export function openCodeChannel(
     eventBatches: batches(),
     close,
     pushTurn: async (next) => {
+      if (retiredAfterFailure && !next.signal?.aborted) return { kind: 'restartBeforeAccept' }
       if (closed || ended || signal.aborted)
         return { kind: 'rejectedBeforeAccept', reason: 'stream_closed' }
       try {

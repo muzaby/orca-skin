@@ -198,3 +198,16 @@ describe('Claude input hook correlation', () => {
     expect(receipts.drain('s1')).toHaveLength(1)
   })
 })
+
+it('keeps a late terminal for a completed submit out of a new response even if its result UUID changes', () => {
+  const receipts = new ClaudeInputReceipts()
+  receipts.submitted('Question', 'A')
+  receipts.response({ user_message_uuid: 'A' }, 's')
+  receipts.finishResponse()
+  receipts.submitted('Question', 'B')
+  const current = { user_message_uuid: 'B', user_message_uuids: ['A', 'B'] }
+  expect(receipts.pastResponse(current)).toBe(false)
+  receipts.response(current, 's')
+  expect(receipts.currentResponseInputs()).toEqual(['B'])
+  expect(receipts.pastResponse({ uuid: 'new-terminal-id', user_message_uuid: 'A' })).toBe(true)
+})

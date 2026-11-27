@@ -658,6 +658,34 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
     }
   }
 
+  it('reopens the next submission when the previous root failure is delivered during channel cleanup', async () => {
+    const f = fixture()
+    f.onPrompt = (body) =>
+      f.emit(
+        event('message.updated', {
+          sessionID: 's1',
+          info: { ...assistantMessage('s1', String(body.messageID)), error: denied }
+        })
+      )
+    const live = f.adapter.sendMessage(request())
+    try {
+      for await (const batch of live.eventBatches) {
+        if (!batch.events.some((ev) => ev.type === 'error')) continue
+        expect(await live.pushTurn!({ text: 'next', promptUuid: 'second' })).toEqual({
+          kind: 'restartBeforeAccept'
+        })
+        expect(
+          f.requests.filter((r) => new URL(r.url).pathname.endsWith('/prompt_async'))
+        ).toHaveLength(1)
+        return
+      }
+      throw new Error('Missing root failure')
+    } finally {
+      live.close()
+      f.adapter.close()
+    }
+  })
+
   it.each(['session.error', 'message.updated', 'http'] as const)(
     'explains provider free-tier rejection from %s without secrets, retry or false success',
     async (ingress) => {
@@ -686,6 +714,15 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
           }
         })
       ])
+      const error = events.find((entry) => entry.type === 'error')!
+      if (ingress === 'message.updated') {
+        const prompt = events.find((entry) => entry.type === 'input.echo')!
+        expect(error.responseInputIds).toEqual([prompt.nativeMessageId])
+        expect(error.nativeMessageId).toBe('a1')
+      } else {
+        // A resumed session-wide notice and a failed HTTP submit do not prove a response parent.
+        expect(error.responseInputIds).toBeUndefined()
+      }
       expect(JSON.stringify(events)).not.toContain('secret-')
       expect(events.some((e) => e.type === 'turn.ended')).toBe(false)
       expect(

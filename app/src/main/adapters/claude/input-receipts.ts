@@ -21,13 +21,35 @@ function hookText(contents: TurnInputContent[]): string {
     .trim()
 }
 
+// The singular SDK field identifies the submit that opened the response. The plural field
+// may also name earlier preludes and steering messages consumed during that response.
+export function claudeResponseInputs(message: unknown): string[] {
+  if (!isRecord(message) || message.parent_tool_use_id != null) return []
+  if (typeof message.user_message_uuid === 'string' && message.user_message_uuid)
+    return [message.user_message_uuid]
+  return Array.isArray(message.user_message_uuids)
+    ? message.user_message_uuids.filter((id): id is string => typeof id === 'string' && !!id)
+    : []
+}
+
 /** user wire를 숨기는 SDK 자동 입력을 hook로 보존하되 앱 송신/중복 wire와 합류한다. */
 export class ClaudeInputReceipts {
   private own: { content: TurnInputContent; uuid?: string; echoed: boolean }[] = []
   private pending: Receipt[] = []
   private emitted: Receipt[] = []
   private closed = false
+  private responseInputs = new Set<string>()
+  private completedInputs = new Set<string>()
   private submittedUuids = new Map<string, TurnInputContent>()
+
+  pastResponse(message: unknown): boolean {
+    const ids = claudeResponseInputs(message)
+    return ids.length > 0 && ids.every((id) => this.completedInputs.has(id))
+  }
+
+  currentResponseInputs(): string[] {
+    return [...this.responseInputs]
+  }
 
   submitted(content: TurnInputContent, uuid?: string): void {
     if (!this.closed) {
@@ -39,6 +61,7 @@ export class ClaudeInputReceipts {
   response(message: unknown, sessionId: string): NormalizedEvent[] {
     if (this.closed || !isRecord(message) || message.parent_tool_use_id != null || !sessionId)
       return []
+    for (const id of claudeResponseInputs(message)) this.responseInputs.add(id)
     const ids = new Set<string>()
     if (Array.isArray(message.user_message_uuids)) {
       for (const id of message.user_message_uuids) if (typeof id === 'string') ids.add(id)
@@ -139,6 +162,11 @@ export class ClaudeInputReceipts {
   }
 
   finishResponse(): void {
+    for (const id of this.responseInputs) this.completedInputs.add(id)
+    this.responseInputs.clear()
+    while (this.completedInputs.size > 2048)
+      this.completedInputs.delete(this.completedInputs.values().next().value!)
+
     // 텍스트 상관은 현재 응답 안의 늦은 wire에만 유효하다. 다음 응답의 동일 본문은 새 입력이다.
     this.emitted = []
     this.own = this.own.filter((entry) => !entry.echoed)
