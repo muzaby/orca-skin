@@ -59,6 +59,9 @@ const entryCase = ['openFrames', 'entryPrepend', 'entryCancel'].includes(scenari
 const latestFive = [6, 7, 8, 9, 10].flatMap((i) => turn(i, 3))
 let releaseUnit: (() => void) | undefined
 let expanded = false
+let requestsBeforeUnitInput: string[] | undefined
+let unitPlacement: { top: number; bottom: number } | undefined
+let unitRequestGeometry: { top: number; height: number; viewport: number; rows: number } | undefined
 const target = 'u:63'
 const locator: HistoryLocator = {
   v: 1,
@@ -88,6 +91,13 @@ Object.assign(window, {
       page: async (query: HistoryQuery) => {
         searchRequests.push(query.kind)
         if (realPage && query.kind !== 'target') {
+          const el = scroller()
+          unitRequestGeometry = {
+            top: el.scrollTop,
+            height: el.scrollHeight,
+            viewport: el.clientHeight,
+            rows: el.querySelectorAll('[data-index]').length
+          }
           await new Promise<void>((resolve) => {
             releaseUnit = resolve
           })
@@ -371,15 +381,19 @@ Object.assign(window, {
   historyProbe: {
     async unitReady() {
       await settle(8)
-      const r = scroller().getBoundingClientRect()
+      requestsBeforeUnitInput = [...searchRequests]
+      const el = scroller()
+      unitPlacement = { top: el.scrollTop, bottom: Math.max(0, el.scrollHeight - el.clientHeight) }
+      el.tabIndex = -1
+      el.focus({ preventScroll: true })
+      const r = el.getBoundingClientRect()
       return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
     },
     async unit() {
       const ids = () => useChatStore.getState().sessions[id].session.messages.map((m) => m.id)
       await settle(8)
       const first = ids()
-      const rowsBeforeScroll = [...searchRequests]
-      if (scenario === 'unitOpen') scroller().scrollTo({ top: 0, behavior: 'instant' })
+      const rowsBeforeScroll = requestsBeforeUnitInput ?? [...searchRequests]
       for (let n = 0; !releaseUnit && n < 90; n++) await frame()
       if (!releaseUnit) throw Error('Missing unit request')
       reading = visibleLine()
@@ -390,6 +404,8 @@ Object.assign(window, {
         first,
         ids: ids(),
         rowsBeforeScroll,
+        unitPlacement,
+        unitRequestGeometry,
         requests: searchRequests,
         before,
         layouts,
@@ -434,7 +450,8 @@ Object.assign(window, {
       return { firstPaint, moving: [...offsets], requests: searchRequests }
     },
     async entrySettle() {
-      const samples = []
+      const samples: { top: number; bottom: number; correcting?: boolean; line: number | null }[] =
+        []
       const el = scroller()
       for (let n = 0; n < 20 && !releaseUnit; n++) await frame()
       if (!releaseUnit) throw Error('Entry did not schedule unit fill')
@@ -460,8 +477,11 @@ Object.assign(window, {
       return { before, samples, writes }
     },
 
+    async waitForWheels(count: number) {
+      for (let n = 0; n < 90 && wheels.length < count; n++) await frame()
+      if (wheels.length < count) throw Error('Native wheel did not arrive')
+    },
     async waitWheel() {
-      await settle(2)
       for (let n = 0; !wheels.length && n < 60; n++) await frame()
     },
     async waitPull() {
@@ -477,7 +497,7 @@ Object.assign(window, {
       reading = visibleLine()
       const before = snapshot()
       releaseUnit()
-      const frames = []
+      const frames: (Sample & { height: number })[] = []
       for (let n = 0; n < 28; n++) {
         await frame()
         frames.push({
@@ -566,9 +586,15 @@ Object.assign(window, {
     async prepare() {
       await document.fonts.ready
       await settle()
-      scroller().scrollTop = 0
+      scroller().scrollTo({ top: 0, behavior: 'instant' })
       if (scenario === 'framesSmoothCss') scroller().style.scrollBehavior = 'smooth'
       await settle()
+      // Native Home can keep moving asynchronously after the event was delivered.
+      // Establish the common zero coordinate before recording the first measured frame.
+      if (['frames', 'framesSmoothCss', 'states'].includes(scenario ?? '')) {
+        scroller().scrollTo({ top: 0, behavior: 'instant' })
+        await frame()
+      }
       reading = visibleLine()
       observeScrollWrites(scroller(), (event) => writes.push(event))
       const bounds = scroller().getBoundingClientRect()
@@ -609,7 +635,7 @@ Object.assign(window, {
     },
     async commit() {
       await waitForRequest()
-      await frame()
+      if (scenario !== 'followup') await frame()
       nested?.remove()
       reading = visibleLine()
       const before = snapshot()
@@ -685,12 +711,20 @@ Object.assign(window, {
       const scrollerEl = scroller()
       const row = (part: string) =>
         scrollerEl.querySelector('[data-part-key="' + part + '"]')?.closest('[data-index]')
-      const lastInserted = row('a:1:text:0')
+      // A saved assistant message can end in a metadata row below its final text segment.
+      const insertedRows = Array.from(scrollerEl.querySelectorAll<HTMLElement>('[data-index]'))
+      const lastInserted = insertedRows.findLast(
+        (node) =>
+          node.dataset.messageId === 'a:1' ||
+          node.dataset.partKey?.startsWith('a:1:') ||
+          node.querySelector('[data-part-key^="a:1:"]') !== null
+      )
       const firstExisting = row('u:2:user')
       return {
         joinGap:
           scenario === 'pullSuccess' && lastInserted && firstExisting
-            ? firstExisting.getBoundingClientRect().top - lastInserted.getBoundingClientRect().bottom
+            ? firstExisting.getBoundingClientRect().top -
+              lastInserted.getBoundingClientRect().bottom
             : undefined,
         spinners: scrollerEl.querySelectorAll(
           '[data-history-edge="before"] svg, [data-history-pull] svg'

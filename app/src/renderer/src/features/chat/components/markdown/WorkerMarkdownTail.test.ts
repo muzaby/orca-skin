@@ -253,3 +253,22 @@ it('s9 completing a parsed tail yields the same elements and text as completed M
   dom.render(createElement(Markdown, { source }))
   expect(completed).toEqual(snapshot(dom.body))
 })
+
+it('indexes a tail larger than one worker document before registering its pieces', async () => {
+  const limit = 8_000_000
+  const source = 'x'.repeat(limit) + '**last**'
+  const open = vi.spyOn(fake.client, 'openDocument')
+  render(source)
+  expect(fake.requests).toHaveLength(1)
+  expect(fake.requests[0].kind).toBe('markdownLayout')
+  expect(open).toHaveBeenCalledTimes(0)
+  fake.resolveNext({
+    segments: [
+      { start: 0, end: limit, blocks: [{ start: 0, end: limit }] },
+      { start: limit, end: source.length, blocks: [{ start: 0, end: source.length - limit }] }
+    ]
+  })
+  await settle()
+  expect(open.mock.calls.map(([, content]) => content.text.length)).toEqual([limit, 8])
+  expect(fake.requests.slice(1).map((request) => request.kind)).toEqual(['markdown', 'markdown'])
+})

@@ -252,26 +252,30 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const footerRef = useRef<HTMLDivElement | null>(null)
   const lastHeaderHeightRef = useRef<number | null>(null)
 
-  const requestHead = useCallback((): boolean => {
-    const el = scrollRef.current
-    const controls = historyRef.current
-    if (
-      !el ||
-      !el.clientHeight ||
-      controls?.before !== 'ready' ||
-      isCorrecting(el) ||
-      interruptedAnchorLayout.current ||
-      entryMoving(el)
-    )
-      return false
-    const height =
-      headerRef.current?.querySelector('[data-history-edge="before"]')?.getBoundingClientRect()
-        .height ?? 0
-    return (
-      headInView(el.scrollTop, el.scrollHeight, el.clientHeight, height) &&
-      controls.request('before')
-    )
-  }, [scrollRef])
+  const requestHead = useCallback(
+    (userInput = false): boolean => {
+      const el = scrollRef.current
+      const controls = historyRef.current
+      if (
+        !el ||
+        !el.clientHeight ||
+        controls?.before !== 'ready' ||
+        isCorrecting(el) ||
+        interruptedAnchorLayout.current ||
+        entryMoving(el)
+      )
+        return false
+      const height =
+        headerRef.current?.querySelector('[data-history-edge="before"]')?.getBoundingClientRect()
+          .height ?? 0
+      return (
+        (userInput || !isPinnedRef.current?.() || el.scrollHeight - el.clientHeight <= height) &&
+        headInView(el.scrollTop, el.scrollHeight, el.clientHeight, height) &&
+        controls.request('before')
+      )
+    },
+    [scrollRef]
+  )
 
   // ΔV2 (D-103): rows rendered by the previous commit, the drag gesture and the
   // rendered rows the native selection spans (display only — never restored).
@@ -770,7 +774,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       if (!controls || controls[direction] !== 'ready') return false
       const delta = direction === 'before' ? -1 : 1
       if (nestedScrollConsumes(target, el, delta)) return false
-      if (direction === 'before') return requestHead()
+      if (direction === 'before') return requestHead(true)
       if (
         canConsumeScroll(
           { top: el.scrollTop, height: el.scrollHeight, viewport: el.clientHeight },
@@ -834,7 +838,14 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       if (!interruptedAnchorLayout.current && !isPinnedRef.current?.()) {
         restingAnchorRef.current = captureAnchor(el)
       }
-      requestHead()
+      if (
+        !requestHead() &&
+        isPinnedRef.current?.() &&
+        el.scrollTop <= (headerRef.current?.offsetHeight ?? 0)
+      ) {
+        // The harness updates pin state after the native scroll listener on a scrollbar drag.
+        requestAnimationFrame(() => requestHead())
+      }
     }
     const wheelListener = historyEnabled ? onWheel : interrupt
     el.addEventListener('wheel', wheelListener, { passive: !historyEnabled })

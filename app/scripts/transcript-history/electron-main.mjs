@@ -10,6 +10,11 @@ const searches = []
 async function measure(wc, screen, scenario) {
   await wc.loadURL(origin + '/?' + new URLSearchParams({ screen, scenario }))
   const probe = (method) => wc.executeJavaScript('window.historyProbe.' + method + '()', true)
+  if (scenario === 'unitOpen') {
+    await probe('unitReady')
+    wc.sendInputEvent({ type: 'keyDown', keyCode: 'Home' })
+    wc.sendInputEvent({ type: 'keyUp', keyCode: 'Home' })
+  }
   if (scenario === 'framesUnit') {
     const point = await probe('unitReady')
     wc.sendInputEvent({
@@ -38,12 +43,10 @@ async function measure(wc, screen, scenario) {
     }
     return { ...entry, ...(await probe('entrySettle')) }
   }
-  if (['frames', 'framesSmoothCss', 'states'].includes(scenario)) {
-    // Reach the head through normal keyboard input so both harnesses release bottom-follow.
-    await probe('focusForHome')
-    wc.sendInputEvent({ type: 'keyDown', keyCode: 'Home' })
-    wc.sendInputEvent({ type: 'keyUp', keyCode: 'Home' })
-  }
+  // Reach the head through normal keyboard input so both harnesses release bottom-follow.
+  await probe('focusForHome')
+  wc.sendInputEvent({ type: 'keyDown', keyCode: 'Home' })
+  wc.sendInputEvent({ type: 'keyUp', keyCode: 'Home' })
   const { x, y, start } = await probe('prepare')
   const wheel = (delta) =>
     wc.sendInputEvent({
@@ -95,6 +98,7 @@ async function measure(wc, screen, scenario) {
           for (let i = 1; i < 30; i++) {
             await delay(16)
             wheel(-8)
+            await wc.executeJavaScript('window.historyProbe.waitForWheels(' + (i + 1) + ')')
           }
         })()
       : undefined
@@ -171,13 +175,15 @@ app.whenReady().then(async () => {
             for (let attempt = 0; ; attempt++) {
               const result = await measure(win.webContents, screen, scenario)
               const wheels = result.wheels
+              const continuous =
+                (scenario === 'followup' && wheels?.length === 2) ||
+                (scenario === 'inertia' && wheels?.length === 30)
               if (
-                scenario === 'followup' &&
-                wheels.length === 2 &&
-                wheels[1].timestamp - wheels[0].timestamp >= 200
+                continuous &&
+                wheels.some((w, i) => i > 0 && w.timestamp - wheels[i - 1].timestamp >= 200)
               ) {
                 discarded.push({ run, screen, scenario, attempt, wheels })
-                if (attempt >= 3) throw Error('Could not deliver follow-up within the gesture gap')
+                if (attempt >= 11) throw Error('Could not deliver input within the gesture gap')
                 continue
               }
               records.push({ run, screen, scenario, ...result })

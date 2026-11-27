@@ -15,6 +15,7 @@ function passes(record) {
       JSON.stringify(record.first) === JSON.stringify(keys.slice(10)) &&
       JSON.stringify(record.ids) === JSON.stringify(keys) &&
       record.rowsBeforeScroll.length === 0 &&
+      Math.abs(record.unitPlacement.top - record.unitPlacement.bottom) <= 1 &&
       record.requests.join(',') === 'earlierTurn'
     )
   }
@@ -54,6 +55,21 @@ function passes(record) {
         last.bottom - last.top > 1 &&
         !writes.some((w) => w.event === 'write' && ['claude', 'opencode'].includes(w.owner))
       )
+    if (record.scenario === 'entryPrepend') {
+      const backend = record.screen.split('-')[0]
+      const open = writes.findIndex((w) => w.event === 'open')
+      const settled = writes.findIndex((w) => w.event === 'settled')
+      const pause = writes[open - 1]
+      if (
+        pause?.owner !== backend ||
+        pause.event !== 'write' ||
+        Math.abs(pause.top - record.before.scrollTop) > 1 ||
+        Math.abs(writes[open].top - pause.top) > 1 ||
+        settled <= open ||
+        !writes.slice(settled + 1).some((w) => w.owner === backend && w.event === 'write')
+      )
+        return false
+    }
     return (
       Math.abs(last.top - last.bottom) <= 1 &&
       writes.some((w) => w.event === 'open') &&

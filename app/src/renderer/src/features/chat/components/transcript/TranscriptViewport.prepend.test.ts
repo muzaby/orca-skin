@@ -164,12 +164,14 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
     const blocks = createBlockList([{ key: 'visible' }])
     const scrollRef = { current: scroller }
     const request = vi.fn(() => true)
+    let pinned = true
     const render = (before: 'ready' | 'loading' | 'error' | 'end'): void =>
       dom!.render(
         createElement(TranscriptViewport<{ key: string }>, {
           snapshot: blocks.snapshot(),
           scrollRef,
           history: { before, request },
+          isPinned: () => pinned,
           renderBlock: (block) => createElement('p', null, block.key)
         })
       )
@@ -181,6 +183,9 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
     render('ready')
     expect(request).not.toHaveBeenCalled()
     scroller.scrollTop = 0
+    scroller.dispatchEvent(new Event('scroll'))
+    expect(request).not.toHaveBeenCalled()
+    pinned = false
     scroller.dispatchEvent(new Event('scroll'))
     expect(request.mock.calls).toEqual([['before']])
     render('loading')

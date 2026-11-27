@@ -24,7 +24,10 @@ export async function measureBodyMatrix(binary, origin) {
   return records.length === 30 &&
     records.every(
       (row) =>
-        row.complete && row.longtask.length === 0 && (row.input !== 'B1' || row.selectionMatches)
+        row.complete &&
+        row.formattedBodyMatches &&
+        row.longtask.length === 0 &&
+        (row.input !== 'B1' || row.selectionMatches)
     )
     ? 0
     : 1

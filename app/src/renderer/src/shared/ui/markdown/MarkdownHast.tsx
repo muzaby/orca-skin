@@ -47,7 +47,14 @@ const tableParents = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr'])
  * retain their React elements and keys when a later frame extends a deeply nested child. */
 // eslint-disable-next-line react-refresh/only-export-components -- Pure iterator also supplies the frame-budget oracle.
 export function* markdownFrames(
-  { hast, source, parts }: MarkdownHastProps,
+  {
+    hast,
+    source,
+    parts,
+    trackParagraph
+  }: MarkdownHastProps & {
+    trackParagraph?: () => () => void
+  },
   limit = MARKDOWN_COMMIT_MAX_NODES,
   milliseconds = 5
 ): Generator<ReactNode, ReactNode> {
@@ -120,7 +127,7 @@ export function* markdownFrames(
         node.value.length > 131072 &&
         (!parts || parts.length <= 1)
       ) {
-        const run = <LongParagraphText value={node.value} />
+        const run = <LongParagraphText value={node.value} onComplete={trackParagraph?.()} />
         return parts?.length ? (
           <span data-part-key={parts[0].key} data-markdown-part-fragment="">
             {run}
@@ -178,24 +185,33 @@ export function MarkdownHast({
   onComplete,
   tableRows
 }: MarkdownHastProps): React.JSX.Element {
+  const [completedParagraphs, setCompletedParagraphs] = useState(0)
   const stream = useMemo(() => {
+    const pending = new Set<object>()
+    const trackParagraph = (): (() => void) => {
+      const ticket = {}
+      pending.add(ticket)
+      return () => {
+        if (pending.delete(ticket) && !pending.size) setCompletedParagraphs((n) => n + 1)
+      }
+    }
     const frames =
       typeof window === 'undefined'
         ? markdownFrames({ hast, source, parts }, Infinity, Infinity)
-        : markdownFrames({ hast, source, parts })
+        : markdownFrames({ hast, source, parts, trackParagraph })
     const first = frames.next()
-    return { frames, first }
+    return { frames, first, pending }
   }, [hast, source, parts])
   const [progress, setProgress] = useState<{ stream: typeof stream; step: typeof stream.first }>()
   const step = progress?.stream === stream ? progress.step : stream.first
   useEffect(() => {
     if (step.done) {
-      onComplete?.()
+      if (!stream.pending.size) onComplete?.()
       return
     }
     const frame = requestAnimationFrame(() => setProgress({ stream, step: stream.frames.next() }))
     return () => cancelAnimationFrame(frame)
-  }, [step, stream, onComplete])
+  }, [step, stream, completedParagraphs, onComplete])
   const context = useMemo(() => (parts?.length ? { source, parts } : null), [source, parts])
   return (
     <MarkdownPartsContext.Provider value={context}>

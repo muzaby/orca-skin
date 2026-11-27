@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 interface LineGroup {
   end: number
@@ -47,7 +47,13 @@ const ParagraphGroup = memo(function ParagraphGroup({
 // Blink shapes a single enormous inline formatting context even when nearly all of it is
 // offscreen. Partition a leading prose run on its actual soft wraps. Each inline box keeps
 // its original text (including the separator) for selection and uses the measured height.
-export function LongParagraphText({ value }: { value: string }): React.JSX.Element {
+export function LongParagraphText({
+  value,
+  onComplete
+}: {
+  value: string
+  onComplete?: () => void
+}): React.JSX.Element {
   const probe = useRef<HTMLSpanElement>(null)
   const [layout, setLayout] = useState<{ value: string; groups: LineGroup[] }>()
   useLayoutEffect(() => {
@@ -150,6 +156,10 @@ export function LongParagraphText({ value }: { value: string }): React.JSX.Eleme
     }
   }, [value])
   const groups = layout?.value === value ? layout.groups : []
+  const complete = groups.at(-1)?.end === value.length
+  useEffect(() => {
+    if (complete) onComplete?.()
+  }, [complete, onComplete])
   return (
     <>
       <span
@@ -167,7 +177,7 @@ export function LongParagraphText({ value }: { value: string }): React.JSX.Eleme
       {groups.map((group, i) => (
         <ParagraphGroup key={i} value={value} start={groups[i - 1]?.end ?? 0} group={group} />
       ))}
-      {groups.at(-1)?.end !== value.length && <span hidden data-md-block-pending="" />}
+      {!complete && <span hidden data-md-block-pending="" />}
     </>
   )
 }

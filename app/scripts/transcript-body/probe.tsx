@@ -55,6 +55,14 @@ for (let offset = 0; offset < bytes.length; offset += HISTORY_BODY_BYTES) {
   chunks.push(btoa(binary))
 }
 let start = Infinity
+interface LongFrame extends PerformanceEntry {
+  styleAndLayoutStart: number
+  scripts: readonly {
+    invoker: string
+    duration: number
+    forcedStyleAndLayoutDuration: number
+  }[]
+}
 const tasks: PerformanceEntry[] = []
 const observer = new PerformanceObserver((list) => tasks.push(...list.getEntries()))
 observer.observe({ entryTypes: ['longtask', 'long-animation-frame'] })
@@ -162,6 +170,40 @@ function copyAcrossProseWrap(): boolean {
   selection.removeAllRanges()
   return copied.length > 0 && copied === range.cloneContents().textContent
 }
+function formattedBodyMatches(): boolean {
+  const done = [...document.querySelectorAll('strong')].find((el) => el.textContent === '완료')
+  const paragraph = done?.closest('p')
+  const doc = paragraph?.parentElement
+  if (!doc || !paragraph) return false
+  if (input === 'B4')
+    return (
+      paragraph.querySelectorAll('code').length === 12500 &&
+      paragraph.querySelectorAll('a[href="https://example.org"]').length === 12500
+    )
+  if (input === 'B2') {
+    const tables = [...doc.querySelectorAll('table')]
+    return (
+      doc.querySelectorAll('pre').length === 40 &&
+      [...doc.querySelectorAll('p')].filter((p) => p.textContent === 'p'.repeat(200)).length ===
+        3000 &&
+      !!doc.querySelector('ul:has(> li:nth-child(30000))') &&
+      tables.some((t) => t.tBodies[0]?.rows.length === 2001) &&
+      tables.some((t) => t.tHead?.rows[0]?.cells.length === 600) &&
+      !!doc.querySelector('section[data-footnotes]')
+    )
+  }
+  if (input === 'B5') {
+    const expected = source.split('\n\n').filter(Boolean)
+    const paragraphs = doc.querySelectorAll('p')
+    return (
+      paragraphs.length === expected.length &&
+      expected.every(
+        (text, i) => paragraphs[i].textContent === text.trimEnd().replace(marker, '완료')
+      )
+    )
+  }
+  return paragraph.textContent === source.slice(0, -marker.length) + '완료'
+}
 async function measure(): Promise<unknown> {
   await frame()
   if (input === 'B3') {
@@ -222,10 +264,31 @@ async function measure(): Promise<unknown> {
   return {
     complete: complete && stable === 10,
     ...(input === 'B1' && { selectionMatches: copyAcrossProseWrap() }),
+    formattedBodyMatches: complete && formattedBodyMatches(),
     characters: source.length,
     bytes: bytes.length,
     longtask: durations('longtask'),
     longAnimationFrame: durations('long-animation-frame'),
+    slowestFrames: tasks
+      .filter(
+        (e): e is LongFrame =>
+          e.entryType === 'long-animation-frame' &&
+          e.startTime + e.duration > start &&
+          e.startTime < end
+      )
+      .sort((a, b) => b.duration - a.duration)
+      .slice(0, 5)
+      .map((frame) => ({
+        duration: frame.duration,
+        styleAndLayout: frame.styleAndLayoutStart
+          ? frame.startTime + frame.duration - frame.styleAndLayoutStart
+          : 0,
+        scripts: frame.scripts.map((script) => ({
+          invoker: script.invoker,
+          duration: script.duration,
+          forcedStyleAndLayout: script.forcedStyleAndLayoutDuration
+        }))
+      })),
     duration: end - start
   }
 }

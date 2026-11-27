@@ -188,6 +188,28 @@ describe('search history in the chat store', () => {
     ])
   })
 
+  it('AC16 reports a failed search-edge request once if its failure callback is replayed', async () => {
+    const report = vi.spyOn(errors, 'reportError').mockImplementation(() => {})
+    const page = vi
+      .spyOn(sessionApi, 'page')
+      .mockResolvedValueOnce(reply('b', ['one', 'two'], true, true))
+    await chatActions.openSearchHit(locator('b', 'one'), false)
+    let rejectAgain: (() => void) | undefined
+    const pending = new Promise<HistoryPageReply>(() => {})
+    vi.spyOn(pending, 'then').mockImplementation((_resolve, reject) => {
+      rejectAgain = () => reject?.(Error('page transport'))
+      return new Promise<never>(() => {})
+    })
+    page.mockReturnValueOnce(pending)
+    expect(chatActions.readSearchEdge('b', 'before')).toBe(true)
+    expect(rejectAgain).toBeDefined()
+    rejectAgain!()
+    rejectAgain!()
+    expect(report).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ title: 'historyLoadFailed' })
+    )
+  })
+
   it.each(['search rejected', 'wrong generation', 'overlap', 'transport'] as const)(
     'reports one earlier-history failure for the admitted request (%s)',
     async (problem) => {
