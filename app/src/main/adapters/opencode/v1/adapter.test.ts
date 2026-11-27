@@ -200,6 +200,7 @@ function fixture(
   failPrompt: boolean
   failMcp: boolean
   promptError?: { status: number; body: unknown }
+  history?: unknown[]
   completionError?: unknown
   permissionError?: { status: number; body: unknown }
 } {
@@ -265,6 +266,7 @@ function fixture(
       result.onPrompt((await req.json()) as Record<string, unknown>)
       return new Response(null, { status: 204 })
     }
+    if (path.endsWith('/message') && req.method === 'GET') return jsonResponse(result.history ?? [])
     if (path.endsWith('/message') && req.method === 'POST')
       return jsonResponse({
         info: { ...assistantMessage(), error: result.completionError },
@@ -657,6 +659,39 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
       responseBody: JSON.stringify({ error: { type: 'FreeTierError', detail: 'secret-body' } })
     }
   }
+
+  it.each([false, true])(
+    'recovers a session.error parent from the native failed message on a resumed session (current=%s)',
+    async (current) => {
+      const f = fixture()
+      f.onPrompt = (body) => {
+        f.history = [
+          {
+            info: {
+              ...assistantMessage(
+                's1',
+                current ? String(body.messageID) : 'prior',
+                'native-failed'
+              ),
+              error: denied
+            },
+            parts: []
+          }
+        ]
+        f.emit(event('session.error', { sessionID: 's1', error: denied }))
+      }
+      try {
+        const events = await collect(f.adapter, request())
+        const parent = events.find((ev) => ev.type === 'input.echo')?.nativeMessageId
+        const terminal = events.find((ev) => ev.type === 'error')!
+        expect(parent).toBeTruthy()
+        expect(terminal.responseInputIds).toEqual(current ? [parent] : undefined)
+        expect(terminal.nativeMessageId).toBe(current ? 'native-failed' : undefined)
+      } finally {
+        f.adapter.close()
+      }
+    }
+  )
 
   it('reopens the next submission when the previous root failure is delivered during channel cleanup', async () => {
     const f = fixture()

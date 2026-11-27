@@ -18,6 +18,47 @@ import type { OpenCodeClientLease } from './session-context'
 import { OpenCodeTurnTrace } from './turn-trace'
 import { OpenCodeWaitPhase } from './wait-phase'
 
+// A session.error does not identify its prompt. The indexed response can already be
+// available before the following message.updated reaches the SSE consumer.
+async function readFailedResponse(
+  client: OpencodeClient,
+  sessionID: string,
+  directory: string,
+  parentID: string,
+  signal: AbortSignal
+): Promise<
+  | Pick<
+      Extract<NormalizedEvent, { type: 'error' }>,
+      'error' | 'nativeMessageId' | 'responseInputIds'
+    >
+  | undefined
+> {
+  try {
+    const response = await client.session.messages(
+      { sessionID, directory, limit: 8 },
+      { signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]), throwOnError: false }
+    )
+    const failed = response.data?.flatMap(({ info }) =>
+      info.role === 'assistant' &&
+      info.sessionID === sessionID &&
+      info.parentID === parentID &&
+      info.error &&
+      info.error.name !== 'MessageAbortedError'
+        ? [info]
+        : []
+    )
+    if (failed?.length === 1)
+      return {
+        responseInputIds: [parentID],
+        nativeMessageId: failed[0].id,
+        error: classifyOpenCodeError(failed[0].error)
+      }
+  } catch {
+    // A failed lookup leaves the original session notice available.
+  }
+  return undefined
+}
+
 /** One SDK subscription feeds the existing SessionRuntime pump for its entire lifetime. */
 export function openCodeChannel(
   req: TurnRequest,
@@ -81,6 +122,7 @@ export function openCodeChannel(
   let detachActivity: (() => void) | undefined
   let submissionEpoch = 0
   let submittedPrompt: string | undefined
+  let submittedNativeId: string | undefined
   let sequence = 0
   let cleanup: Promise<void> | undefined
   const queue: ProviderMessageBatch[] = []
@@ -254,6 +296,7 @@ export function openCodeChannel(
     const submission = ++submissionEpoch
     if (initial) req.recovery?.onPrompt(messageID)
     submittedPrompt = next.promptUuid
+    submittedNativeId = messageID
     activity.acceptPrompt(messageID)
     trace.bind(sessionId, messageID)
     interrupted = false
@@ -454,18 +497,24 @@ export function openCodeChannel(
           })
         }
         const mapped = activity.map(event)
-        // A session-wide error has no parent message ID. Only the first submitted response
-        // on this channel has no retired response whose late terminal could be mistaken for it.
+        const rootFailure = mapped.events.find((value) => value.type === 'error')
         if (
           event.type === 'session.error' &&
-          !req.sessionId &&
-          submissionEpoch === 1 &&
+          rootFailure &&
           responseOpen &&
-          submittedPrompt
+          submittedNativeId &&
+          sessionId
         ) {
-          for (const terminal of mapped.events) {
-            if (terminal.type === 'error') terminal.responseInputIds = [submittedPrompt]
-          }
+          const proof = await readFailedResponse(
+            client,
+            sessionId,
+            req.cwd,
+            submittedNativeId,
+            signal
+          )
+          if (proof) Object.assign(rootFailure, proof)
+          else if (!req.sessionId && submissionEpoch === 1 && submittedPrompt)
+            rootFailure.responseInputIds = [submittedPrompt]
         }
         if (mapped.events.some((value) => value.type === 'input.received')) {
           responseOpen = true
