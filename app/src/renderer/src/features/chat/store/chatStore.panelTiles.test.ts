@@ -41,7 +41,7 @@ it.each(['work', 'code'] as const)(
 )
 
 it('AC9 only an active open panel navigates to an arriving plan review', () => {
-  const review = (id: string) =>
+  const review = (id: string): void =>
     ingestChatEvent({
       type: 'permission.requested',
       sessionId: id,
