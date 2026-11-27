@@ -114,6 +114,7 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 | `background_task_events` | 백그라운드 작업 원본 journal — [background-tasks.md](./background-tasks.md) |
 | `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, `message_key`, metadata(JSON) |
 | `message_parts` | messageId FK, 순서 보존 parts (text/tool/reasoning …, provider-runtime.md §7) |
+| `turn_failures` | 세션의 실패 발생 ID에 원래 user 행과 오류 part를 연결한다. 데이터 호스트는 part와 영수증을 한 트랜잭션으로 저장하고, 동일 요청이 재전달되면 최초 영수증을 반환한다. |
 | `projects` | id, name, instructions, cwd, cwd_key, pinned_at, createdAt, updatedAt |
 | `turn_usage` / `turn_model_usage` | per-turn 사용량 원장 + 모델별 분해 (토큰·cost_usd·context_window) |
 | `provider_limits` | provider별 월간 지출 한도 (0080) |

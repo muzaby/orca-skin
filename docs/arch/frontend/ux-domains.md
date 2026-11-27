@@ -41,7 +41,7 @@
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | 요청 대기                  | StatusLine — Claude 무작위 동사 `"Thinking... (Ns · ~Mtokens)"`, OpenCode 세부 대기 단계(`waitPhase`: `"OpenCode 서버를 시작하는 중…"` → `"모델 응답을 기다리는 중…"` 등) 후 첫 출력 도착 시 `"생각 중"` | `features/chat/components/StatusLine.tsx` (0093 에서 shared/ui 로부터 이동) |
 | 스트리밍 중                | StatusLine + 응답 메시지에 누적 텍스트                                                                                              | `features/chat/components/ChatTile.tsx`                 |
-| 에러 (`retryable: true`)   | 메시지 영역에 에러 카드                                                                                                             | `features/chat/reducer/chatReducer.ts` 의 `state.error` |
+| 에러 (`retryable: true`) | 실패한 입력의 카드에 분류·본문·재시도 안내를 표시한다. 입력과 연결되지 않은 오류는 현재 대화의 배너에 표시한다. | `features/chat/reducer/chatReducer.ts`와 각 하네스의 트랜스크립트 |
 | 에러 (`auth.expired`)      | AuthExpiredModal (`claude /login` 안내) — `#app-frame-modal` 슬롯, backdrop 은 `#app-frame-overlay` 가 담당 (dom-architecture.md.5) | `features/backend/harnesses/claude/components/AuthExpiredModal.tsx`      |
 | CLI 설치 진행              | InstallerDialog (라인별 로그 + 수동 명령 복사) — 동일하게 `#app-frame-modal` + `#app-frame-overlay` backdrop                        | `features/backend/harnesses/claude/components/InstallerDialog.tsx`       |
 | 네트워크 단절              | TBD (전역 배너 미구현)                                                                                                              | —                                                       |

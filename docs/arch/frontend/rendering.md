@@ -156,7 +156,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 | `TaskToolBody`(`task_list`) | 세션 **할 일 목록** 도구 4종 (TaskCreate/TaskGet/TaskUpdate/TaskList) | ✅ `TaskToolBody`(0212) — `agent_task`(서브에이전트 **실행**)와 다른 의미다: 저것은 프로세스를 띄우고 이것은 목록을 바꾼다. 이름 배열의 소유자는 `shared/task-tool.ts` 의 4종 부분집합 하나다(D-025 — 6종 전량을 쓰면 구조화 출력이 없는 `TaskOutput`·`TaskStop` 이 빈 본문을 받는다) |
 | `SessionGraphCard` / `ContextInjectionCard` | `children`·`fork`·`revert` / `noReply` | 🔴 seam (OpenCode 전용) |
 | `StructuredOutputCard`(`structured_output`) | `format:json_schema` 결과 | 코드에 없음 — 이 파트를 내는 하네스가 없다(§1.7) |
-| `ErrorCard`(`error`) | error 파트 | ✅ `ErrorCard`(트랜스크립트 인라인) + `state.error` 배너(라이브 턴) |
+| `ErrorCard`(`error`) | error 파트 | 입력의 영수증이 있는 실시간·저장 실패는 하네스별 인라인 카드에 표시한다. 입력과 연결되지 않은 실시간 오류는 `state.error` 배너에 표시한다. |
 | `UsagePanel`(`telemetry`) | usage·한도 | ✅ `UsagePanel`(컨텍스트 프로그레스바 + 주간/월간 한도 바, 0079~0082) — Composer usage 도넛 트리거 Popover, §1.9 |
 
 ### 1.7 StructuredOutput · reasoning 렌더링 (부분 구현)
