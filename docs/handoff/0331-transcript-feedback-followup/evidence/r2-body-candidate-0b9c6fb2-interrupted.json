@@ -1,0 +1,36 @@
+{
+  "sha": "0b9c6fb225303236a3c4585eea50ce8c22cd2b36",
+  "sampleFile": "r2-body-candidate-0b9c6fb2-interrupted.ndjson",
+  "sha256": "cec6448318fe1e3f25b4672faf322db66da2c99a6582a1f3e619c4c6abed9e18",
+  "status": "interrupted",
+  "exitCode": 143,
+  "completedCoordinates": [
+    [
+      "claude-code",
+      "B1",
+      0
+    ],
+    [
+      "claude-code",
+      "B2",
+      0
+    ],
+    [
+      "claude-code",
+      "B3",
+      0
+    ],
+    [
+      "claude-code",
+      "B4",
+      0
+    ]
+  ],
+  "interruptedCoordinate": [
+    "claude-code",
+    "B5",
+    0
+  ],
+  "matrixVerdict": null,
+  "reason": "The nine-row transcript viewport failed to mount its first two visible rows. The coordinator stopped this candidate for a production correction."
+}
