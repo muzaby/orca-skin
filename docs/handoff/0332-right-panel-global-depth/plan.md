@@ -8,15 +8,15 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0332-right-panel-global-depth` |
-| 작성자 | Claude Code (V1·ΔV2·ΔV3) · Codex (ΔV1 추가 요구·§22 기술 보완) |
-| 일자 | 2026-11-26 · §22 재계획 2026-11-27 |
-| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
-| 상태 | impl/IMPL_DONE · r1.2 · §22 재구현 자기보고 13/14. 최종 통합 실기 128/130, AC13의 50ms 예산이 남았다. 독립 검증 횟수 변동 없음. |
+| 작성자 | Claude Code (V1·ΔV2·ΔV3·ΔV4) · Codex (ΔV1 추가 요구·§22 기술 보완) |
+| 일자 | 2026-11-26 · §22 재계획·ΔV4 2026-11-27 |
+| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) · 0331~0333 사용자 실측(2026-11-27 — 기준 `c052c301`, §23) |
+| 상태 | plan/READY (ΔV4) · 다음 Codex(r1.3) · 라운드 1 — 백그라운드 상세의 뒤로 가기 중복을 사용자 요구 변경 ΔV로 받는다(§23). r1.2 자기보고 13/14(AC13 미충족)는 이력으로 남고 독립 검증 횟수는 0이다. |
 | V mode | `Delta V` |
 | 기준 V | 0332 V1 + ΔV1 + ΔV2 (`09d8b2ae`) |
-| 이번 V revision | `ΔV3` — 2차 리뷰 보완: VP-01 누락 기본값(Work 360·Code 520) · 닫힌 패널의 산출물 성공은 `navigate` 일반 규칙의 예외 |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
-| 기준 트리 | `18b5d5f`(0330 verify 3의 앱 코드) |
+| 이번 V revision | `ΔV4` — 패널 안 상세 선택을 스택 층으로 통일하고 타일 안 뒤로 버튼을 없앤다(§23). 직전 `ΔV3`(§21) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
+| 기준 트리 | `18b5d5f`(0330 verify 3의 앱 코드) · ΔV4 기준 `c052c301` |
 
 # Part I — Product & UX Contract
 
@@ -62,6 +62,7 @@
 | D-013 | 화면 기억은 Work/Code별 ‘사용자 조작으로 맨 위 타일 층이 바뀐 마지막 타일 id’다(상세·산출물·작업 상세 층은 기억하지 않는다). 세션을 옮기면 새 스택 = [기억 타일] — 새 세션이 지원하지 않으면 [기본(`initialTile ?? taskTarget`)]이고 이 대체는 기억을 바꾸지 않는다. 예시는 §20-D | 답 “화면 종류 유지” + 리뷰 “A에서 B로 이동한 뒤 … 어떤 타일을 기억하는지, B의 상세에서 바꿀 때 어디까지 복원하는지 예시로 고정” | 질의 + PR #656 리뷰 | ACTIVE | D-006 대체 |
 | D-014 | 산출물 열기: 클릭한 카드의 세션 key가 대상이다. 결과가 열 수 있음이고 그 요청이 최신이며 대상 세션이 여전히 활성일 때만 패널을 열고(닫혀 있으면 열기 전환) 산출물 층을 push한다. 미지원 형식은 탐색기 열기, 그 밖 실패는 기존 실패 안내이고 패널은 그대로다. 결과 전 세션이 바뀌면 열기를 취소하고 늦은 결과는 버린다 | 리뷰 “성공·실패, 파일을 여는 도중 세션이 바뀌거나 응답이 늦게 도착하는 경우의 패널 상태와 대상 세션을 명시” · 0242 D-014(결과 뒤 공간 할당) 유지 | PR #656 리뷰 | ACTIVE | D-004 보완 |
 | D-015 | 그리드 제거 범위 = production 상태·컴포넌트·공유 props(`RightPanelHostProps.layout`)·하네스 registry 계약(`RightPanelModule.Panel`·`resetBySession`)·기본 폭 상수 + 테스트·`chatStore.testHarness`·UI 시나리오 mock(`scripts/fixtures/opencode-ui/scenarios.ts`). 완료 조건은 `app/src`·`app/scripts` 전체(테스트 포함) 음성 검색 0 | 리뷰 “4×4 제거 범위에는 기존 상태·컴포넌트 외에 공유 props, 어댑터, 테스트용 데이터와 mock도 포함” | PR #656 리뷰 | ACTIVE | D-005 보완 |
+| D-016 | 패널 안 상세 선택(Claude 백그라운드 작업·호출, 구 모델 서브에이전트, OpenCode 서브에이전트)은 패널 스택의 한 층이다 — 들어온 순서대로 뒤로 간다. transcript 카드로 들어오면 뒤로 = 직전 화면(예: 계획), 목록에서 고른 상세면 뒤로 = 목록. 닫힌 패널에서 카드로 들어오면 [기억 타일 ∨ 기본 타일, 상세](D-014 산출물과 같은 예외). 타일 안 자체 뒤로 버튼은 없고 패널 머리의 뒤로 버튼 하나만 있다. 선택한 항목이 사라지면 상세 층을 닫는다 | “우측 패널에서 '계획'이 열린 상태에서 … 백그라운드 작업 카드를 눌렀을 때, 우측패널 헤더에서 뒤로 가기 버튼이 2개가 렌더링 되는 버그” · 질의 답 “들어온 순서대로” | 사용자 실측 2026-11-27 + 질의 | ACTIVE | D-004 보완 |
 
 ### 갱신 메모
 
@@ -71,6 +72,7 @@
 - ΔV2 추가 결정: D-011~D-015 · 대체: D-003 → D-011, D-006 → D-013.
 - ΔV3: 새 결정 없음 — D-011(기본 폭)·D-014(산출물 A2)를 검증·규칙 칸에 맞춘 정정. **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-011↔VP-01′ · D-014↔EP-4″ ⑨·VP-20′.
 - **ΔV2 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-011↔AC4′·AC5 · D-012↔AC2′ · D-013↔AC3′ · D-014↔AC14 · D-015↔AC7′ · D-004↔AC6·AC8. D-003·D-006은 SUPERSEDED라 대조 대상 아님.
+- ΔV4 추가 결정: D-016. **ΔV4 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-016↔AC15 · D-004↔AC6(뒤로 버튼은 깊이 > 1에서만 — 회귀) · D-014↔AC15 닫힌 패널 분기(같은 예외 규칙). AC 분모 14 → 15.
 
 ## 4. 요구 비판적 검토
 
@@ -150,6 +152,7 @@
 | R-12 | AT-12 / AC12 | 타일·상세·아티팩트의 push와 pop/pop-to가 서로 반대 방향으로 부드럽게 진행된다. 프레임은 유지되고 도착 화면만 조작할 수 있다 | Electron `depthMotion`. 중간 위치, 포커스·Escape, 빠른 뒤로, 세션 교체, 축소 모션 | 사용자 진입점 → 패널 스택 → 콘텐츠 층 |
 | R-13 | AT-13 / AC13 | 앱 전체의 가시 상태 전환을 소유자별로 열거하고 공통·개별 구현에서 순간 교체되는 경로를 수정한다 | §10-A 적용표에서 경로별 동작과 실제 표시 증거를 대조. 열린 항목을 둔 채 앱 전체 적용 완료로 판정하지 않는다 | 페이지·셸 → 공통 UI 또는 기능 컴포넌트 |
 | R-14 | AT-14 / AC14 (ΔV2) | 산출물 카드 열기의 성공·미지원·실패·결과 전 세션 전환·늦은 응답·연속 클릭에서 패널 상태와 대상 세션이 §20-E 표대로다 | §20-B AC14 | 카드 → `openArtifactViewer`(세션 key 고정) → 결과 → `rightPanelStore.navigate(artifact)` |
+| R-15 | AT-15 / AC15 (ΔV4) | 패널 머리에 보이는 뒤로 버튼은 깊이 > 1일 때 정확히 1개다. 백그라운드·서브에이전트 상세는 들어온 순서대로 뒤로 간다(카드 → 직전 화면, 목록 → 목록) | §23-B AC15 | transcript 카드·목록 항목 → `chatActions`/선택 → `rightPanelStore.navigate`(상세 층) → `RightPanelFrame` → 타일 머리 |
 
 ### AC 검증 주의사항
 
@@ -601,6 +604,96 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs \
 5. **운영 게이트**는 §19와 `app/AGENTS.md`를 따른다. 테스트·lint·typecheck·가드 5종·빌드·호스트/preload smoke를 통과시킨 뒤 통합 Chromium 실행의 SHA, 머신/동시 부하, 모드별 counts·최대·구간을 함께 기록한다. CDP 프로파일·부분 재실행·Node micro 측정은 원인 분석 자료다.
 
 재검토 결과 D-001~015와 기존 AC·pair·검증자 기록의 변경은 0건이다. 기준선의 128개 기능 관측을 보존하고 예산 2건을 닫을 다음 주체는 Codex다.
+
+## 23. ΔV4 — 0331~0333 사용자 실측: 백그라운드 상세의 뒤로 가기
+
+**판정: 현재 결함이다 — 깊이 > 1에서 백그라운드 상세를 열면 패널 뒤로 버튼과 타일 안 목록 복귀 버튼이 함께 렌더된다(D-004 "뒤로 = pop" · AC6 "뒤로 버튼은 깊이 > 1에서만" 미충족).** 사용자 답 “들어온 순서대로”에 따라 상세 선택을 스택 층으로 통일한다(D-016). 기준 트리 `c052c301`. transcript 4건은 [0331 §23](../0331-transcript-feedback-followup/plan.md)이 받는다.
+
+### 23-A. 요구 원문 ↔ 원인
+
+| 사용자 원문 (2026-11-27) | 관측 | 원인 |
+|---|---|---|
+| “우측 패널에서 '계획'이 열린 상태에서 어시스턴트 메시지에 렌더링 된 백그라운드 작업 카드를 눌렀을 때, 우측패널 헤더에서 뒤로 가기 버튼이 2개가 렌더링 되는 버그 발견.” | 카드 클릭 → `chatStore.ts:3150` `openSubagentTask` → `panelActions.tile('subagent')`로 스택 [plan, subagent] + 선택 설정(`:3171`). 머리는 `RightPanelTile.tsx:72` `<PanelBackButton />`(깊이 2라 표시) 뒤에 `headerContent` = `SubAgentTileContent.tsx:45-50` 정본 머리의 자체 뒤로(선택이 있으면 표시) | 0332가 Work 작업 상세는 층으로 옮기고 자체 뒤로를 `!nav`로 숨겼지만(`TaskPanelContent.tsx:104`) 백그라운드·서브에이전트 상세는 세션 선택 상태로 남겼다. 같은 꼴: `LegacySubAgentTile.tsx:95` · `opencode/rightpanel/tiles.tsx:147` |
+
+### 23-B. 제품 계약과 AC15
+
+| 시작 스택 | 사용자 행동 | 결과 스택 | 머리의 뒤로 버튼 |
+|---|---|---|---|
+| [plan] | transcript 백그라운드 카드 클릭 | [plan, 상세] | 1개 → 뒤로 = [plan] |
+| 닫힘 | transcript 카드 클릭 | [기억 타일 ∨ 기본 타일, 상세] | 1개 → 뒤로 = 아래 타일 |
+| [subagent] (메뉴로 연 목록) | 목록 항목 클릭 | [subagent, 상세] | 1개 → 뒤로 = 목록 |
+| [plan, subagent] | 항목 클릭 → 뒤로 → 뒤로 | [plan, subagent, 상세] → [plan, subagent] → [plan] | 1 → 1 → 0 |
+| [.., 상세(A)] | 같은 화면에서 다른 항목 B 진입 | [.., 상세(B)] (같은 층 교체 — `navigateStack` 기존 규칙) | 1개 |
+| [.., 상세(A)] | A가 목록에서 사라짐(완료 정리 등) | 상세 층 pop | 깊이에 따름 |
+
+**AC15** (NEW): 위 표의 모든 행에서 결과 스택이 표와 같고, 활성 층 머리의 뒤로 버튼 수 = (깊이 > 1 ? 1 : 0)이다. Claude 정본(`CanonicalSubAgentHeader`)·구 모델(`LegacySubAgentHeader`)·OpenCode(`OpenCodeAgentHeader`) 세 머리 모두에서 타일 안 목록 복귀 버튼 렌더 0. 뒤로·Escape는 기존 pop(AC6)이며 초점은 진입 원점으로 돌아간다(D-008). 검증: 렌더 단위로 실제 `RightPanelFrame`·타일·store를 쓴다. **AC 분모 14 → 15.**
+
+### 23-C. V 변경 (ΔV4)
+
+- 기준 V: 0332 V1 + ΔV1~ΔV3(§21) · 기준 트리 `c052c301`. 변경이 시작되는 수준: R — 이후 verify 2회 동안 아래 NEW·CHANGED 범위에서 확장 창이 다시 열린다.
+- `SUPERSEDED` 이관: 없음. `entrypoints.interaction.test.ts` `opens the exact Claude subagent from the %s`의 구 기대(스택 `[{ kind: 'tile', id: 'subagent' }]`)는 새 기대로 고친다 — 구 기대 유지는 이행 결함이다.
+
+| Node | 레벨 | 계약 | provenance | 기준선 출처 |
+|---|---|---|---|---|
+| R-15 · AT-15 | R · AT | §23-B AC15 | NEW | — |
+| AR-02 | AR | 진입점 ↔ 전역 store ↔ 프레임 — 백그라운드·서브에이전트 진입이 상세 층을 push | CHANGED | V1 AR-02 |
+| MD-01 | MD | 스택 리듀서 — 닫힌 패널 예외(EP-4″ ⑨)를 상세 층에도 적용 | CHANGED | ΔV3 EP-4″ |
+| MD-04 | MD | 상세 선택 = 층 — 선택 항목은 활성 층에서 얻고, pop = 선택 해제, 항목 사라짐 = pop | NEW | — |
+| R-06 · AT-06 | R · AT | 한 화면·뒤로는 깊이 > 1에서만 | INHERITED | V1 |
+| R-08 · AT-08 | R · AT | 진입점 전수 스택 규칙 | INHERITED | V1 |
+| R-12 · AT-12 | R · AT | 깊이 전환 모션 | INHERITED | ΔV1 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-22 | R-15 ↔ AT-15 | REQUIRED | 카드·목록 → store → `RightPanelFrame` → 타일 머리 | 새 `backgroundDetail.render.test.ts`(실제 프레임·타일·store) `AC15 shows one back button at depth two for each background header`(정본·구 모델·OpenCode × 깊이 1·2 → 뒤로 수 0·1, 목록 복귀 버튼 0) · `AC15 walks back in entry order`(표의 4행 순서) | required — 세 머리 중 하나에 자체 뒤로를 되살린 변이(그 머리 깊이 2에서 2개, red) — 머리마다 1개 | EP-11 A |
+| VP-23 | AR-02 ↔ IT-02 | REQUIRED (CHANGED — VP-12 연장) | 진입점 → store → 프레임 | `entrypoints.interaction.test.ts` 고침 `opens the exact Claude subagent from the %s`(시작 [plan] → [plan, 상세(키)]) · 새 `AC15 opens the OpenCode subagent card as a detail layer` · 새 `AC15 pushes a detail from each list` | not selected | EP-11 B |
+| VP-24 | MD-04 ↔ UT-04 | REQUIRED | 층 → 선택 항목 | 새 `backgroundDetail.render.test.ts` `AC15 reads the selection from the detail layer`(정본 호출·작업, 구 모델 `toolUseId`, OpenCode id) · `AC15 pops a disappeared background detail`(구 모델 완료 정리 · 정본 항목 제거) | not selected | EP-11 B |
+| VP-13′ | MD-01 ↔ UT-01 | REQUIRED (CHANGED) | `navigateStack` | `rightPanelStack.test.ts` 새 `AC15 a closed panel opens a background detail above its root tile`(닫힘+기억 → [기억, 상세] · 닫힘+기억 없음 → [기본, 상세] · 열림 → push · 같은 상세 층 → 교체) | required — 상세 예외 분기 제거 변이(닫힘 입력에서 [상세]만, red) | EP-4″ ⑨′ |
+| VP-25 | R-06 ↔ AT-06 | REGRESSION | 스택·머리 | 기존 AC6 좌표 재실행 | not selected | 0 — 규칙 비변경 |
+| VP-26 | R-08 ↔ AT-08 | REGRESSION | 진입점 | 기존 EP-2 17자리 좌표 재실행(백그라운드 외 진입) | not selected | EP-2(비변경) |
+| VP-27 | R-12 ↔ AT-12 | REGRESSION | 프레임 깊이 전환 | `check-right-panel.mjs` 기존 `depthMotion` 재실행 — 상세 push도 같은 프레임 전환을 지난다 | not selected | EP-8(비변경) |
+
+### 23-D. §10 추가 행
+
+검색은 저장소 루트에서 실행하고 `site_census.mjs`로 미분류 0을 확인했다(2026-11-27, `c052c301`).
+
+**EP-11 A · 머리의 뒤로 버튼 (D-016 · VP-22).** 검색 `rg -nH 'leadingIcon="arrowL"|<PanelBackButton' app/src/renderer/src/features/chat/harnesses -g '!*.test.*'` → 9줄 · 자리 8 · 제외 1(`claude/composer/QuestionCard.tsx:223` 컴포저 질문 단계 뒤로 — 패널 밖).
+
+| 자리 (`harnesses/` 기준) | 규칙 | 입력 → 좌표 |
+|---|---|---|
+| `claude/rightpanel/SubAgentTileContent.tsx:49` · `claude/rightpanel/LegacySubAgentTile.tsx:95` · `opencode/rightpanel/tiles.tsx:147` | 타일 안 목록 복귀 버튼을 없앤다 — 제목만 남는다 | 선택 있음 × 깊이 1·2 → VP-22 머리별 |
+| `common/rightpanel/PanelBackButton.tsx:13` | 유일한 뒤로 — `canGoBack`(깊이 > 1·활성 층)일 때만 | 깊이 1·2 → VP-22 |
+| `common/rightpanel/RightPanelTile.tsx:62`·`:72` · `common/rightpanel/ArtifactViewer.tsx:58` | 각 머리에 패널 뒤로 1개(기존) | 개요 머리 · 일반 머리 · 산출물 머리 → VP-22 · 기존 AC6 |
+| `common/rightpanel/TaskPanelContent.tsx:104` | 프레임 밖(`nav` 없음)에서만 — 프레임 안 렌더 0(기존) | `nav` 있음·없음 → 기존 `returns to the overview from the standalone task detail back button` |
+
+**EP-11 B · 상세 선택 진입·해제 (D-016 · VP-23·24).** 검색 `rg -nH 'selectBackgroundItem\(|selectSubagentTask\(|openSubagentTask\(' app/src/renderer/src -g '!*.test.*' -g '!*.testfixture.*'` → 14줄 · 자리 13 · 제외 1(`store/backgroundStore.ts:130` 정의).
+
+| 자리 (`features/chat/` 기준) | 규칙 | 입력 → 좌표 |
+|---|---|---|
+| `harnesses/claude/transcript/tool-bodies/AgentTaskBody.tsx:48` · `harnesses/common/transcript/SubagentNoticeRow.tsx:57` · `harnesses/common/transcript/AgentTaskRow.tsx:91` · `harnesses/opencode/transcript/ToolCard.tsx:72` | transcript 진입 → `openSubagentTask` | 진입점 4 × 시작 [plan] → VP-23 |
+| `store/chatStore.ts:3171` | `openSubagentTask` — 상세 층 push(닫힘이면 ⑨′)와 선택을 같은 시점에 | 열림 · 닫힘+기억 · 닫힘+기억 없음 → VP-23 · VP-13′ |
+| `harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx:135`·`:150` · `harnesses/claude/rightpanel/LegacySubAgentTile.tsx:223` · `harnesses/opencode/rightpanel/tiles.tsx:129` | 목록 항목 → 상세 층 push | 목록 3종 → VP-23 `pushes a detail from each list` |
+| `harnesses/claude/rightpanel/LegacySubAgentTile.tsx:96` · `harnesses/claude/rightpanel/SubAgentTileContent.tsx:50` · `harnesses/opencode/rightpanel/tiles.tsx:151` | 타일 안 해제 동작 제거 — 해제는 층 pop | 뒤로 1회 → 선택 없음 → VP-24 |
+| `harnesses/claude/rightpanel/LegacySubAgentTile.tsx:191` | 선택 항목이 사라지면 상세 층 pop | 완료 정리 → VP-24 `pops a disappeared background detail` |
+
+**EP-4″ ⑨′ (MD-01 · VP-13′, EP-4″ ⑨ 확장).** `lib/rightPanelStack.ts:61` `if (!stack.length && entry.kind === 'artifact') return [root, entry]` — 닫힌 패널 예외를 백그라운드·서브에이전트 상세 층(`kind: 'detail'`, `selection.id === 'subagent'`)에도 적용한다. 자리 1.
+
+- 규칙 칸 ↔ 입력 1:1: EP-11 A 4행 → 입력 2·2·3·2 · EP-11 B 5행 → 입력 4·3·3·1·1 · ⑨′ → 입력 4.
+- **선언 경계** — `process` 상세(셸 프로세스 타일)는 검색에 자체 뒤로가 없어 이번 계약 밖이다. 상세 층 전환 모션은 기존 프레임 전환을 그대로 쓰며 VP-27 회귀로만 본다.
+
+### 23-E. 구현 인계
+
+- 순서: VP-13′(리듀서) → MD-04 선택 원천 → 진입·해제 13자리 → 머리 3곳의 자체 뒤로 제거 → VP-22~27.
+- 운영 gate: §7-A의 app subtree gate 전부 + `xvfb-run -a node scripts/check-right-panel.mjs`(VP-27 · 기존 lifecycle). §22 AC13 재구현과 같은 통합 SHA에서 측정한다.
+- 다음 주체는 Codex(r1.3)다. 이 설계 턴은 독립 검증 횟수(0)와 라운드(1)를 바꾸지 않는다.
+
+## READY self-review (ΔV4)
+
+- 사용자 원문 1건과 질의 답 “들어온 순서대로”를 D-016으로 보존했다. 닫힌 패널 분기는 원문·답에 없어 기존 D-014 예외를 그대로 적용했다(새 제품 규칙 아님).
+- `ACTIVE 결정 ↔ AC` 대조 충돌 0(§3 갱신 메모). AC 15개.
+- NEW·CHANGED 노드 R-15·AR-02·MD-01·MD-04 ↔ VP-22·23·13′·24 REQUIRED, 영향받은 INHERITED 3개 REGRESSION(VP-25~27).
+- EP-11 A 8/9 · B 13/14 · ⑨′ 1 — `site_census.mjs` 미분류 0. 규칙 칸 분기마다 입력이 있다.
+- 구 기대를 단언하는 기존 테스트 1건을 고칠 대상으로 명시했다.
 
 ## READY self-review (V1 + ΔV1 + ΔV2 + ΔV3)
 
