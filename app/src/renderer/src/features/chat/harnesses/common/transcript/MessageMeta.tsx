@@ -1,6 +1,7 @@
 import { Button } from '../../../../../shared/ui/Button'
 import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
 import { formatTimeFull, formatTimeShort, useI18n } from '../../../../../shared/i18n'
+import { systemTimeZone } from '../../../../../shared/i18n/datetime'
 import { chatActions, useChatSession } from '../../../store/chatStore'
 import { useTranscriptRuntime } from './TranscriptRuntime'
 
@@ -22,6 +23,7 @@ export function MessageMeta({
   const canFork = useChatSession((s) => s.sessionId != null && !s.loadingSession)
   const { appearance, canFork: supportsFork } = useTranscriptRuntime()
   const { tr, locale } = useI18n()
+  const dateOptions = { timeZone: systemTimeZone() }
   return (
     <div
       className={`mt-1 flex items-center gap-1 ${appearance.meta} ${
@@ -42,9 +44,9 @@ export function MessageMeta({
       )}
       <span
         className="font-mono text-caption tabular-nums"
-        title={formatTimeFull(createdAt, locale)}
+        title={formatTimeFull(createdAt, locale, dateOptions)}
       >
-        {formatTimeShort(createdAt, locale)}
+        {formatTimeShort(createdAt, locale, dateOptions)}
       </span>
     </div>
   )
