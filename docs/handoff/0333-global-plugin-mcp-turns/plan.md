@@ -2,7 +2,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 상태 | impl / **IMPL_DONE** · V1 + ΔV1 · 라운드 1 · 2026-11-27 |
+| 상태 | plan / **READY** · 다음 담당 Codex · V1 + ΔV1 · r1 Windows 설치본 인수 실행계획 (§19-A) |
 | 설계 | Codex · 사용자 요청에 따른 새 핸드오프 |
 | 기준 트리 | `ccr-59ce68d5-h1xutf`의 `28f79eaf` |
 | 추적 | V1 설계 `8fb06d6d` → ΔV1. PR #656의 0333 리뷰 다섯 항목을 §7·§8–11에 반영했다. [리뷰 원문](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7193458574) |
@@ -205,6 +205,46 @@ nav → **플러그인**의 **플러그인**·**MCP** 탭에서 한 번 바꾼 �
 * **동시성·재시작** — AC2의 테스트는 시간 추측 대신 응답·도구·연결 완료를 각각 해제할 수 있는 fixture를 사용한다. 실행 중 토글과 답변 종료 후 토글 각각에서 기존 작업 결과 전달이 설정 적용보다 앞서고, 적용이 대기 입력 제출보다 앞서는지 확인한다. 입력 UUID별 제출 횟수, PID·ID·dispose 및 재시작 전후 영속값을 기록한다. OpenCode가 시작되지 않아 기존 CLI 테스트가 skip된 실행은 AC1·6의 증거로 채점할 수 없다.
 * **Windows 배포·UI** — 설치본에서 두 탭의 실제 클릭으로 AC1–3·7–9를 반복한다. SDK roots와 파일 생성 이벤트를 수집해 `generation-*`가 생겼다가 삭제되는 경우도 잡는다. Jira fixture의 실제 결과와 사용자 스킬 본문 표식을 기록한다. 반례로 OFF root 재주입, `choices` 병합 순서 역전, 미완료 연결에서 SDK 제출, 토글 직후 전체 close를 각각 심으면 대응 AC가 실패해야 한다.
 * **운영 게이트** — 구현 시 [CI 정본](../../../.github/workflows/ci.yml)의 가드·lint·typecheck·테스트·host/preload smoke를 수행하고 실환경 실행/skip을 구분한다. 이 설계 턴의 검증 범위는 기준 트리의 코드·테스트 좌표, 경로·문서 링크, §9.2의 SDK 관측이다. 모델 세 턴, Windows 설치본, PID·이력 인수는 구현 후 증거로 채운다.
+
+### 19-A. Windows 설치본 인수 수행계획 — AC8 잔여 증거
+
+**현재 판정.** `98381394`의 r1 자기보고는 8/9다. §7 AC8, §11 T5와 §19의 설치본 게이트를 다음 Codex가 실행할 수 있도록 관측 절차를 정했다. D1~D7, AC1~9, V-pair, §10의 E1~E6 및 §19의 분모를 그대로 사용한다. 이번 계획 턴에 실행한 Windows 인수는 0건이다.
+
+| 기존에 통과한 경계 | 확인한 사실 | 설치본에서 채울 증거 |
+| --- | --- | --- |
+| Linux의 배포기·정리기·양 어댑터와 실제 CLI | 구 사본·링크 보존, 검증/rename 실패 후 복구, 새 Claude Query가 현재 roots 읽기, OpenCode 설치 메타데이터 V1→V2·오래된 spec 미주입. 하네스별 ON/OFF/ON와 A/A/B는 로컬 모델/도구 핸들러까지 실행 | Windows의 파일 잠금·junction·짧게 생성 후 삭제되는 사본을 포함한 연속 파일 I/O, 설치 앱과 네이티브 하네스가 읽은 실제 경로 |
+| Node worker_threads에서 실제 data/agent 호스트 번들을 재기동(`isPackaged:false`) | 기존 Claude/OpenCode native ID·이력, 새 세션의 첫 입력을 관측했다. Claude는 첫 배포 및 재배포 후 `/claude:restart-proof`의 V1·V2 본문을 모델 요청에서 읽었다 | NSIS로 설치한 셸의 두 탭을 조작하고 셸·두 호스트를 실제로 종료·재기동한 결과. 첫 유효 배포와 재배포 **각각에서** 사용자 스킬, 인증된 내장 Jira, 외장 MCP의 서로 다른 결과 |
+| 고정 SDK fixture와 렌더 테스트 | Jira 런타임 도구/외장 정의와 각 핸들러, 읽기 전용 목록·상세 및 IPC 거부 | 설치본의 인증 모듈 → 실제 Jira 핸들러 → 시험 Jira HTTP 응답, 외장 핸들러 로그, SDK/CLI 모델 요청 및 UI를 같은 입력에 연결 |
+
+원본과 실행 형태는 [두 호스트 기동](../../../app/scripts/smoke-host-pair.mjs), [Claude 재시작](../../../app/scripts/smoke-claude-extension-restart.mjs), [OpenCode 재시작](../../../app/scripts/smoke-extension-restart.mjs), [인증된 도구를 주입하는 CLI 시험](../../../app/src/main/app/managed-mcp.cli.integration.test.ts)에서 확인할 수 있다.
+
+#### 설치본과 시험 장비 준비
+
+1. 시험할 커밋·배포 구성을 먼저 기록한다. 기본 소스의 `AUTH_DEFINITIONS`와 `createPluginBindings()`는 비어 있다. 기본 NSIS에서는 설치·일반 플러그인·외장 MCP까지 시험할 수 있다. 인증된 내장 Jira에는 실제 배포 fork의 조립 또는 **검토된 인수 전용 배포 구성**으로 빌드한 설치본을 사용한다. 후자의 경우 같은 제품 경로에서 `bindForPlugin` → `jiraTools` → `createPluginBinding`을 사용하고 인증 probe와 읽기 전용 이슈 조회를 시험 Jira에 연결한다. 기준 SHA, 구성 차이·해시, 설치본 해시, 실제 인증 상태를 남긴다. Jira 이름을 외장 도구에 붙이거나 Vitest mock으로 반환한 결과는 이 칸을 채우지 못한다. 해당 구성을 확보할 수 없으면 독립적인 나머지 칸을 실행하고 Jira 칸은 미실행으로 남긴다. [인증 선언](../../../app/src/main/app/deployment/auth-definitions.ts) · [플러그인 조립](../../../app/src/main/app/deployment/plugins.ts) · [Jira 도구](../../../app/src/main/features/plugins/jira/tools.ts)
+2. Windows에서 해당 SHA의 `app/`에서 Node 22로 `npm ci`, `npm run build:win -- --publish never`, `node scripts/validate-dist.mjs`를 실행한다. 또는 해당 ref의 Release workflow 비태그 `workflow_dispatch` dry-run 산출물에서 `*-setup.exe`, `latest.yml`, blockmap을 받는다. run URL·head SHA·installer 해시를 대조하고 NSIS를 실제로 설치한 뒤 **설치 경로의 `orcinus-orca.exe`**를 실행한다. 기본판은 패키지 0.3.1, lock 기준 Electron 39.8.10, builder 26.15.3, better-sqlite3 12.11.1, Claude Agent SDK 0.3.296, OpenCode SDK 1.18.27이다. Claude는 설치 리소스의 asar-unpacked 플랫폼 CLI 실제 경로를, OpenCode는 앱에 지정한 절대 경로 또는 PATH에서 해결한 Windows `opencode.exe --version` 1.18.27과 해시를 기록한다. `ORCINUS_ORCA_TEST_OPENCODE_EXE`는 시험 스크립트의 입력이다. [빌드 명령](../../../app/package.json) · [NSIS·언팩 설정](../../../app/electron-builder.yml) · [버전 잠금](../../../app/package-lock.json) · [OpenCode 실행 파일 해석](../../../app/src/main/adapters/opencode/v1/server.ts)
+3. 쓰기 가능한 NTFS의 격리된 Windows 계정 또는 VM 스냅숏을 준비한다. 앱의 단일 인스턴스가 해당 프로필에 속하는지 확인한다. 실제 Electron userData(기본 `%APPDATA%\orcinus-orca`)와 `%USERPROFILE%\.config\orcinus-orca`의 sources/dist는 서로 다르다. cwd A·B, 활성 Claude 설정 루트(`CLAUDE_CONFIG_DIR` 또는 `~/.claude`)의 `plugins/installed_plugins.json`, 각 installPath의 manifest·실제 skills 대상, OpenCode 유효 설정과 `<XDG_CACHE_HOME 또는 ~/.cache>/opencode/packages/<spec>/node_modules/<name>`, 외부 junction 대상과 별도 프로필 sentinel을 식별한다. Work 프로필의 기존 유효 루트는 그대로 허용한다. 테스트 데이터와 해시를 fixture로 저장하고 실사용 계정의 설정·자격증명은 격리한다. [경로 정본](../../../app/src/main/infra/config/paths.ts) · [제품 부팅](../../../app/src/main/index.ts)
+4. 각 입력에 고유 표식을 붙일 로컬 모델 endpoint와 외장 HTTP MCP, 인증이 valid인 읽기 전용 Jira 시험 이슈를 준비한다. 모델 endpoint는 받은 스키마 및 스킬 본문을 기록하고 지정된 도구만 요청한다. Jira 이슈 요약과 외장 도구 결과는 서로 다른 표식으로 응답한다. 시험 UUID·서버별 요청/응답·정확한 호출 횟수를 기록한다. 승인·정책·로그인 흐름은 해당 설치본 조립을 따른다. 설치·데스크톱 조작·도구 실행·자격증명 사용 권한과 Win32 추적 권한을 해당 환경에서 확인한다. 권한이 있는 CI 운영자는 dry-run과 artifact 다운로드를 할 수 있다. CI 기본 gate는 windows-latest의 단위 시험과 Node 호스트/preload smoke이며 release dry-run도 NSIS 생성·검증까지만 한다. Windows GUI runner에서 실제 설치와 아래 조작을 수행하거나 동일 artifact를 시험 장비로 옮긴다. 릴리스 태그나 외부 게시 작업은 필요하지 않다. [CI](../../../.github/workflows/ci.yml) · [Release](../../../.github/workflows/release.yml)
+
+#### 원인과 결과를 연결하는 관측
+
+- **실행 전부터 파일 이벤트를 수집한다.** 깨끗한 프로필에는 `runtime-plugins`조차 없을 수 있으므로 이미 존재하는 상위 디렉터리에서 Win32 `ReadDirectoryChangesW` 또는 이를 쓰는 `FileSystemWatcher`를 하위 트리 포함으로 시작한다. create·rename(이전/새 경로)·delete·write를 종료 후까지 보관한다. 구 사본, 원본·registry/설정, 설치 cache, 앱 dist·스테이징·백업, 각 링크의 실제 대상은 구분한다. 준비 완료 후 앱 밖의 별도 대조 폴더에서 파일을 생성→이름 변경→삭제해 수집기를 검산한다. 동작 주체는 process tree의 PID·시각 및 Process Monitor/ETW 파일 이벤트로 대조한다. 경로 전용 watcher는 PID를 주지 않는다. ProcMon의 기존 디렉터리 열기(Open)와 신규 생성(Create), 기존 세대 삭제와 해당 이름으로의 신규 rename을 구별한다. 하네스 자체 업데이트 PID의 쓰기는 표시한 갱신 구간에서만 분리한다. Win32 버퍼 넘침·추적 공백·시계 불일치가 있으면 그 구간의 ‘0건’은 미판정이다. 마지막 디렉터리 목록이나 감시기 시작 전 SDK 호출만으로 생성 0회를 확정하지 않는다.
+- **네이티브 갱신과 Orca 배포를 구분한다.** Claude registry/manifest/`installPath`와 OpenCode의 현재 plugin spec·package 메타데이터는 하네스 소유다. 선택 스위치는 `nativeExtensionChoices[backend]`의 해당 값만 바꾸고 다음 입력에서 적용된다. Orca의 Claude dist는 부팅/첫 요구 또는 스킬 작성·업로드·삭제, 외장 MCP 정의 추가·수정·삭제 등 실제 정의 변경으로 게시한다. 배포 완료 로그·마커 `.orcinus-orca-deploy.json`·매니페스트·기능 결과로 원인을 확인한다. `.claude-staging-*`와 `claude.bak`은 같은 볼륨에서의 정상 게시 경로다. `dist/claude/plugins/orcinus-orca`와 `dist/claude/plugins/claude`의 사용자 skills junction은 역할이 다르다. 링크 대상의 SKILL.md만 바꿔 읽힌 본문은 dist 재배포의 증거가 아니다. [배포 트리거](../../../app/src/main/app/handlers/mcp.ts) · [스킬 작업](../../../app/src/main/app/handlers/skills.ts) · [배포기](../../../app/src/main/features/extensions/claude/deployer.ts) · [사용자 스킬 래퍼](../../../app/src/main/features/extensions/claude/user-skills.ts)
+- **실제 SDK 입력을 수집한다.** 설치 셸·agent/data·Claude CLI·OpenCode 서버 PID와 실행 경로, cwd, app/native session ID, 입력 UUID, 저장/이전 응답 종료/다음 요청 순서, SDK에 들어간 roots 또는 설치 CLI의 동등한 초기화 경로와 하네스가 연 파일을 기록한다. 표면에 없는 값은 기존 SDK init/CLI 요청 또는 설치본용 읽기 전용 진단으로 계측한다. 계측을 추가했다면 원본 대비 차이와 해당 artifact를 표시한다. 파일 I/O만 보고 SDK 옵션이나 display name만 보고 실제 도구 호출을 추정하지 않는다. 창은 설치 앱에 연결한 접근성/UI 자동화 또는 실제 클릭으로 조작한다. 개발 Electron·`win-unpacked`·직접 IPC 호출은 각각 보조 증거로 구분한다.
+
+#### 실행표
+
+| 순서 | 설치본에서 하는 조작 | 판정에 남길 증거 |
+| --- | --- | --- |
+| 1. 깨끗한 첫 부팅·첫 유효 배포 | V1 표식의 하네스 설치, 사용자 `<fixture-skill>/SKILL.md`와 시험 MCP 정의를 준비한 뒤 앱을 처음 시작한다. 실제 배포 완료를 확인하고 Claude 채팅에서 `/claude:<fixture-skill>`을 실행해 valid+ON 내장 Jira와 ON 외장 도구를 연속 호출한다. | 새 세대·옛 cwd 사본 참조 0회. SDK가 실제 설치 원본과 현재 dist/wrapper를 읽는다. 명령 목록·V1 스킬 본문/인자·Jira 이슈 결과·외장 결과 및 각 호출 UUID를 첫 모델 요청/이력에서 대조한다. skills 대상이 없는 분리 프로필에서는 빈 wrapper가 정상 루트로 선택되지 않는지 확인한다. |
+| 2. 이전 설치 잔존물로 업그레이드 | 별도의 초기 스냅숏에 `<userData>/runtime-plugins/generation-old`, 앱 밖을 가리키는 직계 generation junction, 일반 형제·다른 프로필·대상의 sentinel을 넣는다. 잠긴 구 사본은 별도 케이스로 둔다. 설치 앱으로 부팅하고 잠금을 푼 다음 안전한 재기동을 한다. | 부팅에서 구 직계 항목과 링크 자체만 정리하고 대상 파일·별도 프로필·원본 registry 해시가 보존된다. 잠긴 항목의 재시도와 이후 부재를 이벤트·최종 해시로 확인한다. 일시 생성 후 삭제도 새 generation 이벤트로 센다. [구 사본 정리기](../../../app/src/main/infra/config/legacy-plugin-copies.ts) |
+| 3. 실제 두 탭·응답 경계 | 하네스를 명시해 플러그인·MCP 탭에서 목록/상세를 클릭한다. Claude는 식별 가능한 사용자 설치 플러그인 및 지원 MCP, OpenCode는 출처가 확인된 전역 네이티브·내장·외장 MCP로 §7 AC1–3의 ON→OFF→ON, A/A/B, 같은/다른 cwd의 첫 입력을 실행한다. §11 T1의 명령·훅·번들·복합과 T2의 잔여 작업, T3/T4의 동명·뒤늦은 등록은 기존 해당 행의 판정을 따른다. | 각 실행 중 응답은 구 기능으로 완료, 해당 다음 입력 UUID별 한 번 제출. ON 실제 호출·OFF 강제 호출 0·양성 대조군 호출. Claude native ID와 이력 유지. OpenCode 선택 변경 구간 PID·각 native ID 유지 및 directory dispose 0건. 선택만 바꾼 구간에 배포 마커 재게시·네이티브 원본 쓰기·세대 생성 0회. OpenCode 설치 플러그인 및 모호한/정책상 고정 행은 §7 AC7의 비활성 표시·조작 거부·저장 0으로 분리한다. §7 AC9 지연·실패·OFF·취소·재시도는 설정 반영 전에 전송 0, 원문·첨부 및 실제 수신 UUID를 비교한다. |
+| 4. 실제 재배포와 하네스 자체 업데이트 | 사용자 스킬 본문에 V2를 넣고 앱에서 시험 외장 MCP 정의 또는 Orca 스킬 원본을 수정해 배포를 실제로 일으킨다. 같은 Claude 대화의 첫 안전한 다음 입력에서 사용자 스킬과 Jira·외장 호출을 다시 한다. 이와 시간을 나눠 **하네스 측에서만** Claude 설치/registry를 V2로, OpenCode는 native spec·package를 V2로 정상 갱신한다. 옛 cwd와 새 cwd에서 카탈로그 다시 읽기·다음 정상 로드를 비교한다. | 성공 마커와 현재 dist, 스킬 V2 본문/인자, 첫 단계와 구별되는 Jira·외장 결과를 각각 수집한다. 갱신 주체의 쓰기와 Orca 읽기를 분리한다. Claude 현재 installPath·기능 표식, OpenCode V2 설치 경로·메타데이터와 정상 하네스 로드 뒤 실제 V2 기능의 고유 출력, provider의 낡은 plugin spec 재주입 0, 원본 V1 복원 0. OpenCode 네이티브 플러그인의 hot toggle을 가정하지 않는다. [OpenCode 설치 조회](../../../app/src/main/adapters/opencode/v1/plugin-installation.ts) · [런타임 설정](../../../app/src/main/adapters/opencode/v1/native-storage.ts) |
+| 5. 배포 실패·복구 | 정상본의 해시와 실행 표식을 저장한다. 열린 응답 중 정의를 바꾸어 읽기 종료까지 게시가 대기하는지 본다. 별도 시도에서 NTFS의 현재 dist 디렉터리를 delete 공유 없는 Win32 핸들로 잡아 rename 실패를 유도한다. 실제 공유 위반을 확인한 뒤 핸들을 해제하고 같은 배포를 다시 요청한다. | 구 응답 결과 전달 → 새 게시/SDK 입력의 순서, 실패 이벤트·정상본 경로/해시 보존 또는 입력 보류, 반쪽 staging root SDK 유입 0. 복구 후 정상 게시·현재 스킬/도구 실행·세대 0을 확인한다. 성공 백업의 MCP 비밀 스크럽은 파일 유무로 기록한다. 잠금 주입이 동작하지 않았다면 재현 성공으로 세지 않는다. |
+| 6. 완전 종료·재시작 | 설정과 기존 대화의 표식을 보존한 채 앱·agent·data 호스트가 종료된 것을 확인하고 같은 설치 실행 파일과 프로필로 재기동한다. 기존 대화와 같은/다른 cwd의 새 대화를 열고 첫 입력을 보낸다. | 재시작 전후 native session ID/과거 사용자 입력·도구 결과와 각 UUID 1회를 대조한다. 저장 선택, V2, 현재 dist·별도 원본·링크 대상이 유지되고 옛 cwd 사본·V1 복원이 없다. 프로세스 재기동과 선택만 바꿀 때의 PID 불변 구간을 나누어 기록한다. |
+
+**결과 제출.** 실행자는 설치본 SHA-256와 기준/ref·배포 구성, Windows 버전·실행 파일 경로·실제 CLI 버전, 깨끗한/업그레이드 프로필별 시작·끝 해시와 junction 대상, 파일 이벤트·연속성 대조, GUI 동작 시각·PID/세션별 모델/도구 표식을 한 실행표로 연결한다. 인증 값·원문 설정·토큰은 제거한다. 각 행은 AC8 배포/파일 증거와 §19가 요구한 AC1~3·7~9의 설치 창 회귀를 구분해 판정한다. 일부 설치본 시나리오가 통과해도 실행하지 않은 다른 AC 행은 남는다. 실제 실패는 위반 동작과 원본을, 권한/제품 binding/CLI/설치 장비 부재·테스트 skip·추적 누락은 미실행/미판정과 이유를 남긴다. 다른 프로필에서 통과한 값을 빈 칸에 이식하지 않는다. 기존 `windows-observe.mjs`와 `windows-verdict.mjs`는 0330 렌더 성능 trace 판독기다. 이 절의 Win32 파일 사건이나 Jira·SDK 인수 결과를 생성하지 않는다. [관측기](../../../app/scripts/windows-observe.mjs) · [판독기](../../../app/scripts/windows-verdict.mjs)
+
+**READY 대조.** 기존 결정 D6↔AC8, D1~5·D7↔§19 설치본 회귀(AC1~3·7~9), AR2↔IT2/E3·E6의 정상·잠금·복구·T5 입력을 확인했다. 이번 추가는 기존 V1+ΔV1의 증거 수집·작업 계획이다. 새 Decision·AC·V-pair와 구조 변경은 없다. 다음 담당은 Codex이며 Windows 설치본 증거가 채워지면 r1 자기보고와 별도로 재판정한다.
 
 ### READY 대조
 
