@@ -52,6 +52,12 @@ export interface TableChunk {
   rows: readonly [number, number]
 }
 export type MarkdownDefinition = [identifier: string, markdown: string]
+declare module 'hast' {
+  interface TextData {
+    partKey?: string
+  }
+}
+
 export interface MarkdownRequest {
   definitions?: MarkdownDefinition[]
   fence?: { indent: number; lineStart: boolean; parts?: readonly { key: string; start: number }[] }

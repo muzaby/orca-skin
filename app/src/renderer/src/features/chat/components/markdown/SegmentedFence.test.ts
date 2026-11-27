@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { ComputeClient } from '../../../../shared/compute/client'
 import { setComputeClient } from '../../../../shared/compute/client'
-import { docKey } from '../../../../shared/compute/protocol'
+import { docKey, type ComputeRequest, type ComputeResult } from '../../../../shared/compute/protocol'
 import { compute } from '../../../../shared/compute/worker/handler'
 import { markdownBlock } from '../../../../shared/compute/worker/markdown'
 import {
@@ -39,6 +39,11 @@ beforeEach(() => {
   dom = installFakeDom({ innerWidth: 1000, innerHeight: 600 })
   docs = new Map()
   registered = []
+  async function computeRange(input: ComputeRequest): Promise<ComputeResult> {
+    return input.kind === 'markdown'
+      ? markdownBlock(docs.get(docKey(input.doc))!, input)
+      : compute(input)
+  }
   const client: ComputeClient = {
     openDocument(ref, { text }) {
       registered.push(text.length)
@@ -61,11 +66,7 @@ beforeEach(() => {
     },
     peek: () => undefined,
     request(input) {
-      const promise = Promise.resolve().then(() =>
-        input.kind === 'markdown'
-          ? markdownBlock(docs.get(docKey(input.doc))!, input)
-          : compute(input)
-      )
+      const promise = Promise.resolve().then(() => computeRange(input))
       return { promise: promise as Promise<never>, cancel: vi.fn(), setPriority: vi.fn() }
     }
   }
