@@ -2,7 +2,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 상태 | plan / **READY** · 다음 담당 Codex · V1 + ΔV1 · r1 Windows 설치본 인수 실행계획 (§19-A) |
+| 상태 | impl / **IN_PROGRESS** · 다음 담당 Codex · V1 + ΔV1 · §19-A Windows 설치본 인수 환경 대기 |
 | 설계 | Codex · 사용자 요청에 따른 새 핸드오프 |
 | 기준 트리 | `ccr-59ce68d5-h1xutf`의 `28f79eaf` |
 | 추적 | V1 설계 `8fb06d6d` → ΔV1. PR #656의 0333 리뷰 다섯 항목을 §7·§8–11에 반영했다. [리뷰 원문](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7193458574) |
@@ -345,6 +345,19 @@ r1은 D1–D7을 적용했다. 영속 선호의 식별자는 하네스·종류·
 ### 통합 회귀 확인
 
 전역 선택과 별개인 런타임 도구의 배포 버전이 바뀌면 유휴 영속 채널을 다음 수신 전에 다시 띄운다. 기존 채널에 서브에이전트 결과가 대기 중이면 그 채널에서 결과를 먼저 소비한다. `chat-turn.runtime-tools.test.ts`, 관리형 MCP 정책, 턴 종료 후 스케줄링을 함께 실행해 47/47을 확인했다. OpenCode의 새 세션은 MCP 입장 확인 뒤 생성된다. 시작·런타임 순서 시험은 시간 배율 6에서 23/23, 기본 배율에서 시작 시험 15/15였다. 전송 취소는 원문 및 첨부를 복원하고 Work 질문 인용은 현재 초안에 덧붙인다. 취소·행 재선택 경로를 포함해 첫 전체 실행에서 실패한 18개 파일을 함께 다시 검사해 125/125 통과했다.
+
+### §19-A 설치본 인수 환경 재확인
+
+기준 `fb896c16`에서 AC8의 실행 전제와 배포 입력을 재확인했다. 인수는 8/9다. §19-A의 첫 실행 단계인 Windows 설치부터 미실행이며, Windows 관측에 쓸 수 있는 설치 로그·파일 이벤트·UI/SDK/모델·실제 호출 기록은 0건이다.
+
+| 점검 | 실행 결과 |
+| --- | --- |
+| 실행 환경 | 작업 머신은 Debian 13, Linux x86_64다. 연결된 Windows 데스크톱·사용자 프로필과 시험 단말 주소가 없고, 작업 디렉터리에서 NSIS 설치 EXE와 `latest.yml`도 발견하지 못했다. |
+| 원격 설치본과 배포 입력 | 작업 브랜치와 원격 추적 ref의 SHA가 일치했다. GitHub 연결에서 해당 SHA의 PR 트리거 실행 조회는 빈 목록, 해당 브랜치의 release workflow 실행 조회는 `Forbidden`이었다. 제공된 remote/ref에 인증 배포 포크가 없고, stock 배포의 `AUTH_DEFINITIONS`와 `createPluginBindings()`는 빈 목록이다. 실제 시험용 Jira 바인딩·인증, 외부 MCP 핸들러, V1/V2 skill이 들어간 설치본을 확인하지 못했다. |
+| 가능한 경로 재실행 | Linux에서 `extension-deployment-service.test.ts`, Claude `deployer.test.ts`, `legacy-plugin-copies.test.ts`, OpenCode `plugin-installation.test.ts`를 실행해 4파일 25/25 통과했다. 검사 대상은 배포 교환·정리와 원본 설치 경로다. |
+| 미실행 항목과 재개점 | §19-A에 지정한 출처·해시의 시험용 설치본, 상호작용 가능한 Windows 세션, 시험용 인증·skill·외부 MCP가 확보되면 설치 전 이벤트 수집부터 시작한다. 두 탭의 실제 상태, 기존 세션 다음 입력과 재배포 뒤의 Jira·외부 도구·skill, 잠금 실패·재시도·재기동, 세션과 파일 무변조 증거를 남긴다. |
+
+D6·AC8의 원래 범위를 유지했다. 이번 턴의 제품 코드·강제 지점 변경은 0건, Windows 개별 변이 실행은 0건이다. r1의 AC1–7·9 자기보고와 기존 V-pair 판정을 유지한다. 설치본에서 보일 실제 상태와 오류 UX는 위 인수에서 판정한다.
 
 ## [구현자 기입] Review Signals
 
