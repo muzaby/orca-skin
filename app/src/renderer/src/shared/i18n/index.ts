@@ -2,8 +2,9 @@
 // main.tsx 가 createRoot 전에 side-effect import 해 첫 렌더부터 t() 가 동작한다.
 // 언어 전환은 TweakProvider 가 settings.uiLocale 변경 시 i18n.changeLanguage 로 반영.
 
+import { useSyncExternalStore } from 'react'
 import i18next, { type ParseKeys, type TFunction } from 'i18next'
-import { initReactI18next, useTranslation } from 'react-i18next'
+import { initReactI18next } from 'react-i18next'
 import { ko } from './resources/ko'
 import { en } from './resources/en'
 import type { UiLocale } from './datetime'
@@ -35,12 +36,44 @@ export {
   systemTimeZone
 } from './datetime'
 
-// 컴포넌트용 훅 — tr(번역)과 locale(날짜 포맷터 인자)을 함께 준다. useTranslation 을
-// 경유하므로 languageChanged 시 소비 컴포넌트가 리렌더된다. 이름을 t 가 아닌 tr 로 둔 것은
-// Tweak 컨텍스트의 관례적 `t`(Tweaks)와의 충돌 회피.
-export function useI18n(): { tr: TFunction; locale: UiLocale } {
-  const { t, i18n } = useTranslation()
-  return { tr: t, locale: i18n.resolvedLanguage === 'en' ? 'en' : 'ko' }
+interface TranslationSnapshot {
+  tr: TFunction
+  locale: UiLocale
+}
+
+const translationListeners = new Set<() => void>()
+let translationSnapshot: TranslationSnapshot | undefined
+let snapshotLanguage: string | undefined
+
+function readTranslation(): TranslationSnapshot {
+  if (!translationSnapshot || snapshotLanguage !== i18next.language) {
+    snapshotLanguage = i18next.language
+    translationSnapshot = {
+      tr: i18next.getFixedT(i18next.language, 'translation'),
+      locale: i18next.resolvedLanguage === 'en' ? 'en' : 'ko'
+    }
+  }
+  return translationSnapshot
+}
+
+function languageChanged(): void {
+  translationSnapshot = undefined
+  for (const notify of [...translationListeners]) notify()
+}
+
+function subscribeTranslation(notify: () => void): () => void {
+  if (!translationListeners.size) i18next.on('languageChanged', languageChanged)
+  translationListeners.add(notify)
+  return () => {
+    translationListeners.delete(notify)
+    if (!translationListeners.size) i18next.off('languageChanged', languageChanged)
+  }
+}
+
+// The renderer loads both catalogs before mounting. Consumers across React roots
+// share the fixed translator for this language and a single i18next subscription.
+export function useI18n(): TranslationSnapshot {
+  return useSyncExternalStore(subscribeTranslation, readTranslation, readTranslation)
 }
 
 // 카탈로그 키 타입 — 모듈 상수 라벨맵(Record<…, MessageKey>)이 키만 담고 렌더에서
