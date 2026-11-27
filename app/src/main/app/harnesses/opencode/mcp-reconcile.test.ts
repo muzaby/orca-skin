@@ -472,18 +472,18 @@ it('holds the first ordinary prompt until explicit global ON succeeds', async ()
     extensions: { skills: [], hooks: { normalized: {} }, managedMcp: managed.source.snapshot() }
   })
   const iterator = live.eventBatches[Symbol.asyncIterator]()
-  await iterator.next()
+  const completed = nextTurn(iterator)
   await vi.waitFor(() =>
     expect(f.requests.some((entry) => entry.path === '/mcp/native/connect')).toBe(true)
   )
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-  const completed = nextTurn(iterator)
   await vi.advanceTimersByTimeAsync(3000)
   expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
   unblock()
-  await vi.advanceTimersByTimeAsync(0)
+  await vi.waitFor(() =>
+    expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(1)
+  )
   expect(f.status(cwd, 'native')).toBe('connected')
-  expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(1)
   f.finish()
   expect(
     (await completed).flatMap((batch) => batch.events).some((event) => event.type === 'turn.ended')
@@ -503,33 +503,27 @@ it.each(['failed', 'cancelled'] as const)(
       extensions: { skills: [], hooks: { normalized: {} }, managedMcp: managed.source.snapshot() }
     })
     const iterator = live.eventBatches[Symbol.asyncIterator]()
-    await iterator.next()
+    const completed = nextTurn(iterator)
     await vi.waitFor(() =>
       expect(f.requests.some((entry) => entry.path === '/mcp/native/connect')).toBe(true)
     )
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    const completed = nextTurn(iterator)
     await vi.advanceTimersByTimeAsync(5000)
     expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
     if (outcome === 'cancelled') {
       await live.interrupt!()
-      expect(
-        (await completed)
-          .flatMap((batch) => batch.events)
-          .some((event) => event.type === 'turn.aborted')
-      ).toBe(true)
-      unblock()
-      await vi.advanceTimersByTimeAsync(2000)
-      expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
     } else {
       f.failMutation(true)
       unblock()
-      await vi.advanceTimersByTimeAsync(0)
-      expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
-      expect(
-        (await completed).flatMap((batch) => batch.events).some((event) => event.type === 'error')
-      ).toBe(true)
     }
+    const events = (await completed).flatMap((batch) => batch.events.map((event) => event.type))
+    expect(events).toContain(outcome === 'cancelled' ? 'turn.aborted' : 'error')
+    expect(events).not.toContain('session.updated')
+    if (outcome === 'cancelled') {
+      unblock()
+      await vi.advanceTimersByTimeAsync(2000)
+    }
+    expect(f.requests.filter((entry) => entry.path.endsWith('/prompt_async'))).toHaveLength(0)
     live.close()
     await iterator.return?.()
   }
