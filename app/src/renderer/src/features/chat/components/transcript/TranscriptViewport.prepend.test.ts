@@ -851,6 +851,9 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
     'measurement',
     'async-own-scroll',
     'async-user-scroll',
+    'native-before-row-resize',
+    'native-before-header-resize',
+    'passive-range-clamp',
     'header',
     'header-toggle',
     'mixed-prepend-live',
@@ -895,7 +898,10 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
     Object.defineProperty(scroller, 'scrollTop', {
       get: () => scrollTop,
       set: (top: number) => {
-        scrollTop = top
+        scrollTop =
+          cause === 'passive-range-clamp'
+            ? Math.min(top, scroller.scrollHeight - scroller.clientHeight)
+            : top
         writes.push(top)
         scroller.dispatchEvent(new Event('scroll'))
       }
@@ -950,7 +956,11 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
       const entry = {
         borderBoxSize: [{ blockSize: 80 + size }]
       } as unknown as ResizeObserverEntry
-      if (cause === 'header' || cause === 'header-wheel') {
+      if (
+        cause === 'header' ||
+        cause === 'header-wheel' ||
+        cause === 'native-before-header-resize'
+      ) {
         const header = dom!.query('[data-transcript-header]') as unknown as Element
         const callback = observers.get(header)!
         expect(callback).toBeDefined()
@@ -962,6 +972,33 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
         const row = dom!.query('[data-block-key="above"]') as unknown as HTMLElement
         virtualizer.options.measureElement(row, entry, virtualizer)
       }
+    }
+
+    if (cause === 'native-before-row-resize' || cause === 'native-before-header-resize') {
+      // Chromium reveals a find match before it delivers the corresponding scroll event.
+      scrollTop += 35
+      resize(15)
+      expect(writes).toEqual([])
+      expect(scrollTop).toBe(285)
+      scroller.dispatchEvent(new Event('scroll'))
+      vi.runAllTimers()
+      resize(24)
+      expect(writes).toEqual([294])
+      return
+    }
+
+    if (cause === 'passive-range-clamp') {
+      // A smaller layout may clamp the same reading position before its resize is observed.
+      Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 630 })
+      scrollTop = 230
+      resize(15)
+      expect(writes).toEqual([265])
+      expect(scrollTop).toBe(230)
+      Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 2000 })
+      resize(24)
+      expect(writes).toEqual([265, 274])
+      expect(scrollTop).toBe(274)
+      return
     }
 
     if (cause === 'entry-compositor-scroll') {

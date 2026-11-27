@@ -244,6 +244,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const anchorController = useMemo(() => createAnchorController(), [])
   const activeAnchorRef = useRef<AnchorTarget | null>(null)
   const restingAnchorRef = useRef<AnchorTarget | null>(null)
+  const anchorScrollTop = useRef<number | null>(null)
+  const captureRestingAnchor = useCallback((element: HTMLElement): void => {
+    restingAnchorRef.current = captureAnchor(element)
+    anchorScrollTop.current = element.scrollTop
+  }, [])
   const interruptedAnchorLayout = useRef(false)
   const pinnedPrepend = useRef(false)
   const selfWritingScrollRef = useRef(false)
@@ -314,6 +319,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     prevSnapshotRef.current = snapshot
     activeAnchorRef.current = null
     restingAnchorRef.current = null
+    anchorScrollTop.current = null
     adjustedScrollTopRef.current = null
     anchorController.cancelAnchor()
   }
@@ -356,6 +362,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
             releasedPull || Boolean(Number.parseFloat(pullSpace.current?.style.minHeight ?? ''))
           beginCorrection(el, () => {
             restingAnchorRef.current = activeAnchorRef.current
+            anchorScrollTop.current = el.scrollTop
             activeAnchorRef.current = null
             anchorController.cancelAnchor()
             pullSettling.current = false
@@ -481,7 +488,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       positioningSearch.current = false
       activeAnchorRef.current = null
       anchorController.cancelAnchor()
-      restingAnchorRef.current = captureAnchor(root)
+      captureRestingAnchor(root)
     }
     const stop = revealSearchRow(
       root,
@@ -521,6 +528,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     keyboard,
     restoring,
     storedAnchor,
+    captureRestingAnchor,
     anchorController
   ])
   const rangeExtractor = useCallback(
@@ -546,6 +554,41 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     [anchorKey, displacedAnchorIndex, targetBlock, selectionSequence, releasedSequence]
   )
 
+  const settleFrame = useRef<number | null>(null)
+  const settleInterruptedLayout = useCallback(() => {
+    if (!interruptedAnchorLayout.current || typeof requestAnimationFrame !== 'function') return
+    if (settleFrame.current !== null) cancelAnimationFrame(settleFrame.current)
+    // Give pending ResizeObserver deliveries a frame to restart this wait. Once the
+    // layout is quiet the current reading position is the baseline for later resizes.
+    settleFrame.current = requestAnimationFrame(() => {
+      settleFrame.current = requestAnimationFrame(() => {
+        settleFrame.current = null
+        if (!interruptedAnchorLayout.current) return
+        interruptedAnchorLayout.current = false
+        const el = scrollRef.current
+        if (el && !isPinnedRef.current?.()) captureRestingAnchor(el)
+        requestHead()
+      })
+    })
+  }, [captureRestingAnchor, scrollRef, requestHead])
+
+  const interruptReadingAnchor = useCallback(
+    (el: HTMLElement): void => {
+      cancelCorrection(el)
+      adjustedScrollTopRef.current = null
+      if (activeAnchorRef.current) {
+        // Later measurements of the same snapshot belong to the interrupted correction.
+        interruptedAnchorLayout.current = true
+        restingAnchorRef.current = null
+        anchorScrollTop.current = null
+        settleInterruptedLayout()
+      }
+      anchorController.cancelAnchor()
+      activeAnchorRef.current = null
+    },
+    [anchorController, settleInterruptedLayout]
+  )
+
   const flushAnchorRestore = useCallback((): void => {
     const el = scrollRef.current
     const anchor = activeAnchorRef.current
@@ -556,6 +599,21 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       (isPinnedRef.current?.() && !isCorrecting(el))
     )
       return
+    // Chromium may move to a find match before delivering its scroll event. A
+    // ResizeObserver arriving first must not restore the previous reading position.
+    const expectedTop = anchorScrollTop.current
+    if (
+      expectedTop !== null &&
+      Math.abs(el.scrollTop - expectedTop) > 0.5 &&
+      !isCorrecting(el) &&
+      !entryMoving(el)
+    ) {
+      const clampedTop = Math.min(expectedTop, Math.max(0, el.scrollHeight - el.clientHeight))
+      if (Math.abs(el.scrollTop - clampedTop) > 0.5) {
+        interruptReadingAnchor(el)
+        return
+      }
+    }
     const snap = snapshotRef.current
     let nextTop = restoreAnchor(el, anchor, () => {
       const blocks = el.querySelectorAll<HTMLElement>('[data-block-key]')
@@ -583,29 +641,12 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       try {
         writeScrollTop(el, nextTop, undefined, 'anchor')
         adjustedScrollTopRef.current = el.scrollTop
+        anchorScrollTop.current = el.scrollTop
       } finally {
         selfWritingScrollRef.current = false
       }
     }
-  }, [scrollRef])
-
-  const settleFrame = useRef<number | null>(null)
-  const settleInterruptedLayout = useCallback(() => {
-    if (!interruptedAnchorLayout.current || typeof requestAnimationFrame !== 'function') return
-    if (settleFrame.current !== null) cancelAnimationFrame(settleFrame.current)
-    // Give pending ResizeObserver deliveries a frame to restart this wait. Once the
-    // layout is quiet the current reading position is the baseline for later resizes.
-    settleFrame.current = requestAnimationFrame(() => {
-      settleFrame.current = requestAnimationFrame(() => {
-        settleFrame.current = null
-        if (!interruptedAnchorLayout.current) return
-        interruptedAnchorLayout.current = false
-        const el = scrollRef.current
-        if (el && !isPinnedRef.current?.()) restingAnchorRef.current = captureAnchor(el)
-        requestHead()
-      })
-    })
-  }, [scrollRef, requestHead])
+  }, [interruptReadingAnchor, scrollRef])
 
   // Child refs arrive together in a commit. Measure their actual boxes before
   // resizeItem writes any sibling transforms or the container's total height.
@@ -917,18 +958,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   useEffect(() => {
     const el = scrollRef.current
     if (!el || typeof el.addEventListener !== 'function') return
-    const cancel = (): void => {
-      cancelCorrection(el)
-      adjustedScrollTopRef.current = null
-      if (activeAnchorRef.current) {
-        // Later measurements of the same snapshot belong to the interrupted correction.
-        interruptedAnchorLayout.current = true
-        restingAnchorRef.current = null
-        settleInterruptedLayout()
-      }
-      anchorController.cancelAnchor()
-      activeAnchorRef.current = null
-    }
+    const cancel = (): void => interruptReadingAnchor(el)
     const gesture = new HistoryGesture()
     let afterFrame: number | undefined
     const request = (direction: HistoryDirection, target: EventTarget | null): boolean => {
@@ -1004,7 +1034,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       gesture.userScroll()
       cancel()
       if (!interruptedAnchorLayout.current && !isPinnedRef.current?.()) {
-        restingAnchorRef.current = captureAnchor(el)
+        captureRestingAnchor(el)
       }
       if (
         !requestHead() &&
@@ -1035,11 +1065,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       el.removeEventListener('scroll', onScroll)
     }
   }, [
-    anchorController,
+    captureRestingAnchor,
+    interruptReadingAnchor,
     historyEnabled,
     scrollRef,
     sessionKey,
-    settleInterruptedLayout,
     requestHead,
     flushAnchorRestore
   ])
@@ -1112,15 +1142,17 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       }
       activeAnchorRef.current = null
       restingAnchorRef.current = null
+      anchorScrollTop.current = null
       anchorController.cancelAnchor()
     } else if (el && anchor) {
       flushAnchorRestore()
     } else if (el && snapshot.count > 0) {
-      restingAnchorRef.current = captureAnchor(el)
+      captureRestingAnchor(el)
     }
     pinnedPrepend.current = false
   }, [
     anchorController,
+    captureRestingAnchor,
     isPinned,
     flushAnchorRestore,
     scrollRef,
