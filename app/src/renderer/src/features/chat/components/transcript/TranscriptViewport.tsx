@@ -778,7 +778,8 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     // runs. The selection the user made still existed when the commit started.
     if (selectionInsideRef.current) return 'inside'
     const sel = typeof document !== 'undefined' ? document.getSelection?.() : null
-    if (!sel || sel.isCollapsed || !sel.anchorNode || !sel.focusNode) return 'none'
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !sel.anchorNode || !sel.focusNode)
+      return 'none'
     const root = viewportRef.current
     if (!root) return 'outside'
     return root.contains(sel.anchorNode) || root.contains(sel.focusNode) ? 'inside' : 'outside'
@@ -857,7 +858,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     const nextKeys = renderedKeysRef.current
     committedKeysRef.current = new Set(nextKeys)
     if (!virtualized) return
-    if (!shouldCancelSelection({ previousKeys, nextKeys, selection: selectionPlace() })) return
+    if (!shouldCancelSelection({ previousKeys, nextKeys, selection: selectionPlace })) return
     const start = typeof performance !== 'undefined' ? performance.now() : 0
     document.getSelection?.()?.removeAllRanges()
     selectionInsideRef.current = false

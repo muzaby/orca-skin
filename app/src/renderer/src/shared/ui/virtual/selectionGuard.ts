@@ -13,7 +13,7 @@ export type SelectionPlace = 'none' | 'outside' | 'inside' | 'dragging'
 export interface CancelInput {
   readonly previousKeys: ReadonlySet<string>
   readonly nextKeys: Iterable<string>
-  readonly selection: SelectionPlace
+  readonly selection: SelectionPlace | (() => SelectionPlace)
 }
 
 /** True when a row key appears that the previous commit did not render. */
@@ -23,8 +23,9 @@ export function hasNewRow(previousKeys: ReadonlySet<string>, nextKeys: Iterable<
 }
 
 export function shouldCancelSelection({ previousKeys, nextKeys, selection }: CancelInput): boolean {
-  if (selection !== 'inside' && selection !== 'dragging') return false
-  return hasNewRow(previousKeys, nextKeys)
+  if (!hasNewRow(previousKeys, nextKeys)) return false
+  const place = typeof selection === 'function' ? selection() : selection
+  return place === 'inside' || place === 'dragging'
 }
 
 export type GestureState = 'idle' | 'dragging' | 'suppressed'

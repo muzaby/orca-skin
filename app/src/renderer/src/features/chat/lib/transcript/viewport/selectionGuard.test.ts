@@ -11,6 +11,19 @@ import {
 const places: SelectionPlace[] = ['none', 'outside', 'inside', 'dragging']
 
 describe('selectionGuard (0326 ΔV2 · VP-42 · EP-25)', () => {
+  it('reads the native selection only when a new row was mounted', () => {
+    let reads = 0
+    const read = (): 'inside' => {
+      reads++
+      return 'inside'
+    }
+    const before = { previousKeys: new Set(['a', 'b']), selection: read }
+    expect(shouldCancelSelection({ ...before, nextKeys: ['b', 'a'] })).toBe(false)
+    expect(reads).toBe(0)
+    expect(shouldCancelSelection({ ...before, nextKeys: ['a', 'c'] })).toBe(true)
+    expect(reads).toBe(1)
+  })
+
   it('u1: a new row key cancels only inside or dragging selections', () => {
     const previousKeys = new Set(['a', 'b'])
     expect(
