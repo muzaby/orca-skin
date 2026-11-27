@@ -138,6 +138,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
             sessionKey={sessionKey}
             scrollRef={scrollRef}
             isPinned={isPinned}
+            startAtEnd={!search && (opening || state.pinned)}
             overscan={6}
             estimateSizePx={60}
             initialOffset={opening ? 0 : state.top}

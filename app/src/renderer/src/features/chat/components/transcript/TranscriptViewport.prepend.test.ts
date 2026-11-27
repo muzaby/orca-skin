@@ -22,6 +22,7 @@ vi.mock('react', async (original) => ({
   ...(await import('../../../../shared/ui/renderHarness.testfixture')).fakeHooks
 }))
 let virtualizer: Virtualizer<HTMLDivElement, HTMLElement>
+let waitForNativeScrollEvent = false
 const measureVirtualKeys = { enabled: false, calls: 0 }
 vi.mock('@tanstack/react-virtual', async () => {
   const { useRealVirtualizerWithFakeHooks } = await import('./viewportTestBridge.testfixture')
@@ -41,6 +42,11 @@ vi.mock('@tanstack/react-virtual', async () => {
           measuredCallbacks.set(getItemKey, measured)
         }
         options = { ...options, getItemKey: measured }
+      }
+      if (waitForNativeScrollEvent) {
+        // Chromium's offset observer subscribes without emitting a synthetic 0
+        // before the virtualizer applies the requested initial position.
+        options = { ...options, observeElementOffset: () => undefined }
       }
       virtualizer = useVirtualizer(options)
       return virtualizer
@@ -147,6 +153,7 @@ function makeScroller(
 let dom: FakeDom | undefined
 afterEach(() => {
   measureVirtualKeys.enabled = false
+  waitForNativeScrollEvent = false
   dom?.unmount()
   clearDisclosures('s')
   dom = undefined
@@ -207,7 +214,154 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
     virtualizer.measureElement(row)
     expect(sizes.get('known')).toBe(71)
     expect(rect).toHaveBeenCalledTimes(1)
+
+    const late = observers.get(row)!
+    const replacement = {
+      ...row,
+      getBoundingClientRect: () => ({ height: 93 })
+    } as unknown as HTMLElement
+    virtualizer.measureElement(replacement)
+    observers.get(replacement)!(
+      [
+        {
+          target: replacement,
+          borderBoxSize: [{ blockSize: 93 }]
+        } as unknown as ResizeObserverEntry
+      ],
+      {} as ResizeObserver
+    )
+    late([observed], {} as ResizeObserver)
+    expect(sizes.get('known')).toBe(93)
+    expect(virtualizer.getVirtualItems()[0].size).toBe(93)
   })
+
+  it('measures the actual row when a saved height has no observer to refresh it', () => {
+    dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+    const sizes = new Map([['old', 46]])
+    dom.render(
+      createElement(TranscriptViewport<{ key: string }>, {
+        snapshot: createBlockList([{ key: 'old' }]).snapshot(),
+        sizeCache: sizes,
+        scrollRef: { current: makeScroller() },
+        isPinned: () => true,
+        renderBlock: () => null
+      })
+    )
+    const rect = vi.fn(() => ({ height: 81 }))
+    const row = {
+      isConnected: true,
+      getBoundingClientRect: rect,
+      getAttribute: (name: string) => (name === 'data-index' ? '0' : 'old')
+    } as unknown as HTMLElement
+    virtualizer.measureElement(row)
+    expect(sizes.get('old')).toBe(81)
+    expect(virtualizer.getVirtualItems()[0].size).toBe(81)
+    expect(rect).toHaveBeenCalledOnce()
+  })
+
+  it.each([false, true])('measures cold mounted rows before positioning, pinned=%s', (pinned) => {
+    const calls: string[] = []
+    let height = 99
+    dom = installFakeDom({
+      innerWidth: 1200,
+      innerHeight: 900,
+      layout: (node) => {
+        const key = node.getAttribute('data-block-key')
+        if (key !== null) {
+          calls.push('read:' + key)
+          return {
+            rect: {
+              top: 100 * Number(node.getAttribute('data-index')),
+              left: 0,
+              width: 600,
+              height
+            }
+          }
+        }
+        return undefined
+      }
+    })
+    const observers = new Map<Element, ResizeObserverCallback>()
+    class RowObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(row: Element): void {
+        const key = row.getAttribute?.('data-block-key')
+        if (key) calls.push('observe:' + key)
+        observers.set(row, this.callback)
+      }
+      unobserve(row: Element): void {
+        observers.delete(row)
+      }
+      disconnect = vi.fn()
+    }
+    const scroller = Object.assign(makeScroller(200, 0), {
+      ownerDocument: { defaultView: Object.assign(window, { ResizeObserver: RowObserver }) },
+      querySelectorAll: (selector: string) => dom!.queryAll(selector)
+    })
+    const sizes = new Map<string, number>()
+    const blocks = createBlockList(Array.from({ length: 20 }, (_, index) => ({ key: 'r' + index })))
+    dom.render(
+      createElement(TranscriptViewport<{ key: string }>, {
+        snapshot: blocks.snapshot(),
+        scrollRef: { current: scroller },
+        isPinned: () => pinned,
+        estimateSizePx: 100,
+        overscan: 6,
+        sizeCache: sizes,
+        renderBlock: (block) => createElement('p', null, block.key)
+      })
+    )
+    const below = dom.query('[data-block-key="r6"]') as unknown as HTMLElement
+    const firstRegistration = calls.indexOf('observe:r0')
+    expect(firstRegistration).toBeGreaterThan(0)
+    expect(calls.slice(0, firstRegistration)).toContain('read:r1')
+    expect(calls.slice(0, firstRegistration).includes('read:r6')).toBe(pinned)
+    expect(sizes.get('r0')).toBe(99)
+    expect(sizes.get('r6')).toBe(pinned ? 99 : undefined)
+    expect(observers.has(below)).toBe(true)
+    const resize = (row: HTMLElement, actual?: number): void => {
+      const entry = {
+        target: row,
+        borderBoxSize: actual === undefined ? [] : [{ blockSize: actual }]
+      }
+      observers.get(row)!([entry as unknown as ResizeObserverEntry], {} as ResizeObserver)
+    }
+    resize(below, 137)
+    expect(sizes.get('r6')).toBe(137)
+    expect(virtualizer.getVirtualItems().find((item) => item.key === 'r6')?.size).toBe(137)
+    height = 148
+    resize(below)
+    expect(sizes.get('r6')).toBe(148)
+  })
+
+  it.each([true, false])(
+    'mounts the requested range on the first commit, bottom=%s',
+    (startAtEnd) => {
+      waitForNativeScrollEvent = true
+      dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+      const scroller = makeScroller(200, 0)
+      const blocks = createBlockList(Array.from({ length: 50 }, (_, i) => ({ key: String(i) })))
+      const rendered: number[] = []
+      dom.render(
+        createElement(TranscriptViewport<{ key: string }>, {
+          snapshot: blocks.snapshot(),
+          scrollRef: { current: scroller },
+          startAtEnd,
+          initialOffset: 600,
+          estimateSizePx: 100,
+          overscan: 0,
+          isPinned: () => startAtEnd,
+          renderBlock: (block) => {
+            rendered.push(Number(block.key))
+            return null
+          }
+        })
+      )
+      const indices = [...new Set(rendered)]
+      expect(indices).toEqual(startAtEnd ? [48, 49] : [6, 7])
+      expect(scroller.scrollTop).toBe(startAtEnd ? 4800 : 600)
+    }
+  )
 
   it('AC5 requests once when the head enters and additional loading pulls never request again', () => {
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })

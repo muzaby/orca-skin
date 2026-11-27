@@ -149,6 +149,7 @@ export interface TranscriptViewportProps<Block extends ViewportBlockBase> {
   readonly renderBlock: (block: Block, index: number, selected: boolean) => ReactNode
   readonly overscan?: number
   readonly estimateSizePx?: number
+  readonly startAtEnd?: boolean
   readonly initialOffset?: number
   readonly sizeCache?: Map<string, number>
   /** When true, computes Claude 0008 reserveGap from the last block with `reserveTarget: true`. */
@@ -207,6 +208,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   overscan = 6,
   estimateSizePx = 120,
   initialOffset,
+  startAtEnd = false,
   sizeCache: externalSizeCache,
   enableReserveGap = false,
   header,
@@ -568,6 +570,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     })
   }, [scrollRef, requestHead])
 
+  // Child refs arrive together in a commit. Measure their actual boxes before
+  // resizeItem writes any sibling transforms or the container's total height.
+  const attachingRows = useRef(new Set<Element>())
+  const attachedHeights = useRef(new Map<Element, number>())
+  const awaitingFirstObservation = useRef(new WeakSet<Element>())
   const measureElement = useCallback(
     (
       element: Element,
@@ -576,20 +583,34 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     ) => {
       const key = element.getAttribute('data-block-key')
       const prevHeight = key ? sizeCache.get(key) : undefined
+      const observedNode = key === null ? undefined : instance.elementsCache.get(key)
+      if (entry) {
+        awaitingFirstObservation.current.delete(element)
+        const index = instance.indexFromElement(element)
+        if (index < 0 || index >= instance.options.count) return 0
+        const currentKey = instance.options.getItemKey(index)
+        if (currentKey !== key || (observedNode && observedNode !== element)) {
+          // A queued entry from a replaced or moved node cannot size its successor.
+          return instance.itemSizeCache.get(currentKey) ?? instance.options.estimateSize(index)
+        }
+      } else if (awaitingFirstObservation.current.has(element) && observedNode === element) {
+        return instance.options.estimateSize(instance.indexFromElement(element))
+      }
       // Only a row registered with this virtualizer's observer will receive a fresh
       // border-box measurement after this ref callback.
       if (
         !entry &&
+        !attachedHeights.current.has(element) &&
         key !== null &&
         prevHeight !== undefined &&
         instance.targetWindow?.ResizeObserver &&
-        instance.elementsCache.get(key) === element &&
+        observedNode === element &&
         !activeAnchorRef.current &&
         !isCorrecting(scrollRef.current)
       )
         return prevHeight
       let rect: DOMRect | undefined
-      let height = entry?.borderBoxSize?.[0]?.blockSize
+      let height = entry?.borderBoxSize?.[0]?.blockSize ?? attachedHeights.current.get(element)
       if (height === undefined) {
         rect = element.getBoundingClientRect()
         height = rect.height
@@ -643,6 +664,56 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     ]
   )
 
+  // Register the collected refs before the virtualizer's own layout effects
+  // position the rows. No paint, microtask or ResizeObserver can intervene.
+  useLayoutEffect(() => {
+    const rows = attachingRows.current
+    if (!rows.size) return
+    const measured = attachedHeights.current
+    const range = virtualizer.range
+    const reading = !isPinnedRef.current?.()
+    try {
+      for (const row of rows) {
+        if (!row.isConnected) {
+          rows.delete(row)
+          continue
+        }
+        const index = virtualizer.indexFromElement(row)
+        const key = row.getAttribute('data-block-key')
+        if (!key || index < 0 || index >= snapshot.count || snapshot.keyAt(index) !== key) {
+          rows.delete(row)
+          continue
+        }
+        const previous = virtualizer.elementsCache.get(key)
+        if ((previous !== undefined && previous !== row) || !sizeCache.has(key)) {
+          if (
+            reading &&
+            range &&
+            index > range.endIndex &&
+            (!previous || (previous === row && awaitingFirstObservation.current.has(row))) &&
+            !activeAnchorRef.current &&
+            !isCorrecting(scrollRef.current) &&
+            (selectionSequence === undefined || selectionSequence === releasedSequence) &&
+            !anchorKey &&
+            !entryMoving(scrollRef.current)
+          ) {
+            // New registration guarantees a first RO delivery for this offscreen row.
+            awaitingFirstObservation.current.add(row)
+          } else {
+            awaitingFirstObservation.current.delete(row)
+            measured.set(row, row.getBoundingClientRect().height)
+          }
+        }
+      }
+      for (const row of rows) {
+        if (row.isConnected) virtualizer.measureElement(row)
+      }
+    } finally {
+      measured.clear()
+      rows.clear()
+    }
+  })
+  const viewportInstance = useRef<Virtualizer<HTMLDivElement, Element> | null>(null)
   const virtualizer = useVirtualizer({
     count: virtualized ? snapshot.count : 0,
     directDomUpdates: true,
@@ -658,7 +729,16 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     getItemKey,
     estimateSize,
     overscan,
-    initialOffset,
+    // A new pinned scroller will be placed at the bottom by its harness.
+    // Seed the first mounted range there instead of laying out both ends.
+    initialOffset: startAtEnd
+      ? () => {
+          const initial = viewportInstance.current
+          const total = initial?.getTotalSize() ?? snapshot.count * estimateSizePx
+          const height = initial?.scrollRect?.height ?? scrollRef.current?.clientHeight ?? 0
+          return Math.max(0, total - height)
+        }
+      : initialOffset,
     rangeExtractor,
     scrollToFn: (offset, { adjustments = 0, behavior }, instance) => {
       const el = instance.scrollElement
@@ -667,6 +747,26 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     },
     measureElement
   })
+
+  viewportInstance.current = virtualizer
+  const attachRow = useCallback(
+    (row: Element | null): void => {
+      // Active restoration needs live top coordinates after each scroll write.
+      if (
+        !row ||
+        !virtualizer.targetWindow?.ResizeObserver ||
+        virtualizer.isScrolling ||
+        activeAnchorRef.current ||
+        isCorrecting(scrollRef.current)
+      ) {
+        if (row) awaitingFirstObservation.current.delete(row)
+        virtualizer.measureElement(row)
+      } else {
+        attachingRows.current.add(row)
+      }
+    },
+    [virtualizer, scrollRef]
+  )
 
   // EP-10 ③ (v3): Disable TanStack internal scroll adjustment — TranscriptViewport owns all scrollTop writes.
   virtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => false
@@ -1103,7 +1203,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
                 return (
                   <div
                     key={block.key}
-                    ref={virtualizer.measureElement}
+                    ref={attachRow}
                     data-index={vi.index}
                     data-block-key={block.key}
                     data-message-id={block.messageId}

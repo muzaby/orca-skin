@@ -139,6 +139,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
           sessionKey={sessionKey}
           scrollRef={scrollRef}
           isPinned={isPinned}
+          startAtEnd={!search && Boolean(isPinned?.())}
           overscan={6}
           estimateSizePx={140}
           enableReserveGap={anchored}
