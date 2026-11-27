@@ -78,6 +78,15 @@ interface RowProps {
 }
 
 export const MarkdownRowView = memo(function MarkdownRowView(props: RowProps): React.JSX.Element {
+  if (props.row.footnoteFooter)
+    return (
+      <MarkdownHast
+        hast={props.row.footnoteFooter.hast}
+        source={props.row.footnoteFooter.source}
+        parts={props.parts}
+        onComplete={() => props.onSettled?.(true)}
+      />
+    )
   return props.row.fencePieces ? <SegmentedFence {...props} /> : <RegularMarkdownRow {...props} />
 })
 
@@ -117,6 +126,7 @@ function RegularMarkdownRow({
           doc,
           start: block.start,
           end: block.end,
+          ...(block.footnotes && { footnotes: block.footnotes }),
           ...(segment.definitions && { definitions: segment.definitions }),
           ...(table && { table })
         },
@@ -231,7 +241,8 @@ export function WorkerDocumentRows({
   // with the workers even when a short paragraph finishes between frames.
   const count = Math.min(total, prefix + 6)
   const active = rows?.[Math.min(prefix, total - 1)]
-  const doc = prefix < total && !active?.fencePieces ? active?.doc : undefined
+  const doc =
+    prefix < total && !active?.fencePieces && !active?.footnoteFooter ? active?.doc : undefined
   const segment = prefix < total ? active?.segment : undefined
   useEffect(() => {
     if (!doc || !segment) return

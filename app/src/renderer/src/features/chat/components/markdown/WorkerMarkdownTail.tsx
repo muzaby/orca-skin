@@ -38,7 +38,7 @@ function SegmentedTail(props: TailProps): React.JSX.Element {
   const rows = useMarkdownRows(props.tail, id)
   const segments = useMemo(() => [...new Set(rows?.map((row) => row.segment))], [rows])
   if (!rows) return <span data-md-block-pending="" />
-  if (rows.some((row) => row.fencePieces))
+  if (rows.some((row) => row.fencePieces || row.footnoteFooter))
     return (
       <WorkerDocumentRows
         rows={rows}

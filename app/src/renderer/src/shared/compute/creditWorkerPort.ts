@@ -8,6 +8,7 @@ function needsFrames(message: WireRequest | WireControl): boolean {
     return message.type === 'doc.open' && message.text.length > WIRE_FRAME_CHARS
   }
   if (message.kind === 'markdown' && message.fence?.parts?.length) return true
+  if (message.kind === 'markdown' && message.footnotes) return true
   if (message.kind === 'markdown' && message.definitions?.length) return true
   return message.kind === 'markdownLayout' && message.source.length > WIRE_FRAME_CHARS
 }

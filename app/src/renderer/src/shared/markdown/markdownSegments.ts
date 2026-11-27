@@ -1,9 +1,11 @@
+import type { Root } from 'hast'
 import type { MarkdownDefinition } from '../compute/protocol'
 import { leadingFence } from './segmentedFence'
 import { MARKDOWN_DOC_SEGMENT_MAX_CHARS, MARKDOWN_WORKER_MIN_CHARS } from '../compute/limits'
 import { markdownDocumentBlocks, type DocumentBlock } from './markdownDocumentBlocks'
 
 export interface MarkdownSegmentRange {
+  footnoteFooter?: Root
   definitions?: MarkdownDefinition[]
   start: number
   end: number
@@ -12,8 +14,8 @@ export interface MarkdownSegmentRange {
 
 // A 3,000-paragraph history message should not need a separate worker round trip and
 // React mount for every short paragraph. Keep large nodes and table chunks independent.
-function* parseRanges(source: string): Generator<DocumentBlock> {
-  const blocks = markdownDocumentBlocks(source)
+function* parseRanges(source: string, groupFootnotes: boolean): Generator<DocumentBlock> {
+  const blocks = markdownDocumentBlocks(source, groupFootnotes)
   if (source.length <= 65536) {
     yield* blocks
     return
@@ -35,8 +37,8 @@ function* parseRanges(source: string): Generator<DocumentBlock> {
 
 // The streaming scanner can group following prose with a fence when there is no
 // blank line between them. The closing marker alone ends a CommonMark fence.
-function* logicalRanges(source: string): Generator<DocumentBlock> {
-  for (const block of parseRanges(source)) {
+function* logicalRanges(source: string, groupFootnotes: boolean): Generator<DocumentBlock> {
+  for (const block of parseRanges(source, groupFootnotes)) {
     let start = block.start
     while (block.end - start > MARKDOWN_DOC_SEGMENT_MAX_CHARS) {
       const fence = leadingFence(source, start, block.end)
@@ -54,7 +56,7 @@ function* logicalRanges(source: string): Generator<DocumentBlock> {
 
 // Keep neighbouring blocks in one document so ordinary cross-block references still resolve.
 // For an oversized single block, cut at its last complete line, then at a character boundary.
-export function markdownLayout(source: string): MarkdownSegmentRange[] {
+export function markdownLayout(source: string, groupFootnotes = true): MarkdownSegmentRange[] {
   const segments: MarkdownSegmentRange[] = []
   let start = 0
   let blocks: DocumentBlock[] = []
@@ -63,7 +65,7 @@ export function markdownLayout(source: string): MarkdownSegmentRange[] {
     start = end
     blocks = []
   }
-  for (const block of logicalRanges(source)) {
+  for (const block of logicalRanges(source, groupFootnotes)) {
     if (block.end - start > MARKDOWN_DOC_SEGMENT_MAX_CHARS && blocks.length) finish(block.start)
     const { fence } = block
     while (block.end - start > MARKDOWN_DOC_SEGMENT_MAX_CHARS) {

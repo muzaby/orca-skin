@@ -1,11 +1,13 @@
 import { parseFenceRange } from './fenceRange'
-import { collectDefinitions, usedDefinitions } from './markdownDefinitions'
+import { collectDefinitions } from './markdownDefinitions'
+import { usedDefinitions } from './usedDefinitions'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import type { Root, RootContent } from 'hast'
-import { defaultUrlTransform } from 'react-markdown'
+import { safeHast } from './safeHast'
+import { applyFootnoteReferences } from './markdownFootnotes'
 import type { ComputeResults } from '../protocol'
 
 const parser = unified()
@@ -61,9 +63,7 @@ export function parseMarkdown(
       lead.value = source.slice(0, prefix) + lead.value.slice(standIn.length)
   }
   const shifted = new WeakSet<object>()
-  const pending: (Root | RootContent)[] = [hast]
-  while (pending.length) {
-    const node = pending.pop()!
+  safeHast(hast, (node) => {
     if (prefix && node.position) {
       for (const point of [node.position.start, node.position.end]) {
         // Positions may be shared by adjacent or enclosing nodes.
@@ -74,22 +74,7 @@ export function parseMarkdown(
         }
       }
     }
-    if (node.type === 'element') {
-      for (const key of ['href', 'src']) {
-        const url = node.properties[key]
-        if (typeof url === 'string') node.properties[key] = defaultUrlTransform(url)
-      }
-    }
-    if ('children' in node) {
-      for (const [index, child] of node.children.entries()) {
-        if (child.type === 'raw') {
-          const text = { type: 'text' as const, value: child.value, position: child.position }
-          node.children[index] = text
-          pending.push(text)
-        } else pending.push(child)
-      }
-    }
-  }
+  })
   return { hast }
 }
 
@@ -117,7 +102,7 @@ export function markdownBlock(
         : collectDefinitions(doc.text)
       references = usedDefinitions(text, doc.definitions).map(([, line]) => line)
     }
-    const result = parseMarkdown(text, references)
+    const result = parseMarkdown(text, [...references, ...(request.footnotes?.lines ?? [])])
     if (!table || table.headerEnd === table.rows[0]) return result
     const header = table.headerEnd - start
     const skipped = table.rows[0] - table.headerEnd
@@ -136,5 +121,7 @@ export function markdownBlock(
     }
     return result
   }
-  return parseBlock(source)
+  const result = parseBlock(source)
+  if (request.footnotes) applyFootnoteReferences(result.hast, request.footnotes)
+  return result
 }

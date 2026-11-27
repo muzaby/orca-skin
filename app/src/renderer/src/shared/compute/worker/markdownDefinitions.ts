@@ -1,3 +1,5 @@
+import { indexFootnotes } from './markdownFootnotes'
+import { MARKDOWN_DOC_SEGMENT_MAX_CHARS } from '../limits'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
@@ -5,7 +7,7 @@ import type { RootContent } from 'mdast'
 import { markdownDocumentBlocks } from '../../markdown/markdownDocumentBlocks'
 import { markdownLayout, type MarkdownSegmentRange } from '../../markdown/markdownSegments'
 import { topLevelFence } from '../../markdown/segmentedFence'
-import type { MarkdownDefinition } from '../protocol'
+import { usedDefinitions } from './usedDefinitions'
 
 const reader = unified().use(remarkParse).use(remarkGfm)
 
@@ -17,7 +19,10 @@ export function collectDefinitions(source: string): Map<string, string> {
   const definitions = new Map<string, string>()
   if (!source.includes(']:') || !/\[(?!\^)(?:\\[\s\S]|[^[\]\\]){1,999}\]:/u.test(source))
     return definitions
-  for (const { start, end } of markdownDocumentBlocks(source)) {
+  for (const { start, end } of markdownDocumentBlocks(
+    source,
+    source.length <= MARKDOWN_DOC_SEGMENT_MAX_CHARS
+  )) {
     const text = source.slice(start, end)
     if (!text.includes(']:') || topLevelFence(source, start, end)) continue
     const pending: RootContent[] = [...reader.parse(text).children].reverse()
@@ -37,30 +42,13 @@ export function collectDefinitions(source: string): Map<string, string> {
   return definitions
 }
 
-// CommonMark labels contain at most 999 characters. Escaped brackets are part of a label.
-export function usedDefinitions(
-  text: string,
-  definitions: ReadonlyMap<string, string>
-): MarkdownDefinition[] {
-  if (!definitions.size || !text.includes('[')) return []
-  const used = new Map<string, string>()
-  for (const match of text.matchAll(/\[((?:\\[\s\S]|[^[\]\\]){1,999})\]/gu)) {
-    const key = match[1]
-      .replace(/[\t\n\r ]+/g, ' ')
-      .replace(/^ | $/g, '')
-      .toLowerCase()
-      .toUpperCase()
-      .toLowerCase()
-    const line = definitions.get(key)
-    if (line !== undefined) used.set(key, line)
-  }
-  return [...used]
-}
-
 export function workerMarkdownLayout(source: string): MarkdownSegmentRange[] {
-  const layout = markdownLayout(source)
+  const splitFootnotes =
+    source.length > MARKDOWN_DOC_SEGMENT_MAX_CHARS && source.includes('[^') && source.includes(']:')
+  const layout = markdownLayout(source, !splitFootnotes)
   if (layout.length <= 1 || !source.includes(']:')) return layout
   const definitions = collectDefinitions(source)
+  if (splitFootnotes) indexFootnotes(source, layout, definitions)
   if (!definitions.size) return layout
   return layout.map((segment) => ({
     ...segment,

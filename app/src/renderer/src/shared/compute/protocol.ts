@@ -58,7 +58,13 @@ declare module 'hast' {
   }
 }
 
+export interface FootnoteBlock {
+  lines: string[]
+  refs: [offset: number, id: string, number: string][]
+}
+
 export interface MarkdownRequest {
+  footnotes?: FootnoteBlock
   definitions?: MarkdownDefinition[]
   fence?: { indent: number; lineStart: boolean; parts?: readonly { key: string; start: number }[] }
   table?: TableChunk

@@ -1,3 +1,4 @@
+import type { Root } from 'hast'
 import { useEffect, useMemo, useState } from 'react'
 import { computeClient } from '../../../../shared/compute/client'
 import { findHistoryLayout } from '../../../../shared/markdown/historyLayout'
@@ -15,6 +16,7 @@ export interface SourceRow {
   doc: { id: string; revision: number }
 }
 export interface MarkdownRow extends SourceRow {
+  footnoteFooter?: { hast: Root; source: string }
   fencePieces?: SourceRow[]
   readSource?: (start: number, end: number) => string
 }
@@ -79,6 +81,10 @@ export function useMarkdownRows(
         }
       }
     })
+    const last = rows.at(-1)
+    const footer = segments.at(-1)?.footnoteFooter
+    if (last && footer)
+      rows.push({ ...last, fencePieces: undefined, footnoteFooter: { hast: footer, source } })
     return rows
   }, [source, id, revisionSource, needsWorker, indexed, hydrated])
 }

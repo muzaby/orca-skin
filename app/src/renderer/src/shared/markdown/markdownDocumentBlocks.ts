@@ -5,11 +5,12 @@ import {
   MARKDOWN_TABLE_CHUNK_MAX_CHARS,
   MARKDOWN_TABLE_CHUNK_ROWS
 } from '../compute/limits'
-import type { TableChunk } from '../compute/protocol'
+import type { TableChunk, FootnoteBlock } from '../compute/protocol'
 export interface DocumentBlock {
   start: number
   end: number
   table?: TableChunk[]
+  footnotes?: FootnoteBlock
   fence?: FenceBounds
 }
 const list = /^ {0,3}(?:[-+*]|\d{1,9}[.)])\s/m
@@ -60,8 +61,9 @@ function classify(source: string, start: number, end: number): DocumentBlock {
   return block
 }
 
-export function markdownDocumentBlocks(source: string): DocumentBlock[] {
-  const firstFootnote = /^ {0,3}\[\^[^\]]+\]:/m.test(source) ? source.indexOf('[^') : -1
+export function markdownDocumentBlocks(source: string, groupFootnotes = true): DocumentBlock[] {
+  const firstFootnote =
+    groupFootnotes && /^ {0,3}\[\^[^\]]+\]:/m.test(source) ? source.indexOf('[^') : -1
   const terminated = source.endsWith('\n')
   const { stable, tail } = splitStableBlocks(terminated ? source : source + '\n')
   const parts = [...stable, terminated ? tail : tail.slice(0, -1)]

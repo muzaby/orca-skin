@@ -149,3 +149,52 @@ it.each([
   expect(dom.query('[data-md-block-pending]')).toBeNull()
   expect(dom.query('[data-markdown-document="complete"]')).toBeNull()
 })
+
+it('VP-41 resolves footnotes on both sides of 8M in reference order with one footer and exact backlinks', async () => {
+  const prefix = 'first[^B] and `[^a]` and \\[^a]\n\n[^a]: original **Alpha**'
+  const after =
+    'second[^A] again[^b], third[^c]\n\n[^b]: **Beta**\n\n[^a]: duplicate\n\n[^c]: Gamma\n\n**done**'
+  const source = prefix + '\n\n~~~text\n' + 'z'.repeat(SIZE + 5) + '\n~~~\n\n' + after
+  const start = source.indexOf(after)
+  dom.render(
+    createElement(TranscriptMarkdown, {
+      source,
+      sourceParts: [
+        { key: 'first', start: 0 },
+        { key: 'last', start }
+      ]
+    })
+  )
+  for (let frame = 0; frame < 500 && !dom.query('[data-markdown-document="complete"]'); frame++) {
+    for (let turn = 0; turn < 14; turn++) await Promise.resolve()
+    dom.frame()
+  }
+  const refs = dom.queryAll('[data-footnote-ref]')
+  expect(refs.map((n) => [n.textContent, n.getAttribute('href'), n.getAttribute('id')])).toEqual([
+    ['1', '#user-content-fn-b', 'user-content-fnref-b'],
+    ['2', '#user-content-fn-a', 'user-content-fnref-a'],
+    ['1', '#user-content-fn-b', 'user-content-fnref-b-2'],
+    ['3', '#user-content-fn-c', 'user-content-fnref-c']
+  ])
+  expect(dom.queryAll('[data-footnotes]')).toHaveLength(1)
+  expect(tags('li').map((n) => n.getAttribute('id'))).toEqual([
+    'user-content-fn-b',
+    'user-content-fn-a',
+    'user-content-fn-c'
+  ])
+  expect(dom.queryAll('[data-footnote-backref]').map((n) => n.getAttribute('href'))).toEqual([
+    '#user-content-fnref-b',
+    '#user-content-fnref-b-2',
+    '#user-content-fnref-a',
+    '#user-content-fnref-c'
+  ])
+  const foot = dom.query('[data-footnotes]')!
+  expect(foot.textContent).not.toContain('duplicate')
+  expect(
+    foot.querySelectorAll('[data-part-key="first"]').some((n) => n.textContent === 'Alpha')
+  ).toBe(true)
+  expect(
+    foot.querySelectorAll('[data-part-key="last"]').some((n) => n.textContent === 'Beta')
+  ).toBe(true)
+  expect(dom.query('[data-markdown-document="complete"]')).toBeTruthy()
+})
