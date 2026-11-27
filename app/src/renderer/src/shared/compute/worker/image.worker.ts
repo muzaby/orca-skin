@@ -7,7 +7,10 @@ const scope = self as unknown as {
 }
 
 scope.onmessage = ({ data }) => {
-  if ('type' in data) return
+  if ('type' in data) {
+    if (data.type === 'health') scope.postMessage({ id: data.id, ok: 'ready' })
+    return
+  }
   if (data.kind !== 'imageThumb') {
     scope.postMessage({ id: data.id, ok: false, error: 'wrong-lane' })
     return

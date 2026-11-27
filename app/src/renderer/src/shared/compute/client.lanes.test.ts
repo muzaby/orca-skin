@@ -135,6 +135,9 @@ it.each(['compute', 'markdown'] as const)(
     try {
       if (lane === 'compute') await import('./worker/compute.worker')
       else await import('./worker/markdown.worker')
+      scope.onmessage!({ data: { type: 'health', id: 6 } })
+      await Promise.resolve()
+      expect(reply).toHaveBeenCalledWith({ id: 6, ok: 'ready' })
       const doc = { id: 'entry', revision: 1 }
       scope.onmessage!({ data: { type: 'doc.open', ref: doc, text: 'first\nsecond' } })
       const request: WireRequest =
@@ -242,4 +245,20 @@ it('discards broken image workers and rejects queued and new jobs at the failure
   await expect(Promise.all(results)).resolves.toEqual(Array(3).fill('unavailable'))
   await expect(request('fourth').promise).rejects.toThrow()
   expect(h.messages.image).toHaveLength(2)
+})
+
+it('image worker acknowledges a recovery check without a thumbnail', async () => {
+  const reply = vi.fn()
+  const scope = {
+    onmessage: null as ((event: { data: WireControl }) => void) | null,
+    postMessage: reply
+  }
+  vi.stubGlobal('self', scope)
+  try {
+    await import('./worker/image.worker')
+    scope.onmessage!({ data: { type: 'health', id: 4 } })
+    expect(reply).toHaveBeenCalledExactlyOnceWith({ id: 4, ok: 'ready' })
+  } finally {
+    vi.unstubAllGlobals()
+  }
 })

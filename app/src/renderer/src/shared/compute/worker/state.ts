@@ -78,6 +78,7 @@ export function createWorkerState(
   }
   return async (message) => {
     if ('type' in message) {
+      if (message.type === 'health') return { id: message.id, ok: 'ready' }
       const key = docKey(message.ref)
       const old = documents.get(key)
       if (old) {

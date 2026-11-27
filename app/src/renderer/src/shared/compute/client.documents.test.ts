@@ -118,8 +118,10 @@ it('opens both sides once, replaces cancelled pair computation and reopens on th
     'doc.open',
     'diffView'
   ])
+  expect(client.workerEpoch('compute')).toBe(0)
   running.cancel()
   await reject
+  expect(client.workerEpoch('compute')).toBe(1)
   const second = ports.get('compute')!
   expect(first.terminate).toHaveBeenCalledTimes(1)
   expect(second.messages.map((m) => ('type' in m ? m.type : m.kind))).toEqual([
@@ -129,6 +131,7 @@ it('opens both sides once, replaces cancelled pair computation and reopens on th
   ])
   second.reply()
   await queued.promise
+  expect(client.recoveryEpoch('compute')).toBe(0)
   left.release()
   right.release()
 })

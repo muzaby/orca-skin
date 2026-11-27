@@ -14,8 +14,12 @@ export function installHistoryWorker(): void {
             onmessageerror: null,
             terminate: vi.fn(),
             postMessage(message) {
-              if ('id' in message)
-                void handleMessage(message).then((data) => port.onmessage?.({ data }))
+              if ('type' in message) {
+                if (message.type === 'health')
+                  port.onmessage?.({ data: { id: message.id, ok: 'ready' } })
+                return
+              }
+              void handleMessage(message).then((data) => port.onmessage?.({ data }))
             }
           }
           return port

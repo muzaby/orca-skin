@@ -1,3 +1,4 @@
+import { fakeComputeClient } from '../../../../shared/compute/fakeClient.testfixture'
 import { createElement } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { ComputeClient } from '../../../../shared/compute/client'
@@ -55,6 +56,7 @@ beforeEach(() => {
       : compute(input)
   }
   const client: ComputeClient = {
+    ...fakeComputeClient().client,
     openDocument(ref, { text }) {
       registered.push(text.length)
       if (text.length > SIZE) throw Error('individual registration exceeded')

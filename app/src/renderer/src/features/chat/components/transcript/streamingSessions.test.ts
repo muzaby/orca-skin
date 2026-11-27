@@ -1,3 +1,4 @@
+import { fakeComputeClient } from '../../../../shared/compute/fakeClient.testfixture'
 import { createElement } from 'react'
 import { it, expect, vi, afterEach } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
@@ -89,6 +90,7 @@ it.each(
     const docs = new Map<string, string>()
     const sent: { text: string; completed: boolean; deliver: () => void }[] = []
     const client: ComputeClient = {
+      ...fakeComputeClient().client,
       peek: () => undefined,
       openDocument(ref, { text }) {
         docs.set(docKey(ref), text)

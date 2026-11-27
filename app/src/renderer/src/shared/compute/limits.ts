@@ -17,7 +17,7 @@ export const COMPUTE_CACHE_MAX_ENTRIES = 1_000
 export const COMPUTE_RESULT_ELEMENT_CHARS = 36
 // 컴포저 초안이 이 글자 수를 넘으면 장식(chip 배경)을 만들지 않는다(0325 D-010).
 export const COMPOSER_DECORATION_MAX_CHARS = 20_000
-// 워커가 연속으로 이만큼 실패하면 창이 닫힐 때까지 워커를 만들지 않는다.
+// 워커가 연속으로 이만큼 실패하면 해당 레인의 다음 생성까지 대기한다.
 export const COMPUTE_FAILURE_LIMIT = 3
 
 export const MARKDOWN_WORKER_MIN_CHARS = 4_000

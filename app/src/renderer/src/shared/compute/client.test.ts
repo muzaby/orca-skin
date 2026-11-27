@@ -1,13 +1,15 @@
 // 계산 클라이언트의 대기열·캐시·취소·실패 (0324 AC11~AC14 · MD-01 · SD-01).
 // 가짜 워커를 주입한다 — 무엇이 워커에 나갔고 언제 끝났는지를 기록으로 본다.
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ComputeCancelled,
+  isComputeWorkerFailure,
   createComputeClient,
   type ComputeClient,
   type WorkerLike
 } from './client'
+import { rendererLog } from '../logging'
 import * as protocol from './protocol'
 import { requestKey, resultSize, type ComputeResult, type WireRequest } from './protocol'
 import { handleMessage } from './worker/handler'
@@ -556,4 +558,181 @@ it('AC8 worker result for an oversized markdown block carries a size and formatt
     hast: { children: [{ tagName: 'p', children: [{ type: 'text' }, { tagName: 'strong' }] }] }
   })
   lease.release()
+})
+
+describe('AC20 lane lifecycle', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  function crash(h: Harness, count = 1): void {
+    for (let i = 0; i < count; i++) {
+      track(h.client.request(hl('crashes'), { cacheable: false }))
+      h.last().onerror!({ message: 'startup' })
+    }
+  }
+  function succeed(h: Harness): void {
+    track(h.client.request(hl('succeeds'), { cacheable: false }))
+    h.last().reply(html('ok'))
+  }
+  function calculationError(h: Harness, reason: string): void {
+    track(h.client.request(hl('bad input')))
+    const id = h.last().posted.at(-1)!.id
+    h.last().onmessage!({ data: { id, ok: false, error: reason } })
+  }
+
+  it.each([1, 2])('AC20 recreates below the limit (%i)', (count) => {
+    const h = harness()
+    crash(h, count)
+    expect(h.client.workerEpoch('compute')).toBe(count)
+    expect(h.client.workerEpoch('image')).toBe(0)
+    succeed(h)
+    expect(h.workers.length).toBe(count + 1)
+    expect(h.client.recoveryEpoch('compute')).toBe(1)
+  })
+
+  it('AC20 waits 2s after the limit', async () => {
+    const h = harness()
+    crash(h, 3)
+    vi.advanceTimersByTime(1_999)
+    const denied = await h.client.request(hl('blocked')).promise.catch((error: unknown) => error)
+    expect(isComputeWorkerFailure(denied)).toBe(true)
+    expect(h.workers).toHaveLength(3)
+    vi.advanceTimersByTime(1)
+    expect(h.workers).toHaveLength(3)
+    succeed(h)
+    expect(h.workers).toHaveLength(4)
+    expect(h.client.recoveryEpoch('compute')).toBe(1)
+  })
+
+  it('AC20 grows the wait to 10s and caps at 60s', async () => {
+    const h = harness()
+    for (const delay of [2_000, 10_000, 60_000, 60_000]) {
+      crash(h, 3)
+      const workers = h.workers.length
+      vi.advanceTimersByTime(delay - 1)
+      const denied = track(h.client.request(hl('blocked')))
+      expect(h.workers).toHaveLength(workers)
+      await flush()
+      expect(isComputeWorkerFailure(denied.state.error)).toBe(true)
+      vi.advanceTimersByTime(1)
+      succeed(h)
+      expect(h.workers).toHaveLength(workers + 1)
+    }
+    expect(h.client.recoveryEpoch('compute')).toBe(4)
+  })
+
+  it('AC20 announces recovery once and ignores stale worker replies', () => {
+    const h = harness()
+    const notify = vi.fn()
+    const other = vi.fn()
+    h.client.subscribeRecovery('compute', notify)
+    h.client.subscribeRecovery('image', other)
+    succeed(h)
+    const old = h.last().onerror!
+    expect(notify).not.toHaveBeenCalled()
+    crash(h)
+    succeed(h)
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(other).not.toHaveBeenCalled()
+    old('stale event')
+    succeed(h)
+    expect(h.client.recoveryEpoch('compute')).toBe(1)
+    expect(h.client.workerEpoch('compute')).toBe(1)
+    expect(notify).toHaveBeenCalledTimes(1)
+  })
+
+  it('AC20 recovers after the cool-down and announces recovery to remaining consumers', () => {
+    const h = harness()
+    crash(h, 3)
+    const left = vi.fn()
+    const keep = vi.fn()
+    h.client.subscribeRecovery('compute', left)()
+    vi.advanceTimersByTime(2_000)
+    expect(h.workers).toHaveLength(3)
+    h.client.subscribeRecovery('compute', keep)
+    vi.advanceTimersByTime(0)
+    expect(h.workers).toHaveLength(4)
+    const check = h.last().posted.at(-1)!
+    expect(check).toMatchObject({ type: 'health' })
+    expect(keep).not.toHaveBeenCalled()
+    h.last().onmessage!({ data: { ok: 'ready', id: check.id + 1 } })
+    expect(keep).not.toHaveBeenCalled()
+    h.last().onmessage!({ data: { ok: 'ready', id: check.id } })
+    h.last().onmessage!({ data: { ok: 'ready', id: check.id } })
+    expect(keep).toHaveBeenCalledTimes(1)
+    expect(left).not.toHaveBeenCalled()
+    expect(h.client.recoveryEpoch('compute')).toBe(1)
+  })
+
+  it('AC20 logs request errors without failing the lane', async () => {
+    const log = vi.spyOn(rendererLog, 'warn')
+    const h = harness()
+    crash(h, 2)
+    calculationError(h, 'bad input')
+    expect(log.mock.calls.filter(([event]) => event === 'compute.request.failed')).toEqual([
+      [
+        'compute.request.failed',
+        'compute',
+        { lane: 'compute', kind: 'highlight', reason: 'bad input' }
+      ]
+    ])
+    expect(h.workers).toHaveLength(3)
+    expect(h.client.recoveryEpoch('compute')).toBe(0)
+    crash(h)
+    await expect(h.client.request(hl('blocked')).promise).rejects.toThrow()
+    expect(h.workers).toHaveLength(3)
+  })
+
+  it('AC20 throttles repeated reasons', () => {
+    const log = vi.spyOn(rendererLog, 'warn')
+    const h = harness()
+    calculationError(h, 'bad')
+    vi.advanceTimersByTime(59_999)
+    calculationError(h, 'bad')
+    expect(log).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(1)
+    calculationError(h, 'bad')
+    expect(log).toHaveBeenCalledTimes(2)
+    calculationError(h, 'different')
+    expect(log).toHaveBeenCalledTimes(3)
+  })
+
+  it('AC20 reports a slow job once without dropping it', async () => {
+    const log = vi.spyOn(rendererLog, 'warn')
+    const h = harness()
+    const job = h.client.request(hl('slow'))
+    vi.advanceTimersByTime(9_999)
+    expect(log).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(log).toHaveBeenCalledWith('compute.request.slow', 'compute', {
+      lane: 'compute',
+      kind: 'highlight',
+      reason: 'no-response',
+      elapsedMs: 10_000
+    })
+    vi.advanceTimersByTime(60_000)
+    expect(log).toHaveBeenCalledTimes(1)
+    h.last().reply(html('late'))
+    await expect(job.promise).resolves.toEqual(html('late'))
+    succeed(h)
+    vi.advanceTimersByTime(60_000)
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('marks a running historyBody on a lost worker separately from a worker that fails to start', async () => {
+    const req = {
+      kind: 'historyBody',
+      sequence: 1,
+      bytes: 2,
+      packet: { offset: 0, base64: 'YQ==' }
+    } as const
+    const h = harness()
+    const first = h.client.request(req)
+    h.last().onerror!('lost')
+    await expect(first.promise).rejects.toThrow('worker-replaced')
+    expect(h.client.workerEpoch('compute')).toBe(1)
+    const cold = harness({ failCreate: () => true })
+    await expect(cold.client.request(req).promise).rejects.toThrow('compute worker failed')
+    expect(cold.client.workerEpoch('compute')).toBe(0)
+  })
 })
