@@ -146,20 +146,18 @@ describe('lib/transcript/viewport/virtualizerOptions (VP-21 · EP-10)', () => {
   it('v2 measures keyed positive heights from the observer or the element rectangle', () => {
     const { sizeCache } = mountViewport(100, true)
     const rect = vi.fn(() => ({ height: 42 }))
-    const element = (key: string | null): HTMLElement =>
+    const element = (key: string | null, index = key === 'b' ? 1 : 0): HTMLElement =>
       ({
-        getAttribute: (name: string) => (name === 'data-index' ? '0' : key),
+        getAttribute: (name: string) => (name === 'data-index' ? String(index) : key),
         getBoundingClientRect: rect
       }) as unknown as HTMLElement
-    const measure = (key: string | null, height?: number): number =>
+    const measure = (row: HTMLElement, height: number): number =>
       virtualizer.options.measureElement(
-        element(key),
-        height === undefined
-          ? undefined
-          : ({ borderBoxSize: [{ blockSize: height }] } as unknown as ResizeObserverEntry),
+        row,
+        { borderBoxSize: [{ blockSize: height }] } as unknown as ResizeObserverEntry,
         virtualizer
       )
-    expect(measure('b', 55)).toBe(55)
+    expect(measure(element('b'), 55)).toBe(55)
     expect(rect).not.toHaveBeenCalled()
     expect(sizeCache.get('b')).toBe(55)
     // This scroller has no ResizeObserver. Attaching an already cached key must
@@ -169,8 +167,10 @@ describe('lib/transcript/viewport/virtualizerOptions (VP-21 · EP-10)', () => {
     expect(virtualizer.elementsCache.get('a')).toBe(row)
     expect(rect).toHaveBeenCalledOnce()
     expect(sizeCache.get('a')).toBe(42)
-    expect(measure('a', 0)).toBe(42)
-    expect(measure(null, 70)).toBe(70)
+    expect(measure(row, 0)).toBe(42)
+    // Neither a displaced key nor an unkeyed node owns the current index.
+    expect(measure(element('b', 0), 72)).toBe(42)
+    expect(measure(element(null, 0), 70)).toBe(42)
     expect([...sizeCache]).toEqual([
       ['a', 42],
       ['b', 55],
