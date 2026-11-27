@@ -178,6 +178,27 @@ describe('lib/transcript/viewport/virtualizerOptions (VP-21 · EP-10)', () => {
     ])
   })
 
+  it('reads the row rectangle once when its height and position are both needed', () => {
+    mountViewport(100, false)
+    const rect = vi.fn(() => ({ top: 10, height: 42 }))
+    const row = {
+      getAttribute: (name: string) => (name === 'data-index' ? '0' : 'a'),
+      getBoundingClientRect: rect
+    } as unknown as HTMLElement
+    const measure = virtualizer.options.measureElement
+
+    expect(measure(row, undefined, virtualizer)).toBe(42)
+    expect(rect).toHaveBeenCalledTimes(1)
+    rect.mockClear()
+
+    const observed = { borderBoxSize: [{ blockSize: 55 }] } as unknown as ResizeObserverEntry
+    expect(measure(row, observed, virtualizer)).toBe(55)
+    expect(rect).toHaveBeenCalledTimes(1)
+    rect.mockClear()
+    expect(measure(row, observed, virtualizer)).toBe(55)
+    expect(rect).not.toHaveBeenCalled()
+  })
+
   it('v2 invalidates cached keys when a different list starts at the same revision', () => {
     const { list, render } = mountViewport()
     const replacement = createBlockList([

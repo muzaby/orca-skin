@@ -588,7 +588,12 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         !isCorrecting(scrollRef.current)
       )
         return prevHeight
-      const height = entry?.borderBoxSize?.[0]?.blockSize ?? element.getBoundingClientRect().height
+      let rect: DOMRect | undefined
+      let height = entry?.borderBoxSize?.[0]?.blockSize
+      if (height === undefined) {
+        rect = element.getBoundingClientRect()
+        height = rect.height
+      }
       if (key && height > 0) {
         sizeCache.set(key, height)
         const changed = prevHeight !== height
@@ -607,7 +612,8 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
           const isAbove =
             (anchorIdx >= 0 && itemIdx >= 0 && itemIdx < anchorIdx) ||
             (scrollRef.current !== null &&
-              element.getBoundingClientRect().top < scrollRef.current.getBoundingClientRect().top)
+              (rect ?? element.getBoundingClientRect()).top <
+                scrollRef.current.getBoundingClientRect().top)
           if (isAbove) {
             if (!activeAnchorRef.current) {
               const target =
