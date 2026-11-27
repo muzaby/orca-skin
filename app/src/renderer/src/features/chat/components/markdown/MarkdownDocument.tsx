@@ -100,7 +100,7 @@ export const MarkdownRowView = memo(function MarkdownRowView({
     if (failed || count >= chunks || committed < count) return
     const client = computeClient()
     // A completed segment releases capacity even if its rendered blocks remain mounted.
-    const lease = client.openDocument(doc, { text: segment.text, lines: undefined }, 'markdown')
+    const lease = client.openDocument(doc, { text: segment.text, read: segment.read }, 'markdown')
     let active = true
     const start = (): void => {
       const table = block.table?.[count]
@@ -202,7 +202,11 @@ function WorkerDocument({ source, sourceParts, className }: MarkdownProps): Reac
   const segment = prefix < total ? active?.segment : undefined
   useEffect(() => {
     if (!doc || !segment) return
-    const lease = computeClient().openDocument(doc, { text: segment.text }, 'markdown')
+    const lease = computeClient().openDocument(
+      doc,
+      { text: segment.text, read: segment.read },
+      'markdown'
+    )
     return () => lease.release()
   }, [doc, segment])
   const advance = useCallback(
