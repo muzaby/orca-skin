@@ -46,9 +46,15 @@ interface CardMeasurement {
     height: number
   }>
   gaps: number[]
+  evidence?: {
+    expected: string[]
+    stored: Array<{ block: string; failureId?: string }>
+    mounted: Array<string | undefined>
+    scroll?: { top: number; height: number; viewport: number }
+  }
 }
 
-function snapshot(steps: Step[]): CardMeasurement {
+function readMountedCards(): Pick<CardMeasurement, 'cards' | 'gaps'> {
   const errors = [...document.querySelectorAll<HTMLElement>('[data-transcript-error]')]
   const users = [...document.querySelectorAll<HTMLElement>('[data-message-id]')].filter((row) =>
     capture.steps.some((s) => s.owner === row.dataset.messageId)
@@ -72,35 +78,89 @@ function snapshot(steps: Step[]): CardMeasurement {
   const gaps = errors
     .slice(1)
     .map((row, i) => row.getBoundingClientRect().top - errors[i].getBoundingClientRect().bottom)
-  const ok =
-    cards.length === steps.length &&
-    cards.every((card, i) => {
-      const { text, owner, fault } = steps[i]
-      if (!fault) return false
-      const label = errorCategoryKey(fault.error.category)
-      return (
-        card.height > 0 &&
-        card.id === fault.failure.failureId &&
-        card.owner === owner &&
-        card.user === owner &&
-        card.question?.includes(text) &&
-        card.messageKey === fault.failure.assistantMessageKey &&
-        card.block === fault.failure.assistantMessageKey &&
-        card.at === fault.failure.occurredAt &&
-        card.visible.includes(fault.error.message) &&
-        (!label || card.visible.toLocaleLowerCase().includes(i18n.t(label).toLocaleLowerCase())) &&
-        card.visible.includes(i18n.t('errors.retryable')) === fault.error.retryable
-      )
-    }) &&
-    (gaps.length < 2 || Math.max(...gaps) - Math.min(...gaps) <= 1)
-  return { ok, cards, gaps }
+  return { cards, gaps }
 }
 
-export async function scrollToPosition(position: 'middle' | 'bottom'): Promise<void> {
+function matches(card: CardMeasurement['cards'][number], { text, owner, fault }: Step): boolean {
+  if (!fault) return false
+  const label = errorCategoryKey(fault.error.category)
+  return Boolean(
+    card.height > 0 &&
+    card.id === fault.failure.failureId &&
+    card.owner === owner &&
+    card.user === owner &&
+    card.question?.includes(text) &&
+    card.messageKey === fault.failure.assistantMessageKey &&
+    card.block === fault.failure.assistantMessageKey &&
+    card.at === fault.failure.occurredAt &&
+    card.visible.includes(fault.error.message) &&
+    (!label || card.visible.toLocaleLowerCase().includes(i18n.t(label).toLocaleLowerCase())) &&
+    card.visible.includes(i18n.t('errors.retryable')) === fault.error.retryable
+  )
+}
+
+// The virtualizer may unmount the first user while its assistant is still in overscan.
+// Every accepted owner/card and every adjacent gap must be observed together in one viewport.
+async function snapshot(steps: Step[]): Promise<CardMeasurement> {
+  const ids = steps.map((s) => s.fault!.failure.failureId)
+  const observed = new Map<string, CardMeasurement['cards'][number]>()
+  const adjacent = new Map<string, number>()
+  const allGaps: number[] = []
+  let current = readMountedCards()
+  let orderMatches = true
+  for (const position of [null, 'top', 'bottom'] as const) {
+    if (position) {
+      await scrollToPosition(position)
+      current = readMountedCards()
+    }
+    for (const [index, card] of current.cards.entries()) {
+      const step = ids.indexOf(card.id ?? '')
+      const next = current.cards[index + 1]
+      if (step < 0 || (next && next.id !== ids[step + 1])) orderMatches = false
+      if (card.id && step >= 0 && matches(card, steps[step])) observed.set(card.id, card)
+      if (next && card.id) {
+        adjacent.set(card.id, current.gaps[index])
+        allGaps.push(current.gaps[index])
+      }
+    }
+    // An unexpected, duplicate or out-of-order card cannot be repaired by another viewport.
+    if (!orderMatches || (allGaps.length > 1 && Math.max(...allGaps) - Math.min(...allGaps) > 1))
+      break
+    if (ids.every((id) => observed.has(id)) && ids.slice(0, -1).every((id) => adjacent.has(id)))
+      return {
+        ok: true,
+        cards: ids.map((id) => observed.get(id)!),
+        gaps: ids.slice(0, -1).map((id) => adjacent.get(id)!)
+      }
+  }
+  let view = document.querySelector<HTMLElement>('[data-transcript-viewport]')
+  while (view && !/(auto|scroll)/.test(getComputedStyle(view).overflowY)) view = view.parentElement
+  const stored = useChatStore.getState().sessions[capture.id].session.messages
+  return {
+    ok: false,
+    ...current,
+    evidence: {
+      expected: steps.map((s) => s.fault!.failure.failureId),
+      stored: stored.flatMap((msg) =>
+        msg.parts.flatMap((part) =>
+          part.type === 'error' ? [{ block: msg.id, failureId: part.failure?.failureId }] : []
+        )
+      ),
+      mounted: [...document.querySelectorAll<HTMLElement>('[data-message-id]')].map(
+        (el) => el.dataset.messageId
+      ),
+      scroll: view
+        ? { top: view.scrollTop, height: view.scrollHeight, viewport: view.clientHeight }
+        : undefined
+    }
+  }
+}
+
+export async function scrollToPosition(position: 'top' | 'middle' | 'bottom'): Promise<void> {
   let el = document.querySelector<HTMLElement>('[data-transcript-viewport]')
   while (el && !/(auto|scroll)/.test(getComputedStyle(el).overflowY)) el = el.parentElement
   if (!el) throw Error('transcript scroll container missing')
-  el.scrollTop = (el.scrollHeight - el.clientHeight) * (position === 'middle' ? 0.5 : 1)
+  el.scrollTop = (el.scrollHeight - el.clientHeight) * { top: 0, middle: 0.5, bottom: 1 }[position]
   await nextFrame()
   await nextFrame()
 }
@@ -126,15 +186,15 @@ export async function measureAccepted(
     }
     await nextFrame()
     await scrollToPosition('middle')
-    stages.push(snapshot(failed))
+    stages.push(await snapshot(failed))
   } else {
-    stages.push(snapshot(steps.slice(0, capture.initialTurns).filter((s) => s.fault)))
+    stages.push(await snapshot(steps.slice(0, capture.initialTurns).filter((s) => s.fault)))
     for (let i = capture.initialTurns; i < steps.length; i++) {
       for (const event of steps[i].events) ingestChatEvent(event)
       await nextFrame()
       await nextFrame()
       await scrollToPosition('middle')
-      stages.push(snapshot(steps.slice(0, i + 1).filter((s) => s.fault)))
+      stages.push(await snapshot(steps.slice(0, i + 1).filter((s) => s.fault)))
     }
   }
   await scrollToPosition('bottom')

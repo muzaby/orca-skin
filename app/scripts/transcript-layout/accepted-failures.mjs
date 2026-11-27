@@ -258,6 +258,22 @@ async function capture(root, out, screen) {
       before.push({ cursor: edge.cursor, reply })
       edge = reply.session.history.before
     }
+    const storedFaults = [...before.map((p) => p.reply.session).reverse(), reopened].flatMap(
+      ({ messages }) =>
+        messages.flatMap(({ id, parts }) =>
+          parts
+            .filter((part) => part.type === 'error')
+            .map(({ error, failure }) => ({ messageKey: id, error, failure }))
+        )
+    )
+    const liveFaults = steps
+      .filter((step) => step.fault)
+      .map(({ fault: { messageKey, error, failure } }) => ({ messageKey, error, failure }))
+    assert.deepEqual(
+      storedFaults,
+      liveFaults,
+      'all reopened page receipts must match their live events'
+    )
     return { id: sessionId, initial, reopened, before, steps, initialTurns, success }
   } finally {
     await pair?.close()
