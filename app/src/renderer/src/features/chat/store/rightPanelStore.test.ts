@@ -24,7 +24,7 @@ const viewer: ArtifactViewerSelection = {
     publishedAt: 0
   }
 }
-beforeEach(() => useRightPanelStore.setState(useRightPanelStore.getInitialState()))
+beforeEach(() => useRightPanelStore.setState(useRightPanelStore.getInitialState(), true))
 it('AC1 open state survives session switches', () => {
   const persist = vi.fn()
   const release = connectPanelSettings(persist)
@@ -66,7 +66,7 @@ it('AC3 E7 clears task detail and E8 resets in-memory choices on restart', () =>
   panel.navigate({ kind: 'taskDetail', id: 'task', task: 'id' })
   panel.switchSession({ ...work, key: 'w2' }, true)
   expect(stack()).toEqual(['task'])
-  useRightPanelStore.setState(useRightPanelStore.getInitialState())
+  useRightPanelStore.setState(useRightPanelStore.getInitialState(), true)
   panel.switchSession(code, true)
   expect(stack()).toEqual(['plan'])
   expect(useRightPanelStore.getState().memory).toEqual({})

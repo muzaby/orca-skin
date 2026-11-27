@@ -7,7 +7,7 @@ export function useReducedMotion(): boolean {
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
   )
   useEffect(() => {
-    const query = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+    const query = globalThis.window?.matchMedia?.('(prefers-reduced-motion: reduce)')
     if (!query) return
     const update = (): void => setReduced(query.matches)
     query.addEventListener('change', update)

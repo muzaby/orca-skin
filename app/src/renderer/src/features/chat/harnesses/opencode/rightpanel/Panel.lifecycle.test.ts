@@ -123,7 +123,7 @@ beforeEach(() => {
   vi.stubGlobal('cancelAnimationFrame', window.cancelAnimationFrame)
   useArtifactViewerStore.setState({ ...initialArtifacts, selection: null })
   useChatStore.setState(initial)
-  useRightPanelStore.setState(useRightPanelStore.getInitialState())
+  useRightPanelStore.setState(useRightPanelStore.getInitialState(), true)
   update({
     sessionId: 'panel-session',
     backend: 'opencode',
