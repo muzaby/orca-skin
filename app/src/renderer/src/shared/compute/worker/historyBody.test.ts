@@ -50,3 +50,19 @@ it('discards an interrupted stream and rejects a packet from a different generat
   decodeHistoryBody({ ...head, packet: null })
   expect(() => decodeHistoryBody(tail)).toThrow('range')
 })
+
+it('rejects an invalid UTF-8 byte inside otherwise valid JSON text', () => {
+  const bytes = Buffer.concat([
+    Buffer.from('[{"type":"text","text":"'),
+    Buffer.from([0xff]),
+    Buffer.from('"}]')
+  ])
+  expect(() =>
+    decodeHistoryBody({
+      kind: 'historyBody',
+      sequence: 22,
+      bytes: bytes.length,
+      packet: { offset: 0, base64: bytes.toString('base64') }
+    })
+  ).toThrow()
+})

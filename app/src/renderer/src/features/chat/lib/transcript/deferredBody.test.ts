@@ -1,4 +1,5 @@
 import {
+  computeClient,
   createComputeClient,
   setComputeClient,
   type WorkerLike
@@ -86,6 +87,7 @@ describe('deferred history bodies', () => {
     'cancelled after reply',
     'cancelled before publish'
   ] as const)('rejects a deferred body with %s', async (problem) => {
+    const sent = vi.spyOn(computeClient(), 'request')
     let text = problem === 'invalid part' ? '[{}]' : '[]'
     if (problem === 'oversized') text = text.padEnd(HISTORY_BODY_BYTES + 1)
     const body = { ...ref, bytes: text.length }
@@ -117,6 +119,7 @@ describe('deferred history bodies', () => {
             : 'Invalid history body range'
     await expect(readDeferredParts(body, 3, page, current)).rejects.toThrow(error)
     expect(page).toHaveBeenCalledTimes(1)
+    if (problem === 'oversized') expect(sent).not.toHaveBeenCalled()
   })
   it.each(['code', 'work', 'opencode'] as const)(
     'shows one stable message placeholder between its original neighbours in %s',
