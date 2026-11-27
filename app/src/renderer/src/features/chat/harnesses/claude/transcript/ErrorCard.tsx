@@ -1,3 +1,4 @@
+import type { TurnFailureReceipt } from '../../../../../../../shared/ipc'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { useI18n } from '../../../../../shared/i18n'
 import { errorCategoryKey } from '../../../lib/errorLabels'
@@ -5,28 +6,33 @@ import { errorCategoryKey } from '../../../lib/errorLabels'
 interface ErrorCardProps {
   // error 파트 payload — 보통 ClassifiedError({ category, message, ... }) 이나 unknown 으로 방어.
   error: unknown
+  failure?: TurnFailureReceipt
 }
 
-function asClassified(error: unknown): { category: string; message: string } {
+function asClassified(error: unknown): { category: string; message: string; retryable?: boolean } {
   if (typeof error === 'object' && error !== null) {
     const e = error as Record<string, unknown>
     const category = typeof e.category === 'string' ? e.category : 'error'
     const message =
       typeof e.message === 'string' ? e.message : typeof error === 'string' ? error : String(error)
-    return { category, message }
+    return { category, message, retryable: e.retryable === true }
   }
   return { category: 'error', message: typeof error === 'string' ? error : String(error) }
 }
 
 // 트랜스크립트에 영속된 error 파트(provider-runtime.md §7)를 작은 카드로. 라이브 턴 에러는
 // ChatTile 의 배너가 담당하지만, 로드된 과거 세션의 error 파트는 여기서 인라인 표시한다.
-export function ErrorCard({ error }: ErrorCardProps): React.JSX.Element {
+export function ErrorCard({ error, failure }: ErrorCardProps): React.JSX.Element {
   const { tr } = useI18n()
-  const { category, message } = asClassified(error)
+  const { category, message, retryable } = asClassified(error)
   const categoryKey = errorCategoryKey(category)
   return (
     <div
       data-transcript-error=""
+      data-failure-id={failure?.failureId}
+      data-owner-user-message-key={failure?.ownerUserMessageKey}
+      data-assistant-message-key={failure?.assistantMessageKey}
+      data-occurred-at={failure?.occurredAt}
       className="flex items-start gap-2 rounded-r6 border border-bad/40 bg-bad/10 px-p5 py-p4 text-[calc(13px*var(--transcript-text-scale,1))] text-ink"
     >
       <span className="mt-[1px] text-bad">
@@ -37,6 +43,11 @@ export function ErrorCard({ error }: ErrorCardProps): React.JSX.Element {
           {categoryKey ? tr(categoryKey) : category}
         </span>
         <span className="break-words leading-[1.5] text-ink2">{message}</span>
+        {failure && retryable && (
+          <span className="text-caption text-ink3">
+            {tr('errors.retryable')} · {tr('errors.transientHint')}
+          </span>
+        )}
       </div>
     </div>
   )

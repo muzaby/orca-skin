@@ -81,6 +81,12 @@ import {
 } from '../lib/transcript/heldParts'
 import { messageOrderFor } from '../lib/transcript/messageOrder'
 import { partMergeKey } from '../lib/transcript/mergeKey'
+import {
+  receiptEndsTurn,
+  restoreTurnFailures,
+  validFailure,
+  type SavedFailure
+} from '../lib/transcript/turnFailures'
 import { isTurnStart } from '../lib/transcript/turnStart'
 import { contextTokens } from '../lib/telemetry'
 
@@ -261,6 +267,7 @@ function resetGitReview(
 }
 
 export interface ChatState extends HeldParts {
+  acknowledgedFailures: ReadonlyMap<string, SavedFailure>
   agentKind: import('../../../../../shared/agent-kind').AgentKind
   agentKindLocked: boolean
   sessionId: string | null
@@ -505,6 +512,7 @@ function activityOf(snapshot: ChatActivityState): ChatActivityState {
 }
 
 export const initialChatState: ChatState = {
+  acknowledgedFailures: new Map(),
   agentKind: DEFAULT_AGENT_KIND,
   agentKindLocked: false,
   sessionId: null,
@@ -1042,12 +1050,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         if (position >= 0 && state.messages[position].role === 'user') optimistic.add(position)
       }
       if (optimistic.size === 0) {
+        const appended = [...state.messages, committed]
+        const messages = restoreTurnFailures(appended, state.acknowledgedFailures.values())
         return {
           ...state,
-          ...writeMessages(state, [...state.messages, committed], {
-            kind: 'append',
-            ids: [committedId]
-          })
+          ...writeMessages(
+            state,
+            messages,
+            messages === appended
+              ? { kind: 'append', ids: [committedId] }
+              : { kind: 'reset', complete: state.historyComplete }
+          )
         }
       }
       const messages: Message[] = []
@@ -1063,7 +1076,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const change: TranscriptChange = replaced
         ? { kind: 'reset', complete: state.historyComplete }
         : { kind: 'append', ids: [committedId] }
-      return { ...state, ...writeMessages(state, messages, change) }
+      return {
+        ...state,
+        ...writeMessages(
+          state,
+          restoreTurnFailures(messages, state.acknowledgedFailures.values()),
+          change
+        )
+      }
     }
 
     case 'DROP_UNCOMMITTED_USER': {
@@ -1478,6 +1498,27 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'error':
+          if (ev.failure) {
+            if (!validFailure(state, ev) || state.acknowledgedFailures.has(ev.failure.failureId))
+              return state
+            const part: SavedFailure = { type: 'error', error: ev.error, failure: ev.failure }
+            const acknowledgedFailures = new Map(state.acknowledgedFailures)
+            acknowledgedFailures.set(ev.failure.failureId, part)
+            const messages = restoreTurnFailures(state.messages, [part])
+            return {
+              ...state,
+              ...(receiptEndsTurn(state, ev)
+                ? { ...TURN_END_RESET, ...childApprovalState(state) }
+                : {}),
+              ...(messages === state.messages
+                ? {}
+                : writeMessages(state, messages, {
+                    kind: 'reset',
+                    complete: state.historyComplete
+                  })),
+              acknowledgedFailures
+            }
+          }
           // main 요청은 broker abort 와 함께 비우되 SDK signal 로 계속 살아 있는 child 요청은 남긴다.
           return {
             ...state,
@@ -1643,7 +1684,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         deferredBody: undefined,
         parts: action.parts
       })
-      const merged = mergeHeldParts(state, messages)
+      const merged = mergeHeldParts(
+        state,
+        restoreTurnFailures(messages, state.acknowledgedFailures.values())
+      )
       const change = writeMessages(state, merged.messages, {
         kind: 'reset',
         complete: state.historyComplete
@@ -1688,10 +1732,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           page.length,
           (toolRunId) => messageOrderFor(state, true).noticeOwner(toolRunId) !== undefined
         )
+        const messages = restoreTurnFailures(merged.messages, state.acknowledgedFailures.values())
         next = {
           ...state,
-          ...writeMessages(state, merged.messages, change),
           ...merged,
+          ...writeMessages(
+            { ...state, ...merged },
+            messages,
+            messages === merged.messages
+              ? change
+              : { kind: 'reset', complete: state.historyComplete }
+          ),
           openCodeTodoTurnStartIndex: state.openCodeTodoTurnStartIndex + page.length
         }
       }
@@ -1707,9 +1758,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const agentKind = readLegacyAgentKind(action.session.agentKind)
       const sameSession = state.sessionId === action.session.id
       const complete = action.complete ?? true
+      const acknowledgedFailures = sameSession
+        ? state.acknowledgedFailures
+        : initialChatState.acknowledgedFailures
       const { messages, ...held } = mergeHeldParts(
         sameSession ? state : emptyHeldParts(),
-        action.session.messages.map(fromLoadedMessage)
+        restoreTurnFailures(
+          action.session.messages.map(fromLoadedMessage),
+          acknowledgedFailures.values()
+        )
       )
       const remaining =
         complete && !messages.some((message) => message.deferredBody)
@@ -1762,6 +1819,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
       return {
         ...initialChatState,
+        acknowledgedFailures,
         openCodeTodoCollapsed:
           state.sessionId === action.session.id ? state.openCodeTodoCollapsed : false,
         openCodeTodoTurnStartIndex: messages.length,

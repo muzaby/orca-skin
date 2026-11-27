@@ -1,3 +1,4 @@
+import { receiptEndsTurn } from '../lib/transcript/turnFailures'
 import { readDeferredParts } from '../lib/transcript/deferredBody'
 import type {
   HistoryWindow,
@@ -906,6 +907,15 @@ export function subscribeGeneratingSessions(
 }
 
 function receive(ev: NormalizedEvent): void {
+  if (ev.type === 'error' && ev.failure) {
+    if (ev.sessionId && getState().sessions[ev.sessionId]) {
+      const key = ev.sessionId
+      const endsTurn = receiptEndsTurn(getState().sessions[key].session, ev)
+      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      if (endsTurn) resetLive(key)
+    }
+    return
+  }
   if (ev.type === 'response.boundary' || ev.type === 'output.captured') {
     // 소유권 이벤트는 세션이 일치할 때만 반영하고 새 턴/활성 draft를 만들지 않는다.
     if (getState().sessions[ev.sessionId])

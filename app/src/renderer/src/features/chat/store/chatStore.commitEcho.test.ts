@@ -93,3 +93,38 @@ describe('VP-07 chatStore commit echo (r12)', () => {
     }
   })
 })
+
+it('keeps the live stream of B on a late first receipt for A and on redelivery, then resets it on B’s own terminal', () => {
+  installChatStoreHarness()
+  const user = (id: string) => ({ id, role: 'user' as const, parts: [], createdAt: 1 })
+  let session = chatReducer(initialChatState, {
+    type: 'LOAD_SESSION',
+    session: { id: 's', agentKind: 'code', backend: 'claude', title: null, messages: [user('u:a')] }
+  })
+  session = chatReducer(chatReducer(session, { type: 'BEGIN_TURN' }), {
+    type: 'APPEND_COMMITTED_USER_MESSAGE',
+    messageKey: 'u:b',
+    text: 'B'
+  })
+  const live = { text: 'stream B', reasoning: 'detail', reasoningVisible: true }
+  useChatStore.setState({ activeKey: 's', sessions: { s: { session, live, subagentMeta: {} } } })
+  const event = (id: string) => ({
+    type: 'error' as const,
+    sessionId: 's',
+    messageKey: 'a:' + id,
+    error: { category: 'stream_error' as const, message: 'fail', retryable: true },
+    failure: {
+      failureId: id,
+      assistantMessageKey: 'a:' + id,
+      ownerUserMessageKey: 'u:' + id,
+      occurredAt: 7
+    }
+  })
+  ingestChatEvent(event('a'))
+  ingestChatEvent(event('a'))
+  expect(useChatStore.getState().sessions.s.live).toBe(live)
+  expect(useChatStore.getState().sessions.s.session.inflight).toBe(true)
+  ingestChatEvent(event('b'))
+  expect(useChatStore.getState().sessions.s.live.text).toBe('')
+  expect(useChatStore.getState().sessions.s.session.inflight).toBe(false)
+})

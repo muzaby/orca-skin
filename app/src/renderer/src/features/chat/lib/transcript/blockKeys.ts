@@ -85,6 +85,7 @@ function partContentSignature(part: AppMessagePart): string | null {
     case 'compact_boundary':
       return `compact:${part.trigger ?? ''}:${part.preTokens ?? ''}`
     case 'error':
+      if (part.failure) return `failure:${part.failure.failureId}`
       return `error:${typeof part.error === 'string' ? part.error : JSON.stringify(part.error ?? '')}`
     case 'subagent_notice':
       return `notice:${part.toolRunId}`

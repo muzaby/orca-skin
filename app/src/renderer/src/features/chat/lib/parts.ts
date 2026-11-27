@@ -4,7 +4,8 @@
 import type {
   AppMessagePart,
   AttachmentView,
-  DiffRequirementAnchor
+  DiffRequirementAnchor,
+  TurnFailureReceipt
 } from '../../../../../shared/ipc'
 import {
   resultMap,
@@ -94,7 +95,7 @@ export type MessageSegment =
   | { kind: 'tools'; calls: ToolCall[] } // 연속 non-Ask 도구 병합 → 1 ToolGroup
   | { kind: 'ask'; call: ToolCall } // AskUserQuestion 은 개별 AskExchange
   | { kind: 'text'; text: string } // 연속 text 이어붙임 → 1 Markdown
-  | { kind: 'error'; error: unknown } // 개별 카드
+  | { kind: 'error'; error: unknown; failure?: TurnFailureReceipt } // 개별 카드
   | { kind: 'compact'; trigger?: 'manual' | 'auto'; preTokens?: number; postTokens?: number } // 압축 경계 구분선(0064, post=0065 r2)
   | { kind: 'fork' } // 분기 경계 구분선(0064 r5) — 복사된 원본 이력과 새 대화 사이
   // 백그라운드 서브에이전트 완료 통지(0143) — 독립 세그먼트(도구 그룹·텍스트에 미병합).
@@ -174,7 +175,7 @@ export function segmentForPart(
         : { kind: 'tools', calls: [call] }
     }
     case 'error':
-      return { kind: 'error', error: part.error }
+      return { kind: 'error', error: part.error, ...(part.failure && { failure: part.failure }) }
     case 'compact_boundary':
       return {
         kind: 'compact',

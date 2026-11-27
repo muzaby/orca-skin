@@ -46,7 +46,7 @@ export const ClaudeAssistantSegment = memo(function ClaudeAssistantSegment({
         />
       )
     case 'error':
-      return <ErrorCard error={seg.error} />
+      return <ErrorCard error={seg.error} failure={seg.failure} />
     case 'compact':
       return (
         <CompactBoundaryMarker

@@ -1,3 +1,4 @@
+import type { TurnFailureReceipt } from '../../../../../../../shared/ipc'
 import { memo } from 'react'
 import { useI18n } from '../../../../../shared/i18n'
 import { Icon } from '../../../../../shared/ui/Icon'
@@ -37,7 +38,7 @@ export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
     case 'ask':
       return <OpenCodeAskExchange call={seg.call} />
     case 'error':
-      return <OpenCodeError error={seg.error} />
+      return <OpenCodeError error={seg.error} failure={seg.failure} />
     case 'compact':
       return (
         <CompactBoundaryMarker
@@ -60,7 +61,13 @@ export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
       )
   }
 })
-function OpenCodeError({ error }: { error: unknown }): React.JSX.Element {
+function OpenCodeError({
+  error,
+  failure
+}: {
+  error: unknown
+  failure?: TurnFailureReceipt
+}): React.JSX.Element {
   const { tr } = useI18n()
   const data = error != null && typeof error === 'object' ? (error as Record<string, unknown>) : {}
   const category = typeof data.category === 'string' ? errorCategoryKey(data.category) : null
@@ -73,12 +80,22 @@ function OpenCodeError({ error }: { error: unknown }): React.JSX.Element {
   return (
     <div
       data-component="opencode-error"
+      data-transcript-error=""
+      data-failure-id={failure?.failureId}
+      data-owner-user-message-key={failure?.ownerUserMessageKey}
+      data-assistant-message-key={failure?.assistantMessageKey}
+      data-occurred-at={failure?.occurredAt}
       className="flex gap-[8px] rounded-[6px] border border-oc-bad/40 px-[12px] py-[8px] text-[calc(13px*var(--transcript-text-scale,1))] text-oc-bad"
     >
       <Icon name="alert" size={16} />
       <div className="min-w-0">
         {category && <div className="font-medium">{tr(category)}</div>}
         <p className="whitespace-pre-wrap break-words">{message}</p>
+        {failure && data.retryable === true && (
+          <p className="text-caption">
+            {tr('errors.retryable')} · {tr('errors.transientHint')}
+          </p>
+        )}
       </div>
     </div>
   )

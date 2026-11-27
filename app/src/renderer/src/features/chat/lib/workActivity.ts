@@ -24,7 +24,7 @@ type SegmentNode = {
   segment: MessageSegment
   sourceParts?: readonly MarkdownSourcePart[]
 }
-type BoundaryNode = { kind: 'boundary'; key: string; boundary: ResponseBoundary }
+type BoundaryNode = { kind: 'boundary'; key: string; messageId: string; boundary: ResponseBoundary }
 type Atom = SegmentNode | BoundaryNode
 export type WorkActivityNode =
   | SegmentNode
@@ -223,6 +223,7 @@ export function createWorkProjector(
         atoms.push({
           kind: 'boundary',
           key: partBlockKey(identity, 'boundary', boundarySeq++),
+          messageId: identity,
           boundary: section.boundary
         })
     }
@@ -296,7 +297,17 @@ export function createWorkProjector(
     if (!atoms.some((atom) => atom.kind === 'boundary')) return null
     const output: WorkActivityNode[] = []
     let active: { id: string; start: ResponseBoundary; items: SegmentNode[] } | undefined
-    function finish(outcome: 'ended' | 'aborted' | 'failed' | 'unknown'): void {
+    const errorMessages = new Set(
+      atoms.flatMap((atom) =>
+        atom.kind === 'segment' && atom.segment.kind === 'error' && atom.segment.failure
+          ? [atom.segment.failure.assistantMessageKey]
+          : []
+      )
+    )
+    function finish(
+      outcome: 'ended' | 'aborted' | 'failed' | 'unknown',
+      endMessageId?: string
+    ): void {
       if (!active) return
       const { id, items, start } = active
       let activity: SegmentNode[] = []
@@ -348,6 +359,14 @@ export function createWorkProjector(
       flushActivity()
       // The final text, including an interrupted partial answer, stays outside the disclosure.
       output.push(...trailingText)
+      if (
+        outcome === 'failed' &&
+        ((endMessageId && errorMessages.has(endMessageId)) ||
+          items.some((item) => item.segment.kind === 'error' && item.segment.failure))
+      ) {
+        active = undefined
+        return
+      }
       const previous = statusRows.get(start)
       if (previous?.outcome === outcome) output.push(previous)
       else {
@@ -363,7 +382,7 @@ export function createWorkProjector(
           if (active?.id === atom.boundary.id) continue
           finish('unknown')
           active = { id: atom.boundary.id, start: atom.boundary, items: [] }
-        } else if (active?.id === atom.boundary.id) finish(atom.boundary.outcome)
+        } else if (active?.id === atom.boundary.id) finish(atom.boundary.outcome, atom.messageId)
       } else if (active) active.items.push(atom)
       else output.push(atom)
     }
