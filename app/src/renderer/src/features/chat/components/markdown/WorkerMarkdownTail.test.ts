@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+vi.mock('../../../../shared/i18n', async (original) => ({
+  ...(await original<typeof import('../../../../shared/i18n')>()),
+  useI18n: () => ({ tr: (key: string) => key })
+}))
 vi.mock('../../store/chatStore', () => ({ useActiveSessionKey: () => 'test-session' }))
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -272,3 +276,39 @@ it('indexes a tail larger than one worker document before registering its pieces
   expect(open.mock.calls.map(([, content]) => content.text.length)).toEqual([limit, 8])
   expect(fake.requests.slice(1).map((request) => request.kind)).toEqual(['markdown', 'markdown'])
 })
+
+it.each(['OpenCode text', 'Claude reasoning'])(
+  'f13: %s preserves the long final line during streaming and after the worker commits',
+  async (screen) => {
+    const { OpenCodeText } = await import('../../harnesses/opencode/transcript/Text')
+    const { ReasoningBlock } = await import('../../harnesses/claude/transcript/ReasoningBlock')
+    const { parseMarkdown } = await import('../../../../shared/compute/worker/markdown')
+    const line = 'a'.repeat(50_000)
+    const source = '~~~ts\n' + line
+    const view = (streaming: boolean): void =>
+      dom.render(
+        screen === 'OpenCode text'
+          ? createElement(OpenCodeText, { source, streaming })
+          : createElement(ReasoningBlock, {
+              items: [{ text: source }],
+              defaultOpen: true,
+              streaming
+            })
+      )
+    function codeLines(node: FakeNode): string[] {
+      return node.tag === 'code' && node.parent?.tag === 'pre'
+        ? [node.textContent]
+        : node.children.flatMap(codeLines)
+    }
+    view(true)
+    expect(codeLines(dom.body)).toEqual([line])
+    view(false)
+    expect(dom.query('[data-md-block-pending]')?.textContent).toBe('')
+    expect(dom.body.textContent).not.toContain('~~~ts')
+    expect(fake.requests.at(-1)).toMatchObject({ kind: 'markdown', start: 0, end: source.length })
+    fake.resolveNext(parseMarkdown(source))
+    await settle()
+    expect(codeLines(dom.body)).toEqual([line])
+    expect(dom.query('[data-md-block-pending]')).toBeNull()
+  }
+)

@@ -161,7 +161,15 @@ describe('StreamingMarkdown open fence parity (EP-19 f10)', () => {
         createElement(ReasoningBlock, { items: [{ text: source }], streaming, defaultOpen: true })
       ]
       for (const renderer of renderers) {
-        const code = load(renderToStaticMarkup(renderer))('pre code')
+        const $ = load(renderToStaticMarkup(renderer))
+        if (!streaming && source.length > 4000) {
+          // The mounted worker renderer verifies f13's final code in WorkerMarkdownTail.test.ts.
+          const pending = $('pre[data-md-block-pending]')
+          expect(pending).toHaveLength(1)
+          expect(pending.text()).toBe('')
+          continue
+        }
+        const code = $('pre code')
         expect(code).toHaveLength(1)
         expect(code.text()).toBe(streaming ? live : reference)
       }

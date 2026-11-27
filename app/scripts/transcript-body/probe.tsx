@@ -204,7 +204,7 @@ function formattedBodyMatches(): boolean {
   }
   return paragraph.textContent === source.slice(0, -marker.length) + '완료'
 }
-async function measure(): Promise<unknown> {
+async function measure(budget = 180000): Promise<unknown> {
   await frame()
   if (input === 'B3') {
     start = performance.now()
@@ -232,7 +232,7 @@ async function measure(): Promise<unknown> {
     subtree: true,
     characterData: true
   })
-  const deadline = performance.now() + 180000
+  const deadline = performance.now() + budget
   let complete = false
   while (performance.now() < deadline && stable < 10) {
     await frame()

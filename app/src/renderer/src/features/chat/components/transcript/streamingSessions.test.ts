@@ -2,6 +2,7 @@ import { createElement } from 'react'
 import { it, expect, vi, afterEach } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
 import { setComputeClient, type ComputeClient } from '../../../../shared/compute/client'
+import { parseMarkdown } from '../../../../shared/compute/worker/markdown'
 import { docKey, type ComputeResults } from '../../../../shared/compute/protocol'
 import { installChatStoreHarness } from '../../store/chatStore.testHarness'
 import { useChatStore, ingestChatEvent } from '../../store/chatStore'
@@ -86,7 +87,7 @@ it.each(
     Object.assign(document, { fonts: { addEventListener: vi.fn(), removeEventListener: vi.fn() } })
     setVirtualization(false)
     const docs = new Map<string, string>()
-    const sent: { text: string; deliver: () => void }[] = []
+    const sent: { text: string; completed: boolean; deliver: () => void }[] = []
     const client: ComputeClient = {
       peek: () => undefined,
       openDocument(ref, { text }) {
@@ -100,14 +101,14 @@ it.each(
           }
         }
       },
-      request(request) {
+      request(request, options) {
         if (!('doc' in request)) throw Error('unexpected request')
         const text = docs.get(docKey(request.doc))!
         const promise = new Promise<ComputeResults['markdown']>((resolve) =>
           sent.push({
             text,
-            deliver: () =>
-              resolve({ hast: { type: 'root', children: [{ type: 'text', value: text }] } })
+            completed: options?.cacheable !== false,
+            deliver: () => resolve(parseMarkdown(text))
           })
         )
         return { promise: promise as Promise<never>, setPriority: vi.fn(), cancel: vi.fn() }
@@ -153,7 +154,10 @@ it.each(
     }
     let bText = ''
     for (const [i, chunk] of [
-      '**B0001** '.padEnd(10000 - ' B0002 end'.length, 'b'),
+      '**B0001** [details](https://example.org/session-b) '.padEnd(
+        10000 - ' B0002 end'.length,
+        'b'
+      ),
       ' B0002 end'
     ].entries()) {
       delta('s', i === 0 ? '**A0001** ' + 'a'.repeat(4001) : ' A0002')
@@ -208,17 +212,32 @@ it.each(
     }
     const markers = (): string[] | null => dom.body.textContent.match(/[BC]000[12]/g)
     expect(useChatStore.getState().sessions.b.session.inflight).toBe(true)
-    expect(markers()).toEqual(['B0001', 'B0002'])
+    const pending = dom.body.querySelector('[data-md-block-pending]')
+    expect(pending?.textContent).toBe('')
+    expect(dom.body.textContent).not.toContain('**B0001**')
+    expect(dom.body.textContent).not.toContain('https://example.org/session-b')
     expect(dom.body.querySelector('[data-markdown-tail]')).toBeNull()
-    expect(parsed).toHaveBeenCalledWith(bText)
+    const completed = sent.find((r) => r.completed && r.text === bText)
+    expect(completed, 'the active session submits its completed text to the worker').toBeDefined()
+    expect(parsed).not.toHaveBeenCalledWith(bText)
+    await actResult(completed!.deliver)
+    const link = dom.body.querySelector('[href="https://example.org/session-b"]')
+    expect(link?.textContent).toBe('details')
+    expect(link?.parent?.children.find((n) => n.tag === 'strong')?.textContent).toBe('B0001')
+    expect(markers()).toEqual(['B0001', 'B0002'])
+    expect(dom.body.querySelector('[data-md-block-pending]')).toBeNull()
     delta('b', 'C0001 '.padEnd(10000, 'c'), 'b:M2')
     expect(useChatStore.getState().sessions.b.session.inflight).toBe(true)
     expect(markers()).toEqual(['B0001', 'B0002', 'C0001'])
     const tails = dom.body.querySelectorAll('[data-markdown-tail]')
     expect(tails.map((node) => node.textContent.match(/[BC]000[12]/g))).toEqual([['C0001']])
+    const beforeFinal = sent.length
     dom.act(() => ingestChatEvent({ type: 'telemetry', sessionId: 'b' }))
     drain()
     expect(useChatStore.getState().sessions.b.session.inflight).toBe(false)
+    const finalRequests = sent.slice(beforeFinal).filter((r) => r.completed)
+    expect(finalRequests.some((r) => r.text.includes('C0001'))).toBe(true)
+    for (const request of finalRequests) await actResult(request.deliver)
     expect(markers()).toEqual(['B0001', 'B0002', 'C0001'])
     expect(dom.body.querySelector('[data-markdown-tail]')).toBeNull()
   }
