@@ -120,7 +120,11 @@ function mountScreen(
       disconnect = vi.fn()
     }
   )
-  Object.assign(document, { fonts: { addEventListener: vi.fn(), removeEventListener: vi.fn() } })
+  Object.assign(document, {
+    // The native offset observer binds the scroll listener through the node's window.
+    defaultView: window,
+    fonts: { addEventListener: vi.fn(), removeEventListener: vi.fn() }
+  })
   const scrollRef = scrollTarget()
   const contentRef = { current: null }
   function Screen(): React.JSX.Element {
@@ -258,11 +262,17 @@ describe('TranscriptViewport.selection via the production screens (ΔV2 rev 3 ·
       const onPointerDown = viewport().props.onPointerDown as (event: { button: number }) => void
       dom!.act(() => onPointerDown({ button: 0 }))
       const rows = dom!.queryAll('[data-index]')
+      const initialKeys = new Set(rows.map((row) => row.getAttribute('data-block-key')))
       select(rows[1], 0, rows.at(-1)!, 1)
       expect(selection.rangeCount).toBe(1)
       dom!.query('[data-behavior="virtualizable"]')!.scrollTop = 80 * ROW
       dom!.act(() => scrollRef.current!.dispatchEvent(new Event('scroll')))
       for (let i = 0; i < 4; i++) render()
+      expect(
+        dom!
+          .queryAll('[data-index]')
+          .some((row) => !initialKeys.has(row.getAttribute('data-block-key')))
+      ).toBe(true)
       expect(selection.rangeCount).toBe(0)
       expect(viewport().getAttribute('data-selection-suppressed')).toBe('')
       dom!.act(() => useChatStore.setState({ activeKey: 't' }))
