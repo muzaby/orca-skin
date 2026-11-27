@@ -90,12 +90,17 @@ async function checkDomOmissions(index) {
   return { missingParagraph, missingFormatting }
 }
 
-export async function measureMiddleSelection(wc, clipboard, js, find, definition) {
+export async function measureMiddleSelection(wc, clipboard, js, find, definition, observed) {
   const semantic = await js('window.verifyBody()')
+  Object.assign(observed, semantic, {
+    variant: 'middle-source-parts',
+    paragraphIndex: definition.paragraphIndex
+  })
   assert.equal(semantic.sourceMatches, true, 'source content')
   assert.equal(semantic.formattedBodyMatches, true, 'all formatted paragraphs')
   assert.equal(semantic.bodyCounts.checked, 2443)
   const context = await js('window.revealBody()')
+  observed.searchTarget = context
   assert.equal(context, true, 'search row not revealed')
   const locate = (select) =>
     js(
@@ -106,12 +111,19 @@ export async function measureMiddleSelection(wc, clipboard, js, find, definition
         ')'
     )
   const actual = await locate(false)
+  observed.middleRange = actual
   assert.equal(actual.paragraphs, 2443)
   assert.equal(actual.range, needle)
   const result = await findVisibleTarget(wc, find, needle, async () => (await locate(false)).rect)
+  Object.assign(observed, result)
   assert.equal(result.nativeFind, true, JSON.stringify(result))
   wc.stopFindInPage('clearSelection')
   const selection = await locate(true)
+  Object.assign(observed, {
+    selected: selection.selected,
+    first: selection.first,
+    last: selection.last
+  })
   assert.deepEqual([selection.first, selection.last], ['message:text:0', 'message:text:1'])
   assert.equal(selection.selected, needle)
   clipboard.writeText('0331-middle-copy-sentinel')
@@ -122,6 +134,7 @@ export async function measureMiddleSelection(wc, clipboard, js, find, definition
     if (copied === needle) break
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
+  observed.copied = copied
   assert.equal(copied, needle)
   const omissions = await js(
     '(' + checkDomOmissions.toString() + ')(' + definition.paragraphIndex + ')'
@@ -131,16 +144,5 @@ export async function measureMiddleSelection(wc, clipboard, js, find, definition
     assert.equal(result.bodyCounts.paragraphs, 2443)
     assert.equal(result.formattedBodyMatches, false)
   }
-  return {
-    detectedDomOmissions: Object.keys(omissions),
-    ok: true,
-    ...semantic,
-    searchTarget: context,
-    ...result,
-    selected: selection.selected,
-    copied,
-    first: selection.first,
-    last: selection.last,
-    paragraphIndex: definition.paragraphIndex
-  }
+  return { ...observed, detectedDomOmissions: Object.keys(omissions), ok: true }
 }

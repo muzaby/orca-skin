@@ -68,6 +68,7 @@ app.whenReady().then(async () => {
       chrome: process.versions.chrome,
       os: process.platform
     }
+    measured = { ...meta }
     ipcMain.handle('body:meta', () => meta)
     ipcMain.handle('body:page', (_event, request) => {
       const { offset, requestId, sessionId, openGeneration } = request
@@ -130,8 +131,12 @@ app.whenReady().then(async () => {
         await wc.executeJavaScript(
           "new Promise(resolve => {const poll = () => typeof window.measureBody === 'function' ? resolve() : setTimeout(poll, 10); poll()})"
         )
+        Object.assign(
+          measured,
+          await js('({viewport: [innerWidth, innerHeight], dpr: devicePixelRatio})')
+        )
         const measurement = await js('window.measureBody(' + budget + ')')
-        measured = { ...meta, ...measurement }
+        Object.assign(measured, measurement)
         if (!measurement.complete || params.has('calibrate')) return measurement
         if (middle) {
           return {
@@ -142,7 +147,8 @@ app.whenReady().then(async () => {
               clipboard,
               js,
               (...args) => find(...args, budget),
-              middle
+              middle,
+              measured
             ))
           }
         }
