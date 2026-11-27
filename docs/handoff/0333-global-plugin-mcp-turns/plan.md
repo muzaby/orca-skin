@@ -299,12 +299,12 @@ r1은 D1–D7을 적용했다. 영속 선호의 식별자는 하네스·종류·
 | 재시작 실행 | `node scripts/smoke-claude-extension-restart.mjs out/main`과 `ORCINUS_ORCA_TEST_OPENCODE_EXE=<1.18.27 실행 파일> node scripts/smoke-extension-restart.mjs out/main`이 실제 창 포트·두 호스트·SQLite·CLI를 연결했다. Claude는 8턴, OpenCode는 6턴이다. |
 | 운영 게이트 | 마이그레이션 39+2개, 목록 주체 3개, v0.3.1 이후 append-only. 문서 인벤토리 9항목·127채널과 링크, 제품 표기, process boundary, 실-git 18스위트 예산 가드 통과. electron-vite 빌드와 data→agent 호스트·preload smoke 통과. 500 kB chunk 경고 발생. |
 | 추가·수정 테스트 | 최초 구현 커밋의 변경·삭제 테스트/fixture는 42개. 후속 Windows fixture의 Linux 경로 및 공개 transport 검사는 해당 테스트 좌표에서 재실행했다. CLI는 io 풀, 임시 홈·로컬 서버를 쓰며 실제 Git·시간 예산은 저장소 가드로 확인했다. |
-| 블로커 / 재검증 | 통합 브랜치의 lint·typecheck·파일 필터 없는 테스트와 최신 트리 빌드는 합치는 작업에서 실행한다. Windows 설치본은 Linux 작업 환경에서 실행할 수 없었다. |
+| 블로커 / 재검증 | Linux에서 로컬 CI 단계가 모두 통과했다. 전체 Vitest는 10,965개 통과·예상 실패 1개·건너뜀 11개·예기치 않은 실패 0개였고, Node 스크립트 테스트는 1,178/1,178이었다. lint 오류 0·경고 15, 세 타입 검사, 가드 5종, 앱 빌드와 두 호스트·preload 기동을 확인했다. AC8의 Windows 설치본 파일 이벤트·배포·실제 도구 인수는 남아 있다. |
 | V / 대상 커밋 | SELF_PASS 0 / SELF_BLOCKED 5. §10 분류별 구현 6/6. (r1 구현 — 좌표는 INDEX) |
 
 ### 통합 회귀 확인
 
-전역 선택과 별개인 런타임 도구의 배포 버전이 바뀌면 유휴 영속 채널을 다음 수신 전에 다시 띄운다. 기존 채널에 서브에이전트 결과가 대기 중이면 그 채널에서 결과를 먼저 소비한다. `chat-turn.runtime-tools.test.ts`, 관리형 MCP 정책, 턴 종료 후 스케줄링을 함께 실행해 47/47을 확인했다. OpenCode의 새 세션은 MCP 입장 확인 뒤 생성된다. 시작·런타임 순서 시험은 시간 배율 6에서 23/23, 기본 배율에서 시작 시험 15/15였다.
+전역 선택과 별개인 런타임 도구의 배포 버전이 바뀌면 유휴 영속 채널을 다음 수신 전에 다시 띄운다. 기존 채널에 서브에이전트 결과가 대기 중이면 그 채널에서 결과를 먼저 소비한다. `chat-turn.runtime-tools.test.ts`, 관리형 MCP 정책, 턴 종료 후 스케줄링을 함께 실행해 47/47을 확인했다. OpenCode의 새 세션은 MCP 입장 확인 뒤 생성된다. 시작·런타임 순서 시험은 시간 배율 6에서 23/23, 기본 배율에서 시작 시험 15/15였다. 전송 취소는 원문 및 첨부를 복원하고 Work 질문 인용은 현재 초안에 덧붙인다. 취소·행 재선택 경로를 포함해 첫 전체 실행에서 실패한 18개 파일을 함께 다시 검사해 125/125 통과했다.
 
 ## [구현자 기입] Review Signals
 
