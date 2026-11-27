@@ -102,8 +102,7 @@ export function judgeBodyMatrix(records, calibration) {
       row.selectionMatches !== true ||
       row.searchTarget !== true ||
       row.nativeFind !== true ||
-      !Number.isInteger(row.nativeMatches) ||
-      row.nativeMatches < 1 ||
+      row.nativeMatches !== 1 ||
       !rectanglesOverlap(row.findRect, row.markerRect) ||
       !validCounts(row.input, row.bodyCounts) ||
       !Array.isArray(row.phases) ||

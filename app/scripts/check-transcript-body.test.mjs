@@ -133,6 +133,7 @@ const invalid = {
   'wrong source reveal': { searchTarget: false },
   'native search miss': { nativeFind: false },
   'missing find result': { nativeMatches: 0 },
+  'duplicate native target': { nativeMatches: 2 },
   'offscreen marker': { markerRect: { x: 10, y: 55, width: 22, height: 12 } },
   'empty native target': { findRect: { x: 10, y: 20, width: 0, height: 12 } },
   'unmeasured marker geometry': { markerRect: null },

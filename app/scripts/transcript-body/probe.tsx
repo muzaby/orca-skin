@@ -139,7 +139,7 @@ function Screen(): React.JSX.Element {
       sessionId={id}
       messages={state.messages}
       sendCount={0}
-      inflight={input === 'B3'}
+      inflight={state.inflight}
     >
       {(scroll) => (
         <TranscriptView
@@ -148,7 +148,7 @@ function Screen(): React.JSX.Element {
           agentKind="code"
           messages={state.messages}
           pendingSteer={[]}
-          inflight={input === 'B3'}
+          inflight={state.inflight}
           loadingSession={false}
         />
       )}
@@ -159,9 +159,51 @@ const root = createRoot(document.querySelector('#root')!)
 flushSync(() => root.render(<Screen />))
 const frame = (): Promise<void> => new Promise((resolve) => requestAnimationFrame(() => resolve()))
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
+// The native result must overlap the marker in the message actually revealed by app search.
+// Keep that same row after the temporary highlight expires or another tail is mounted.
+let revealedRow: HTMLElement | undefined
+function revealedMarker(): Element | undefined {
+  if (!revealedRow?.isConnected) return
+  const documentNode = revealedRow.querySelector('[data-markdown-document="complete"]')
+  if (!documentNode || documentNode.querySelector('[data-md-block-pending],[data-md-block-error]'))
+    return
+  const markers = documentNode.querySelectorAll('strong')
+  return markers.length === 1 && markers[0].textContent === '완료' ? markers[0] : undefined
+}
+async function settledMarker(): Promise<DOMRect | null> {
+  const deadline = performance.now() + 10000
+  let last: DOMRect | undefined
+  let count = 0
+  while (performance.now() < deadline) {
+    await frame()
+    const marker = revealedMarker()
+    if (!marker) {
+      count = 0
+      continue
+    }
+    const range = document.createRange()
+    range.selectNodeContents(marker)
+    const rect = range.getBoundingClientRect()
+    if (
+      last &&
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.x === last.x &&
+      rect.y === last.y &&
+      rect.width === last.width &&
+      rect.height === last.height
+    ) {
+      if (++count === 4) return rect
+    } else count = 0
+    last = rect
+  }
+  return null
+}
 async function revealBody(): Promise<boolean> {
+  let streamedText: string | undefined
   if (input === 'B3') {
     const live = useChatStore.getState().sessions[id].live
+    streamedText = live.text
     ingestChatEvent({
       type: 'message.completed',
       sessionId: id,
@@ -169,6 +211,9 @@ async function revealBody(): Promise<boolean> {
       messageKey: 'message',
       messageKeySource: 'owner'
     })
+    ingestChatEvent({ type: 'turn.ended', sessionId: id })
+    ingestChatEvent({ type: 'telemetry', sessionId: id })
+    if (useChatStore.getState().sessions[id].live.text) return false
   }
   const entry = useChatStore.getState().sessions[id]
   const target = entry.session.messages.at(-1)?.id
@@ -180,13 +225,23 @@ async function revealBody(): Promise<boolean> {
   if (!opened) return false
   for (let i = 0; i < 40; i++) {
     await frame()
-    const highlighted = document.querySelector('[data-history-highlight]')
+    const highlighted = document.querySelector<HTMLElement>('[data-history-highlight]')
     if (
       highlighted &&
-      highlighted.querySelector('strong') &&
+      highlighted.closest<HTMLElement>('[data-message-id]')?.dataset.messageId === target &&
       useChatStore.getState().sessions[id].search?.target === target
-    )
+    ) {
+      revealedRow = highlighted
+      if (!(await settledMarker())) return false
+      if (streamedText !== undefined) {
+        const paragraphs = highlighted.querySelectorAll('[data-markdown-document="complete"] p')
+        return (
+          paragraphs.length === 1 &&
+          paragraphs[0].textContent === streamedText.slice(0, -6) + '완료'
+        )
+      }
       return true
+    }
   }
   return false
 }
@@ -233,7 +288,12 @@ async function measure(budget: number): Promise<unknown> {
         start = performance.now()
         phase('first input')
       }
-      ingestChatEvent({ type: 'message.delta', sessionId: id, delta: { text } })
+      ingestChatEvent({
+        type: 'message.delta',
+        sessionId: id,
+        messageKey: 'message',
+        delta: { text }
+      })
       delivered += text.length
       if (delivered === meta.characters) phase('last delta')
       await frame()
@@ -319,14 +379,19 @@ Object.assign(window, {
   revealBody,
   selectBodyText: () => selectBodyText(input!),
   markerRect: async () => {
-    await frame()
-    const el = document.querySelector(
-      '[data-markdown-document] strong, [data-markdown-tail="parsed"] strong'
-    )
-    if (!el) return null
-    const range = document.createRange()
-    range.selectNodeContents(el)
-    return range.getBoundingClientRect().toJSON()
+    const rect = await settledMarker()
+    let viewport = revealedRow?.closest<HTMLElement>('[data-transcript-viewport]')
+    while (viewport && !['auto', 'scroll'].includes(getComputedStyle(viewport).overflowY))
+      viewport = viewport.parentElement
+    if (!rect || !viewport) return null
+    return {
+      ...rect.toJSON(),
+      scrollTop: viewport.scrollTop,
+      scrollLeft: viewport.scrollLeft,
+      scrollViewport: viewport.getBoundingClientRect().toJSON(),
+      viewportWidth: innerWidth,
+      viewportHeight: innerHeight
+    }
   },
   verifyBody: () =>
     verifyBody(
