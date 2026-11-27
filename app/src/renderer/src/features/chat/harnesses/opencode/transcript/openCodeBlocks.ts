@@ -347,8 +347,17 @@ export function createOpenCodeBlockModel(
     for (const msg of turnMessages) {
       const projection = assistantParts.get(msg.id)!
       const entries = partKeysByMessage.get(msg.id) ?? []
+      const previousText = rawSegments.at(-1)
+      let leadingWhitespace = ''
       for (const entry of entries) {
         combinedEntries.push(entry)
+        if (
+          previousText?.kind === 'text' &&
+          entry.partIndex < projection.cache.firstSegmentStart &&
+          entry.kind === 'text'
+        ) {
+          leadingWhitespace += entry.signature?.slice('text:'.length) ?? ''
+        }
         if (entry.kind === 'tool' && entry.toolRunId) {
           if (!callMessageById.has(entry.toolRunId)) {
             callMessageById.set(entry.toolRunId, msg.id)
@@ -359,12 +368,19 @@ export function createOpenCodeBlockModel(
           nonTextPartKeysByKind.set(entry.kind, arr)
         }
       }
+      if (leadingWhitespace && previousText?.kind === 'text') {
+        rawSegments[rawSegments.length - 1] = {
+          kind: 'text',
+          text: previousText.text + leadingWhitespace
+        }
+      }
       if (projection.firstText !== Infinity) lastTextOwner = msg.id
       copyable ||= projection.firstCopyable !== Infinity
       for (const { part } of projection.artifacts) artifactParts.push(part)
       // A rendered segment can cross a message boundary. Join only the two
       // boundary segments; each message's cached segments stay immutable.
       for (const segment of projection.segments) {
+        if (segment.kind === 'reasoning' && rawSegments.at(-1)?.kind === 'tools') continue
         const last = rawSegments.at(-1)
         if (last?.kind === 'text' && segment.kind === 'text') {
           rawSegments[rawSegments.length - 1] = { kind: 'text', text: last.text + segment.text }

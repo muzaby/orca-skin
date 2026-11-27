@@ -18,9 +18,15 @@ it.each([
   const wrapped = renderToStaticMarkup(createElement(Markdown, { source, className: 'test' }))
   expect('<div class="test">' + actual + '</div>').toBe(wrapped)
 })
-it('mw6 문자 상한 또는 노드 예산을 넘으면 원문 경로를 선택한다', () => {
-  expect(parseMarkdown('a'.repeat(50_001))).toEqual({ tooLarge: true })
-  expect(parseMarkdown('**x** '.repeat(7000))).toEqual({ tooLarge: true })
+it('AC8 parses beyond 50,000 chars and 20,000 nodes', () => {
+  expect(parseMarkdown('a'.repeat(50_001)).hast.children[0]).toMatchObject({
+    tagName: 'p',
+    children: [{ value: 'a'.repeat(50_001) }]
+  })
+  expect(parseMarkdown('**x** '.repeat(7000)).hast.children[0]).toHaveProperty(
+    'children.length',
+    13999
+  )
 })
 
 it('mw6 a wide table chunk stays below the node budget and retains all cells', () => {
@@ -37,4 +43,39 @@ it('mw6 a wide table chunk stays below the node budget and retains all cells', (
   count(result.hast)
   expect(cells).toBe(1000)
   expect(nodes).toBeLessThanOrEqual(20000)
+})
+
+it('keeps the source offsets and delimiter context after a long ordinary prefix', () => {
+  const prefix = '한글과 words '.repeat(5000)
+  const source = prefix + '**bold** and https://example.org'
+  const result = parseMarkdown(source).hast
+  expect(result.children[0]).toMatchObject({
+    tagName: 'p',
+    children: [
+      {
+        type: 'text',
+        value: prefix,
+        position: { start: { offset: 0 }, end: { offset: prefix.length } }
+      },
+      {
+        tagName: 'strong',
+        children: [{ value: 'bold', position: { start: { offset: prefix.length + 2 } } }]
+      },
+      { value: ' and ' },
+      { tagName: 'a', properties: { href: 'https://example.org' } }
+    ]
+  })
+  expect(result.position?.end.offset).toBe(source.length)
+})
+
+it('retains trailing source positions when a large prose block ends in blank lines', async () => {
+  const { unified } = await import('unified')
+  const { default: remarkParse } = await import('remark-parse')
+  const { default: gfm } = await import('remark-gfm')
+  const { default: rehype } = await import('remark-rehype')
+  const original = unified().use(remarkParse).use(gfm).use(rehype)
+  for (const ending of ['', '   ', '\n\n', '  \r\n\r\n']) {
+    const source = '가 and '.repeat(1000) + 'end' + ending
+    expect(parseMarkdown(source).hast).toEqual(original.runSync(original.parse(source)))
+  }
 })

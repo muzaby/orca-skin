@@ -8,6 +8,7 @@ import {
 } from '../../../../shared/ui/markdown/sourceParts'
 import { WorkerMarkdownTail } from './WorkerMarkdownTail'
 import { MARKDOWN_WORKER_MIN_CHARS } from '../../../../shared/compute/limits'
+import { TranscriptMarkdown } from './MarkdownDocument'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { MarkdownStreamingContext } from '../../../../shared/ui/markdown/streamingContext'
 import { MARKDOWN_TYPOGRAPHY } from '../../../../shared/ui/markdown/typography'
@@ -15,7 +16,7 @@ import {
   advanceStableBlocks,
   type OpenFenceTail,
   type StableBlocksCache
-} from '../../lib/markdownBlocks'
+} from '../../../../shared/markdown/markdownBlocks'
 
 const DEFAULT_WRAPPER = `${MARKDOWN_TYPOGRAPHY} text-ink`
 
@@ -81,7 +82,12 @@ export const StreamingMarkdown = memo(function StreamingMarkdown({
     // 분할된 블록 사이 간격은 Markdown 문단 마진(my-2)과 동형인 gap-2 로 근사.
     <div className="flex flex-col gap-2">
       {stable.map((block, i) => (
-        <Markdown key={i} source={block} sourceParts={stableParts?.[i]} className={className} />
+        <TranscriptMarkdown
+          key={i}
+          source={block}
+          sourceParts={stableParts?.[i]}
+          className={className}
+        />
       ))}
       {tail !== '' && (
         <MarkdownStreamingContext.Provider value={true}>

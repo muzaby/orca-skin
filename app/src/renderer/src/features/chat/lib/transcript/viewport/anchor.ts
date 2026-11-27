@@ -110,15 +110,30 @@ export function captureAnchor(
       }
     ).caretPositionFromPoint === 'function'
   ) {
-    const pos = (
-      document as Document & {
-        caretPositionFromPoint: (
-          x: number,
-          y: number
-        ) => { offsetNode: Node; offset: number } | null
+    // A probe in the scroller's left gutter can resolve to hidden text in the
+    // preceding row. Prefer a character actually painted in the reading column.
+    const column = targetEl.getBoundingClientRect()
+    const x = Math.min(vpRect.right - 1, Math.max(vpRect.left + 1, column.left + 24))
+    for (let y = vpTop + 2; y < Math.min(vpRect.bottom, vpTop + 160); y += 10) {
+      const pos = document.caretPositionFromPoint(x, y)
+      if (!pos || pos.offsetNode.nodeType !== 3) continue
+      const text = pos.offsetNode as Text
+      if (!text.data.length) continue
+      const range = document.createRange()
+      const start = Math.min(pos.offset, text.data.length - 1)
+      range.setStart(text, start)
+      range.setEnd(text, start + 1)
+      const rect = range.getBoundingClientRect()
+      if (
+        rect.height &&
+        rect.top + rect.height > vpTop &&
+        rect.top < vpRect.bottom &&
+        text.parentElement?.closest('[data-part-key]')
+      ) {
+        resolvedCaret = { node: text, offset: start }
+        break
       }
-    ).caretPositionFromPoint(vpRect.left + Math.min(24, vpRect.width / 2), vpTop + 2)
-    if (pos) resolvedCaret = { node: pos.offsetNode, offset: pos.offset }
+    }
   }
 
   if (resolvedCaret) {

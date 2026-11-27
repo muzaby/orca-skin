@@ -1,16 +1,13 @@
 import { splitStableBlocks } from './markdownBlocks'
 import {
-  MARKDOWN_BLOCK_MAX_CHARS,
   MARKDOWN_TABLE_CHUNK_MAX_CELLS,
   MARKDOWN_TABLE_CHUNK_MAX_CHARS,
-  MARKDOWN_TABLE_MAX_ROWS,
   MARKDOWN_TABLE_CHUNK_ROWS
-} from '../../../shared/compute/limits'
-import type { TableChunk } from '../../../shared/compute/protocol'
+} from '../compute/limits'
+import type { TableChunk } from '../compute/protocol'
 export interface DocumentBlock {
   start: number
   end: number
-  raw: boolean
   table?: TableChunk[]
 }
 const list = /^ {0,3}(?:[-+*]|\d{1,9}[.)])\s/m
@@ -26,7 +23,7 @@ function htmlEnd(text: string): RegExp | undefined {
   return undefined
 }
 function classify(source: string, start: number, end: number): DocumentBlock {
-  const block: DocumentBlock = { start, end, raw: end - start > MARKDOWN_BLOCK_MAX_CHARS }
+  const block: DocumentBlock = { start, end }
   const body = source.slice(start, end)
   const delimiter = /^[^\n]+\n( {0,3}\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?)[ \t]*\r?\n/.exec(body)
   if (!delimiter || !delimiter[0].includes('|')) return block
@@ -37,19 +34,12 @@ function classify(source: string, start: number, end: number): DocumentBlock {
   const headerEnd = start + delimiter[0].length
   const chunks: TableChunk[] = []
   let begin = headerEnd,
-    rows = 0,
-    total = 0
+    rows = 0
   let pos = headerEnd
   while (pos < end) {
     const newline = source.indexOf('\n', pos)
     const next = newline < 0 ? end : Math.min(end, newline + 1)
     if (!source.slice(pos, next).trim()) break
-    if (
-      ++total > MARKDOWN_TABLE_MAX_ROWS ||
-      2 * cols > MARKDOWN_TABLE_CHUNK_MAX_CELLS ||
-      headerEnd - start + next - pos > MARKDOWN_TABLE_CHUNK_MAX_CHARS
-    )
-      return { ...block, raw: true }
     if (
       rows &&
       (rows === MARKDOWN_TABLE_CHUNK_ROWS ||
@@ -64,13 +54,12 @@ function classify(source: string, start: number, end: number): DocumentBlock {
     pos = next
   }
   if (rows) chunks.push({ headerEnd, rows: [begin, pos] })
-  if (chunks.length > 1) return { ...block, raw: false, table: chunks }
+  if (chunks.length > 1) return { ...block, table: chunks }
   return block
 }
 
 export function markdownDocumentBlocks(source: string): DocumentBlock[] {
-  if (/^ {0,3}\[\^[^\]]+\]:/m.test(source))
-    return [{ start: 0, end: source.length, raw: source.length > MARKDOWN_BLOCK_MAX_CHARS }]
+  if (/^ {0,3}\[\^[^\]]+\]:/m.test(source)) return [{ start: 0, end: source.length }]
   const terminated = source.endsWith('\n')
   const { stable, tail } = splitStableBlocks(terminated ? source : source + '\n')
   const parts = [...stable, terminated ? tail : tail.slice(0, -1)]

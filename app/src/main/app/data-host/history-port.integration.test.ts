@@ -1,3 +1,7 @@
+import { chatActions, useChatStore } from '../../../renderer/src/features/chat/store/chatStore'
+import { installChatStoreHarness } from '../../../renderer/src/features/chat/store/chatStore.testHarness'
+import { sessionApi } from '../../../renderer/src/shared/api/ipc'
+import { installHistoryWorker } from '../../../renderer/src/shared/compute/historyWorker.testfixture'
 import { EventEmitter } from 'node:events'
 import Database from 'better-sqlite3'
 import { expect, it, vi } from 'vitest'
@@ -11,6 +15,8 @@ import { DbQueries } from '../../infra/db/queries'
 import { fakeClient } from '../../infra/ipc/client.testfixture'
 import { invokeChannel, sendChannel } from '../../infra/ipc/test-transport.testfixture'
 import { registerSessionLoadHandlers } from './session-load'
+
+installHistoryWorker()
 
 it('opens and refreshes the latest turn, then reads both sides of a large search target and its body over the history port', async () => {
   const sqlite = new Database(':memory:')
@@ -108,13 +114,13 @@ it('opens and refreshes the latest turn, then reads both sides of a large search
       )
     ).toMatchObject({ status: 'cancelled', requestId: 9123 })
     const loaded = await client.loadLatest(sessionId)
-    expect(loaded?.messages.map((m) => m.id)).toEqual(turnKeys[99])
+    expect(loaded?.messages.map((m) => m.id)).toEqual(turnKeys.slice(-5).flat())
     const refreshed = await client.refresh(sessionId)
     expect(refreshed.status === 'updated' && refreshed.session.messages.length).toBe(
-      turnKeys[99].length
+      turnKeys.slice(-5).flat().length
     )
     expect(refreshed.status === 'updated' && refreshed.session.messages.map((m) => m.id)).toEqual(
-      turnKeys[99]
+      turnKeys.slice(-5).flat()
     )
     expect(wire.map((f) => f.channel)).toEqual([
       CHANNELS.sessionHistoryPage,
@@ -183,9 +189,49 @@ it('opens and refreshes the latest turn, then reads both sides of a large search
       expect(edge?.kind).toBe(kind)
       const adjacent = await page({ kind, sessionId, openGeneration, cursor: edge!.cursor })
       expect(adjacent.status === 'ok' && adjacent.session.messages.map((m) => m.id)).toEqual(
-        turnKeys[direction === 'before' ? 61 : 63]
+        direction === 'before' ? turnKeys.slice(57, 62).flat() : turnKeys[63]
       )
     }
+    // Start one unit before turn 68. Its fifth turn is oversized and leaves
+    // a withinUnit cursor that the real transport must round-trip.
+    const hit = db.searchMessages('turn 68 message 0')[0].locator!
+    const found = await page({ kind: 'target', locator: hit, sessionId, openGeneration })
+    if (found.status !== 'ok') throw Error(found.status)
+    const batch = await page({
+      kind: 'earlierTurn',
+      cursor: found.session.history.before!.cursor,
+      sessionId,
+      openGeneration
+    })
+    if (batch.status !== 'ok') throw Error(batch.status)
+    const unit = batch.session.history.before!
+    expect(unit.kind).toBe('withinUnit')
+    const token = JSON.parse(Buffer.from(unit.cursor, 'base64url').toString())
+    const forged = Buffer.from(JSON.stringify([...token.slice(0, 7), token[5] + 1])).toString(
+      'base64url'
+    )
+    expect(
+      await page({ kind: 'withinUnit', sessionId, openGeneration, cursor: forged })
+    ).toMatchObject({ status: 'invalid' })
+    const more = await page({ kind: 'withinUnit', sessionId, openGeneration, cursor: unit.cursor })
+    expect(more.status === 'ok' && more.session.messages.at(-1)?.id).toBe(
+      turnKeys[62][turnKeys[62].indexOf(batch.session.messages[0].id) - 1]
+    )
+    // AC3: a real target page commits the reference, then the store reads body chunks
+    // through the same transport and replaces the message without a UI gesture.
+    installChatStoreHarness()
+    const requests = vi.spyOn(sessionApi, 'page').mockImplementation(client.page)
+    vi.spyOn(sessionApi, 'cancelLoad').mockImplementation(client.cancelLoad)
+    expect(await chatActions.openSearchHit(locator, false)).toBe(true)
+    await vi.waitFor(() => {
+      expect(
+        useChatStore
+          .getState()
+          .sessions[sessionId].search?.view?.messages.find((message) => message.id === start)
+          ?.parts[0]
+      ).toMatchObject({ type: 'text', text })
+    })
+    expect(requests.mock.calls.filter(([q]) => q.kind === 'body').length).toBeGreaterThan(1)
     expect(collected).toEqual(turnKeys[62])
     expect(all).not.toHaveBeenCalled()
     expect(sender.sent).toHaveLength(0)
@@ -193,5 +239,7 @@ it('opens and refreshes the latest turn, then reads both sides of a large search
   } finally {
     index.stop()
     sqlite.close()
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   }
 })

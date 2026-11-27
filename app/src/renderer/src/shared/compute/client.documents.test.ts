@@ -67,7 +67,7 @@ it('d8 문서 용량 회복은 구독마다 한 번 알리고 이미 해제한 �
   const work = client.request(markdown(b.ref))
   ports.get('markdown')!.reply()
   await work.promise
-  expect(client.peek(markdown(b.ref))).toEqual({ tooLarge: true })
+  expect(client.peek(markdown(b.ref))).toEqual({ hast: { type: 'root', children: [] } })
   b.release()
 })
 it('d3/d9 unknown-doc은 한 번만 다시 열고 레인 오류 뒤에는 새 워커에 원문을 다시 보낸다', async () => {

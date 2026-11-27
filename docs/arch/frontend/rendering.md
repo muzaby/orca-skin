@@ -46,7 +46,7 @@ DEV DebugPanel의 별도 `자동 피드 표시` 버튼은 `system-reminder`를 �
 
 Work Composer는 GitRow를 mount하지 않아 Git 스택과 그 조회를 실행하지 않는다. 랜딩 CwdPanel의 BranchChip은 두 모드에서 유지하고 조회는 Code에서 시작한다. 조회 중 브랜치는 비활성 `-`로 표시하며 Work에서는 그룹만 숨긴다. Work 전환 중 도착한 결과와 같은 cwd의 snapshot을 유지해 Code 복귀 때 즉시 표시하고, 폴더 추가 버튼은 빈자리 없이 당겨진다. 보유 Git 선택과 폴더·첨부·입력은 유지한다. Work 권한 메뉴는 수동 승인·자동 승인·모든 승인 건너뛰기 순이고 칩도 메뉴와 동일한 수동 승인·자동 승인·모든 승인 건너뛰기 라벨을 사용한다. Code 메뉴는 기존 구성을 사용한다. 자동 승인 메뉴는 선택 카탈로그에서 확인된 비커스텀 Claude 4.6 이상에만 제공한다. settings env·runtimeEnv로 버전이 확인된 bare alias도 포함하며, 권한 증거는 `resolvedModel`을 우선한다. claude/claudecode 접두사, Haiku·Sonnet·Opus·Fable 계열과 점/하이픈 버전 표기 및 `[1m]` 접미사를 공용 판정으로 인식하며, 미확정 카탈로그·버전 불명·커스텀 모델은 제외한다. 위험 모드의 기존 확인 절차는 유지한다.
 
-ChatTile은 표시 정책에서 transcript의 세션별 재마운트 여부를 선택한다. TranscriptView가 같은 정의에서 선택한 정적 `transcriptPolicy`는 Exchange→AssistantTurn으로 전달되고 memo 비교에도 포함된다. 공통 본문과 도구 카드는 종류를 다시 해석하지 않고 투영·상세 표시 정책을 사용한다. Code는 기존 AssistantMessage를 사용한다. Work는 `createWorkProjector`로 원문 parts를 보존한 채 같은 응답의 도구와 그 사이 텍스트를 접을 수 있는 그룹으로 조립한다. 중간 텍스트는 노트로 세어 도구 수와 함께 헤더에 표시하고, 펼치면 도구와 같은 세로 타임라인에서 원래 순서대로 읽는다. 도입·마지막 본문은 그룹 밖에 항상 표시한다. reasoning·질문·오류·구조화 결과 등 전용 구간은 그룹을 나누며 기존 표현을 유지하고 ArtifactCards도 공통 경로를 사용한다. 표시 경계가 없는 이력은 기존 메시지 구조에 Work 도구 표시 정책을 전달한다.
+ChatTile은 표시 정책에서 transcript의 세션별 재마운트 여부를 선택한다. TranscriptView가 같은 정의에서 선택한 정적 `transcriptPolicy`는 Exchange→AssistantTurn으로 전달되고 memo 비교에도 포함된다. 공통 본문과 도구 카드는 종류를 다시 해석하지 않고 투영·상세 표시 정책을 사용한다. Code는 기존 AssistantMessage를 사용한다. Work는 `createWorkProjector`로 원문 parts를 보존한 채 같은 응답의 도구와 그 사이 텍스트를 접을 수 있는 그룹으로 조립한다. 공백뿐인 text는 앞 본문에 이어 붙이고 독립 행을 만들지 않는다. 보이는 중간 텍스트는 노트로 세어 도구 수와 함께 헤더에 표시하고, 펼치면 도구와 같은 세로 타임라인에서 원래 순서대로 읽는다. 도입·마지막 본문은 그룹 밖에 항상 표시한다. reasoning·질문·오류·구조화 결과 등 전용 구간은 그룹을 나누며 기존 표현을 유지하고 ArtifactCards도 공통 경로를 사용한다. 표시 경계가 없는 Work 이력과 Code에서는 같은 턴에 연속된 도구를 첫 호출의 키로 묶는다. 뒤늦게 도착한 결과도 이 그룹에서 갱신한다. OpenCode는 숨은 reasoning을 사이에 둔 탐색 도구도 함께 접는다. 수정 카드 머리는 작은 입력의 줄 수를 즉시 표시하고, 큰 입력은 계산 워커 결과가 도착하면 표시한다.
 
 Work 활동은 무테 요약에 실제 도구 호출 수를 표시한다. 펼치면 `WorkToolTimeline`이 순서대로 아이콘·세로선·접을 수 있는 행을 배치하고 `WorkToolBody`는 요청·응답·오류를 하나의 높이 제한 카드 안에 표시한다. 긴 본문은 내부 스크롤, JSON은 구문 강조, 실제 검색 결과는 제목·도메인·개수로 읽으며 원문 응답도 펼쳐 볼 수 있다. 같은 도구의 반복 호출을 합쳐 세지 않으며 미지 도구도 안전한 텍스트 상세를 제공한다.
 
@@ -76,10 +76,12 @@ Composer에서 전송한 첨부 파일과 이미지는 컨텍스트에 원래 �
 - 선택·복사는 브라우저 기본이다. 뷰포트는 copy·키를 가로채지 않고 선택을 복원하지 않으며, 선택이 마운트 범위를 늘리지 않는다. transcript 선택이 있는 동안 가상화 행이 새로 마운트되면 선택을 취소하고, 드래그 중 취소면 버튼을 놓을 때까지 선택을 다시 만들지 않는다(`lib/transcript/viewport/selectionGuard.ts` · 0326). 실제 Electron 판정은 `app/scripts/check-transcript-selection.mjs`(verify 실행 도구)다.
 - 교환(Exchange) 단위 wrapper 와 50% 미드라인 예약(§1.8)은 가상화 위에서 유지된다. 사용자 버블 접기 상태는 키별 메모리로 재마운트에도 보존된다(ux-domains.md §1.3-b).
 
+머리 슬롯이 화면에 들어오면 이전 5턴을 요청한다. 요청 중 최상단에서 휠을 더 올리면 48px 공간에 스피너가 나타난다. 앞삽입과 동시에 공통 뷰포트가 이를 제거하고 읽던 글자 위치를 즉시 복원한다. 실패하면 공간이 닫히고 머리에서 다시 시도할 수 있다. 세션을 열면 첫 본문을 하단에서 드러내고, 이미 표시된 본문에 높이가 더해지면 현재 위치부터 새 하단까지 이동한다.
+
 ### 1.2 스트리밍 렌더링 최적화 (0008 재설계)
 
 - **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 `DeltaEvent[]` 하나로 넘긴다(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B). `chatStore.receiveDeltaBatch` 는 같은 세션·종류·메시지 번호의 연속 델타를 묶어 session별 `live`에 연결하고 **flush당 단일 Zustand `setState` transaction**으로 반영한다. 첫 활동으로 턴을 시작하거나 번호가 바뀐 텍스트를 확정할 때 커밋 슬라이스(`session`)가 바뀐다. 결과: selector 팬아웃·store notification은 프레임당 1회이고, 실제 재렌더는 live 구독 리프뿐이다 — text 델타 → `PendingAssistant` 의 `LiveText`(+ `StatusLine` 출력 토큰 근사), reasoning 델타 → `LiveReasoning`(`ReasoningBlock streaming` → `StreamingMarkdown` 경유 — 델타 프레임당 전문 재파스 없이 꼬리만 재파스, 0093). OpenCode 는 live text 를 행 리프 `OpenCodeTextSegment`(`useLiveTextFor`)가 구독하고, Timeline 은 live 의 유무(`useHasLiveText`·`useHasLiveReasoning` — reasoning 유무는 조각마다 갱신하는 `live.reasoningVisible`)만 구독해 유무가 바뀔 때만 현재 exchange 행을 다시 투영한다(0325). transcript(커밋 메시지)·Composer shell·호스트는 깨어나지 않는다(state.md §1.2).
-- **라이브 마크다운은 꼬리 블록만 재파스** — `StreamingMarkdown` 이 누적 소스를 `lib/markdownBlocks.ts` 의 `splitStableBlocks` 로 "확정 블록들 + 꼬리"로 분할, 확정 블록은 memo 된 `<Markdown>`(string shallow)으로 고정하고 꼬리만 매 델타 unified 재파스한다(프레임당 O(전문)→O(꼬리)). 분할 경계는 보수적(펜스/loose list/들여쓰기 코드 비분할, 완결 줄 뒤만 확정 = append-stable). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
+- **라이브 마크다운은 꼬리 블록만 재파스** — `StreamingMarkdown` 이 누적 소스를 `lib/markdownBlocks.ts` 의 `splitStableBlocks` 로 "확정 블록들 + 꼬리"로 분할, 확정 블록은 재사용하고 꼬리가 바뀔 때만 파싱한다(프레임당 O(전문)→O(꼬리)). 분할 경계는 보수적(펜스/loose list/들여쓰기 코드 비분할, 완결 줄 뒤만 확정 = append-stable). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
 - **커밋 경로는 카드 단위로 격리** — `message.completed`(완성본 text 파트 커밋)·`tool.call.*` 는 reducer 커밋으로 마지막 message identity 만 교체하고, `AssistantMessage` 가 `reconcileSegments`(lib/parts.ts) 로 직전 렌더와 대조해 내용 미변경 세그먼트/ToolCall view 의 identity 를 재사용한다 → memo 된 `ToolGroup`/`ToolCard`/`ReasoningBlock`/`Markdown` 이 shallow 로 bail — **tool.call.completed 1건 = 결과가 도착한 ToolCard 1개 재렌더**. `message.completed` 없이 끝난 턴의 잔여 live.text 는 telemetry 시점에 `COMMIT_PENDING_TEXT` 폴백으로 굳힌다(error/cancel 은 폐기 — 기존 동작 동형).
 
 ### 1.2.1 Composer 입력 긴급도 분리 (0145)
@@ -92,7 +94,7 @@ Composer에서 전송한 첨부 파일과 이미지는 컨텍스트에 원래 �
 
 | 항목 | 구현 |
 |---|---|
-| Markdown 렌더러 | `shared/ui/markdown/Markdown.tsx` — react-markdown + remarkGfm. h1~h4, p, a, ul/ol, blockquote, table, code 각각 커스터마이즈. (`features/chat/components/markdown/` 에는 `StreamingMarkdown` 만 잔류) |
+| Markdown 렌더러 | `shared/ui/markdown/Markdown.tsx` — react-markdown + remarkGfm. h1~h4, p, a, ul/ol, blockquote, table, code 각각 커스터마이즈. 긴 대화 본문은 `TranscriptMarkdown`이 워커 문서를 분할 등록한다. `MarkdownHast`는 파싱된 표·목록·인라인 자식을 프레임별로 이어 그린다. |
 | 이미지 정책 | **data-uri 만 허용** (보안). 외부 URL 차단. |
 | 링크 정책 | 외부 링크 클릭은 `shell.openExternal` 경유 (Main 측에서 처리). target=_blank rel=noopener noreferrer 표시. |
 | 코드 블록 | `shared/ui/markdown/CodeBlock.tsx` — shiki 싱글톤 비동기 로드. 지원 언어 11종 (typescript / tsx / javascript / jsx / python / bash / json / yaml / html / css / markdown). shiki 테마 3종 (github-light / github-dark / one-light — 앱 테마 2종(white/dark)과 별개). |

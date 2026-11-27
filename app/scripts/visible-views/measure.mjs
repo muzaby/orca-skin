@@ -8,7 +8,7 @@ export const visibleModules = Object.fromEntries(
     worker: 'shared/compute/worker/state.ts',
     handler: 'shared/compute/worker/handler.ts',
     markdown: 'shared/compute/worker/markdown.ts',
-    blocks: 'features/chat/lib/markdownDocumentBlocks.ts',
+    blocks: 'shared/markdown/markdownDocumentBlocks.ts',
     tree: 'features/chat/lib/changedFileTree.ts',
     patch: 'features/chat/lib/unifiedDiffLines.ts',
     work: 'features/chat/lib/workToolPresentation.ts'

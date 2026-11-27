@@ -5,6 +5,7 @@ import { AGENT_KINDS } from './agent-kind'
 import type { LoadedSession } from './ipc'
 
 export const HISTORY_PAGE_BYTES = 256 * 1024
+export const HISTORY_TURN_UNIT = 5
 export const HISTORY_PAGE_MESSAGES = 128
 export const HISTORY_PAGE_PARTS = 256
 export const HISTORY_BODY_BYTES = 64 * 1024
@@ -66,6 +67,7 @@ export const HistoryPageRequestSchema = z.discriminatedUnion('kind', [
     itemKey: key,
     offset: z.number().int().nonnegative()
   }),
+  request.extend({ kind: z.literal('withinUnit'), cursor: key }),
   request.extend({ kind: z.literal('earlierTurn'), cursor: key }),
   request.extend({ kind: z.literal('laterTurn'), cursor: key }),
   request.extend({
@@ -91,9 +93,12 @@ export type HistoryQuery = HistoryPageRequest extends infer R
     ? Omit<R, 'requestId'>
     : never
   : never
-export type HistoryEdge = { kind: 'earlierTurn' | 'laterTurn' | 'withinTurn'; cursor: string }
+export type HistoryEdge = {
+  kind: 'earlierTurn' | 'laterTurn' | 'withinTurn' | 'withinUnit'
+  cursor: string
+}
 const edgeSchema = z.object({
-  kind: z.enum(['earlierTurn', 'laterTurn', 'withinTurn']),
+  kind: z.enum(['earlierTurn', 'laterTurn', 'withinTurn', 'withinUnit']),
   cursor: key
 })
 const windowSchema = z.object({

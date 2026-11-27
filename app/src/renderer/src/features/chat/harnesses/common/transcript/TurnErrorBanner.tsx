@@ -7,7 +7,10 @@ export function TurnErrorBanner({ error }: { error: ClassifiedError }): React.JS
   const { tr } = useI18n()
   const categoryKey = errorCategoryKey(error.category)
   return (
-    <div className="rounded-[10px] border border-bad/40 bg-bad/10 px-3 py-2 text-[calc(12.5px*var(--transcript-text-scale,1))] text-ink">
+    <div
+      data-transcript-error=""
+      className="rounded-[10px] border border-bad/40 bg-bad/10 px-3 py-2 text-[calc(12.5px*var(--transcript-text-scale,1))] text-ink"
+    >
       <div className="flex items-center gap-2">
         <span className="font-semibold">
           {tr('errors.turnError', { category: categoryKey ? tr(categoryKey) : error.category })}

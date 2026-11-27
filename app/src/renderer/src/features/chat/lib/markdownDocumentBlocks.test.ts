@@ -1,5 +1,5 @@
 import { it, expect } from 'vitest'
-import { markdownDocumentBlocks } from './markdownDocumentBlocks'
+import { markdownDocumentBlocks } from '../../../shared/markdown/markdownDocumentBlocks'
 function texts(source: string): string[] {
   return markdownDocumentBlocks(source).map((b) => source.slice(b.start, b.end))
 }
@@ -19,10 +19,10 @@ it('mb4 preserves quote continuations', () => {
   const s = '> one\n\n> two\n'
   expect(texts(s)).toEqual([s])
 })
-it('mb5 keeps a footnote with its reference and applies whole-document cap', () => {
+it('mb5 keeps a footnote with its reference across the whole document', () => {
   for (const n of [10, 50001]) {
     const s = 'x'.repeat(n) + '[^1]\n\n[^1]: foot'
-    expect(markdownDocumentBlocks(s)).toEqual([{ start: 0, end: s.length, raw: n > 50000 }])
+    expect(markdownDocumentBlocks(s)).toEqual([{ start: 0, end: s.length }])
   }
 })
 it('mb6 retains final newline of a list before HTML', () => {
@@ -46,17 +46,17 @@ it('mb8 keeps adjacent HTML together', () => {
   const s = '<CodeGroup>code</CodeGroup>\n\n<Note>note</Note>'
   expect(texts(s)).toEqual([s])
 })
-it('mb9 marks oversized paragraphs raw', () => {
+it('mb9 keeps oversized paragraphs in the worker path', () => {
   for (const size of [50000, 50001])
-    expect(markdownDocumentBlocks('a'.repeat(size))[0].raw).toBe(size > 50000)
+    expect(markdownDocumentBlocks('a'.repeat(size))[0]).toEqual({ start: 0, end: size })
 })
 function table(cols: number, rows: number, cellSize: number): string {
   const line = (cell: string): string => '|' + Array(cols).fill(cell).join('|') + '|\n'
   return line('h') + line('---') + line('x'.repeat(cellSize)).repeat(rows)
 }
-it('mb10 chunks at 200 rows, rejects more than 2000 rows', () => {
+it('mb10 chunks at 200 rows, continues past 2000 rows', () => {
   expect(markdownDocumentBlocks(table(2, 201, 1))[0].table).toHaveLength(2)
-  expect(markdownDocumentBlocks(table(2, 2001, 1))[0].raw).toBe(true)
+  expect(markdownDocumentBlocks(table(2, 2001, 1))[0].table).toHaveLength(11)
 })
 it('mb11 applies row, cell and character budgets independently', () => {
   for (const [cols, rows, size, count] of [
@@ -74,7 +74,7 @@ it('mb11 applies row, cell and character budgets independently', () => {
     }
   }
   for (const s of [table(501, 1, 1), table(1, 1, 50001)])
-    expect(markdownDocumentBlocks(s)[0].raw).toBe(true)
+    expect(markdownDocumentBlocks(s)[0]).toEqual({ start: 0, end: s.length })
 })
 
 it('mb2 keeps a following indented paragraph in the same worker block', () => {

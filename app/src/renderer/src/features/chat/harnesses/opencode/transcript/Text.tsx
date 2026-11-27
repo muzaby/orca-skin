@@ -1,7 +1,7 @@
 import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
 import { transcriptTypography } from '../../common/transcript/typography'
 import { memo } from 'react'
-import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
+import { TranscriptMarkdown } from '../../../components/markdown/MarkdownDocument'
 import { StreamingMarkdown } from '../../../components/markdown/StreamingMarkdown'
 
 // Typography comes from the shared Markdown renderer; only the palette differs.
@@ -26,7 +26,7 @@ export const OpenCodeText = memo(function OpenCodeText({
           className={`${transcriptTypography.prose} text-oc-ink`}
         />
       ) : (
-        <Markdown
+        <TranscriptMarkdown
           source={source}
           sourceParts={sourceParts}
           className={`${transcriptTypography.prose} text-oc-ink`}

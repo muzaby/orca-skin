@@ -1,5 +1,7 @@
 // 계산 레인은 강조와 diff를 처리하고, Markdown 레인은 임차한 문서 범위를 파싱한다.
 
+import type { MarkdownSegmentRange } from '../markdown/markdownSegments'
+import type { AppMessagePart } from '../../../../shared/ipc'
 import type { Root } from 'hast'
 import type { ThemedToken } from 'shiki'
 import {
@@ -11,6 +13,7 @@ import {
   type DiffOptions
 } from './diffSource'
 import type { diffViewRows, diffViewContext, diffViewLocate } from './diffView'
+import type { DiffStat, DiffStatSource } from './diffStats'
 import type { DiffLine } from './diffModel'
 import { COMPUTE_RESULT_ELEMENT_CHARS } from './limits'
 
@@ -91,10 +94,20 @@ export interface ImageThumbRequest {
   pixels: number
 }
 
+export interface HistoryBodyRequest {
+  kind: 'historyBody'
+  sequence: number
+  chunks: { base64: string; bytes: number }[]
+  bytes: number
+}
+
 export type ComputeRequest =
+  | { kind: 'markdownLayout'; sequence: number; source: string }
+  | HistoryBodyRequest
   | ImageThumbRequest
   | HighlightRequest
   | DiffTokensRequest
+  | { kind: 'diffStat'; sequence: number; sources: readonly DiffStatSource[] }
   | DiffLinesRequest
   | MarkdownRequest
   | TokensRequest
@@ -147,10 +160,13 @@ export interface ComputeResults {
     lines: string[]
   }
   tokens: { rows: TokenRows }
-  markdown: { hast: Root } | { tooLarge: true }
+  markdown: { hast: Root }
+  markdownLayout: { segments: MarkdownSegmentRange[] }
+  historyBody: { parts: AppMessagePart[] }
   highlight: { html: string }
   diffTokens: { old: TokenRows | null; new: TokenRows | null }
   diffLines: { lines: DiffLine[] }
+  diffStat: DiffStat
 }
 
 export type ComputeResult = ComputeResults[ComputeRequest['kind']]
@@ -168,6 +184,9 @@ const SEP = '\u0000'
 // 같은 `(종류, 언어, 테마, 내용)` 은 같은 키다.
 export function requestKey(request: ComputeRequest): string {
   switch (request.kind) {
+    case 'markdownLayout':
+    case 'historyBody':
+      return [request.kind, request.sequence].join(SEP)
     case 'imageThumb':
       return ['imageThumb', request.attachmentId].join(SEP)
     case 'tokens':
@@ -225,6 +244,8 @@ export function requestKey(request: ComputeRequest): string {
         request.newText === null ? 'n' : 's',
         request.newText ?? ''
       ].join(SEP)
+    case 'diffStat':
+      return 'diffStat:' + request.sequence
     case 'diffLines':
       return ['diffLines', request.oldValue.length, request.oldValue, request.newValue].join(SEP)
   }
@@ -241,6 +262,10 @@ export function requestSize(
   lengthOf: (ref: DocRef) => DocumentSample
 ): number {
   switch (request.kind) {
+    case 'markdownLayout':
+      return request.source.length
+    case 'historyBody':
+      return request.bytes
     case 'imageThumb':
       return request.pixels
     case 'diffContext':
@@ -265,6 +290,15 @@ export function requestSize(
       return request.code.length
     case 'diffTokens':
       return (request.oldText?.length ?? 0) + (request.newText?.length ?? 0)
+    case 'diffStat':
+      return request.sources.reduce(
+        (sum, source) =>
+          sum +
+          (source.kind === 'patch'
+            ? source.patch.length
+            : source.before.length + source.after.length),
+        0
+      )
     case 'diffLines':
       return request.oldValue.length + request.newValue.length
   }
@@ -282,13 +316,14 @@ const rowsSize = (rows: TokenRows | null): number =>
 // 캐시 상한에 세는 결과 크기(문자 수) — 결과 문자 + 줄·행·토큰 객체마다 `COMPUTE_RESULT_ELEMENT_CHARS`
 // (html 은 문자만). 빈 줄만 내는 거대 결과도 비용이 0 이 아니다(0325 D-038 · §8 X5). 워커가 센다.
 export function resultSize(result: ComputeResult): number {
+  if ('added' in result) return 2 * COMPUTE_RESULT_ELEMENT_CHARS
   if ('thumbnail' in result) return result.thumbnail?.length ?? 0
   if ('summary' in result) return JSON.stringify(result).length
   if ('rowIndex' in result) return result.rowIndex.length * 8
   if ('lineCount' in result)
     return result.lines.reduce((sum, line) => sum + COMPUTE_RESULT_ELEMENT_CHARS + line.length, 0)
   if ('rows' in result) return rowsSize(result.rows)
-  if ('tooLarge' in result) return 1
+  if ('segments' in result || 'parts' in result) return 0 // Body assembly requests are never cached.
   if ('hast' in result) return JSON.stringify(result.hast).length
   if ('html' in result) return result.html.length
   if ('lines' in result)

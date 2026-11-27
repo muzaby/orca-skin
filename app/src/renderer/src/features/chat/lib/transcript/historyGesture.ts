@@ -30,6 +30,12 @@ export class HistoryGesture {
     return this.consumed ? 'started' : 'userInput'
   }
 
+  consumePendingPull(now: number): void {
+    this.direction = 'before'
+    this.lastTime = now
+    this.consumed = true
+  }
+
   userScroll(): void {
     this.consumed = false
   }

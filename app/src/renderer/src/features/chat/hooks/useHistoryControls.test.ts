@@ -82,6 +82,18 @@ function setup(): {
   }
   return { doc, dom, idle, tickIdle, commit }
 }
+it('AC7 idle fill continues withinUnit and stops at earlierTurn', () => {
+  const { commit, dom, idle, tickIdle } = setup()
+  try {
+    commit({ history: { before: { kind: 'withinUnit', cursor: 'unit-one' } } })
+    tickIdle()
+    expect(state.readPrevious).toHaveBeenCalledExactlyOnceWith('s', true)
+    commit({ history: { before: { kind: 'earlierTurn', cursor: 'previous-unit' } } })
+    expect(idle.size).toBe(0)
+  } finally {
+    dom.unmount()
+  }
+})
 it('requests one same-turn page after commit and idle, pauses during input and stops at the previous turn, errors or unmount', () => {
   const { doc, dom, idle, tickIdle, commit } = setup()
   try {

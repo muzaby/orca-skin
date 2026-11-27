@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type TransitionEvent } from 'react'
+import { memo, useMemo, useEffect, useRef, useState, type TransitionEvent } from 'react'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
 import { useI18n, type MessageKey } from '../../../../../shared/i18n'
@@ -8,9 +8,10 @@ import {
   VERB_KEY_ABORTED,
   VERB_KEY_ACTIVE,
   toolDescription,
-  toolDiffStat,
+  toolDiffSources,
   toolVerbCategory
 } from '../../../lib/toolMeta'
+import { useDiffStat } from '../../../hooks/useDiffStat'
 import { isNonExecutionOutcome, toolRunOutcome, type ToolRunOutcome } from '../../../lib/parts'
 import { toolRendererRegistry } from './registry'
 import { copyText } from './toolCopyText'
@@ -75,6 +76,8 @@ export const ToolCard = memo(function ToolCard({
   partKey?: string
 }): React.JSX.Element {
   const { tr } = useI18n()
+  const sources = useMemo(() => toolDiffSources(call), [call])
+  const stat = useDiffStat(sources)
   const detailBody = presentation === 'detail-body'
   const resolvedBlockKey = blockKey ?? partKey ?? `tool:${call.toolUseId}`
   const [storedOpen, setStoredOpen] = useDisclosure(resolvedBlockKey, detailBody)
@@ -157,7 +160,6 @@ export const ToolCard = memo(function ToolCard({
   // 진행 시제(읽는 중…), 완료되면 완료 시제(읽음).
   const verb = tr(OUTCOME_VERB[outcome] ?? (done ? VERB_KEY[cat] : VERB_KEY_ACTIVE[cat]))
   const description = toolDescription(call, tr('chat.toolMeta.planDescription'))
-  const stat = toolDiffStat(call)
   return (
     <div
       ref={containerRef}

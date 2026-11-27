@@ -4,6 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { Message } from '../../../reducer/chatReducer'
 import { CLAUDE_PIN_POLICY, pinPolicy } from '../../../lib/transcript/viewport/pin'
 import { entryPolicy } from '../../../lib/transcript/viewport/entry'
+import {
+  cancelEntryMotion,
+  entryMoving,
+  followEntryMotion,
+  startEntryMotion
+} from '../../../lib/transcript/viewport/entryMotion'
 import { consumeEntryIntent } from '../../../store/chatStore'
 
 const claudePin = pinPolicy(CLAUDE_PIN_POLICY)
@@ -42,6 +48,7 @@ export function useScrollAnchor({
       scrollRafRef.current = null
       const el = scrollRef.current
       if (!el) return
+      if (entryMoving(el)) return
       const next = claudePin.onScroll({
         scrollTop: el.scrollTop,
         clientHeight: el.clientHeight,
@@ -91,6 +98,7 @@ export function useScrollAnchor({
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
+    cancelEntryMotion(el)
     writeScrollTop(el, el.scrollHeight, undefined, 'claude')
     pinnedRef.current = true
     setShowJump(false)
@@ -101,6 +109,7 @@ export function useScrollAnchor({
     const el = scrollRef.current
     if (!content || !el) return
     const ro = new ResizeObserver(() => {
+      if (followEntryMotion(el)) return
       if (!claudePin.shouldFollowGrowth({ pinned: pinnedRef.current }, inflightRef.current)) return
       writeScrollTop(el, el.scrollHeight, undefined, 'claude')
     })
@@ -127,6 +136,7 @@ export function useScrollAnchor({
     prevSessionRef.current = sessionId
     prevMessagesRef.current = messages
 
+    if (sessionSwapped || sentNow) cancelEntryMotion(el)
     if (sentNow) {
       // 새 user 메시지 — 마지막 교환의 예약공간(min-h-[50cqh])이 이 커밋의 레이아웃에 이미
       // 반영돼 있어, 바닥 = 버블 미드라인. smooth 로 끌어올린다.
@@ -145,7 +155,15 @@ export function useScrollAnchor({
       intent?.cause ?? (firstLayout || firstLoadedHistory || sessionSwapped ? 'resume' : 'sync')
     if (entryPolicy(cause, 'claude').action === 'scroll-bottom') {
       pinnedRef.current = true
-      writeScrollTop(el, el.scrollHeight, undefined, 'claude')
+      if (intent) {
+        startEntryMotion(
+          el,
+          (top, behavior) => writeScrollTop(el, top, behavior, 'claude'),
+          !firstLayout && !sessionSwapped && !firstLoadedHistory
+        )
+      } else if (!followEntryMotion(el)) {
+        writeScrollTop(el, el.scrollHeight, undefined, 'claude')
+      }
       setShowJump(false)
     }
   }, [messages, sessionId, sendCount, inflight])

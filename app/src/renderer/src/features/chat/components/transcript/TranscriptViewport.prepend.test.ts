@@ -15,6 +15,7 @@ import { clearDisclosures, getDisclosure, setDisclosure } from '../../store/disc
 import { installViewportSelection } from './viewportSelection.testfixture'
 import { TranscriptViewport, writeScrollTop, type ViewportBlockBase } from './TranscriptViewport'
 
+vi.mock('../../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   ...(await import('../../../../shared/ui/renderHarness.testfixture')).fakeHooks
@@ -154,6 +155,46 @@ afterEach(() => {
 })
 
 describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)', () => {
+  it('AC5 requests once when the head enters and additional loading pulls never request again', () => {
+    dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+    vi.stubGlobal('Element', dom.body.constructor)
+    vi.stubGlobal('requestAnimationFrame', () => 1)
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+    const scroller = makeScroller(400, 120)
+    const blocks = createBlockList([{ key: 'visible' }])
+    const scrollRef = { current: scroller }
+    const request = vi.fn(() => true)
+    const render = (before: 'ready' | 'loading' | 'error' | 'end'): void =>
+      dom!.render(
+        createElement(TranscriptViewport<{ key: string }>, {
+          snapshot: blocks.snapshot(),
+          scrollRef,
+          history: { before, request },
+          renderBlock: (block) => createElement('p', null, block.key)
+        })
+      )
+    const pull = (): void => {
+      const event = new Event('wheel', { cancelable: true })
+      Object.assign(event, { deltaY: -12 })
+      scroller.dispatchEvent(event)
+    }
+    render('ready')
+    expect(request).not.toHaveBeenCalled()
+    scroller.scrollTop = 0
+    scroller.dispatchEvent(new Event('scroll'))
+    expect(request.mock.calls).toEqual([['before']])
+    render('loading')
+    pull()
+    pull()
+    expect(request.mock.calls).toEqual([['before']])
+    for (const state of ['end', 'error'] as const) {
+      render(state)
+      pull()
+      scroller.dispatchEvent(new Event('scroll'))
+    }
+    expect(request.mock.calls).toEqual([['before']])
+  })
+
   it('replays latest turn, bottom placement and three single-turn prepends (turns 9, 8, 7) on each screen', () => {
     vi.useFakeTimers()
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
@@ -734,9 +775,9 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
         notifyHeader(20)
         blocks.splice(blocks.snapshot().count, 0, [{ key: 'live' }])
         render()
-        expect(writes).toEqual([])
+        expect(writes.at(-1)).toBe(365)
         vi.runOnlyPendingTimers()
-        expect(writes).toEqual([365])
+        expect(writes.at(-1)).toBe(365)
         expect(reading.getBoundingClientRect().top).toBe(before)
       }
       return
@@ -744,10 +785,10 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
 
     const framesBeforeResize = vi.getTimerCount()
     resize(15)
-    resize(35)
-    expect(vi.getTimerCount() - framesBeforeResize).toBe(1)
     if (cause === 'character') reflow = 18
-    expect(writes).toEqual([])
+    resize(35)
+    expect(vi.getTimerCount() - framesBeforeResize).toBe(0)
+    expect(writes).toEqual([265, cause === 'character' ? 303 : 285])
     if (cause === 'pinned') pinned = true
     if (cause === 'key')
       scroller.dispatchEvent(Object.assign(new Event('keydown'), { key: 'PageDown' }))
@@ -760,24 +801,24 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
     vi.runOnlyPendingTimers()
 
     if (cause === 'async-own-scroll' || cause === 'async-user-scroll') {
-      expect(writes).toEqual([285])
+      expect(writes).toEqual([265, 285])
       // A delayed DOM scroll can acknowledge our own write or report a newer reader position.
       if (cause === 'async-user-scroll') scrollTop += 11
       scroller.dispatchEvent(new Event('scroll'))
       if (cause === 'async-own-scroll') scroller.dispatchEvent(new Event('scroll'))
       resize(48)
       vi.runOnlyPendingTimers()
-      expect(writes).toEqual(cause === 'async-own-scroll' ? [285, 298] : [285])
+      expect(writes).toEqual(cause === 'async-own-scroll' ? [265, 285, 298] : [265, 285])
       expect(scrollTop).toBe(cause === 'async-own-scroll' ? 298 : 296)
       return
     }
 
     if (cause === 'measurement' || cause === 'header' || cause === 'character') {
-      expect(writes).toEqual([cause === 'character' ? 303 : 285])
+      expect(writes).toEqual([265, cause === 'character' ? 303 : 285])
       // The writer synchronously emits scroll here. The viewport must skip recapturing its own scroll.
       expect(
         queries.mock.calls.filter(([selector]) => selector === '[data-part-key]')
-      ).toHaveLength(1)
+      ).toHaveLength(2)
       for (const shift of [48, 12, 0]) {
         const before = writes.length
         resize(shift)
@@ -785,7 +826,8 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
         expect(writes.slice(before)).toEqual([250 + shift + (cause === 'character' ? 18 : 0)])
       }
     } else {
-      expect(writes).toEqual([])
+      expect(writes).toEqual([265, 285])
+      writes.length = 0
       if (cause !== 'pinned') {
         // Late ResizeObserver deliveries from the cancelled displacement span separate frames.
         for (const size of [46, 59]) {

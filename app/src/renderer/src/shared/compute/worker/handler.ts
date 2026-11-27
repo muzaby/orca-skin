@@ -2,7 +2,8 @@
 // 함수라 vitest 가 그대로 부른다. 배선은 `compute.worker.ts` 가 한다.
 
 import { TOKENIZE_MAX_LINE_CHARS, TOKENIZE_LINE_TIME_LIMIT_MS } from '../limits'
-import { diffLines } from 'diff'
+import { diffLines, lineDiff, parsePatch } from 'diff'
+import { countDiffStats } from '../diffStats'
 import { hunksToDiffLines } from '../diffModel'
 import {
   resultSize,
@@ -12,10 +13,16 @@ import {
   type WireRequest,
   type WireResponse
 } from '../protocol'
+import { markdownLayout } from '../../markdown/markdownSegments'
+import { decodeHistoryBody } from './historyBody'
 import { getHighlighter } from './highlighter'
 
 export async function compute(request: ComputeRequest): Promise<ComputeResult> {
   switch (request.kind) {
+    case 'markdownLayout':
+      return { segments: markdownLayout(request.source) }
+    case 'historyBody':
+      return decodeHistoryBody(request)
     case 'imageThumb':
     case 'codeView':
     case 'diffView':
@@ -48,6 +55,25 @@ export async function compute(request: ComputeRequest): Promise<ComputeResult> {
             }).tokens
       return { old: rows(request.oldText), new: rows(request.newText) }
     }
+    case 'diffStat':
+      return countDiffStats(
+        request.sources,
+        (before, after) => {
+          // A complete rewrite has no common subsequence. Count jsdiff's exact line
+          // tokens directly instead of constructing a quadratic edit frontier.
+          const oldLines = lineDiff.tokenize(before, {})
+          const newLines = lineDiff.tokenize(after, {})
+          const oldSet = new Set(oldLines)
+          if (!newLines.some((line) => oldSet.has(line))) {
+            return [
+              { removed: true, count: oldLines.length },
+              { added: true, count: newLines.length }
+            ]
+          }
+          return diffLines(before, after)
+        },
+        parsePatch
+      )
     case 'diffLines':
       return { lines: hunksToDiffLines(diffLines(request.oldValue, request.newValue)) }
   }

@@ -1,3 +1,4 @@
+import { installHistoryWorker } from '../../../../shared/compute/historyWorker.testfixture'
 import { describe, it, expect, vi } from 'vitest'
 import { readDeferredParts } from './deferredBody'
 import {
@@ -9,6 +10,8 @@ import {
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
 import { createOpenCodeBlockModel } from '../../harnesses/opencode/transcript/openCodeBlocks'
 import { newTranscriptChanges } from './changeLog'
+
+installHistoryWorker()
 
 const ref: HistoryBodyRef = {
   kind: 'parts',

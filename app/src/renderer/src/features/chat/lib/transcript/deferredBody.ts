@@ -5,6 +5,8 @@ import {
   type HistoryQuery
 } from '../../../../../../shared/history-page'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
+import { computeClient } from '../../../../shared/compute/client'
+import type { HistoryBodyRequest } from '../../../../shared/compute/protocol'
 import type { Message } from '../../reducer/chatReducer'
 
 export interface DeferredBlock {
@@ -43,14 +45,16 @@ export function splitDeferred<T>(
   return result
 }
 
+let bodySequence = 0
+
 export async function readDeferredParts(
   ref: HistoryBodyRef,
   openGeneration: number,
   page: (query: HistoryQuery) => Promise<HistoryPageReply>,
-  current: () => boolean
+  current: () => boolean,
+  signal?: AbortSignal
 ): Promise<AppMessagePart[]> {
-  const decoder = new TextDecoder('utf-8', { fatal: true })
-  const strings: string[] = []
+  const chunks: HistoryBodyRequest['chunks'] = []
   let offset = 0
   while (offset < ref.bytes && current()) {
     const reply = await page({ kind: 'body', sessionId: ref.session, ref, openGeneration, offset })
@@ -62,26 +66,32 @@ export async function readDeferredParts(
       reply.offset !== offset
     )
       throw Error('Stale history body')
-    const raw = atob(reply.base64)
+    const bytes = reply.nextOffset - offset
+    const padding = reply.base64.endsWith('==') ? 2 : reply.base64.endsWith('=') ? 1 : 0
     if (
-      !raw.length ||
-      raw.length > HISTORY_BODY_BYTES ||
-      reply.nextOffset !== offset + raw.length ||
+      bytes <= 0 ||
+      bytes > HISTORY_BODY_BYTES ||
+      reply.base64.length !== 4 * Math.ceil(bytes / 3) ||
+      (reply.base64.length * 3) / 4 - padding !== bytes ||
       reply.nextOffset > ref.bytes ||
       reply.done !== (reply.nextOffset === ref.bytes)
     )
       throw Error('Invalid history body range')
-    strings.push(
-      decoder.decode(
-        Uint8Array.from(raw, (char) => char.charCodeAt(0)),
-        { stream: !reply.done }
-      )
-    )
+    chunks.push({ base64: reply.base64, bytes })
     offset = reply.nextOffset
   }
   if (!current() || offset !== ref.bytes) throw Error('Incomplete history body')
-  const parts: unknown = JSON.parse(strings.join(''))
-  if (!Array.isArray(parts) || !parts.every((part) => part && typeof part.type === 'string'))
-    throw Error('Invalid history body')
-  return parts
+  const job = computeClient().request<'historyBody'>(
+    { kind: 'historyBody', sequence: ++bodySequence, chunks, bytes: ref.bytes },
+    { cacheable: false }
+  )
+  const cancel = (): void => job.cancel()
+  signal?.addEventListener('abort', cancel, { once: true })
+  try {
+    const { parts } = await job.promise
+    if (!current()) throw Error('Stale history body')
+    return parts
+  } finally {
+    signal?.removeEventListener('abort', cancel)
+  }
 }

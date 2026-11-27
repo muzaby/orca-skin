@@ -7,7 +7,8 @@ import { OpenCodeSpinner } from '../Spinner'
 import { ToolBody } from './ToolBody'
 import { chatActions } from '../../../store/chatStore'
 import { useToolDisclosure } from './viewState'
-import { fileChanges, fileName } from './filePresentation'
+import { useDiffStat } from '../../../hooks/useDiffStat'
+import { fileDiffSources, fileName } from './filePresentation'
 
 export const OpenCodeToolCard = memo(function OpenCodeToolCard({
   call,
@@ -18,7 +19,8 @@ export const OpenCodeToolCard = memo(function OpenCodeToolCard({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const view = useMemo(() => describeTool(call), [call])
-  const changes = useMemo(() => fileChanges(view.files), [view.files])
+  const sources = useMemo(() => fileDiffSources(view.files), [view.files])
+  const changes = useDiffStat(sources)
   const [open, setOpen] = useToolDisclosure(`tool:${call.toolUseId}`, false)
   const running = view.outcome === 'running'
   const failed = view.outcome === 'failed'
@@ -63,6 +65,7 @@ export const OpenCodeToolCard = memo(function OpenCodeToolCard({
         <button
           type="button"
           data-slot="collapsible-trigger"
+          data-focus-id="toggle"
           aria-expanded={task ? undefined : open}
           onClick={(event) =>
             task

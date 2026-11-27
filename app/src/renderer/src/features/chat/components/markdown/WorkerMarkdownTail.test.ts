@@ -66,9 +66,10 @@ it('s13: 4,001자 원문에서 접두 파싱으로 바뀌고 50,000자 결과 �
   expect(element()?.props['data-markdown-tail-parsed']).toBe(50000)
   expect(element()?.textContent).toBe('complete')
   render(next + 'c')
-  expect(fake.requests).toHaveLength(2)
-  expect(element()?.props['data-markdown-tail']).toBe('final')
-  expect(element()?.props['data-markdown-tail-parsed']).toBeUndefined()
+  expect(fake.requests).toHaveLength(3)
+  fake.resolveNext(parsed('last'))
+  await settle()
+  expect(element()?.props['data-markdown-tail-parsed']).toBe(50001)
 })
 it('s15: 같은 꼬리 인스턴스에서 공통 첫 문장 뒤가 다른 늦은 결과를 버리고 최신 대기 하나만 보낸다', async () => {
   const x = 'common. ' + 'x'.repeat(4492)
@@ -80,41 +81,32 @@ it('s15: 같은 꼬리 인스턴스에서 공통 첫 문장 뒤가 다른 늦은
   stream(x + 'x'.repeat(1500))
   stream(confirmed + y)
   expect(element()).toBe(sameTail)
-  expect(fake.requests).toHaveLength(1)
+  expect(fake.requests).toHaveLength(2)
   fake.resolveNext(parsed('X-only'))
   await settle()
   expect(element()?.props['data-markdown-tail']).toBe('raw')
   expect(element()?.textContent).toBe(y)
-  expect(fake.requests).toHaveLength(2)
-  expect(fake.requests[1]).toMatchObject({ kind: 'markdown', end: y.length })
+  expect(fake.requests).toHaveLength(3)
+  expect(fake.requests[2]).toMatchObject({ kind: 'markdown', end: y.length })
+  fake.resolveNext(parsed('confirmed'))
   fake.resolveNext(parsed('Y-only'))
   await settle()
   expect(element()?.props['data-markdown-tail-parsed']).toBe(y.length)
   expect(element()?.textContent).toBe('Y-only')
 })
-it('s13e: 노드 예산을 넘은 결과는 최종 원문으로 남는다', async () => {
-  const text = 't'.repeat(5000)
-  render(text)
-  fake.resolveNext({ tooLarge: true })
-  await settle()
-  expect(element()?.props['data-markdown-tail']).toBe('final')
-  expect(element()?.props['data-markdown-tail-parsed']).toBeUndefined()
-  expect(element()?.textContent).toBe(text)
-})
-
 it('s11/s12: 확정 본문이나 delta 크기와 무관하게 열린 꼬리 길이로만 워커를 선택한다', () => {
   const prefix = 'stable '.repeat(1000) + '\n\n'
   const stream = (source: string): void => dom.render(createElement(StreamingMarkdown, { source }))
   stream(prefix + 'tail\n')
-  expect(fake.requests).toHaveLength(0)
-  stream(prefix + 'head\n' + 't'.repeat(3995))
-  expect(fake.requests).toHaveLength(0)
-  stream(prefix + 'head\n' + 't'.repeat(3996))
   expect(fake.requests).toHaveLength(1)
-  expect(fake.requests[0]).toMatchObject({ kind: 'markdown', start: 0, end: 4001 })
+  stream(prefix + 'head\n' + 't'.repeat(3995))
+  expect(fake.requests).toHaveLength(1)
+  stream(prefix + 'head\n' + 't'.repeat(3996))
+  expect(fake.requests).toHaveLength(2)
+  expect(fake.requests[1]).toMatchObject({ kind: 'markdown', start: 0, end: 4001 })
 })
 it('s14: 블록 확정 후 짧은 꼬리에 이전 응답을 전달해도 현재 본문이 유지된다', async () => {
-  let deliver!: () => void
+  const deliveries: (() => void)[] = []
   const text = 'X-marker ' + 'x'.repeat(9991)
   const client = fake.client
   setComputeClient({
@@ -122,7 +114,8 @@ it('s14: 블록 확정 후 짧은 꼬리에 이전 응답을 전달해도 현재
     request() {
       return {
         promise: new Promise<never>((resolve) => {
-          deliver = () => resolve(parsed('late-only') as never)
+          const value = deliveries.length ? text : 'late-only'
+          deliveries.push(() => resolve(parsed(value) as never))
         }),
         setPriority: vi.fn(),
         cancel: vi.fn()
@@ -133,7 +126,8 @@ it('s14: 블록 확정 후 짧은 꼬리에 이전 응답을 전달해도 현재
   expect(element()?.props['data-markdown-tail']).toBe('raw')
   dom.render(createElement(StreamingMarkdown, { source: text + '\n\nY-marker\n' }))
   expect(element()).toBeUndefined()
-  deliver()
+  deliveries[0]()
+  deliveries[1]()
   await settle()
   expect(dom.body.textContent.match(/X-marker|Y-marker|late-only/g)).toEqual([
     'X-marker',
@@ -222,14 +216,15 @@ it('s6 exactly 4000 stays in synchronous Markdown', () => {
   expect(dom.body.textContent).toBe(source)
   expect(fake.requests).toHaveLength(0)
 })
-it('s10 skips work above the final raw limit', () => {
+it('AC8 parses a 50,001-char tail', async () => {
   const text = 'a'.repeat(50001)
   render(text)
-  expect(element()?.props['data-markdown-tail']).toBe('final')
-  expect(element()?.textContent).toBe(text)
-  expect(fake.requests).toHaveLength(0)
+  expect(fake.requests[0]).toMatchObject({ kind: 'markdown', start: 0, end: text.length })
+  fake.resolveNext(parsed('done'))
+  await settle()
+  expect(element()?.props['data-markdown-tail']).toBe('parsed')
+  expect(element()?.props['data-markdown-tail-parsed']).toBe(text.length)
 })
-
 it('s9 completing a parsed tail yields the same elements and text as completed Markdown', async () => {
   const { ClaudeAssistantSegment } =
     await import('../../harnesses/claude/transcript/AssistantSegment')
@@ -249,6 +244,10 @@ it('s9 completing a parsed tail yields the same elements and text as completed M
   function snapshot(n: FakeNode): unknown {
     return [n.tag, n.text, n.children.map(snapshot)]
   }
+  fake.resolveNext(
+    (await import('../../../../shared/compute/worker/markdown')).parseMarkdown(source)
+  )
+  await settle()
   const completed = snapshot(dom.body)
   expect(element()).toBeUndefined()
   dom.render(createElement(Markdown, { source }))

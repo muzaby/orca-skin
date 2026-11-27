@@ -111,7 +111,7 @@ export type MessageSegment =
 // (`useHasLiveText` · `LiveTurnState.reasoningVisible`)가 같은 함수를 쓴다 — 두 곳에 두면 공백
 // reasoning 에서 행 key 가 갈린다.
 export function hasSegmentText(text: string): boolean {
-  return text !== ''
+  return text.trim() !== ''
 }
 
 export function hasSegmentReasoning(text: string): boolean {
@@ -127,9 +127,9 @@ export function messageSegments(
 ): MessageSegment[] {
   const segments: MessageSegment[] = []
   for (const part of parts) {
-    const segment = segmentForPart(part, resultByRun)
-    if (!segment) continue
     const tail = segments.at(-1)
+    const segment = segmentForPart(part, resultByRun, tail)
+    if (!segment) continue
     if (!tail || !extendSegment(tail, segment)) segments.push(segment)
   }
   return segments
@@ -145,11 +145,13 @@ export function extendSegment(tail: MessageSegment, next: MessageSegment): boole
 
 export function segmentForPart(
   part: AppMessagePart,
-  resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>>
+  resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>>,
+  previous?: MessageSegment
 ): MessageSegment | undefined {
   switch (part.type) {
     case 'text':
-      return part.parentToolRunId === undefined && hasSegmentText(part.text)
+      return part.parentToolRunId === undefined &&
+        (hasSegmentText(part.text) || (previous?.kind === 'text' && part.text.length > 0))
         ? { kind: 'text', text: part.text }
         : undefined
     case 'reasoning':

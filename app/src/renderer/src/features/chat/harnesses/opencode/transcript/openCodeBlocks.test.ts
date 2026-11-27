@@ -15,6 +15,27 @@ function assistantMsg(id: string, parts: AppMessagePart[], createdAt = 2000): Me
 }
 
 describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
+  it('preserves paragraph whitespace and part offsets across assistant message boundaries', () => {
+    const blocks = snapshotToArray(
+      createOpenCodeBlockModel().advance({
+        messages: [
+          userMsg('u', 'request'),
+          assistantMsg('a', [{ type: 'text', text: 'Hello' }]),
+          assistantMsg('b', [{ type: 'text', text: '\n' }]),
+          assistantMsg('c', [
+            { type: 'text', text: '\n' },
+            { type: 'text', text: 'World' }
+          ])
+        ],
+        transcriptChanges: newTranscriptChanges()
+      })
+    )
+    const text = blocks.find((b) => b.kind === 'segment' && b.segment.kind === 'text')
+    expect(text).toMatchObject({ segment: { text: 'Hello\n\nWorld' } })
+    if (text?.kind === 'segment')
+      expect(text.sourceParts?.map((part) => part.start)).toEqual([0, 5, 6, 7])
+  })
+
   it.each(['append', 'replace'] as const)(
     'z1/z2: same assistant turn %s reads only changed parts and keeps earlier block objects',
     (edit) => {
@@ -789,4 +810,25 @@ describe('EP-28 text row ownership', () => {
       [['b', true, true]]
     )
   })
+})
+
+it('AC1′ matrix o1-o4 joins adjacent exploration tools through invisible content', () => {
+  const tool = (id: string, toolName = 'read'): AppMessagePart => ({
+    type: 'tool_call',
+    toolRunId: id,
+    toolName,
+    args: {}
+  })
+  const a = tool('a'),
+    b = tool('b')
+  const project = (parts: AppMessagePart[][]) =>
+    buildOpenCodeBlocksOracle(parts.map((p, i) => assistantMsg('m' + i, p))).flatMap((block) =>
+      block.kind === 'segment' && block.segment.kind === 'tools'
+        ? [block.segment.calls.map((c) => c.toolUseId)]
+        : []
+    )
+  expect(project([[a, { type: 'text', text: '\n' }, b]])).toEqual([['a', 'b']])
+  expect(project([[a, { type: 'reasoning', text: 'internal' }, b]])).toEqual([['a', 'b']])
+  expect(project([[a, tool('shell', 'bash'), b]])).toEqual([['a'], ['shell'], ['b']])
+  expect(project([[a], [b]])).toEqual([['a', 'b']])
 })

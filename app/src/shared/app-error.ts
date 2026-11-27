@@ -12,6 +12,7 @@ export const APP_ERROR_TITLES = [
   'attachFailed',
   'sendFailed',
   'sessionOpenFailed',
+  'historyLoadFailed',
   'bootStepDegraded',
   'mcpServerSkipped',
   'extensionsFailed',

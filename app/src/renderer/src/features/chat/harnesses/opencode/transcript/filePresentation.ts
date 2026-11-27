@@ -1,4 +1,4 @@
-import { diffStatsWithinBudget } from '../../../../../shared/compute/inline'
+import { diffStatsWithinBudget, type DiffStatSource } from '../../../../../shared/compute/inline'
 import type { DiffLine } from '../../../lib/diffLines'
 import { unifiedDiffLines } from '../../../lib/unifiedDiffLines'
 import type { OpenCodeFileView } from '../toolPresentation'
@@ -20,11 +20,13 @@ export function fileDiffSource(file: OpenCodeFileView): FileDiffSource {
 // 파싱 전의 원문(쌍 · patch)이라 예산을 넘으면 diff·patch 파싱을 하지 않는다. 펼친 본문은 `fileDiffSource`
 // 를 그대로 쓴다(0325 B21).
 export function fileChanges(files: OpenCodeFileView[]): { added: number; removed: number } | null {
-  return diffStatsWithinBudget(
-    files.map((file) =>
-      file.before != null || file.after != null
-        ? { kind: 'pair', before: file.before ?? '', after: file.after ?? '' }
-        : { kind: 'patch', patch: file.patch ?? '' }
-    )
+  return diffStatsWithinBudget(fileDiffSources(files))
+}
+
+export function fileDiffSources(files: OpenCodeFileView[]): DiffStatSource[] {
+  return files.map((file) =>
+    file.before != null || file.after != null
+      ? { kind: 'pair', before: file.before ?? '', after: file.after ?? '' }
+      : { kind: 'patch', patch: file.patch ?? '' }
   )
 }

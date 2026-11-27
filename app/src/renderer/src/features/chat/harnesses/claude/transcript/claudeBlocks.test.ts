@@ -836,3 +836,85 @@ it.each(['code', 'work'] as const)(
     expect(snapshotToArray(result)).toEqual(snapshotToArray(full))
   }
 )
+
+describe('0331 tool run boundaries', () => {
+  const call = (id: string, name = 'Bash'): AppMessagePart => ({
+    type: 'tool_call',
+    toolRunId: id,
+    toolName: name,
+    args: {}
+  })
+  const a = call('a'),
+    b = call('b')
+  const ws: AppMessagePart = { type: 'text', text: '\n\n' }
+  it.each(['code', 'work'] as const)(
+    'AC1′ c1-c4, w3 merges visible tool neighbours in %s',
+    (mode) => {
+      const project = (parts: AppMessagePart[][]) =>
+        buildClaudeBlocksOracle(
+          parts.map((p, i) => assistantMsg('m' + i, p)),
+          { mode, sessionKey: 's' }
+        ).flatMap((block) => (block.kind === 'segment' ? [block] : []))
+      for (const input of [[[a, ws, b]], [[a], [b]], [[a], [ws, b]], [[a, b]], [[a], [a], [b]]]) {
+        const blocks = project(input)
+        expect(blocks.map((block) => block.key)).toEqual(['m0:tool:a'])
+        expect(blocks[0].segment).toMatchObject({
+          kind: 'tools',
+          calls: [{ toolUseId: 'a' }, { toolUseId: 'b' }]
+        })
+      }
+      const boundaries: AppMessagePart[] = [
+        { type: 'text', text: 'visible' },
+        { type: 'reasoning', text: 'reason' },
+        call('ask', 'AskUserQuestion'),
+        { type: 'error', error: 'error' },
+        { type: 'compact_boundary' }
+      ]
+      for (const boundary of boundaries)
+        expect(project([[a, boundary, b]]).map((block) => block.segment.kind)).toHaveLength(3)
+    }
+  )
+  it('retains the error part key after transparent text inside a tool run', () => {
+    const error:AppMessagePart = {type:'error',error:'oops'}
+    const messages=[assistantMsg('m',[a,ws,b,error])]
+    const blocks=buildClaudeBlocksOracle(messages,{mode:'code',sessionKey:'s'})
+    expect(blocks.map(block=>block.key)).toEqual(['m:tool:a','m:error:0','m:meta'])
+  })
+  it('AC10 tool gap is symmetric within and across messages', () => {
+    for (const same of [true, false]) {
+      const text: AppMessagePart = { type: 'text', text: 'visible' }
+      for (const end of [text, call('ask', 'AskUserQuestion')]) {
+        const messages = (same ? [[text, a, end]] : [[text], [a], [end]]).map((p, i) =>
+          assistantMsg('m' + i, p)
+        )
+        expect(
+          buildClaudeBlocksOracle(messages, { mode: 'code', sessionKey: 's' })
+            .filter((b) => b.kind === 'segment')
+            .map((b) => b.gap)
+        ).toEqual([0, 12, 12])
+      }
+    }
+  })
+  it('AC1′ merged owner receives the later result and retains the first key after prepend', () => {
+    const model = createClaudeBlockModel({ mode: 'code', sessionKey: 's' })
+    let messages = [userMsg('u', 'later')]
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    model.advance({ messages, transcriptChanges: changes })
+    messages = [assistantMsg('first', [a]), assistantMsg('second', [b]), ...messages]
+    changes = recordChange(changes, { kind: 'prepend', ids: ['first', 'second'] })
+    expect(
+      snapshotToArray(model.advance({ messages, transcriptChanges: changes })).map((b) => b.key)
+    ).toEqual(['first:tool:a', 'first:meta', 'u:user'])
+    messages = [
+      ...messages,
+      assistantMsg('result', [
+        { type: 'tool_result', toolRunId: 'b', result: 'late', isError: false }
+      ])
+    ]
+    changes = recordChange(changes, { kind: 'append', ids: ['result'] })
+    expect(model.advance({ messages, transcriptChanges: changes }).blockAt(0)).toMatchObject({
+      key: 'first:tool:a',
+      segment: { calls: [{ toolUseId: 'a' }, { toolUseId: 'b', result: { output: 'late' } }] }
+    })
+  })
+})

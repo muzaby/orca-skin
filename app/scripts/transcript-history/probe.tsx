@@ -45,7 +45,20 @@ function turn(index: number, paragraphs: number): LoadedMessage[] {
     }
   ]
 }
-const searchCase = new URLSearchParams(location.search).get('scenario') === 'search'
+const scenario = new URLSearchParams(location.search).get('scenario')
+const searchCase = scenario === 'search'
+const realPage = [
+  'unitOpen',
+  'framesUnit',
+  'openFrames',
+  'entryPrepend',
+  'entryCancel',
+  'pullShort'
+].includes(scenario ?? '')
+const entryCase = ['openFrames', 'entryPrepend', 'entryCancel'].includes(scenario ?? '')
+const latestFive = [6, 7, 8, 9, 10].flatMap((i) => turn(i, 3))
+let releaseUnit: (() => void) | undefined
+let expanded = false
 const target = 'u:63'
 const locator: HistoryLocator = {
   v: 1,
@@ -74,6 +87,34 @@ Object.assign(window, {
     session: {
       page: async (query: HistoryQuery) => {
         searchRequests.push(query.kind)
+        if (realPage && query.kind !== 'target') {
+          await new Promise<void>((resolve) => {
+            releaseUnit = resolve
+          })
+          const unitRemainder = query.kind === 'withinUnit'
+          return {
+            status: 'ok',
+            requestId: 1,
+            sessionId: id,
+            openGeneration: query.openGeneration,
+            session: {
+              id,
+              backend,
+              agentKind,
+              title: id,
+              complete: false,
+              messages: unitRemainder
+                ? [6, 7, 8, 9].flatMap((i) => turn(i, 3))
+                : scenario === 'pullShort'
+                  ? []
+                  : [1, 2, 3, 4, 5].flatMap((i) => turn(i, 3)),
+              history: {
+                generation: 'g',
+                before: unitRemainder ? { kind: 'earlierTurn', cursor: 'prior' } : undefined
+              }
+            }
+          }
+        }
         return {
           status: 'ok',
           sessionId: id,
@@ -95,12 +136,34 @@ Object.assign(window, {
           }
         }
       },
-      load: async () => ({
-        id,
+      load: async (key: string) => ({
+        id: key,
         backend,
         agentKind,
         title: id,
-        messages: turn(2, 40),
+        messages:
+          key !== id
+            ? turn(90, 1)
+            : !realPage
+              ? turn(2, 40)
+              : entryCase && expanded
+                ? turn(10, 80)
+                : scenario === 'unitOpen'
+                  ? latestFive
+                  : turn(10, entryCase ? 1 : 42),
+        ...(key === id && realPage
+          ? {
+              history: {
+                generation: 'g',
+                before:
+                  scenario === 'unitOpen' || scenario === 'pullShort'
+                    ? { kind: 'earlierTurn', cursor: 'prior' }
+                    : expanded || scenario === 'framesUnit'
+                      ? { kind: 'withinUnit', cursor: 'remainder' }
+                      : undefined
+              }
+            }
+          : {}),
         complete: false
       }),
       refresh: async () => ({ status: 'unchanged' })
@@ -113,9 +176,8 @@ const style = document.createElement('style')
 style.textContent =
   appCss + '\nbody {margin:0} #root {height:100vh;display:flex;flex-direction:column}'
 document.head.appendChild(style)
-await chatActions.loadSession(id)
+await chatActions.loadSession(entryCase ? 'previous' : id)
 const root = createRoot(document.querySelector('#root')!)
-const scenario = new URLSearchParams(location.search).get('scenario')
 const writes: ScrollTrace[] = []
 let nested: HTMLElement | undefined
 let nestedRead: { scrollTop: number; requests: number } | undefined
@@ -137,8 +199,9 @@ if (scenario === 'footerResize') {
 }
 let growth: { initial: number; final: number; at: number } | undefined
 let requests = 0
-let edge: HistoryEdgeState = 'ready'
+let edge: HistoryEdgeState = scenario === 'pullEnd' ? 'end' : 'ready'
 function request(direction: string): boolean {
+  if (scenario === 'states') return false
   if (direction !== 'before' || edge === 'loading' || edge === 'end') return false
   requests++
   edge = 'loading'
@@ -148,7 +211,8 @@ function request(direction: string): boolean {
 // eslint-disable-next-line react-refresh/only-export-components -- Standalone diagnostic entry point.
 function Screen(): React.JSX.Element {
   const [searchOpen, setSearchOpen] = useState(searchCase)
-  const state = useChatStore((store) => store.sessions[id].session)
+  const active = useChatStore((store) => store.activeKey)
+  const state = useChatStore((store) => store.sessions[active].session)
   return (
     <>
       {searchOpen && (
@@ -161,8 +225,8 @@ function Screen(): React.JSX.Element {
       )}
       <HarnessScrollController
         backend={backend}
-        sessionKey={id}
-        sessionId={id}
+        sessionKey={active}
+        sessionId={active}
         messages={state.messages}
         sendCount={0}
         inflight={false}
@@ -171,12 +235,13 @@ function Screen(): React.JSX.Element {
           <TranscriptView
             {...scroll}
             backend={backend}
+            sessionId={active}
             agentKind={agentKind}
             messages={state.messages}
-            history={searchCase ? undefined : { before: edge, request }}
+            history={searchCase || realPage ? undefined : { before: edge, request }}
             pendingSteer={[]}
             inflight={false}
-            loadingSession={false}
+            loadingSession={state.loadingSession}
           />
         )}
       </HarnessScrollController>
@@ -197,6 +262,26 @@ const header = (): HTMLElement =>
   document.querySelector<HTMLElement>('[data-history-edge="before"]')!
 type Line = { part: string; text: string }
 let reading: Line
+let point: { x: number; y: number } | undefined
+function hitAtPoint() {
+  if (!point) return undefined
+  const range = document.caretRangeFromPoint(point.x, point.y)
+  const node = range?.startContainer
+  const part = node?.parentElement?.closest<HTMLElement>('[data-part-key]')
+  if (!range || !node || !part) return undefined
+  const block = part.closest<HTMLElement>('[data-message-id]')
+  const prefix = document.createRange()
+  prefix.setStart(part, 0)
+  prefix.setEnd(node, range.startOffset)
+  const offset = prefix.toString().length
+  return {
+    part: part.dataset.partKey,
+    message: block?.dataset.messageId,
+    offset,
+    text: part.textContent?.slice(offset, offset + 20)
+  }
+}
+
 function visibleLine(wanted?: Line): Line & { top: number; partTop: number } {
   const scroll = scroller().getBoundingClientRect()
   for (const part of scroller().querySelectorAll<HTMLElement>('[data-part-key]')) {
@@ -211,6 +296,7 @@ function visibleLine(wanted?: Line): Line & { top: number; partTop: number } {
       const rect = range.getBoundingClientRect()
       if (!rect.height || (!wanted && (rect.top < scroll.top || rect.bottom > scroll.bottom)))
         continue
+      if (!wanted) point = { x: rect.left + rect.width / 4, y: rect.top + rect.height / 2 }
       return {
         part: part.dataset.partKey!,
         text,
@@ -228,6 +314,7 @@ interface Sample extends Line {
   headerHeight: number
   state?: string
   time: number
+  hit?: ReturnType<typeof hitAtPoint>
 }
 function snapshot(): Sample {
   const line = visibleLine(reading)
@@ -239,6 +326,7 @@ function snapshot(): Sample {
     scrollTop: scroller().scrollTop,
     headerHeight: header().offsetHeight,
     state: header().dataset.historyState,
+    hit: hitAtPoint(),
     time: performance.now()
   }
 }
@@ -246,7 +334,7 @@ function snapshot(): Sample {
 let layouts: Promise<Sample[]> = Promise.resolve([])
 async function sampleCorrection(): Promise<Sample[]> {
   const samples: Sample[] = []
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     await frame()
     samples.push(snapshot())
   }
@@ -281,6 +369,138 @@ async function waitForRequest(): Promise<void> {
 }
 Object.assign(window, {
   historyProbe: {
+    async unitReady() {
+      await settle(8)
+      const r = scroller().getBoundingClientRect()
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+    },
+    async unit() {
+      const ids = () => useChatStore.getState().sessions[id].session.messages.map((m) => m.id)
+      await settle(8)
+      const first = ids()
+      const rowsBeforeScroll = [...searchRequests]
+      if (scenario === 'unitOpen') scroller().scrollTo({ top: 0, behavior: 'instant' })
+      for (let n = 0; !releaseUnit && n < 90; n++) await frame()
+      if (!releaseUnit) throw Error('Missing unit request')
+      reading = visibleLine()
+      const before = snapshot()
+      releaseUnit()
+      const layouts = await sampleCorrection()
+      return {
+        first,
+        ids: ids(),
+        rowsBeforeScroll,
+        requests: searchRequests,
+        before,
+        layouts,
+        after: snapshot()
+      }
+    },
+    async entry() {
+      const offsets: { top: number; bottom: number; opacity: number; line: string }[] = []
+      const sample = () => {
+        const el = scroller()
+        const body = el.querySelector('[data-transcript-viewport]')
+        const first = el.querySelector('[data-block-key]')
+        if (!body || !first || el.dataset.transcriptSession !== id) return
+        let line: string
+        try {
+          line = visibleLine().text
+        } catch {
+          line = ''
+        }
+        offsets.push({
+          top: el.scrollTop,
+          bottom: Math.max(0, el.scrollHeight - el.clientHeight),
+          opacity: Number(getComputedStyle(body).opacity),
+          line
+        })
+      }
+      await chatActions.loadSession(id)
+      for (let n = 0; n < 16; n++) {
+        await frame()
+        sample()
+      }
+      const firstPaint = [...offsets]
+      offsets.length = 0
+      expanded = true
+      await chatActions.loadSession(id, null, { revalidate: true })
+      for (let n = 0; n < 90; n++) {
+        await frame()
+        sample()
+        const last = offsets.at(-1)
+        if (last && last.top > 1 && last.top < last.bottom - 1 && releaseUnit) break
+      }
+      return { firstPaint, moving: [...offsets], requests: searchRequests }
+    },
+    async entrySettle() {
+      const samples = []
+      const el = scroller()
+      for (let n = 0; n < 20 && !releaseUnit; n++) await frame()
+      if (!releaseUnit) throw Error('Entry did not schedule unit fill')
+      reading = visibleLine()
+      const before = snapshot()
+      observeScrollWrites(el, (record) => writes.push(record))
+      releaseUnit()
+      for (let n = 0; n < 90; n++) {
+        await frame()
+        samples.push({
+          top: el.scrollTop,
+          bottom: Math.max(0, el.scrollHeight - el.clientHeight),
+          correcting: writes.at(-1)?.correcting,
+          line: (() => {
+            try {
+              return visibleLine(reading).top
+            } catch {
+              return null
+            }
+          })()
+        })
+      }
+      return { before, samples, writes }
+    },
+
+    async waitWheel() {
+      await settle(2)
+      for (let n = 0; !wheels.length && n < 60; n++) await frame()
+    },
+    async waitPull() {
+      const heights: number[] = []
+      for (let n = 0; n < 22; n++) {
+        heights.push(document.querySelector('[data-history-pull]')!.getBoundingClientRect().height)
+        await frame()
+      }
+      return heights
+    },
+    async short() {
+      if (!releaseUnit) throw Error('Missing earlier page')
+      reading = visibleLine()
+      const before = snapshot()
+      releaseUnit()
+      const frames = []
+      for (let n = 0; n < 28; n++) {
+        await frame()
+        frames.push({
+          ...snapshot(),
+          height: document.querySelector('[data-history-pull]')!.getBoundingClientRect().height
+        })
+      }
+      return { before, frames, requests: searchRequests }
+    },
+    async fail() {
+      reading = visibleLine()
+      flushSync(() => {
+        edge = 'error'
+        render()
+      })
+      const heights: number[] = []
+      for (let n = 0; n < 22; n++) {
+        heights.push(document.querySelector('[data-history-pull]')!.getBoundingClientRect().height)
+        await frame()
+      }
+      return heights
+    },
+
     async searchInput() {
       await document.fonts.ready
       for (let i = 0; i < 80; i++) {
@@ -336,10 +556,18 @@ Object.assign(window, {
           })
       )
     },
+    async focusForHome() {
+      await document.fonts.ready
+      await settle()
+      const el = scroller()
+      el.tabIndex = -1
+      el.focus({ preventScroll: true })
+    },
     async prepare() {
       await document.fonts.ready
       await settle()
       scroller().scrollTop = 0
+      if (scenario === 'framesSmoothCss') scroller().style.scrollBehavior = 'smooth'
       await settle()
       reading = visibleLine()
       observeScrollWrites(scroller(), (event) => writes.push(event))
@@ -383,6 +611,7 @@ Object.assign(window, {
       await waitForRequest()
       await frame()
       nested?.remove()
+      reading = visibleLine()
       const before = snapshot()
       const deferred = document.createElement('style')
       if (scenario === 'firstMeasurement') {
@@ -391,11 +620,15 @@ Object.assign(window, {
         document.head.appendChild(deferred)
       }
       flushSync(() => {
-        chatActions.prependHistory(id, turn(1, 5), { reachedStart: scenario !== 'doublePrepend' })
+        const payload =
+          scenario?.startsWith('frames') || scenario === 'pullSuccess'
+            ? [-3, -2, -1, 0, 1].flatMap((i) => turn(i, Math.abs(i) * 3 + 2))
+            : turn(1, 5)
+        chatActions.prependHistory(id, payload, { reachedStart: scenario !== 'doublePrepend' })
         edge = 'end'
         render()
       })
-      if (useChatStore.getState().sessions[id].session.messages[0].id !== 'u:1')
+      if (!['u:1', 'u:-3'].includes(useChatStore.getState().sessions[id].session.messages[0].id))
         throw Error('Page rejected')
       const commitAt = performance.now()
       if (scenario === 'doublePrepend') {
@@ -449,7 +682,19 @@ Object.assign(window, {
     },
     async result() {
       await settle(8)
+      const scrollerEl = scroller()
+      const row = (part: string) =>
+        scrollerEl.querySelector('[data-part-key="' + part + '"]')?.closest('[data-index]')
+      const lastInserted = row('a:1:text:0')
+      const firstExisting = row('u:2:user')
       return {
+        joinGap:
+          scenario === 'pullSuccess' && lastInserted && firstExisting
+            ? firstExisting.getBoundingClientRect().top - lastInserted.getBoundingClientRect().bottom
+            : undefined,
+        spinners: scrollerEl.querySelectorAll(
+          '[data-history-edge="before"] svg, [data-history-pull] svg'
+        ).length,
         after: snapshot(),
         wheels,
         requests,

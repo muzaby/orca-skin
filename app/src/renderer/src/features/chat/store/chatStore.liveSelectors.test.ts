@@ -79,9 +79,9 @@ describe('live 유무·본문 선택자 (0325 VP-07 자리 2·3)', () => {
     expect(probe()).toBe('true|true|a|')
     setLive({ text: '', reasoning: ' x', reasoningVisible: true })
     expect(probe()).toBe('false|true||')
-    // 공백뿐인 live text 도 text 유무다 — `hasSegmentText` 는 '' 만 거짓이다.
+    // 원문 구독은 공백을 보존하고 화면 행 유무는 거짓이다.
     setLive({ text: ' ', reasoning: '', reasoningVisible: false })
-    expect(probe()).toBe('true|false| |')
+    expect(probe()).toBe('false|false| |')
   })
 })
 

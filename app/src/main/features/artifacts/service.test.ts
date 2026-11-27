@@ -125,6 +125,61 @@ describe('artifact real filesystem and SQLite publication', () => {
     expect(f.service.listLatest('b')).toEqual([])
     await f.service.close()
   })
+  it('AC13′ previews managed and output files in the owning root and diagnoses missing or mismatched files', async () => {
+    const { root, rootDir, q, context, cwd, trashItem, service } = await setup()
+    const previewFailure = vi.fn()
+    const same = new ArtifactService({ rootDir, queries: q.artifacts, trashItem, previewFailure })
+    const other = new ArtifactService({
+      rootDir: join(rootDir, '.dev'),
+      queries: q.artifacts,
+      trashItem,
+      previewFailure
+    })
+    const managed = await service.publish({ path: join(cwd, 'report.md') }, context)
+    const outputDir = join(root, 'tmp')
+    await mkdir(outputDir, { recursive: true })
+    const path = join(outputDir, 'output.md')
+    await writeFile(path, '# Output')
+    const output = (await service.captureOutput(path, outputDir, context))!
+    expect(await same.preview('a', managed.publicationId)).toMatchObject({
+      state: 'ready',
+      content: '# Original'
+    })
+    expect(await same.preview('a', output.publicationId)).toMatchObject({
+      state: 'ready',
+      content: '# Output'
+    })
+    expect(previewFailure).not.toHaveBeenCalled()
+    const record = q.artifacts.getOwnedFile('a', managed.publicationId)!
+    expect(await other.preview('a', managed.publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'missing'
+    })
+    configFixture.root = join(root, 'other')
+    await mkdir(join(configFixture.root, 'tmp'), { recursive: true })
+    expect(await other.preview('a', output.publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'unsafe-path'
+    })
+    configFixture.root = root
+    await rm(join(rootDir, record.relativePath))
+    await rm(path)
+    expect(await same.preview('a', managed.publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'missing'
+    })
+    expect(await same.preview('a', output.publicationId)).toEqual({
+      state: 'unavailable',
+      reason: 'missing'
+    })
+    expect(previewFailure.mock.calls.map(([details]) => details)).toEqual([
+      { reason: 'missing', relativePath: record.relativePath },
+      { reason: 'unsafe-path', relativePath: 'output.md' },
+      { reason: 'missing', relativePath: record.relativePath },
+      { reason: 'missing', relativePath: 'output.md' }
+    ])
+    await Promise.all([same.close(), other.close(), service.close()])
+  })
   it('keeps unchanged attachments in context and collects only a changed or newly generated file as output', async () => {
     const f = await setup()
     const directory = join(f.root, 'tmp')

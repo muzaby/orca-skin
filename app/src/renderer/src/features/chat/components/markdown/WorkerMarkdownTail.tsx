@@ -1,8 +1,8 @@
 import { useActiveSessionKey } from '../../store/chatStore'
-import { useEffect, useState, useRef, useId } from 'react'
+import { useEffect, useState, useRef, useId, useMemo } from 'react'
 import { computeClient, type ComputeHandle } from '../../../../shared/compute/client'
 import { revisionOf } from '../../../../shared/compute/documents'
-import { MARKDOWN_BLOCK_MAX_CHARS } from '../../../../shared/compute/limits'
+import { MARKDOWN_DOC_SEGMENT_MAX_CHARS } from '../../../../shared/compute/limits'
 import type { ComputeResults } from '../../../../shared/compute/protocol'
 import { MarkdownHast } from '../../../../shared/ui/markdown/MarkdownHast'
 import {
@@ -10,6 +10,8 @@ import {
   type MarkdownSourcePart
 } from '../../../../shared/ui/markdown/sourceParts'
 import { MARKDOWN_TYPOGRAPHY } from '../../../../shared/ui/markdown/typography'
+
+import { useMarkdownRows } from './useMarkdownRows'
 
 type Result = ComputeResults['markdown']
 
@@ -21,7 +23,28 @@ interface TailProps {
 }
 export function WorkerMarkdownTail(props: TailProps): React.JSX.Element {
   const sessionKey = useActiveSessionKey()
-  return <SessionTail key={sessionKey} {...props} />
+  if (props.tail.length <= MARKDOWN_DOC_SEGMENT_MAX_CHARS)
+    return <SessionTail key={sessionKey} {...props} />
+  return <SegmentedTail key={sessionKey} {...props} />
+}
+function SegmentedTail(props: TailProps): React.JSX.Element {
+  const id = useId()
+  const rows = useMarkdownRows(props.tail, id)
+  const segments = useMemo(() => [...new Set(rows?.map((row) => row.segment))], [rows])
+  if (!rows) return <span data-md-block-pending="" />
+  if (!segments.length) return <pre data-md-block-error="">{props.tail}</pre>
+  return (
+    <div className={props.className}>
+      {segments.map((segment) => (
+        <SessionTail
+          key={segment.start}
+          {...props}
+          tail={segment.text}
+          parts={sliceSourceParts(props.parts, segment.start, segment.start + segment.text.length)}
+        />
+      ))}
+    </div>
+  )
 }
 function SessionTail({ tail, className, parts }: TailProps): React.JSX.Element {
   const id = useId()
@@ -70,7 +93,7 @@ function SessionTail({ tail, className, parts }: TailProps): React.JSX.Element {
     submit.current = (text) => {
       stopWaiting?.()
       stopWaiting = undefined
-      latest = text.length <= MARKDOWN_BLOCK_MAX_CHARS ? text : undefined
+      latest = text
       pump()
     }
     return () => {
@@ -84,25 +107,26 @@ function SessionTail({ tail, className, parts }: TailProps): React.JSX.Element {
     submit.current?.(tail)
   }, [tail])
 
-  const matching = parsed && tail.startsWith(parsed.text) ? parsed : null
-  const covered =
-    tail.length <= MARKDOWN_BLOCK_MAX_CHARS && matching && 'hast' in matching.result
-      ? matching
-      : null
+  const covered = parsed && tail.startsWith(parsed.text) ? parsed : null
+  const [painted, setPainted] = useState<typeof parsed>(null)
+  const afterPaint = useMemo(() => () => setPainted(covered), [covered])
+  const complete = !!covered && painted === covered
   const length = covered?.text.length ?? 0
   const raw = tail.slice(length)
   const rawParts = sliceSourceParts(parts, length, tail.length)
-  const final =
-    tail.length > MARKDOWN_BLOCK_MAX_CHARS ||
-    (matching?.text === tail && 'tooLarge' in matching.result)
   return (
     <div
       className={className ?? MARKDOWN_TYPOGRAPHY + ' text-ink'}
-      data-markdown-tail={covered ? 'parsed' : final ? 'final' : 'raw'}
-      data-markdown-tail-parsed={covered ? length : undefined}
+      data-markdown-tail={complete ? 'parsed' : 'raw'}
+      data-markdown-tail-parsed={complete ? length : undefined}
     >
-      {covered && 'hast' in covered.result && (
-        <MarkdownHast hast={covered.result.hast} source={covered.text} parts={parts} />
+      {covered && (
+        <MarkdownHast
+          hast={covered.result.hast}
+          source={covered.text}
+          parts={parts}
+          onComplete={afterPaint}
+        />
       )}
       {raw && (
         <span className="whitespace-pre-wrap">

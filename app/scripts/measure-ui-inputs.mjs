@@ -242,7 +242,7 @@ export const SOURCE_MODULES = {
   openCodeBlocks: 'src/renderer/src/features/chat/harnesses/opencode/transcript/openCodeBlocks.ts',
   segmentCache: 'src/renderer/src/features/chat/lib/segmentCache.ts',
   transcriptIndex: 'src/renderer/src/features/chat/lib/transcriptIndex.ts',
-  markdownBlocks: 'src/renderer/src/features/chat/lib/markdownBlocks.ts'
+  markdownBlocks: 'src/renderer/src/shared/markdown/markdownBlocks.ts'
 }
 
 // 0326 이전 Timeline과 패널이 사용하던 함수. 옛 트리를 측정할 때만 번들한다.

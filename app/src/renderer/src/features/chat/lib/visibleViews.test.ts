@@ -13,7 +13,7 @@ import {
   diffViewLocate,
   diffViewRows
 } from '../../../shared/compute/diffView'
-import { markdownDocumentBlocks } from './markdownDocumentBlocks'
+import { markdownDocumentBlocks } from '../../../shared/markdown/markdownDocumentBlocks'
 
 describe('visible document windows', () => {
   it('preserves trailing empty lines, CRLF offsets and tab width', () => {

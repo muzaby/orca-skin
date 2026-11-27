@@ -27,14 +27,14 @@ export const WorkToolRow = memo(function WorkToolRow({
   const failed = view.status === 'failed'
   return (
     <div
-      className="relative py-2 pl-[30px]"
+      className="relative py-1 pl-[30px]"
       data-work-tool={call.toolUseId}
       data-part-key={partKey}
       data-tool-status={view.status}
     >
       <span
         aria-hidden
-        className={`absolute top-2.5 left-0 flex h-5 w-5 items-center justify-center bg-bg ${failed ? 'text-bad' : 'text-ink3'}`}
+        className={`absolute top-1.5 left-0 flex h-5 w-5 items-center justify-center bg-bg ${failed ? 'text-bad' : 'text-ink3'}`}
       >
         {view.icon ? (
           <Icon name={view.icon} size={16} />
@@ -98,11 +98,11 @@ export const WorkToolTimeline = memo(function WorkToolTimeline({
           <div
             key={call.toolUseId}
             data-part-key={partKeys?.[index]}
-            className="relative py-2 pl-[30px]"
+            className="relative py-1 pl-[30px]"
           >
             <span
               aria-hidden
-              className="absolute top-2.5 left-0 flex h-5 w-5 items-center justify-center bg-bg text-ink3"
+              className="absolute top-1.5 left-0 flex h-5 w-5 items-center justify-center bg-bg text-ink3"
             >
               <Icon name="cpu" size={16} />
             </span>

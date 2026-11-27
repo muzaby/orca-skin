@@ -694,6 +694,9 @@ export class DataBootstrap implements HostAssembly {
     const artifacts = (this.artifacts = new ArtifactService({
       queries: db.artifacts,
       rootDir: join(ooConfigDir(), 'artifacts', ...(import.meta.env.DEV ? ['.dev'] : [])),
+      previewFailure: (details) => getLogger().child('artifact').warn('artifact.preview.failed', {
+        rootKind: import.meta.env.DEV ? 'dev' : 'prod', ...details
+      }),
       isInputFile: (sessionId, inputSource, hash) =>
         db
           .listSessionAttachmentFiles(sessionId)

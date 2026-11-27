@@ -8,7 +8,6 @@ export interface ScrollTrace {
   top: number
 }
 interface Correction {
-  corrected: boolean
   quietFrames: number
   frame: number
   settled: () => void
@@ -46,7 +45,7 @@ export function noteCorrectionLayout(element: HTMLElement | null): boolean {
 }
 export function beginCorrection(element: HTMLElement, settled: () => void): void {
   if (noteCorrectionLayout(element) || typeof requestAnimationFrame !== 'function') return
-  const correction: Correction = { corrected: false, quietFrames: 0, frame: 0, settled }
+  const correction: Correction = { quietFrames: 0, frame: 0, settled }
   corrections.set(element, correction)
   trace(element, 'open')
   const tick = (): void => {
@@ -69,8 +68,8 @@ export function cancelCorrection(element: HTMLElement | null): void {
   corrections.delete(element)
 }
 
-export function hasWrittenCorrection(element: HTMLElement | null): boolean {
-  return !!element && corrections.get(element)?.corrected === true
+export function isCorrecting(element: HTMLElement | null): boolean {
+  return !!element && corrections.has(element)
 }
 
 export function applyScrollWrite(
@@ -88,7 +87,6 @@ export function applyScrollWrite(
   }
   write()
   if (correction && owner === 'anchor') {
-    correction.corrected = true
     correction.quietFrames = 0
   }
   trace(element, 'write', owner)

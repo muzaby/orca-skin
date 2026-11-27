@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi, type Mocked } from 'vitest'
 import type { RequestEvent } from '../../contracts/client'
-import type { ArtifactService } from '../../features/artifacts/service'
+import { ArtifactService } from '../../features/artifacts/service'
 import type { ArtifactCatalog } from '../../features/artifacts/catalog'
 import { CHANNELS } from '../../../shared/ipc'
 import { installFakeShellServices } from '../../infra/shell-services.testfixture'
@@ -123,6 +123,47 @@ describe('artifact IPC file actions', () => {
       })
     ).rejects.toThrow()
     expect(catalog.setPinned).not.toHaveBeenCalled()
+  })
+  it('AC13 preview over the data handler with two roots', async () => {
+    const { call, catalog, trusted, root, dest } = await setup()
+    const fileId = 'f5ca1841-62c6-4f90-9a2c-318e773407a6'
+    const record = {
+      publicationId: 'pub',
+      artifactFileId: fileId,
+      filename: 'item.md',
+      relativePath: fileId + '/item.md',
+      title: 'item',
+      kind: 'markdown' as const,
+      sizeBytes: 5,
+      publishedAt: 1,
+      hash: 'hash',
+      inputSource: 'source',
+      lastTrashedAt: null
+    }
+    await mkdir(join(root, fileId))
+    await writeFile(join(root, record.relativePath), '# doc')
+    const queries = {
+      getOwnedFile: (session: string, id: string) =>
+        session === 's' && id === 'pub' ? record : null,
+      createPublication: vi.fn(),
+      listLatest: vi.fn(),
+      markTrashed: vi.fn()
+    }
+    for (const rootDir of [root, dest]) {
+      const previewFailure = vi.fn()
+      const service = new ArtifactService({ rootDir, queries, trashItem: vi.fn(), previewFailure })
+      registerArtifactHandlers(service, trusted, catalog)
+      const result = await call('artifactPreview', { sessionId: 's', publicationId: 'pub' })
+      if (rootDir === root) expect(result).toMatchObject({ state: 'ready', content: '# doc' })
+      else {
+        expect(result).toMatchObject({ state: 'unavailable', reason: 'missing' })
+        expect(previewFailure).toHaveBeenCalledExactlyOnceWith({
+          relativePath: fileId + '/item.md',
+          reason: 'missing'
+        })
+      }
+      await service.close()
+    }
   })
   it('previews only the selected IDs and rejects renderer paths at the schema boundary', async () => {
     const { service, call } = await setup()

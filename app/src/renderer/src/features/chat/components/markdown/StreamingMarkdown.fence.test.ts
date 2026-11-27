@@ -7,7 +7,7 @@ import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { MarkdownStreamingContext } from '../../../../shared/ui/markdown/streamingContext'
 import { ReasoningBlock } from '../../harnesses/claude/transcript/ReasoningBlock'
 import { OpenCodeText } from '../../harnesses/opencode/transcript/Text'
-import { advanceStableBlocks } from '../../lib/markdownBlocks'
+import { advanceStableBlocks } from '../../../../shared/markdown/markdownBlocks'
 import { StreamingFence, StreamingMarkdown } from './StreamingMarkdown'
 
 const parsedSource = vi.hoisted(() => vi.fn<(source: string) => void>())

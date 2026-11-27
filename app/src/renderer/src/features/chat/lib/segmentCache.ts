@@ -65,6 +65,7 @@ function eachCall(segment: MessageSegment, callback: (id: string) => void): void
 }
 
 export function createSegmentCache(): {
+  readonly firstSegmentStart: number
   segmentsFor(message: Message, partsFrom?: number, externalResults?: ResultMap): MessageSegment[]
 } {
   let previous: Message | undefined
@@ -87,6 +88,9 @@ export function createSegmentCache(): {
   }
 
   return {
+    get firstSegmentStart() {
+      return spans[0]?.start ?? Infinity
+    },
     segmentsFor(message, partsFrom, externalResults) {
       if (previous === message && previousExternal === externalResults) return views
       if (
@@ -179,7 +183,7 @@ export function createSegmentCache(): {
       let editableTail = false
       const rebuild = rebuildFrom < from ? [...parts.slice(rebuildFrom, from), ...suffix] : suffix
       for (let index = 0; index < rebuild.length; index++) {
-        const segment = segmentForPart(rebuild[index], results)
+        const segment = segmentForPart(rebuild[index], results, next.at(-1)?.segment)
         if (!segment) continue
         const partIndex = rebuildFrom + index
         let tail = next.at(-1)

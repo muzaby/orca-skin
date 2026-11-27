@@ -517,3 +517,40 @@ describe('캐시 비용 (0325)', () => {
     }
   })
 })
+
+it('AC14 historyBody round trip uses the worker result and rejects a cancelled generation', async () => {
+  const { client, last } = harness()
+  const bytes = Buffer.from(JSON.stringify([{ type: 'text', text: '본문' }]))
+  const input = {
+    kind: 'historyBody' as const,
+    sequence: 1,
+    chunks: [{ base64: bytes.toString('base64'), bytes: bytes.length }],
+    bytes: bytes.length
+  }
+  const first = client.request(input, { cacheable: false })
+  const ran = await handleMessage(last().posted[0])
+  if (ran.ok !== true) throw Error('history worker failed')
+  last().onmessage?.({ data: ran })
+  await expect(first.promise).resolves.toEqual({ parts: [{ type: 'text', text: '본문' }] })
+  const second = client.request({ ...input, sequence: 2 }, { cacheable: false })
+  second.cancel()
+  last().onmessage?.({ data: { ...ran, id: last().posted[1].id } })
+  await expect(second.promise).rejects.toThrow('cancelled')
+})
+
+it('AC8 worker result for an oversized markdown block carries a size and formatted tree', async () => {
+  const { markdownBlock } = await import('./worker/markdown')
+  const { client, last } = harness()
+  const text = '한'.repeat(50001) + ' **끝**'
+  const doc = { id: 'oversize', revision: 1 }
+  const lease = client.openDocument(doc, { text }, 'markdown')
+  const request = { kind: 'markdown' as const, doc, start: 0, end: text.length }
+  const job = client.request(request)
+  const parsed = markdownBlock({ text }, request)
+  expect(resultSize(parsed)).toBeGreaterThan(text.length)
+  last().reply(parsed)
+  await expect(job.promise).resolves.toMatchObject({
+    hast: { children: [{ tagName: 'p', children: [{ type: 'text' }, { tagName: 'strong' }] }] }
+  })
+  lease.release()
+})

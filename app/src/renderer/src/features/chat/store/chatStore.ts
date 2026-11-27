@@ -10,7 +10,7 @@ import { transcriptIndexFor } from '../lib/transcriptIndex'
 import type { BackgroundSessionState } from '../../../../../shared/background-task'
 import type { LoadedMessage } from '../../../../../shared/ipc'
 import type { TranscriptDiagnostic } from '../lib/transcript/heldParts'
-import { idleSearchDirection } from '../lib/idleSearchDirection'
+import { idleSearchDirection, withinHistoryUnit } from '../lib/idleSearchDirection'
 import { messageOrderFor } from '../lib/transcript/messageOrder'
 import { newTranscriptChanges, recordChange } from '../lib/transcript/changeLog'
 import { rendererMessageId, userMessageId } from '../../../../../shared/message-id'
@@ -21,7 +21,7 @@ import {
   rememberSearchOrigin,
   searchPosition
 } from '../lib/transcript/viewport/searchVisit'
-import { useMemo } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { isPublishedMessage, hasHandoffHistory } from '../reducer/chatReducer'
 import { TranscriptPanelProjection } from '../../../../../shared/history-panels/projection'
 import type { PanelKind } from '../../../../../shared/history-panels/rows'
@@ -166,6 +166,7 @@ export interface SubagentMetaState {
 interface SessionPaging extends HistoryWindow {
   sourceSessionId?: string
   openGeneration: number
+  lastBeforeCursor?: string
   beforeState?: 'loading' | 'error'
 }
 let historyOpenGeneration = 0
@@ -173,6 +174,7 @@ let historyOpenGeneration = 0
 interface SearchWindow extends HistoryWindow {
   messages: Message[]
   changes: TranscriptChanges
+  lastBeforeCursor?: string
   beforeState?: 'loading' | 'error'
   afterState?: 'loading' | 'error'
 }
@@ -502,6 +504,7 @@ function dispatchTo(key: string, action: ChatAction): void {
     }
     return session === entry.session ? entry : { ...entry, session }
   })
+  if (action.type === 'LOAD_SESSION') resolveDeferredBodies(key, action.session.messages)
   if (action.type === 'LOAD_SESSION' && action.session.metadataRef)
     scheduleHistoryMetadata(key, action.session.metadataRef)
 }
@@ -2054,6 +2057,7 @@ async function loadSession(
   const hasCachedHistory = cached && !cached.session.loadingSession
   if (hasCachedHistory) {
     setState({ activeKey: sessionId, ...(switchingActive ? { entryIntent: nextIntent } : {}) })
+    resolveDeferredBodies(sessionId, cached.session.messages)
     void settingsApi.set({ lastSessionId: sessionId })
   } else if (cached) {
     setState({ activeKey: sessionId, ...(switchingActive ? { entryIntent: nextIntent } : {}) })
@@ -2572,6 +2576,7 @@ async function openSearchHit(
       entryIntent: null,
       sessions: { ...st.sessions, [id]: next }
     }))
+    resolveDeferredBodies(id, next.search?.view?.messages ?? next.session.messages)
     if (reply.status === 'ok' && reply.session.metadataRef)
       scheduleHistoryMetadata(id, reply.session.metadataRef)
     void settingsApi.set({ lastSessionId: id })
@@ -2665,16 +2670,37 @@ function currentSearchSequence(): number | undefined {
   return state.sessions[state.activeKey]?.search?.seq
 }
 
-const readingBodies = new WeakMap<HistoryBodyRef, Promise<boolean>>()
+const readingBodies = new WeakMap<
+  HistoryBodyRef,
+  { promise: Promise<boolean>; abort: AbortController }
+>()
+const failedBodies = new WeakSet<HistoryBodyRef>()
+export function useHistoryBodyFailed(ref: HistoryBodyRef): boolean {
+  const failed = (): boolean => failedBodies.has(ref)
+  return useSyncExternalStore(useChatStore.subscribe, failed, failed)
+}
+
+function resolveDeferredBodies(
+  key: string,
+  messages: readonly { deferredBody?: HistoryBodyRef }[]
+): void {
+  if (getState().activeKey !== key) return
+  for (const message of messages) {
+    if (message.deferredBody && !failedBodies.has(message.deferredBody))
+      void openHistoryBody(message.deferredBody)
+  }
+}
 
 function openHistoryBody(ref: HistoryBodyRef): Promise<boolean> {
   const prior = readingBodies.get(ref)
-  if (prior) return prior
+  if (prior && !prior.abort.signal.aborted) return prior.promise
   const key = getState().activeKey
   const initial = getState().sessions[key]
   const seq = initial?.search?.seq
   const generation = initial?.search?.view ? seq : initial?.history?.openGeneration
+  const abort = new AbortController()
   const current = (): boolean => {
+    if (abort.signal.aborted) return false
     const state = getState()
     const entry = state.sessions[key]
     const view = entry?.search?.view
@@ -2682,14 +2708,21 @@ function openHistoryBody(ref: HistoryBodyRef): Promise<boolean> {
       state.activeKey === key &&
       !!entry &&
       entry.search?.seq === seq &&
+      (view ? seq : entry.history?.openGeneration) === generation &&
       (view?.generation ?? entry.history?.generation) === ref.generation &&
       (view?.messages ?? entry.session.messages).some((message) => message.deferredBody === ref)
     )
   }
   if (generation === undefined || !current()) return Promise.resolve(false)
-  const result = readDeferredParts(ref, generation, sessionApi.page, current)
+  if (failedBodies.delete(ref)) patchEntry(key, (e) => ({ ...e }))
+  const unsubscribe = useChatStore.subscribe(() => {
+    if (!current()) abort.abort()
+  })
+  const result = readDeferredParts(ref, generation, sessionApi.page, current, abort.signal)
     .then((parts) => {
       if (!current()) return false
+      const load = sessionLoads.get(key)
+      const previous = getState().sessions[key]
       patchEntry(key, (entry) => {
         const selection = entry.search
         const view = selection?.view
@@ -2721,11 +2754,27 @@ function openHistoryBody(ref: HistoryBodyRef): Promise<boolean> {
           })
         }
       })
+      if (
+        load &&
+        load.entry.session.messages === previous.session.messages &&
+        load.entry.live === previous.live
+      ) {
+        load.entry = getState().sessions[key]
+      }
       return true
     })
-    .catch(() => false)
-    .finally(() => readingBodies.delete(ref))
-  readingBodies.set(ref, result)
+    .catch(() => {
+      if (current()) {
+        failedBodies.add(ref)
+        patchEntry(key, (entry) => ({ ...entry }))
+      }
+      return false
+    })
+    .finally(() => {
+      unsubscribe()
+      if (readingBodies.get(ref)?.promise === result) readingBodies.delete(ref)
+    })
+  readingBodies.set(ref, { promise: result, abort })
   return result
 }
 
@@ -2743,6 +2792,7 @@ function leaveSearch(key: string, latest = false): void {
   if (!latest || entry.history || entry.session.historyComplete) {
     sessionApi.cancelLoad(key)
     leave()
+    resolveDeferredBodies(key, getState().sessions[key].session.messages)
     return
   }
   if (entry.search.returning) return
@@ -2775,6 +2825,7 @@ function leaveSearch(key: string, latest = false): void {
       })
       if (!getState().sessions[key]?.history) throw Error('History overlap rejected')
       leave()
+      resolveDeferredBodies(key, reply.session.messages)
     })
     .catch(() => {
       if (current())
@@ -2785,7 +2836,30 @@ function leaveSearch(key: string, latest = false): void {
     })
 }
 
-function readSearchEdge(key: string, direction: 'before' | 'after', automatic = false): boolean {
+// true is an idle unit fill; a visible head can also admit an earlier unit.
+// Only the retry control may reopen an errored cursor.
+type HistoryTrigger = boolean | 'head'
+function canRequestBefore(
+  history: SessionPaging | SearchWindow,
+  automatic: HistoryTrigger
+): boolean {
+  if (!history.before || history.beforeState === 'loading') return false
+  if (history.beforeState === 'error') return !automatic
+  return (
+    history.before.cursor !== history.lastBeforeCursor &&
+    (automatic !== true || withinHistoryUnit(history.before))
+  )
+}
+
+function reportHistoryFailure(): void {
+  reportError({ event: 'history.page.failed', scope: 'chat', title: 'historyLoadFailed' })
+}
+
+function readSearchEdge(
+  key: string,
+  direction: 'before' | 'after',
+  automatic: HistoryTrigger = false
+): boolean {
   const entry = getState().sessions[key]
   const search = entry?.search
   const view = search?.view
@@ -2796,8 +2870,8 @@ function readSearchEdge(key: string, direction: 'before' | 'after', automatic = 
     !view ||
     !edge ||
     getState().activeKey !== key ||
-    view[stateKey] === 'loading' ||
-    (automatic && idleSearchDirection(view) !== direction)
+    (direction === 'before' ? !canRequestBefore(view, automatic) : view.afterState === 'loading') ||
+    (automatic === true && idleSearchDirection(view) !== direction)
   )
     return false
   const seq = search.seq
@@ -2816,7 +2890,11 @@ function readSearchEdge(key: string, direction: 'before' | 'after', automatic = 
   patch((s, v, e) => ({ ...e, search: { ...s, view: { ...v, [stateKey]: 'loading' } } }))
   const query = edge.kind === 'withinTurn' ? { kind: edge.kind, direction } : { kind: edge.kind }
   const failed = (): void =>
-    patch((s, v, e) => ({ ...e, search: { ...s, view: { ...v, [stateKey]: 'error' } } }))
+    patch((s, v, e) => {
+      if (v[stateKey] !== 'loading') return e
+      if (direction === 'before') reportHistoryFailure()
+      return { ...e, search: { ...s, view: { ...v, [stateKey]: 'error' } } }
+    })
   void sessionApi
     .page({ ...query, sessionId: key, openGeneration: seq, cursor: edge.cursor })
     .then((reply) => {
@@ -2824,7 +2902,9 @@ function readSearchEdge(key: string, direction: 'before' | 'after', automatic = 
         failed()
         return
       }
+      let committed = false
       patch((s, v, e) => {
+        committed = true
         const part = reply.session.messages.map(fromLoadedMessage)
         const messages =
           direction === 'before' ? [...part, ...v.messages] : [...v.messages, ...part]
@@ -2832,27 +2912,25 @@ function readSearchEdge(key: string, direction: 'before' | 'after', automatic = 
           ...v,
           messages,
           [direction]: reply.session.history[direction],
+          ...(direction === 'before' ? { lastBeforeCursor: edge.cursor } : {}),
           [stateKey]: undefined,
           changes: recordChange(v.changes, { kind: 'reset', complete: false })
         }
         const updated = { ...e, search: { ...s, view: next } }
         return direction === 'after' ? joinSearchAtLatest(updated) : updated
       })
+      const current = getState().sessions[key]
+      if (committed && current)
+        resolveDeferredBodies(key, current.search?.view?.messages ?? current.session.messages)
     }, failed)
   return true
 }
 
-function readPrevious(key: string, automatic = false): boolean {
+function readPrevious(key: string, automatic: HistoryTrigger = false): boolean {
   const state = getState()
   const history = state.sessions[key]?.history
   const edge = history?.before
-  if (
-    !history ||
-    !edge ||
-    key !== state.activeKey ||
-    history.beforeState === 'loading' ||
-    (automatic && (edge.kind !== 'withinTurn' || history.beforeState === 'error'))
-  )
+  if (!history || !edge || key !== state.activeKey || !canRequestBefore(history, automatic))
     return false
   const beforeState = 'loading' as const
   const loading = { ...history, beforeState }
@@ -2860,7 +2938,11 @@ function readPrevious(key: string, automatic = false): boolean {
   const query =
     edge.kind === 'withinTurn'
       ? { kind: 'withinTurn' as const, direction: 'before' as const }
-      : { kind: 'earlierTurn' as const }
+      : { kind: edge.kind === 'withinUnit' ? ('withinUnit' as const) : ('earlierTurn' as const) }
+  const failed = (entry: SessionEntry): SessionEntry => {
+    reportHistoryFailure()
+    return { ...entry, history: { ...history, beforeState: 'error' } }
+  }
   void sessionApi
     .page({
       ...query,
@@ -2869,10 +2951,11 @@ function readPrevious(key: string, automatic = false): boolean {
       cursor: edge.cursor
     })
     .then((reply: HistoryPageReply) => {
+      let committed = false
       patchEntry(key, (entry) => {
         if (entry.history !== loading || getState().activeKey !== key) return entry
         if (reply.status !== 'ok' || reply.session.history.generation !== history.generation)
-          return { ...entry, history: { ...history, beforeState: 'error' } }
+          return failed(entry)
         let rejected = false
         const session = chatReducer(entry.session, {
           type: 'PREPEND_HISTORY',
@@ -2883,20 +2966,24 @@ function readPrevious(key: string, automatic = false): boolean {
             transcriptDiagnostic(event, count)
           }
         })
-        return rejected
-          ? { ...entry, history: { ...history, beforeState: 'error' } }
-          : {
-              ...entry,
-              session,
-              history: { ...history, before: reply.session.history.before, beforeState: undefined }
-            }
+        if (rejected) return failed(entry)
+        committed = true
+        return {
+          ...entry,
+          session,
+          history: {
+            ...history,
+            before: reply.session.history.before,
+            lastBeforeCursor: edge.cursor,
+            beforeState: undefined
+          }
+        }
       })
+      if (committed && reply.status === 'ok') resolveDeferredBodies(key, reply.session.messages)
     })
     .catch(() =>
       patchEntry(key, (entry) =>
-        entry.history === loading
-          ? { ...entry, history: { ...history, beforeState: 'error' } }
-          : entry
+        entry.history === loading && getState().activeKey === key ? failed(entry) : entry
       )
     )
   return true

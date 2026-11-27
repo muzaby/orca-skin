@@ -668,7 +668,10 @@ describe('TranscriptViewport via the production harnesses', () => {
       const viewport = {
         dataset: {},
         scrollHeight: 1000,
-        scrollTo: vi.fn(),
+        querySelector: () => ({ querySelector: () => ({}) }),
+        scrollTo: vi.fn(({ top: offset, behavior }: ScrollToOptions) => {
+          if (behavior === 'instant' && typeof offset === 'number') top = offset
+        }),
         clientHeight: 200,
         get scrollTop() {
           return top
@@ -787,6 +790,7 @@ describe('TranscriptViewport via the production harnesses', () => {
       expect(top).toBe(backend === 'opencode' ? 321 : 800)
       if (backend === 'claude') {
         top = 123
+        viewport.scrollTo.mockClear()
         vi.spyOn(chatApi, 'send').mockResolvedValue(undefined)
         expect(chatActions.send('follow up')).toBe(true)
         renderController()

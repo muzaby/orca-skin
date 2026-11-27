@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
-import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
+import { TranscriptMarkdown } from '../../../components/markdown/MarkdownDocument'
 import { ClaudeToolGroup as ToolGroup } from './ToolGroup'
 import { ReasoningBlock } from './ReasoningBlock'
 import { ErrorCard } from './ErrorCard'
@@ -40,7 +40,7 @@ export const ClaudeAssistantSegment = memo(function ClaudeAssistantSegment({
       return <AskExchange call={seg.call} />
     case 'text':
       return (
-        <Markdown
+        <TranscriptMarkdown
           source={seg.text}
           sourceParts={(sourceParts?.length ?? 0) > 1 ? sourceParts : undefined}
         />

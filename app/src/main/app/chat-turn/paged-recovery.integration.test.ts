@@ -9,7 +9,7 @@ import { loadSession, readHistorySource } from '../../features/history/reader'
 import { HistoryIndex } from '../../features/history/turn-index'
 import { readHistoryPage } from '../../features/history/history-page'
 
-it('full archive and fork retain the first, middle and last identities when only the fifth turn is open', async () => {
+it('full archive and fork retain the first, middle and last identities when only the latest five of ten turns are open', async () => {
   const sql = new Database(':memory:')
   sql.pragma('foreign_keys=ON')
   applyMigrations(sql)
@@ -18,7 +18,7 @@ it('full archive and fork retain the first, middle and last identities when only
   try {
     for (const id of ['parent', 'child'])
       db.insertSession({ id, backend: 'claude', createdAt: 1, projectId: null, title: null })
-    const turns = Array.from({ length: 10 }, (_, i) => ({
+    const turns = Array.from({ length: 20 }, (_, i) => ({
       id: 'key-' + i,
       role: i % 2 ? ('assistant' as const) : ('user' as const),
       createdAt: i,
@@ -56,8 +56,9 @@ it('full archive and fork retain the first, middle and last identities when only
       generation
     )
     expect(page.status === 'ok' && page.session.messages.map((m) => m.id)).toEqual(
-      visible.slice(-2).map((m) => m.id)
+      visible.slice(-10).map((m) => m.id)
     )
+    expect(page.status === 'ok' && page.session.history.before?.kind).toBe('earlierTurn')
     const arrival = {
       childSessionId: 'child',
       parentSessionId: 'parent',
@@ -84,7 +85,7 @@ it('full archive and fork retain the first, middle and last identities when only
     expect(publications[0].publicationId).not.toBe('parent-publication')
     const bindings = db.nativeHistory.bindings('child')
     expect(bindings.map((b) => b.native_message_id)).toEqual(
-      expect.arrayContaining(['key-4', 'key-9'])
+      expect.arrayContaining(['key-4', 'key-10', 'key-19'])
     )
     const own = db.appendMessage({
       sessionId: 'child',
@@ -101,8 +102,8 @@ it('full archive and fork retain the first, middle and last identities when only
     })
     db.nativeHistory.bind(own, 'child-input')
     const before = loadSession(db, 'child', () => '.')!.messages
-    expect(before.slice(0, 10)).toEqual(visible)
-    expect(before[10].parts).toEqual([{ type: 'fork_boundary' }])
+    expect(before.slice(0, visible.length)).toEqual(visible)
+    expect(before[visible.length].parts).toEqual([{ type: 'fork_boundary' }])
     // A forked provider can assign new keys to every inherited row, including its recovery prompt.
     const inherited = turns.map((m, i) => ({ ...m, id: 'rewritten-' + i }))
     const provider = [
@@ -121,16 +122,16 @@ it('full archive and fork retain the first, middle and last identities when only
     ).toEqual(['child-input', 'child-output'])
     expect(
       forkNativeSuffix(
-        [turns[9], { ...turns[1], id: 'unbound-child' }, provider[10]],
+        [turns[turns.length - 1], { ...turns[1], id: 'unbound-child' }, provider[turns.length]],
         db.nativeHistory.bindings('child'),
         db.forkPrefix('child')!
       ).map((m) => m.id)
     ).toEqual(['unbound-child', 'child-input'])
     replace('child', provider)
     const after = loadSession(db, 'child', () => '.')!.messages
-    expect(after.slice(0, 11)).toEqual(before.slice(0, 11))
+    expect(after.slice(0, visible.length + 1)).toEqual(before.slice(0, visible.length + 1))
     expect(after.map((m) => m.id)).toEqual([...before.map((m) => m.id), 'n:child-output'])
-    for (const i of [0, 4, 9])
+    for (const i of [0, 10, 19])
       expect(
         db
           .searchMessages('marker-' + i)

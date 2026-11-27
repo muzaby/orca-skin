@@ -10,6 +10,40 @@ const searches = []
 async function measure(wc, screen, scenario) {
   await wc.loadURL(origin + '/?' + new URLSearchParams({ screen, scenario }))
   const probe = (method) => wc.executeJavaScript('window.historyProbe.' + method + '()', true)
+  if (scenario === 'framesUnit') {
+    const point = await probe('unitReady')
+    wc.sendInputEvent({
+      type: 'mouseWheel',
+      ...point,
+      deltaX: 0,
+      deltaY: 100,
+      canScroll: true,
+      hasPreciseScrollingDeltas: true
+    })
+  }
+  if (scenario === 'unitOpen' || scenario === 'framesUnit') return probe('unit')
+  if (['openFrames', 'entryPrepend', 'entryCancel'].includes(scenario)) {
+    const entry = await probe('entry')
+    if (scenario === 'entryCancel') {
+      wc.sendInputEvent({
+        type: 'mouseWheel',
+        x: 350,
+        y: 250,
+        deltaX: 0,
+        deltaY: 100,
+        canScroll: true,
+        hasPreciseScrollingDeltas: true
+      })
+      await probe('waitWheel')
+    }
+    return { ...entry, ...(await probe('entrySettle')) }
+  }
+  if (['frames', 'framesSmoothCss', 'states'].includes(scenario)) {
+    // Reach the head through normal keyboard input so both harnesses release bottom-follow.
+    await probe('focusForHome')
+    wc.sendInputEvent({ type: 'keyDown', keyCode: 'Home' })
+    wc.sendInputEvent({ type: 'keyUp', keyCode: 'Home' })
+  }
   const { x, y, start } = await probe('prepare')
   const wheel = (delta) =>
     wc.sendInputEvent({
@@ -23,12 +57,38 @@ async function measure(wc, screen, scenario) {
     })
   if (scenario === 'states')
     return { start, states: await probe('states'), ...(await probe('result')) }
+  if (scenario === 'pullShort') {
+    wheel(-10)
+    const opening = await probe('waitPull')
+    return { start, opening, ...(await probe('short')) }
+  }
+  if (scenario === 'pullEnd') {
+    wheel(-10)
+    return { start, heights: await probe('waitPull'), ...(await probe('result')) }
+  }
+  if (scenario === 'pullHold' || scenario === 'pullFailure' || scenario === 'pullSuccess') {
+    wheel(-10)
+    const opening = await probe('waitPull')
+    wheel(-12)
+    const held = await probe('waitPull')
+    if (scenario === 'pullFailure') {
+      return { start, opening, held, closing: await probe('fail'), ...(await probe('result')) }
+    }
+    const commit = await probe('commit')
+    return { start, opening, held, ...commit, ...(await probe('result')) }
+  }
+  if (['frames', 'framesSmoothCss'].includes(scenario)) {
+    const commit = await probe('commit')
+    return { start, ...commit, ...(await probe('result')) }
+  }
   wheel(-10)
   if (scenario === 'nested') {
     await probe('nestedBoundary')
     await delay(230)
     wheel(-10)
+    await delay(32)
   }
+  await probe('waitWheel')
   const momentum =
     scenario === 'inertia'
       ? (async () => {
@@ -70,7 +130,7 @@ app.whenReady().then(async () => {
       await report({ records, discarded, error: 'History probe timed out' })
       app.exit(1)
     },
-    90000 * Math.max(1, Number(repetitions))
+    10000 * screens.split(',').length * Math.max(3, scenarios.length * Number(repetitions))
   )
   try {
     const win = new BrowserWindow({

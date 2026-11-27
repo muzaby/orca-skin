@@ -4,7 +4,7 @@ import {
   openFenceTail,
   splitStableBlocks,
   type StableBlocksCache
-} from './markdownBlocks'
+} from '../../../shared/markdown/markdownBlocks'
 
 describe('splitStableBlocks', () => {
   it('문단 사이 빈 줄에서 확정 블록을 자르고 마지막 블록은 꼬리로 남긴다', () => {

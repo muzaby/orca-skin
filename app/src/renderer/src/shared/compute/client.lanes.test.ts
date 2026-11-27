@@ -37,7 +37,7 @@ function harness() {
         ok: true,
         result:
           lane === 'markdown'
-            ? { tooLarge: true }
+            ? { hast: { type: 'root', children: [] } }
             : lane === 'image'
               ? { thumbnail: 'jpg' }
               : { html: 'ok' },
@@ -72,7 +72,7 @@ it('l2 each lane has its own document capacity and worker failure state', async 
   h.ports.get('compute')!.onerror?.({ message: 'failed' })
   await expect(job.promise).rejects.toThrow()
   h.finish('markdown')
-  await expect(md.promise).resolves.toEqual({ tooLarge: true })
+  await expect(md.promise).resolves.toEqual({ hast: { type: 'root', children: [] } })
   expect(h.messages.markdown[0]).toMatchObject({ type: 'doc.open', ref: b })
   one.release()
   two.release()

@@ -2,10 +2,9 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { it, expect } from 'vitest'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
-import { MarkdownHast } from '../../../../shared/ui/markdown/MarkdownHast'
+import { ParsedMarkdownBlock } from './MarkdownDocument'
 import { markdownBlock } from '../../../../shared/compute/worker/markdown'
-import { markdownDocumentBlocks } from '../../lib/markdownDocumentBlocks'
-import { mergeTableChunks } from './mergeTableChunks'
+import { markdownDocumentBlocks } from '../../../../shared/markdown/markdownDocumentBlocks'
 function compare(source: string): void {
   const actual = markdownDocumentBlocks(source)
     .map((block) => {
@@ -24,9 +23,9 @@ function compare(source: string): void {
         return result.hast
       })
       return renderToStaticMarkup(
-        createElement(MarkdownHast, {
+        createElement(ParsedMarkdownBlock, {
           source: source.slice(block.start, block.end),
-          hast: mergeTableChunks(roots)
+          roots
         })
       )
     })
@@ -49,6 +48,7 @@ it.each([
 ])('f1 matches complete Markdown render for %s', compare)
 it.each([
   ['f3', 2, 201, 2],
+  ['AC8 2,001-row table', 2, 2001, 1],
   ['f3b wide', 50, 200, 1],
   ['f3b long', 3, 200, 1000]
 ] as const)(

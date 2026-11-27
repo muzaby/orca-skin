@@ -43,7 +43,7 @@ export const ClaudeToolGroup = memo(function ClaudeToolGroup({
   const pendingIsAgent = pending != null && isAgentTaskName(pending.name)
   const runningAgentCount = calls.filter((c) => isAgentTaskName(c.name) && c.result == null).length
   return (
-    <div className="flex w-full flex-col gap-[var(--chat-item-gap)]">
+    <div data-claude-tool-group="" className="flex w-full flex-col gap-[var(--chat-item-gap)]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -92,7 +92,7 @@ export const ClaudeToolGroup = memo(function ClaudeToolGroup({
         }`}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="mt-g2 flex flex-col gap-[var(--chat-item-gap)] rounded-r6 border border-t5 bg-bg p-p7">
+          <div className="mt-g2 flex flex-col gap-g2 rounded-r6 border border-t5 bg-bg p-p7">
             {calls.map((c, index) => (
               <ToolCard
                 key={c.toolUseId}

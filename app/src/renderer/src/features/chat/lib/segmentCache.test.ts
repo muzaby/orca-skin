@@ -408,3 +408,16 @@ it('s8 releases an external-only result when its last call is detached', () => {
   cache.segmentsFor(message([]), 0, external)
   expect(resultMaps[0].has(id)).toBe(false)
 })
+
+it('D-003 incremental equals messageSegments through 200 mixed whitespace edits', () => {
+  let seed = 123
+  const next = (n: number): number => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) % n
+  const cache = createSegmentCache()
+  let parts: AppMessagePart[] = []
+  for (let i = 0; i < 200; i++) {
+    const from = next(4) ? parts.length : next(parts.length + 1)
+    const candidates = [tool('t' + i), text(' '), text('hello'), text('\n\n'), text('world')]
+    parts = [...parts.slice(0, from), candidates[next(candidates.length)]]
+    expect(cache.segmentsFor(message(parts), from)).toEqual(messageSegments(parts))
+  }
+})

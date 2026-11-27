@@ -181,7 +181,7 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 #### 어댑터 외부 저장과의 관계
 
 - 하네스의 native 저장소가 세션·실행 컨텍스트의 원본이다. Claude는 `CLAUDE_CONFIG_DIR` 또는 기본 루트, OpenCode는 native 환경의 DB·리소스를 사용한다. Orcinus orca 엔진 설정은 실행 오버라이드다.
-- 일반 대화 열기는 `session.load`에서 `oo:session:history-page`의 `latest`를 요청한다. 데이터 호스트는 SQLite에 출판한 세대에서 최신 턴 한 묶음과 backend를 반환한다. renderer는 첫 paint 기회를 준 뒤 `session.refresh`를 호출하고, 요청 번호와 세대로 늦은 응답을 거른다. 미준비 세션은 색인을 우선 준비한다. 복구와 분기에는 전체 보관 이력을 사용한다.
+- 일반 대화 열기는 `session.load`에서 `oo:session:history-page`의 `latest`를 요청한다. 데이터 호스트는 SQLite에 출판한 세대에서 최신 5턴과 backend를 반환한다. 응답 상한에 닿으면 창은 유휴 시간에 `withinUnit` 커서로 같은 단위를 마저 읽는다. renderer는 첫 paint 기회를 준 뒤 `session.refresh`를 호출하고, 요청 번호와 세대로 늦은 응답을 거른다. 미준비 세션은 색인을 우선 준비한다. 복구와 분기에는 전체 보관 이력을 사용한다.
 - 작업·에이전트·프로세스·컨텍스트 소스 목록은 같은 세대에 저장한다. 패널을 열면 해당 목록을 커서로 읽고, 항목을 선택하면 필요한 상세를 64 KiB씩 읽는다.
 - `native_history_snapshots.cursor_json`은 마지막 성공한 source/revision/checkpoint를 영속한다. null은 아직 커서를 확정하지 않은 자료다. Claude는 UTF-8 byte offset·파일 identity·prefix digest, OpenCode 1.x는 session별 sequence·projection digest를 사용한다. 실패/경합에서는 커서를 앞당기지 않는다.
 

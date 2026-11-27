@@ -8,7 +8,6 @@ import type {
 // One fixed row remains mounted from the first partial page to the start marker.
 const HISTORY_HEAD_HEIGHT = 'h-8'
 const labels = {
-  before: 'chat.transcript.historyBefore',
   after: 'chat.transcript.historyAfter',
   pull: 'chat.transcript.historyPull',
   loading: 'chat.transcript.loading',
@@ -34,12 +33,22 @@ export function HistoryEdge({
       data-history-state={indicator}
       className={`${HISTORY_HEAD_HEIGHT} flex shrink-0 items-center justify-center gap-2 overflow-hidden text-caption text-ink3`}
     >
-      {state === 'end' ? (
-        <span>
-          {tr(
-            direction === 'before' ? 'chat.transcript.historyStart' : 'chat.transcript.historyEnd'
-          )}
-        </span>
+      {direction === 'before' ? (
+        state === 'error' ? (
+          <button
+            type="button"
+            className="rounded px-2 hover:text-ink focus-visible:outline"
+            onClick={() => history.request('before')}
+          >
+            {tr(labels.error)}
+          </button>
+        ) : state === 'loading' && !pulling ? (
+          <span role="status" aria-label={tr(labels.loading)}>
+            <ArcSpinner />
+          </span>
+        ) : null
+      ) : state === 'end' ? (
+        <span>{tr('chat.transcript.historyEnd')}</span>
       ) : (
         <button
           type="button"

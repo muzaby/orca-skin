@@ -638,7 +638,7 @@ describe('parts selectors', () => {
 // 0325 EP-2 ① — segment 유무 판정은 한 정본이다(`messageSegments` 건너뛰기 · store live 유무).
 describe('segment presence predicates', () => {
   it('segment text/reasoning visibility is the single rule', () => {
-    expect(['', ' ', 'x'].map(hasSegmentText)).toEqual([false, true, true])
+    expect(['', ' ', 'x'].map(hasSegmentText)).toEqual([false, false, true])
     expect(['', ' ', '\n\t', 'x', ' x '].map(hasSegmentReasoning)).toEqual([
       false,
       false,
@@ -646,14 +646,14 @@ describe('segment presence predicates', () => {
       true,
       true
     ])
-    // messageSegments 는 같은 판정으로 건너뛴다 — 공백 text 는 segment, 공백 reasoning 은 아니다.
+    // messageSegments 는 같은 판정으로 건너뛴다 — 보이는 내용이 없는 text와 reasoning을 건너뛴다.
     expect(
       messageSegments([
         { type: 'text', text: ' ' },
         { type: 'reasoning', text: '  ' },
         { type: 'text', text: '' }
       ])
-    ).toEqual([{ kind: 'text', text: ' ' }])
+    ).toEqual([])
   })
 })
 
@@ -745,4 +745,13 @@ describe('messageSegments', () => {
       { kind: 'text', text: '이후 대화' }
     ])
   })
+})
+
+it('D-003 whitespace text is transparent except after a visible text contribution', () => {
+  const text = (text: string): AppMessagePart => ({ type: 'text', text })
+  const tool: AppMessagePart = { type: 'tool_call', toolRunId: 't', toolName: 'Bash', args: {} }
+  expect(messageSegments([text('  '), text('Hello'), text('\n\n'), text('World')])).toEqual([
+    { kind: 'text', text: 'Hello\n\nWorld' }
+  ])
+  expect(messageSegments([tool, text(' '), tool]).map((s) => s.kind)).toEqual(['tools'])
 })

@@ -69,20 +69,8 @@ it('m5 stale in-flight parse cannot replace the new document', async () => {
   await settle()
   expect(dom.body.textContent).toBe('new')
 })
-it('m6 oversized block stays raw without a request', () => {
+it('AC8 oversized blocks still request and display formatted content', async () => {
   render('x'.repeat(50001))
-  expect(fake.requests).toHaveLength(0)
-  expect(dom.query('[data-md-block-raw]')).not.toBeNull()
-})
-it('m7 node budget fallback shows raw text', async () => {
-  render('**bold**')
-  fake.resolveNext({ tooLarge: true })
-  await settle()
-  expect(dom.query('[data-md-block-raw]')!.textContent).toBe('**bold**')
-})
-it('m7 later oversized chunk removes previously rendered table rows and stops further requests', async () => {
-  const source = '| title |\n| --- |\n' + '| value |\n'.repeat(401)
-  render(source)
   expect(fake.requests).toHaveLength(1)
   fake.resolveNext({
     hast: {
@@ -90,20 +78,16 @@ it('m7 later oversized chunk removes previously rendered table rows and stops fu
       children: [
         {
           type: 'element',
-          tagName: 'table',
-          properties: {},
-          children: [{ type: 'element', tagName: 'tbody', properties: {}, children: [] }]
+          tagName: 'strong',
+          properties: { id: 'formatted' },
+          children: [{ type: 'text', value: 'formatted' }]
         }
       ]
     }
   })
   await settle()
-  expect(fake.requests).toHaveLength(2)
-  expect(dom.query('[data-md-block-pending]')).toBeNull()
-  fake.resolveNext({ tooLarge: true })
-  await settle()
-  expect(dom.query('[data-md-block-raw]')!.textContent).toBe(source)
-  expect(fake.requests).toHaveLength(2)
+  expect(dom.query('[id="formatted"]')?.textContent).toBe('formatted')
+  expect(dom.query('[data-md-block-raw]')).toBeNull()
 })
 
 it('opens an artifact Markdown document under the publication and result revision', () => {

@@ -20,7 +20,7 @@ class Port implements WorkerLike {
     this.onmessage?.({
       data: error
         ? { id: work.id, ok: false, error }
-        : { id: work.id, ok: true, result: { tooLarge: true }, size: 1 }
+        : { id: work.id, ok: true, result: { hast: { type: 'root', children: [] } }, size: 1 }
     })
   }
 }

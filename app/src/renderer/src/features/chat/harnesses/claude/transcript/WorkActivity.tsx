@@ -122,12 +122,12 @@ export function ActivityDisclosure({
               <div
                 key={item.key}
                 data-part-key={(item.sourceParts?.length ?? 0) > 1 ? undefined : item.key}
-                className="relative py-2 pl-[30px]"
+                className="relative py-1 pl-[30px]"
                 data-work-note="true"
               >
                 <span
                   aria-hidden
-                  className="absolute top-2.5 left-0 flex h-5 w-5 items-center justify-center bg-bg text-ink3"
+                  className="absolute top-1.5 left-0 flex h-5 w-5 items-center justify-center bg-bg text-ink3"
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 </span>

@@ -105,7 +105,7 @@ describe('turn pages from the published SQLite generation', () => {
         if (!history.before) break
         const nextParts = partCounts[partCounts.length - collected.length - 1]
         expect(counts.headers === 128 || counts.parts + nextParts > 256).toBe(true)
-        expect(history.before.kind).toBe('withinTurn')
+        expect(history.before.kind).toBe('withinUnit')
         reply = await readEdge(history.before, 'before')
       }
       expect(collected).toEqual(Array.from({ length: 600 }, (_, i) => 'm:' + (i + 1)))
@@ -178,10 +178,9 @@ describe('turn pages from the published SQLite generation', () => {
       pages++
       end = first - 1
       if (!history.before) break
-      if (history.before.kind !== 'withinTurn') throw Error('Unexpected turn boundary')
+      if (history.before.kind !== 'withinUnit') throw Error('Unexpected turn boundary')
       request = {
-        kind: 'withinTurn',
-        direction: 'before',
+        kind: 'withinUnit',
         cursor: history.before.cursor,
         sessionId,
         openGeneration
@@ -191,7 +190,7 @@ describe('turn pages from the published SQLite generation', () => {
   })
 
   it.each([1, 100, 10000])(
-    'reads the same latest turn after %i older turns without opening their bodies',
+    'AC7 latest returns up to five turns after %i earlier turns without opening older bodies',
     async (count) => {
       sqlite.transaction(() => {
         for (let i = 0; i < count; i++) {
@@ -210,15 +209,16 @@ describe('turn pages from the published SQLite generation', () => {
         job.generation
       )
       if (reply.status !== 'ok') throw Error(reply.status)
-      expect(reply.session.messages.map((m) => m.parts)).toEqual([
+      const returned = Math.min(5, count + 1) * 2
+      expect(reply.session.messages).toHaveLength(returned)
+      expect(reply.session.messages.slice(-2).map((m) => m.parts)).toEqual([
         [{ type: 'text', text: 'final question' }],
         [{ type: 'text', text: 'final answer' }]
       ])
       expect(reply.session.userMessageCount).toBe(count + 1)
-      expect(parts.mock.calls.map(([, , header]) => header.ordinal)).toEqual([
-        count * 2 + 1,
-        count * 2
-      ])
+      expect(parts.mock.calls.map(([, , header]) => header.ordinal)).toEqual(
+        Array.from({ length: returned }, (_, i) => count * 2 + 1 - i)
+      )
       expect(full).not.toHaveBeenCalled()
       expect(Buffer.byteLength(JSON.stringify(reply))).toBeLessThan(2048)
     }
@@ -257,6 +257,10 @@ describe('turn pages from the published SQLite generation', () => {
   })
 
   it('keeps partless messages and same-time turns, preserves earlier cursors across local tail append', async () => {
+    for (let i = 0; i < 5; i++) {
+      local('user')
+      local('assistant')
+    }
     local('assistant', 'leading')
     local('user')
     local('user', 'second input')
@@ -264,16 +268,20 @@ describe('turn pages from the published SQLite generation', () => {
     const tail = await latest()
     if (tail.status !== 'ok') throw Error(tail.status)
     expect(tail.session.messages.map((m) => [m.id, m.parts.length])).toEqual([
-      ['m:2', 0],
-      ['m:3', 1],
-      ['m:4', 1]
+      ...Array.from({ length: 8 }, (_, i) => ['m:' + (i + 3), 0]),
+      ['m:11', 1],
+      ['m:12', 0],
+      ['m:13', 1],
+      ['m:14', 1]
     ])
     expect(tail.session.history.before?.kind).toBe('earlierTurn')
     local('user', 'new turn')
     const added = await latest()
     if (added.status !== 'ok') throw Error(added.status)
     expect(added.session.history.generation).toBe(tail.session.history.generation)
-    expect(added.session.messages.map((m) => m.id)).toEqual(['m:5'])
+    expect(added.session.messages.map((m) => m.id)).toEqual(
+      Array.from({ length: 11 }, (_, i) => 'm:' + (i + 5))
+    )
     const cursor = tail.session.history.before!.cursor
     const foreign = JSON.parse(Buffer.from(cursor, 'base64url').toString())
     foreign[1] = 'foreign-session'
@@ -287,11 +295,11 @@ describe('turn pages from the published SQLite generation', () => {
     ).toMatchObject({ status: 'invalid' })
     const head = await readEdge(tail.session.history.before!, 'before')
     if (head.status !== 'ok') throw Error(head.status)
-    expect(head.session.messages.map((m) => m.id)).toEqual(['m:1'])
+    expect(head.session.messages.map((m) => m.id)).toEqual(['m:1', 'm:2'])
     expect(head.session.history.before).toBeUndefined()
     const forward = await readEdge(head.session.history.after!, 'after')
     if (forward.status !== 'ok') throw Error(forward.status)
-    expect(forward.session.messages).toEqual(tail.session.messages)
+    expect(forward.session.messages).toEqual(tail.session.messages.slice(0, 2))
     expect(
       await query({
         kind: 'laterTurn',
@@ -302,6 +310,34 @@ describe('turn pages from the published SQLite generation', () => {
     ).toMatchObject({ status: 'invalid' })
   })
 
+  it('AC7 continues a capped unit to its original floor, then reads the previous five turns', async () => {
+    const turns: string[][] = []
+    sqlite.transaction(() => {
+      for (let i = 0; i < 12; i++) {
+        const keys = ['m:' + local('user', 'question ' + i)]
+        for (let j = 0; j < (i === 9 ? 150 : 1); j++)
+          keys.push('m:' + local('assistant', 'answer ' + j))
+        turns.push(keys)
+      }
+    })()
+    const first = await latest()
+    if (first.status !== 'ok') throw Error(first.status)
+    expect(first.session.history.before?.kind).toBe('withinUnit')
+    const more = await readEdge(first.session.history.before!, 'before')
+    if (more.status !== 'ok') throw Error(more.status)
+    expect([...more.session.messages, ...first.session.messages].map((m) => m.id)).toEqual(
+      turns.slice(7).flat()
+    )
+    expect(more.session.history.before?.kind).toBe('earlierTurn')
+    const previous = await readEdge(more.session.history.before!, 'before')
+    if (previous.status !== 'ok') throw Error(previous.status)
+    expect(previous.session.messages.map((m) => m.id)).toEqual(turns.slice(2, 7).flat())
+    const head = await readEdge(previous.session.history.before!, 'before')
+    if (head.status !== 'ok') throw Error(head.status)
+    expect(head.session.messages.map((m) => m.id)).toEqual(turns.slice(0, 2).flat())
+    expect(head.session.history.before).toBeUndefined()
+  })
+
   it('rejects a cursor reused for another kind or direction before reading any message body', async () => {
     sqlite.transaction(() => {
       for (let i = 0; i < 140; i++) local(i === 0 ? 'user' : 'assistant', String(i))
@@ -309,7 +345,7 @@ describe('turn pages from the published SQLite generation', () => {
     const tail = await latest()
     if (tail.status !== 'ok') throw Error(tail.status)
     const edge = tail.session.history.before!
-    expect(edge.kind).toBe('withinTurn')
+    expect(edge.kind).toBe('withinUnit')
     const bodies = vi.spyOn(db.historyIndex, 'parts')
     const request = { sessionId, openGeneration, cursor: edge.cursor }
     expect(await query({ ...request, kind: 'earlierTurn' })).toMatchObject({ status: 'invalid' })
@@ -484,7 +520,7 @@ describe('turn pages from the published SQLite generation', () => {
       expect(Buffer.byteLength(JSON.stringify(page))).toBeLessThanOrEqual(HISTORY_PAGE_BYTES)
       const before = page.session.history.before
       if (!before) break
-      expect(before.kind).toBe('withinTurn')
+      expect(before.kind).toBe('withinUnit')
       page = await readEdge(before, 'before')
     }
     expect(lengths).toEqual([128, 128, 44])
@@ -678,6 +714,7 @@ describe('turn pages from the published SQLite generation', () => {
     if (ready.status !== 'ok') throw Error(ready.status)
     expect(ready.session.history.generation).toBe(state.building)
     expect(ready.session.messages.map((m) => m.parts[0])).toEqual([
+      { type: 'text', text: 'replacement' },
       { type: 'text', text: 'second' },
       { type: 'text', text: 'third' }
     ])

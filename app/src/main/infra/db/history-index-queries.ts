@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3'
 import { createHash, randomUUID } from 'node:crypto'
-import { HISTORY_BODY_BYTES } from '../../../shared/history-page'
+import { HISTORY_BODY_BYTES, HISTORY_TURN_UNIT } from '../../../shared/history-page'
 import type { LoadedMessage } from '../../../shared/ipc'
 import { isTurnStart } from '../../../shared/history-turn'
 import type { HistoryMessageHeader } from './types'
@@ -126,19 +126,38 @@ export class HistoryIndexQueries {
       .get(id, gen, source, key)
     return typeof ordinal === 'number' ? this.header(id, gen, ordinal) : undefined
   }
+  // A turn is named by its first ordinal. Seeking one predecessor at a time avoids
+  // scanning every message of a large turn while counting distinct turns.
+  unitFloor(id: string, gen: string, startTurn: number): number {
+    let floor = startTurn
+    const previous = this.stmt(
+      'SELECT turn FROM history_message_headers WHERE session_id=? AND generation=? AND turn<? ORDER BY turn DESC LIMIT 1'
+    ).pluck()
+    for (let i = 1; i < HISTORY_TURN_UNIT && floor > 0; i++) {
+      const turn = previous.get(id, gen, floor)
+      if (typeof turn !== 'number') break
+      floor = turn
+    }
+    return floor
+  }
   pageHeaders(
     id: string,
     gen: string,
     start: IndexHeader,
     ascending: boolean,
-    limit: number
+    limit: number,
+    floor = start.turn
   ): IndexHeader[] {
-    const order = ascending ? 'ASC' : 'DESC',
-      op = ascending ? '>=' : '<='
+    if (ascending) {
+      return this.stmt(
+        'SELECT * FROM history_message_headers WHERE session_id=? AND generation=? AND turn=? AND ordinal>=? ORDER BY ordinal LIMIT ?'
+      ).all(id, gen, start.turn, start.ordinal, limit) as IndexHeader[]
+    }
+    // Each turn starts at its own ordinal. A unit is a contiguous primary-key
+    // range even when its final page crosses several turn boundaries.
     return this.stmt(
-      `SELECT * FROM history_message_headers WHERE session_id=? AND generation=? AND turn=?
-      AND ordinal ${op} ? ORDER BY ordinal ${order} LIMIT ?`
-    ).all(id, gen, start.turn, start.ordinal, limit) as IndexHeader[]
+      'SELECT * FROM history_message_headers WHERE session_id=? AND generation=? AND ordinal BETWEEN ? AND ? ORDER BY ordinal DESC LIMIT ?'
+    ).all(id, gen, floor, start.ordinal, limit) as IndexHeader[]
   }
   locator(
     id: string,

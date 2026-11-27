@@ -14,7 +14,7 @@ import {
   noteCorrectionLayout,
   traceAnchorMeasurement,
   applyScrollWrite,
-  hasWrittenCorrection,
+  isCorrecting,
   type ScrollOwner
 } from '../../lib/transcript/viewport/scrollCorrection'
 import {
@@ -29,6 +29,14 @@ import {
 import { registerSearchOrigin, saveSearchPosition } from '../../lib/transcript/viewport/searchVisit'
 import { revealSearchRow, type SearchReveal } from '../../lib/transcript/viewport/searchReveal'
 import { useI18n } from '../../../../shared/i18n'
+import { headInView, historyPull, HISTORY_PULL_HEIGHT_PX } from '../../lib/transcript/historyPull'
+import {
+  entryMoving,
+  pauseEntryMotion,
+  resumeEntryMotion,
+  cancelEntryMotion
+} from '../../lib/transcript/viewport/entryMotion'
+import { ArcSpinner } from '../../../../shared/ui/ArcSpinner'
 import { HistoryEdge } from './HistoryEdge'
 import { VirtualRowMountContext } from '../../../../shared/ui/virtual/rowMount'
 import {
@@ -95,7 +103,8 @@ export function writeScrollTop(
   owner: ScrollOwner = 'viewport'
 ): void {
   applyScrollWrite(element, owner, () => {
-    if (behavior === 'smooth') element.scrollTo({ top, behavior })
+    const mode = owner === 'anchor' || owner === 'virtualizer' ? 'instant' : behavior
+    if (mode && typeof element.scrollTo === 'function') element.scrollTo({ top, behavior: mode })
     else element.scrollTop = top
   })
 }
@@ -218,10 +227,12 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const historyRef = useRef(history)
   historyRef.current = history
   const [pulling, setPulling] = useState<HistoryDirection | null>(null)
+  const showPull = historyPull(pulling === 'before', history?.before, false, 0)
   const internalSizes = useRef(new Map<string, number>())
   const sizeCache = externalSizeCache ?? internalSizes.current
   const prevSnapshotRef = useRef(snapshot)
   const prevSessionKeyRef = useRef(sessionKey)
+  const prevSearchRef = useRef(search?.seq)
   const snapshotRef = useRef(snapshot)
   snapshotRef.current = snapshot
   const isPinnedRef = useRef(isPinned)
@@ -234,11 +245,33 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const pinnedPrepend = useRef(false)
   const selfWritingScrollRef = useRef(false)
   const adjustedScrollTopRef = useRef<number | null>(null)
-  const pendingRestoreRafRef = useRef<number | null>(null)
+  const pullSpace = useRef<HTMLDivElement | null>(null)
+  const pullSettling = useRef(false)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const headerRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
   const lastHeaderHeightRef = useRef<number | null>(null)
+
+  const requestHead = useCallback((): boolean => {
+    const el = scrollRef.current
+    const controls = historyRef.current
+    if (
+      !el ||
+      !el.clientHeight ||
+      controls?.before !== 'ready' ||
+      isCorrecting(el) ||
+      interruptedAnchorLayout.current ||
+      entryMoving(el)
+    )
+      return false
+    const height =
+      headerRef.current?.querySelector('[data-history-edge="before"]')?.getBoundingClientRect()
+        .height ?? 0
+    return (
+      headInView(el.scrollTop, el.scrollHeight, el.clientHeight, height) &&
+      controls.request('before')
+    )
+  }, [scrollRef])
 
   // ΔV2 (D-103): rows rendered by the previous commit, the drag gesture and the
   // rendered rows the native selection spans (display only — never restored).
@@ -255,7 +288,16 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     focus: string
   } | null>(null)
 
-  if (prevSessionKeyRef.current !== sessionKey) {
+  const viewChanged =
+    prevSessionKeyRef.current !== sessionKey || prevSearchRef.current !== search?.seq
+  if (viewChanged) {
+    prevSearchRef.current = search?.seq
+    pullSettling.current = false
+    if (pullSpace.current) {
+      pullSpace.current.style.minHeight = ''
+      pullSpace.current.getAnimations?.().forEach((animation) => animation.cancel())
+    }
+    cancelEntryMotion(scrollRef.current)
     interruptedAnchorLayout.current = false
     pinnedPrepend.current = false
     cancelCorrection(scrollRef.current)
@@ -268,7 +310,14 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   }
 
   // Capture anchor BEFORE commit when snapshot head/keys change while unpinned (EP-12 ① · D1)
-  if (prevSnapshotRef.current !== snapshot) {
+  const previousBefore = useRef(history?.before)
+  const releasedPull =
+    !viewChanged &&
+    pulling === 'before' &&
+    previousBefore.current === 'loading' &&
+    (history?.before === 'ready' || history?.before === 'end')
+  previousBefore.current = history?.before
+  if (prevSnapshotRef.current !== snapshot || releasedPull) {
     interruptedAnchorLayout.current = false
     const prev = prevSnapshotRef.current
     const headChanged =
@@ -277,26 +326,44 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       (prev.keyAt(0) !== snapshot.keyAt(0) ||
         prev.keyRevision !== snapshot.keyRevision ||
         prev.blockAt(0).partKeys?.[0] !== snapshot.blockAt(0).partKeys?.[0])
-    if (headChanged && isPinned?.() && snapshot.count >= prev.count) {
+    const transitioning = entryMoving(scrollRef.current)
+    if (headChanged && !transitioning && isPinned?.() && snapshot.count >= prev.count) {
       const first = prev.keyAt(0)
       pinnedPrepend.current =
         first === snapshot.keyAt(0)
           ? prev.blockAt(0).partKeys?.[0] !== snapshot.blockAt(0).partKeys?.[0]
           : snapshot.indexOf(first) > 0
     }
-    if (headChanged && !isPinned?.()) {
+    if (releasedPull || (headChanged && (!isPinned?.() || transitioning))) {
       const el = scrollRef.current
       const captured = activeAnchorRef.current ?? (el ? captureAnchor(el) : null)
       const nextAnchor = captured ?? restingAnchorRef.current
       if (nextAnchor) {
         activeAnchorRef.current = nextAnchor
         anchorController.setActiveAnchor(nextAnchor)
-        if (el)
+        if (el) {
+          if (transitioning) pauseEntryMotion(el)
+          pullSettling.current =
+            releasedPull || Boolean(Number.parseFloat(pullSpace.current?.style.minHeight ?? ''))
           beginCorrection(el, () => {
             restingAnchorRef.current = activeAnchorRef.current
             activeAnchorRef.current = null
             anchorController.cancelAnchor()
+            pullSettling.current = false
+            resumeEntryMotion(el)
+            if (requestHead()) return
+            const space = pullSpace.current
+            const residual = Number.parseFloat(space?.style.minHeight ?? '')
+            if (space && residual > 0) {
+              if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+                space.animate?.([{ minHeight: residual + 'px' }, { minHeight: '0px' }], {
+                  duration: 200,
+                  easing: 'ease-out'
+                })
+              space.style.removeProperty('min-height')
+            }
           })
+        }
       }
     }
     prevSnapshotRef.current = snapshot
@@ -309,7 +376,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       setSuppressed(false)
       setPulling(null)
     }
-  }, [sessionKey])
+  }, [sessionKey, search?.seq])
 
   // Stable getItemKey identity pinned to snapshot.keyRevision (EP-10 ① · D-073 · v1 · v2)
   const getItemKey = useMemo(
@@ -445,9 +512,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const flushAnchorRestore = useCallback((): void => {
     const el = scrollRef.current
     const anchor = activeAnchorRef.current
-    if (!el || !anchor || isPinnedRef.current?.()) return
+    if (!el || !anchor || (isPinnedRef.current?.() && !isCorrecting(el))) return
     const snap = snapshotRef.current
-    const nextTop = restoreAnchor(el, anchor, () => {
+    let nextTop = restoreAnchor(el, anchor, () => {
       const blocks = el.querySelectorAll<HTMLElement>('[data-block-key]')
       return Array.from(blocks, (element) => {
         const block = snap.blockAt(Number(element.getAttribute('data-index')))
@@ -458,6 +525,16 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         }
       })
     })
+    if (nextTop !== null && pullSettling.current && pullSpace.current) {
+      // Compute the residual against the *new* layout on every measurement.
+      // An early virtual estimate may require a gap that the measured rows fill.
+      const space = pullSpace.current
+      const current = Number.parseFloat(space.style.minHeight) || 0
+      const withoutGap = nextTop - current
+      const required = Math.min(HISTORY_PULL_HEIGHT_PX, Math.max(0, -withoutGap))
+      if (required !== current) space.style.minHeight = required + 'px'
+      nextTop = withoutGap + required
+    }
     if (nextTop !== null && Math.abs(nextTop - el.scrollTop) > 0.5) {
       selfWritingScrollRef.current = true
       try {
@@ -468,18 +545,6 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       }
     }
   }, [scrollRef])
-
-  const scheduleAnchorRestore = useCallback((): void => {
-    if (isPinnedRef.current?.() || pendingRestoreRafRef.current !== null) return
-    if (typeof requestAnimationFrame !== 'function') {
-      flushAnchorRestore()
-      return
-    }
-    pendingRestoreRafRef.current = requestAnimationFrame(() => {
-      pendingRestoreRafRef.current = null
-      flushAnchorRestore()
-    })
-  }, [flushAnchorRestore])
 
   const settleFrame = useRef<number | null>(null)
   const settleInterruptedLayout = useCallback(() => {
@@ -494,9 +559,10 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         interruptedAnchorLayout.current = false
         const el = scrollRef.current
         if (el && !isPinnedRef.current?.()) restingAnchorRef.current = captureAnchor(el)
+        requestHead()
       })
     })
-  }, [scrollRef])
+  }, [scrollRef, requestHead])
 
   const measureElement = useCallback(
     (element: Element, entry?: ResizeObserverEntry) => {
@@ -512,7 +578,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
           !interruptedAnchorLayout.current &&
           (prevHeight !== undefined || correcting) &&
           Math.abs((prevHeight ?? estimateSizePx) - height) > 0.5 &&
-          !isPinnedRef.current?.()
+          (!isPinnedRef.current?.() || correcting)
         ) {
           const snap = snapshotRef.current
           const itemIdx = snap.indexOf(key)
@@ -534,7 +600,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
             }
             if (activeAnchorRef.current) {
               traceAnchorMeasurement(scrollRef.current, prevHeight === undefined)
-              scheduleAnchorRestore()
+              flushAnchorRestore()
             }
           }
         }
@@ -544,7 +610,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     [
       anchorController,
       estimateSizePx,
-      scheduleAnchorRestore,
+      flushAnchorRestore,
       scrollRef,
       settleInterruptedLayout,
       sizeCache
@@ -553,6 +619,10 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
 
   const virtualizer = useVirtualizer({
     count: virtualized ? snapshot.count : 0,
+    directDomUpdates: true,
+    onChange: () => {
+      if (isCorrecting(scrollRef.current)) flushAnchorRestore()
+    },
     // On the first commit the child layout effect runs before React attaches the
     // ancestor ref. The viewport node already belongs to the mounted scroller.
     getScrollElement: () =>
@@ -692,43 +762,41 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       }
       anchorController.cancelAnchor()
       activeAnchorRef.current = null
-      if (pendingRestoreRafRef.current !== null && typeof cancelAnimationFrame === 'function') {
-        cancelAnimationFrame(pendingRestoreRafRef.current)
-        pendingRestoreRafRef.current = null
-      }
     }
     const gesture = new HistoryGesture()
-    let pullFrame: number | undefined
+    let afterFrame: number | undefined
     const request = (direction: HistoryDirection, target: EventTarget | null): boolean => {
       const controls = historyRef.current
-      if (
-        !controls ||
-        !controls[direction] ||
-        controls[direction] === 'end' ||
-        controls[direction] === 'loading'
-      )
-        return false
+      if (!controls || controls[direction] !== 'ready') return false
       const delta = direction === 'before' ? -1 : 1
+      if (nestedScrollConsumes(target, el, delta)) return false
+      if (direction === 'before') return requestHead()
       if (
         canConsumeScroll(
           { top: el.scrollTop, height: el.scrollHeight, viewport: el.clientHeight },
           delta
         ) ||
-        nestedScrollConsumes(target, el, delta)
+        !controls.request(direction)
       )
         return false
-      if (!controls.request(direction)) return false
-      if (pullFrame !== undefined) cancelAnimationFrame(pullFrame)
-      setPulling(direction)
-      pullFrame = requestAnimationFrame(() => {
-        pullFrame = requestAnimationFrame(() => {
-          pullFrame = undefined
-          setPulling(null)
-        })
+      if (afterFrame !== undefined) cancelAnimationFrame(afterFrame)
+      setPulling('after')
+      afterFrame = requestAnimationFrame(() => {
+        afterFrame = requestAnimationFrame(() => setPulling(null))
       })
       return true
     }
     const onWheel = (event: WheelEvent): void => {
+      if (nestedScrollConsumes(event.target, el, event.deltaY)) return
+      if (event.deltaY < 0) {
+        cancelEntryMotion(el)
+        if (historyPull(false, historyRef.current?.before, el.scrollTop <= 0, event.deltaY)) {
+          gesture.consumePendingPull(event.timeStamp)
+          setPulling('before')
+          event.preventDefault()
+          return
+        }
+      }
       const input = gesture.wheel(event.deltaY, event.timeStamp, (direction) =>
         request(direction, event.target)
       )
@@ -738,6 +806,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       if (input !== 'userInput') event.preventDefault()
     }
     const interrupt = (): void => {
+      cancelEntryMotion(el)
       gesture.interrupt()
       cancel()
     }
@@ -755,7 +824,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       if (direction && request(direction, event.target)) event.preventDefault()
     }
     const onScroll = (): void => {
-      if (selfWritingScrollRef.current) return
+      if (selfWritingScrollRef.current || entryMoving(el)) return
       // Chromium can deliver multiple scroll notifications for the same rounded position.
       // A changed position or an explicit input clears the correction in cancel().
       const adjustedTop = adjustedScrollTopRef.current
@@ -765,9 +834,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       if (!interruptedAnchorLayout.current && !isPinnedRef.current?.()) {
         restingAnchorRef.current = captureAnchor(el)
       }
+      requestHead()
     }
-    const wheelListener = historyEnabled ? onWheel : cancel
+    const wheelListener = historyEnabled ? onWheel : interrupt
     el.addEventListener('wheel', wheelListener, { passive: !historyEnabled })
+    el.addEventListener('touchstart', interrupt, { passive: true })
     el.addEventListener('pointerdown', interrupt, { passive: true })
     el.addEventListener('keydown', onKeyDownCancel)
     el.addEventListener('scroll', onScroll, { passive: true })
@@ -777,17 +848,21 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         settleFrame.current = null
       }
       cancelCorrection(el)
-      if (pullFrame !== undefined) cancelAnimationFrame(pullFrame)
+      if (afterFrame !== undefined) cancelAnimationFrame(afterFrame)
       el.removeEventListener('wheel', wheelListener)
+      el.removeEventListener('touchstart', interrupt)
       el.removeEventListener('pointerdown', interrupt)
       el.removeEventListener('keydown', onKeyDownCancel)
       el.removeEventListener('scroll', onScroll)
-      if (pendingRestoreRafRef.current !== null && typeof cancelAnimationFrame === 'function') {
-        cancelAnimationFrame(pendingRestoreRafRef.current)
-        pendingRestoreRafRef.current = null
-      }
     }
-  }, [anchorController, historyEnabled, scrollRef, sessionKey, settleInterruptedLayout])
+  }, [
+    anchorController,
+    historyEnabled,
+    scrollRef,
+    sessionKey,
+    settleInterruptedLayout,
+    requestHead
+  ])
 
   // Observe header slot height changes for top-displacement anchor restoration (EP-12 ① · a9 · a10)
   useEffect(() => {
@@ -802,9 +877,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       if (prevHeight !== nextHeight) {
         noteCorrectionLayout(scrollRef.current)
         settleInterruptedLayout()
+        requestHead()
       }
       if (
         !interruptedAnchorLayout.current &&
+        !pulling &&
         prevHeight !== null &&
         Math.abs(prevHeight - nextHeight) > 0.5 &&
         !isPinnedRef.current?.()
@@ -818,39 +895,46 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
             anchorController.setActiveAnchor(target)
           }
         }
-        if (activeAnchorRef.current) scheduleAnchorRestore()
+        if (activeAnchorRef.current) flushAnchorRestore()
       }
     })
     ro.observe(headerEl)
     return () => ro.disconnect()
-  }, [anchorController, scheduleAnchorRestore, scrollRef, settleInterruptedLayout])
+  }, [
+    anchorController,
+    flushAnchorRestore,
+    scrollRef,
+    settleInterruptedLayout,
+    pulling,
+    requestHead
+  ])
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(() => {
-      if (noteCorrectionLayout(el)) scheduleAnchorRestore()
+      if (noteCorrectionLayout(el)) flushAnchorRestore()
     })
     observer.observe(el)
     if (footerRef.current) observer.observe(footerRef.current)
     return () => observer.disconnect()
-  }, [scrollRef, sessionKey, scheduleAnchorRestore])
+  }, [scrollRef, sessionKey, flushAnchorRestore])
 
   // Restore anchor after top-displacement commits when active, and refresh resting baseline (EP-12 ①②③ · D1)
   useLayoutEffect(() => {
     const el = scrollRef.current
     const anchor = activeAnchorRef.current
-    if (isPinned?.()) {
+    if (isPinned?.() && !isCorrecting(el)) {
       cancelCorrection(el)
       if (el && pinnedPrepend.current) {
         const bottom = Math.max(0, el.scrollHeight - el.clientHeight)
-        if (bottom - el.scrollTop > 0.5) writeScrollTop(el, bottom)
+        if (bottom - el.scrollTop > 0.5) writeScrollTop(el, bottom, 'instant')
       }
       activeAnchorRef.current = null
       restingAnchorRef.current = null
       anchorController.cancelAnchor()
     } else if (el && anchor) {
-      scheduleAnchorRestore()
+      flushAnchorRestore()
     } else if (el && snapshot.count > 0) {
       restingAnchorRef.current = captureAnchor(el)
     }
@@ -858,10 +942,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   }, [
     anchorController,
     isPinned,
-    scheduleAnchorRestore,
+    flushAnchorRestore,
     scrollRef,
     snapshot.count,
-    snapshot.revision
+    snapshot.revision,
+    releasedPull
   ])
 
   const reveal = useCallback(
@@ -908,17 +993,30 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   }, [selectedKeys, sessionKey, snapshot])
 
   const virtualItems: VirtualItem[] = virtualized ? virtualizer.getVirtualItems() : []
-  // The size observer can run a frame before React commits the new row transform.
-  // Restore against that committed position as well as the measurement notification.
   const renderedAnchorStart = readingAnchor
     ? virtualItems.find((item) => item.key === readingAnchor.blockKey)?.start
     : undefined
+  // Nested blocks can commit after their containing row's position is unchanged.
+  // Recheck the actual glyph once all layout effects for this commit have run.
   useLayoutEffect(() => {
-    if (renderedAnchorStart !== undefined && noteCorrectionLayout(scrollRef.current)) {
-      if (hasWrittenCorrection(scrollRef.current)) flushAnchorRestore()
-      else scheduleAnchorRestore()
-    }
-  }, [renderedAnchorStart, scrollRef, flushAnchorRestore, scheduleAnchorRestore])
+    const el = scrollRef.current
+    if (el && isCorrecting(el))
+      queueMicrotask(() => {
+        if (isCorrecting(el)) flushAnchorRestore()
+      })
+  })
+  useLayoutEffect(() => {
+    if (renderedAnchorStart !== undefined && noteCorrectionLayout(scrollRef.current))
+      flushAnchorRestore()
+  }, [renderedAnchorStart, scrollRef, flushAnchorRestore])
+  useLayoutEffect(() => {
+    if (pulling === 'before' && history?.before !== 'loading') setPulling(null)
+    // Entry placement runs in the harness's parent layout effect. Check the
+    // actual first painted location, not the ancestor's pre-placement offset.
+    if (!history || typeof requestAnimationFrame !== 'function') return
+    const frame = requestAnimationFrame(() => requestHead())
+    return () => cancelAnimationFrame(frame)
+  }, [history, snapshot.revision, requestHead, pulling])
   renderedKeysRef.current = virtualItems.map((vi) => snapshot.keyAt(vi.index))
 
   return (
@@ -932,6 +1030,21 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
           className={suppressed ? 'w-full select-none' : 'w-full'}
         >
           {search && <SearchAnnouncement key={search.seq} found={announced === search.seq} />}
+          {history && (
+            <div
+              ref={pullSpace}
+              data-history-pull=""
+              className="flex items-center justify-center overflow-hidden motion-safe:duration-200 motion-safe:ease-out motion-reduce:duration-0"
+              style={{
+                height: showPull ? HISTORY_PULL_HEIGHT_PX : 0,
+                transitionProperty: 'height, min-height',
+                transitionDuration:
+                  history.before !== 'error' && history.before !== 'loading' ? '0ms' : undefined
+              }}
+            >
+              {showPull && <ArcSpinner />}
+            </div>
+          )}
           <div ref={headerRef} data-transcript-header="">
             {header}
             {history && (
@@ -939,7 +1052,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
             )}
           </div>
           {virtualized ? (
-            <div className="relative w-full" style={{ height: blocksTotalHeight }}>
+            <div ref={virtualizer.containerRef} className="relative w-full">
               {virtualItems.map((vi) => {
                 const block = snapshot.blockAt(vi.index)
                 const selected =
@@ -958,7 +1071,6 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
                       hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
                     }
                     className={`absolute top-0 left-0 w-full ${extraClass}`}
-                    style={{ transform: `translateY(${vi.start}px)` }}
                   >
                     {renderBlock(block, vi.index, selected)}
                   </div>

@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { expect, it, vi } from 'vitest'
 import { installFakeDom } from '../../../../shared/ui/renderHarness.testfixture'
-import { advanceStableBlocks } from '../../lib/markdownBlocks'
+import { advanceStableBlocks } from '../../../../shared/markdown/markdownBlocks'
 import { StreamingMarkdown } from './StreamingMarkdown'
 
 vi.mock('react', async (original) => ({

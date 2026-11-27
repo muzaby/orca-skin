@@ -4,7 +4,6 @@ import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import type { Root, RootContent } from 'hast'
 import { defaultUrlTransform } from 'react-markdown'
-import { MARKDOWN_BLOCK_MAX_CHARS, MARKDOWN_HAST_MAX_NODES } from '../limits'
 import type { ComputeResults } from '../protocol'
 
 const parser = unified()
@@ -12,14 +11,44 @@ const parser = unified()
   .use(remarkGfm)
   .use(remarkRehype, { allowDangerousHtml: true })
 
+// A single-line run of letters, digits and spaces has no inline syntax. Tokenizing
+// millions of such characters creates transient parser events for every word. Keep
+// one leading word and separator to preserve the delimiter context of the suffix.
+function ordinaryPrefix(source: string): number {
+  if (source.length < 4096 || !/^\p{L}/u.test(source)) return 0
+  const line = source.trimEnd()
+  if (/[\r\n]/.test(line)) return 0
+  const match = /^[\p{L}\p{M}\p{N} ]+/u.exec(line)!
+  if (match[0].length === line.length) return line.length
+  const cut = match[0].lastIndexOf(' ') + 1
+  return cut >= 4096 ? cut : 0
+}
+
 export function parseMarkdown(source: string): ComputeResults['markdown'] {
-  if (source.length > MARKDOWN_BLOCK_MAX_CHARS) return { tooLarge: true }
-  const hast = parser.runSync(parser.parse(source)) as Root
+  const prefix = ordinaryPrefix(source)
+  const standIn = prefix && source.slice(prefix).trim() ? 'x ' : 'x'
+  const input = prefix ? standIn + source.slice(prefix) : source
+  const hast = parser.runSync(parser.parse(input)) as Root
+  if (prefix) {
+    const paragraph = hast.children[0]
+    const lead = paragraph?.type === 'element' ? paragraph.children[0] : undefined
+    if (lead?.type === 'text')
+      lead.value = source.slice(0, prefix) + lead.value.slice(standIn.length)
+  }
+  const shifted = new WeakSet<object>()
   const pending: (Root | RootContent)[] = [hast]
-  let nodes = 0
   while (pending.length) {
     const node = pending.pop()!
-    if (++nodes > MARKDOWN_HAST_MAX_NODES) return { tooLarge: true }
+    if (prefix && node.position) {
+      for (const point of [node.position.start, node.position.end]) {
+        // Positions may be shared by adjacent or enclosing nodes.
+        if (point.offset !== undefined && point.offset >= standIn.length && !shifted.has(point)) {
+          point.offset += prefix - standIn.length
+          if (point.line === 1) point.column += prefix - standIn.length
+          shifted.add(point)
+        }
+      }
+    }
     if (node.type === 'element') {
       for (const key of ['href', 'src']) {
         const url = node.properties[key]
@@ -51,8 +80,28 @@ export function markdownBlock(
   const source = table
     ? doc.text.slice(start, table.headerEnd) + doc.text.slice(...table.rows)
     : doc.text.slice(start, end)
+  const parseBlock = (text: string): ComputeResults['markdown'] => {
+    const result = parseMarkdown(text)
+    if (!table || table.headerEnd === table.rows[0]) return result
+    const header = table.headerEnd - start
+    const skipped = table.rows[0] - table.headerEnd
+    const visited = new WeakSet<object>()
+    const pending: (Root | RootContent)[] = [result.hast]
+    while (pending.length) {
+      const node = pending.pop()!
+      if (node.position)
+        for (const point of [node.position.start, node.position.end]) {
+          if (point.offset !== undefined && point.offset >= header && !visited.has(point)) {
+            point.offset += skipped
+            visited.add(point)
+          }
+        }
+      if ('children' in node) for (const child of node.children) pending.push(child)
+    }
+    return result
+  }
   if (!source.includes('[') || (start === 0 && end === doc.text.length && !table))
-    return parseMarkdown(source)
+    return parseBlock(source)
   if (!doc.definitions) {
     const defs = new Map<string, string>()
     let fence: string | undefined
@@ -79,5 +128,5 @@ export function markdownBlock(
     const def = doc.definitions.get(match[1].trim().replace(/\s+/g, ' ').toLowerCase())
     if (def) references.add(def)
   }
-  return parseMarkdown(references.size ? source + '\n\n' + [...references].join('\n') : source)
+  return parseBlock(references.size ? source + '\n\n' + [...references].join('\n') : source)
 }

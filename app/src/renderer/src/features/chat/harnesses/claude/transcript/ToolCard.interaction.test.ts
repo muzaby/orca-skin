@@ -259,3 +259,51 @@ it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4)
     dom.unmount()
   }
 })
+
+it('AC11 displays the worker stat on closed oversized Write, Edit and MultiEdit cards', async () => {
+  const { fakeComputeClient } = await import('../../../../../shared/compute/fakeClient.testfixture')
+  const { setComputeClient } = await import('../../../../../shared/compute/client')
+  const { compute } = await import('../../../../../shared/compute/worker/handler')
+  const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+  const fake = fakeComputeClient()
+  setComputeClient(fake.client)
+  const large = Array.from({ length: 654 }, (_, i) => 'line ' + i).join('\n')
+  try {
+    for (const [name, input, added, removed] of [
+      ['Write', { content: large }, 654, 0],
+      ['Edit', { old_string: 'old', new_string: large }, 654, 1],
+      [
+        'MultiEdit',
+        {
+          edits: [
+            { old_string: 'old', new_string: large },
+            { old_string: 'del', new_string: '' }
+          ]
+        },
+        654,
+        2
+      ]
+    ] as const) {
+      const call: ToolCall = { toolUseId: 'fixture', name, input }
+      const render = () =>
+        dom.render(
+          createElement(ToolCard, { call, transcriptPolicy: agentUiPolicy('code').transcript })
+        )
+      render()
+      const toggle = () => dom.query('[data-focus-id="toggle"]')!
+      expect(toggle().textContent).not.toContain('+654')
+      const request = fake.requests.at(-1)!
+      expect(request.kind).toBe('diffStat')
+      const result = await compute(request)
+      expect(result).toEqual({ added, removed })
+      fake.resolveNext(result)
+      await Promise.resolve()
+      render()
+      expect(toggle().textContent).toContain('+' + added)
+      if (removed) expect(toggle().textContent).toContain('-' + removed)
+    }
+  } finally {
+    dom.unmount()
+    setComputeClient(null)
+  }
+})

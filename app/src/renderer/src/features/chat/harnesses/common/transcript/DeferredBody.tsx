@@ -1,29 +1,33 @@
-import { useState } from 'react'
 import type { HistoryBodyRef } from '../../../../../../../shared/history-page'
 import { useI18n } from '../../../../../shared/i18n'
-import { chatActions } from '../../../store/chatStore'
+import { ArcSpinner } from '../../../../../shared/ui/ArcSpinner'
+import { chatActions, useHistoryBodyFailed } from '../../../store/chatStore'
 
 export function DeferredBody({ body }: { body: HistoryBodyRef }): React.JSX.Element {
   const { tr } = useI18n()
-  const [state, setState] = useState<'ready' | 'loading' | 'error'>('ready')
+  const failed = useHistoryBodyFailed(body)
   return (
-    <button
-      type="button"
+    <div
       data-history-body={body.message}
-      disabled={state === 'loading'}
-      onClick={() => {
-        setState('loading')
-        void chatActions.openHistoryBody(body).then((ok) => setState(ok ? 'ready' : 'error'))
-      }}
-      className="rounded border border-border px-2 py-1 text-caption text-ink2"
+      role="status"
+      className="flex items-center gap-2 text-caption text-ink2"
     >
-      {tr(
-        state === 'loading'
-          ? 'chat.transcript.historyBodyLoading'
-          : state === 'error'
-            ? 'chat.transcript.historyRetry'
-            : 'chat.transcript.historyBody'
+      {failed ? (
+        <>
+          <span>{tr('chat.transcript.historyBodyFailed')}</span>
+          <button
+            type="button"
+            onClick={() => void chatActions.openHistoryBody(body)}
+            className="rounded border border-border px-2 py-1"
+          >
+            {tr('chat.transcript.historyRetry')}
+          </button>
+        </>
+      ) : (
+        <span aria-label={tr('chat.transcript.historyBodyLoading')}>
+          <ArcSpinner />
+        </span>
       )}
-    </button>
+    </div>
   )
 }

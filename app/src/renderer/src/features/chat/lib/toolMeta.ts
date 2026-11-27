@@ -182,17 +182,22 @@ export function toolDescription(call: ToolCall, planLabel?: string): string {
 // Write/Edit/MultiEdit 의 diff-stat (+추가 / -삭제 라인). 그 외와 합산 예산을 넘는 입력은 null —
 // MultiEdit 는 수정 전부를 한 예산으로 판정한다(0325 D-009 · EP-4 ⑥).
 export function toolDiffStat(call: ToolCall): { added: number; removed: number } | null {
+  const sources = toolDiffSources(call)
+  return sources && diffStatsWithinBudget(sources)
+}
+
+export function toolDiffSources(call: ToolCall): DiffStatSource[] | null {
   const rec = asRecord(call.input)
   if (!rec) return null
   switch (call.name) {
     case 'Write': {
       const content = stringField(rec, 'content') ?? ''
-      return diffStatsWithinBudget([{ kind: 'pair', before: '', after: content }])
+      return [{ kind: 'pair', before: '', after: content }]
     }
     case 'Edit': {
       const oldStr = typeof rec.old_string === 'string' ? rec.old_string : ''
       const newStr = typeof rec.new_string === 'string' ? rec.new_string : ''
-      return diffStatsWithinBudget([{ kind: 'pair', before: oldStr, after: newStr }])
+      return [{ kind: 'pair', before: oldStr, after: newStr }]
     }
     case 'MultiEdit': {
       const edits = Array.isArray(rec.edits) ? rec.edits : []
@@ -204,7 +209,7 @@ export function toolDiffStat(call: ToolCall): { added: number; removed: number }
           after: typeof er?.new_string === 'string' ? er.new_string : ''
         }
       })
-      return diffStatsWithinBudget(sources)
+      return sources
     }
     default:
       return null

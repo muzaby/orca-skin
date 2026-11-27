@@ -11,7 +11,8 @@ import {
   useHasLiveText,
   useLiveTextFor,
   useLiveTextKey,
-  useTranscriptChanges
+  useTranscriptChanges,
+  useChatStore
 } from '../../../store/chatStore'
 import { usePruneDisclosures } from '../../common/transcript/usePruneDisclosures'
 import { transcriptPresentation } from '../../../lib/agentPresentation'
@@ -52,6 +53,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
 }: TranscriptTimelineProps): React.JSX.Element {
   const { tr } = useI18n()
   const sessionKey = useActiveSessionKey()
+  const opening = useChatStore((s) => s.entryIntent?.sessionKey === sessionKey)
   const liveChanges = useTranscriptChanges()
   const transcriptChanges = search?.view?.changes ?? liveChanges
   // live 의 유무만 구독한다 — 본문 delta 는 행 리프(`OpenCodeTextSegment`)만 깨운다(0325 D-015).
@@ -138,7 +140,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
             isPinned={isPinned}
             overscan={6}
             estimateSizePx={60}
-            initialOffset={state.top}
+            initialOffset={opening ? 0 : state.top}
             sizeCache={state.sizes}
             anchorKey={state.anchor?.key}
             footer={footer}

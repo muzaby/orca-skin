@@ -25,7 +25,10 @@ export function ErrorCard({ error }: ErrorCardProps): React.JSX.Element {
   const { category, message } = asClassified(error)
   const categoryKey = errorCategoryKey(category)
   return (
-    <div className="flex items-start gap-2 rounded-r6 border border-bad/40 bg-bad/10 px-p5 py-p4 text-[calc(13px*var(--transcript-text-scale,1))] text-ink">
+    <div
+      data-transcript-error=""
+      className="flex items-start gap-2 rounded-r6 border border-bad/40 bg-bad/10 px-p5 py-p4 text-[calc(13px*var(--transcript-text-scale,1))] text-ink"
+    >
       <span className="mt-[1px] text-bad">
         <Icon name="alert" size={15} />
       </span>

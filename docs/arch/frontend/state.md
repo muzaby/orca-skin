@@ -68,6 +68,8 @@ artifact의 선택·요청 세대는 `artifactViewerStore`가 계속 소유한�
 
 ### 1.2 chat store 구조 (실제 정의 요약)
 
+대화 이력의 위쪽 커서와 조회 상태는 세션 또는 검색 보기별로 보관한다. 진행 중이거나 마지막 성공 커서와 같으면 중복 조회를 막는다. 실패한 커서는 명시적으로 다시 시도할 때 열고, 세션이나 보기의 세대가 바뀌면 늦게 도착한 응답을 폐기한다.
+
 `app/src/renderer/src/features/chat/store/chatStore.ts` + `reducer/chatReducer.ts` (필드 전수는 코드가 정본):
 
 ```typescript

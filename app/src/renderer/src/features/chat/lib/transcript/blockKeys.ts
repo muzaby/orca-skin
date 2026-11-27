@@ -4,6 +4,7 @@
 import type { AppMessagePart } from '../../../../../../shared/ipc'
 import type { MarkdownSourcePart } from '../../../../shared/ui/markdown/sourceParts'
 import type { Message } from '../../reducer/chatReducer'
+import { hasSegmentText } from '../parts'
 
 export function userBlockKey(messageId: string): string {
   return `${messageId}:user`
@@ -113,10 +114,10 @@ export function textPartGroups(entries: readonly PartKeyEntry[]): MarkdownSource
   let start = 0
   for (const entry of entries) {
     if (entry.kind === 'text') {
-      const length = entry.signature ? entry.signature.length - 'text:'.length : 0
-      if (length > 0) {
+      const text = entry.signature?.slice('text:'.length) ?? ''
+      if (text && (group.length > 0 || hasSegmentText(text))) {
         group.push({ key: entry.key, start })
-        start += length
+        start += text.length
       }
     } else if (
       entry.kind !== 'boundary' &&

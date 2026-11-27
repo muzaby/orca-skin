@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { idleSearchDirection } from '../lib/idleSearchDirection'
+import { idleSearchDirection, withinHistoryUnit } from '../lib/idleSearchDirection'
 import { chatActions, useChatStore } from '../store/chatStore'
 import {
   HISTORY_GESTURE_GAP_MS,
@@ -42,7 +42,7 @@ export function useHistoryControls(key: string): TranscriptHistoryControls | und
   }, [key, active])
   useEffect(() => {
     const dir = view && idleSearchDirection(view)
-    if (view ? !dir : !page || page.before?.kind !== 'withinTurn' || page.beforeState) return
+    if (view ? !dir : !page || !withinHistoryUnit(page.before) || page.beforeState) return
     let idle = 0,
       timer = 0
     function schedule(): void {
@@ -65,14 +65,21 @@ export function useHistoryControls(key: string): TranscriptHistoryControls | und
         ? {
             before: view.beforeState ?? (view.before ? 'ready' : 'end'),
             after: view.afterState ?? (view.after ? 'ready' : 'end'),
-            request: (direction) => chatActions.readSearchEdge(key, direction),
+            request: (direction) =>
+              chatActions.readSearchEdge(
+                key,
+                direction,
+                direction === 'before' && view.beforeState !== 'error' ? 'head' : false
+              ),
             latestState: search?.returning ? 'loading' : search?.returnFailed ? 'error' : undefined,
             returnToLatest: () => chatActions.leaveSearch(key, true)
           }
         : page
           ? {
               before: page.beforeState ?? (page.before ? 'ready' : 'end'),
-              request: (direction) => direction === 'before' && chatActions.readPrevious(key)
+              request: (direction) =>
+                direction === 'before' &&
+                chatActions.readPrevious(key, page.beforeState === 'error' ? false : 'head')
             }
           : undefined,
     [key, page, view, search?.returning, search?.returnFailed]

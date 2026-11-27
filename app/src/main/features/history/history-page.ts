@@ -23,13 +23,29 @@ function edge(
   gen: string,
   at: IndexHeader,
   other: IndexHeader | undefined,
-  before: boolean
+  before: boolean,
+  unitFloor?: number
 ): HistoryEdge | undefined {
   if (!other) return undefined
   const kind: EdgeKind =
-    at.turn === other.turn ? 'withinTurn' : before ? 'earlierTurn' : 'laterTurn'
+    before && unitFloor !== undefined && other.turn >= unitFloor
+      ? 'withinUnit'
+      : at.turn === other.turn
+        ? 'withinTurn'
+        : before
+          ? 'earlierTurn'
+          : 'laterTurn'
   const cursor = Buffer.from(
-    JSON.stringify([1, id, gen, kind, before ? 'before' : 'after', at.ordinal, at.message_key])
+    JSON.stringify([
+      1,
+      id,
+      gen,
+      kind,
+      before ? 'before' : 'after',
+      at.ordinal,
+      at.message_key,
+      ...(kind === 'withinUnit' ? [unitFloor] : [])
+    ])
   ).toString('base64url')
   return { kind, cursor }
 }
@@ -37,17 +53,20 @@ function readCursor(
   index: HistoryIndexQueries,
   req: Extract<HistoryPageRequest, { cursor: string }>,
   gen: string
-): IndexHeader | 'stale' | 'invalid' {
+): { next: IndexHeader; floor?: number } | 'stale' | 'invalid' {
   let values: unknown
   try {
     values = JSON.parse(Buffer.from(req.cursor, 'base64url').toString())
   } catch {
     return 'invalid'
   }
-  if (!Array.isArray(values) || values.length !== 7) return 'invalid'
-  const [v, id, g, kind, direction, ordinal, key] = values
+  if (!Array.isArray(values) || values.length !== (req.kind === 'withinUnit' ? 8 : 7))
+    return 'invalid'
+  const [v, id, g, kind, direction, ordinal, key, floor] = values
   const before =
-    req.kind === 'earlierTurn' || (req.kind === 'withinTurn' && req.direction === 'before')
+    req.kind === 'earlierTurn' ||
+    req.kind === 'withinUnit' ||
+    (req.kind === 'withinTurn' && req.direction === 'before')
   if (
     v !== 1 ||
     id !== req.sessionId ||
@@ -60,8 +79,20 @@ function readCursor(
   const at = index.header(id, g, ordinal)
   if (!at || at.message_key !== key) return 'stale'
   const next = index.header(id, g, ordinal + (before ? -1 : 1))
-  if (!next || (kind === 'withinTurn') !== (at.turn === next.turn)) return 'invalid'
-  return next
+  if (!next) return 'invalid'
+  if (kind === 'withinUnit') {
+    if (
+      !Number.isSafeInteger(floor) ||
+      floor < 0 ||
+      floor > next.turn ||
+      floor < index.unitFloor(id, g, at.turn) ||
+      index.header(id, g, floor)?.turn !== floor
+    )
+      return 'invalid'
+    return { next, floor }
+  }
+  if ((kind === 'withinTurn') !== (at.turn === next.turn)) return 'invalid'
+  return { next }
 }
 
 const jsonBytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value))
@@ -151,6 +182,7 @@ export function readHistoryPage(
       }
       meta = compact
     }
+    let floor: number | undefined
     let start: IndexHeader | undefined
     if (req.kind === 'latest') start = index.latest(id, generation)
     else if (req.kind === 'visit') {
@@ -173,7 +205,8 @@ export function readHistoryPage(
     } else {
       const next = readCursor(index, req, generation)
       if (typeof next === 'string') return { ...echo, status: next }
-      start = next
+      start = next.next
+      floor = next.floor
     }
     const messages: LoadedMessage[] = []
     const session = {
@@ -199,7 +232,16 @@ export function readHistoryPage(
       req.kind === 'target' ||
       req.kind === 'visit' ||
       (req.kind === 'withinTurn' && req.direction === 'after')
-    const candidates = index.pageHeaders(id, generation, start, ascending, HISTORY_PAGE_MESSAGES)
+    if (req.kind === 'latest' || req.kind === 'earlierTurn')
+      floor = index.unitFloor(id, generation, start.turn)
+    const candidates = index.pageHeaders(
+      id,
+      generation,
+      start,
+      ascending,
+      HISTORY_PAGE_MESSAGES,
+      floor
+    )
     const fixedBytes = jsonBytes(reply) - jsonBytes(session.history)
     // Reuse indexed headers already in the selected turn. Seek only its outside neighbours.
     const outside = new Map<number, IndexHeader | undefined>()
@@ -213,7 +255,7 @@ export function readHistoryPage(
     }
     const pageEdges = (first: IndexHeader, last: IndexHeader): HistoryWindow => ({
       generation,
-      before: edge(id, generation, first, neighbour(first.ordinal - 1), true),
+      before: edge(id, generation, first, neighbour(first.ordinal - 1), true, floor),
       after: edge(id, generation, last, neighbour(last.ordinal + 1), false)
     })
     let contentsBytes = 0,

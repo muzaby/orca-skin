@@ -1,3 +1,4 @@
+import { installHistoryWorker } from '../../../../shared/compute/historyWorker.testfixture'
 import { createElement } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { HistoryBodyRef } from '../../../../../../shared/history-page'
@@ -21,6 +22,8 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
+
+installHistoryWorker()
 
 it('retries a deferred body from its button and resolves the original message in place', async () => {
   vi.useFakeTimers()
@@ -68,15 +71,12 @@ it('retries a deferred body from its button and resolves the original message in
   try {
     const element = createElement(DeferredBody, { body })
     dom.render(element)
-    dom.click(dom.query('[data-history-body="target"]')!)
-    expect(dom.query('[data-history-body="target"]')?.props.disabled).toBe(true)
-    expect(await open.mock.results[0].value).toBe(false)
+    expect(dom.query('[type="button"]')).toBeNull()
+    expect(await chatActions.openHistoryBody(body)).toBe(false)
     dom.render(element)
-    expect(dom.query('[data-history-body="target"]')?.textContent).toBe(
-      'chat.transcript.historyRetry'
-    )
+    expect(dom.query('[type="button"]')?.textContent).toBe('chat.transcript.historyRetry')
     expect(useChatStore.getState().sessions.s.session.messages[1].deferredBody).toBe(body)
-    dom.click(dom.query('[data-history-body="target"]')!)
+    dom.click(dom.query('[type="button"]')!)
     expect(await open.mock.results[1].value).toBe(true)
     const current = useChatStore.getState().sessions.s.session.messages
     expect(current.map((m) => m.id)).toEqual(['before', 'target', 'after'])

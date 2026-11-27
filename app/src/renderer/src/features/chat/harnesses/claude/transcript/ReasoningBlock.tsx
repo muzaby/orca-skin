@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
+import { TranscriptMarkdown } from '../../../components/markdown/MarkdownDocument'
 import { StreamingMarkdown } from '../../../components/markdown/StreamingMarkdown'
 import { useI18n } from '../../../../../shared/i18n'
 import type { ReasoningItem } from '../../../lib/parts'
@@ -35,7 +35,7 @@ export const ReasoningBlock = memo(function ReasoningBlock({
         {tr('chat.transcript.reasoning')}
       </summary>
       <div className="mt-p3 leading-[1.6] text-ink2">
-        {streaming ? <StreamingMarkdown source={source} /> : <Markdown source={source} />}
+        {streaming ? <StreamingMarkdown source={source} /> : <TranscriptMarkdown source={source} />}
       </div>
     </details>
   )

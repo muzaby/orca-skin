@@ -6,9 +6,14 @@ import type {
 } from '../../../../../shared/history-page'
 import { chatActions, useChatStore, type SessionEntry } from './chatStore'
 import { installChatStoreHarness } from './chatStore.testHarness'
+import * as errors from '../../../shared/errors'
 import { sessionApi } from '../../../shared/api/ipc'
 
 import { saveSearchPosition } from '../lib/transcript/viewport/searchVisit'
+
+import { installHistoryWorker } from '../../../shared/compute/historyWorker.testfixture'
+
+installHistoryWorker()
 
 const locator = (session: string, key = 'm:2'): HistoryLocator => ({
   v: 1,
@@ -181,6 +186,54 @@ describe('search history in the chat store', () => {
       'earlierTurn',
       'laterTurn'
     ])
+  })
+
+  it.each(['search rejected', 'wrong generation', 'overlap', 'transport'] as const)(
+    'reports one earlier-history failure for the admitted request (%s)',
+    async (problem) => {
+      const report = vi.spyOn(errors, 'reportError').mockImplementation(() => {})
+      const search = problem === 'search rejected'
+      const page = vi
+        .spyOn(sessionApi, 'page')
+        .mockResolvedValueOnce(reply('b', ['one', 'two'], true, search))
+      await chatActions.openSearchHit(locator('b', 'one'), false)
+      const next = reply('b', problem === 'overlap' ? ['two', 'one'] : ['older'])
+      if (problem === 'wrong generation') next.session.history.generation = 'wrong'
+      if (problem === 'transport' || search) page.mockRejectedValueOnce(Error('transport'))
+      else page.mockResolvedValueOnce(next)
+      const request = () =>
+        search ? chatActions.readSearchEdge('b', 'before') : chatActions.readPrevious('b')
+      expect(request()).toBe(true)
+      expect(request()).toBe(false)
+      await vi.waitFor(() =>
+        expect(report).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({ title: 'historyLoadFailed' })
+        )
+      )
+      expect((search ? entry().search?.view : entry().history)?.beforeState).toBe('error')
+      expect(
+        search
+          ? chatActions.readSearchEdge('b', 'before', true)
+          : chatActions.readPrevious('b', true)
+      ).toBe(false)
+    }
+  )
+  it.each([true, false])('does not replay a successful cursor (ordinary=%s)', async (ordinary) => {
+    const first = reply('b', ['m:2'], true, !ordinary)
+    first.session.history.before = { kind: 'withinUnit', cursor: 'repeat' }
+    const page = vi.spyOn(sessionApi, 'page').mockResolvedValueOnce(first)
+    await chatActions.openSearchHit(locator('b'), false)
+    page.mockResolvedValueOnce({ ...first, session: { ...first.session, messages: [] } })
+    const request = () =>
+      ordinary
+        ? chatActions.readPrevious('b', true)
+        : chatActions.readSearchEdge('b', 'before', true)
+    expect(request()).toBe(true)
+    expect(page.mock.lastCall![0]).toMatchObject({ kind: 'withinUnit', cursor: 'repeat' })
+    expect(request()).toBe(false)
+    await Promise.resolve()
+    expect(request()).toBe(false)
+    expect(page).toHaveBeenCalledTimes(2)
   })
 
   it.each(['ordinary', 'before', 'after'] as const)(
@@ -634,4 +687,56 @@ it('returns a pinned origin to latest even when its reading anchor and generatio
   await Promise.resolve()
   expect(entry().search).toBeUndefined()
   expect(entry().session.messages.map((message) => message.id)).toEqual(['latest'])
+})
+
+it.each([
+  'loadSession',
+  'openSearchHit',
+  'readSearchEdge',
+  'readPrevious',
+  'leaveSearch(latest)'
+] as const)('AC3′ resolves deferred bodies at every page commit: %s', async (path) => {
+  const parts = [{ type: 'text', text: 'resolved ' + path }]
+  const data = Buffer.from(JSON.stringify(parts))
+  const next = reply('b', ['deferred'], true, true)
+  next.session.messages[0].parts = []
+  next.session.messages[0].deferredBody = {
+    kind: 'parts',
+    session: 'b',
+    generation: 'g',
+    message: 'deferred',
+    bytes: data.length
+  }
+  const initial = reply('b', ['initial'], true, path !== 'readPrevious')
+  const page = vi.spyOn(sessionApi, 'page').mockImplementation(async (q) => {
+    if (q.kind === 'body')
+      return {
+        status: 'body',
+        sessionId: 'b',
+        openGeneration: q.openGeneration,
+        requestId: 2,
+        offset: 0,
+        nextOffset: data.length,
+        done: true,
+        base64: data.toString('base64')
+      }
+    return q.kind === 'target' && path !== 'openSearchHit' ? initial : next
+  })
+  if (path === 'loadSession') {
+    vi.spyOn(sessionApi, 'load').mockResolvedValue(next.session)
+    await chatActions.loadSession('b')
+  } else {
+    await chatActions.openSearchHit(
+      locator('b', path === 'openSearchHit' ? 'deferred' : 'initial'),
+      false
+    )
+    if (path === 'readSearchEdge') expect(chatActions.readSearchEdge('b', 'before')).toBe(true)
+    if (path === 'readPrevious') expect(chatActions.readPrevious('b')).toBe(true)
+    if (path === 'leaveSearch(latest)') chatActions.leaveSearch('b', true)
+  }
+  await vi.waitFor(() => {
+    const shown = entry().search?.view?.messages ?? entry().session.messages
+    expect(shown.find((m) => m.id === 'deferred')?.parts).toEqual(parts)
+  })
+  expect(page.mock.calls.filter(([q]) => q.kind === 'body')).toHaveLength(1)
 })

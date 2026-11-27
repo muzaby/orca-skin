@@ -28,7 +28,7 @@ import { createClaudeBlockModel, type ClaudeBlock } from './claudeBlocks'
 
 import type { TranscriptTimelineProps } from '../../contracts'
 
-const gaps = { 0: '', 8: 'pt-[8px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
+const gaps = { 0: '', 8: 'pt-[8px]', 12: 'pt-[12px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
 
 export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   agentKind,
@@ -191,7 +191,11 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
               case 'status':
                 if (block.outcome === 'ended' || block.outcome === 'unknown') return null
                 return (
-                  <span className="text-caption text-ink3" data-response-outcome={block.outcome}>
+                  <span
+                    className="text-caption text-ink3"
+                    data-response-outcome={block.outcome}
+                    data-transcript-error=""
+                  >
                     {tr(`chat.agent.${block.outcome}`)}
                   </span>
                 )

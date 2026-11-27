@@ -2,6 +2,11 @@ import { nestedScrollConsumes } from '../../../lib/transcript/viewport/scrollGeo
 import { writeScrollTop } from '../../../components/transcript/TranscriptViewport'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
+import {
+  cancelEntryMotion,
+  followEntryMotion,
+  startEntryMotion
+} from '../../../lib/transcript/viewport/entryMotion'
 import { entryPolicy } from '../../../lib/transcript/viewport/entry'
 import { consumeEntryIntent } from '../../../store/chatStore'
 import { TimelineScrollContext, type TimelineScroll } from './scrollContext'
@@ -65,6 +70,7 @@ export function OpenCodeScrollController({
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
+    cancelEntryMotion(el)
     state.setPinned(true)
     state.setAnchor(null)
     writeTop(el.scrollHeight)
@@ -108,7 +114,13 @@ export function OpenCodeScrollController({
     if (placement.action === 'scroll-bottom') {
       state.setPinned(true)
       state.setAnchor(null)
-      writeTop(el.scrollHeight)
+      if (intent)
+        startEntryMotion(
+          el,
+          (top, behavior) => writeScrollTop(el, top, behavior, 'opencode'),
+          false
+        )
+      else writeTop(el.scrollHeight)
     } else if (placement.action === 'restore-saved') {
       writeTop(placement.saved.scrollTop)
     }
@@ -156,7 +168,7 @@ export function OpenCodeScrollController({
       frame = requestAnimationFrame(() => {
         frame = null
         if (held.current) return
-        if (state.pinned) writeTop(el.scrollHeight)
+        if (state.pinned && !followEntryMotion(el)) writeTop(el.scrollHeight)
         // While reading history, TranscriptViewport restores the visible character after
         // layout changes. Reapplying the saved row here would override that correction.
         setShowJump(shouldShowTimelineJump(geometry(el)))
@@ -172,6 +184,7 @@ export function OpenCodeScrollController({
     document.addEventListener('pointercancel', up)
     document.addEventListener('selectionchange', selection)
     return () => {
+      cancelEntryMotion(el)
       state.setTop(el.scrollTop)
       if (isTimelineBottom(geometry(el)) && state.pinned) state.setAnchor(null)
       if (captureFrame.current !== null) cancelAnimationFrame(captureFrame.current)

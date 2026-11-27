@@ -54,6 +54,7 @@ export class ArtifactService {
     private readonly options: {
       queries: Queries
       rootDir: string
+      previewFailure?: (details: { relativePath?: string; reason: string }) => void
       trashItem(path: string): Promise<void>
       isInputFile?: (sessionId: string, inputSource: string, hash: string) => boolean
     }
@@ -305,13 +306,23 @@ export class ArtifactService {
   }
 
   async preview(sessionId: string, publicationId: string): Promise<ArtifactPreviewResult> {
+    let relativePath: string | undefined
     try {
-      const file = await this.readForExport(sessionId, publicationId)
+      const file = await this.track(
+        this.readExport(sessionId, publicationId, (record) => {
+          relativePath = record.category === 'file' ? record.filename : record.relativePath
+        })
+      )
       // readForExport validates ownership before queueing, within the queue and after disk reads.
       this.own(sessionId, publicationId)
       return artifactPreview(file.filename, file.bytes)
     } catch (error) {
-      return { state: 'unavailable', reason: artifactError(error).message }
+      const reason = artifactError(error).message
+      this.options.previewFailure?.({
+        reason,
+        ...(relativePath !== undefined ? { relativePath } : {})
+      })
+      return { state: 'unavailable', reason }
     }
   }
 
@@ -323,9 +334,11 @@ export class ArtifactService {
   }
   private async readExport(
     sessionId: string,
-    publicationId: string
+    publicationId: string,
+    onOwned?: (record: ArtifactFileRecord) => void
   ): Promise<{ filename: string; bytes: Buffer }> {
     const file = this.own(sessionId, publicationId)
+    onOwned?.(file)
     return this.withFile(file.artifactFileId, async () => {
       try {
         this.own(sessionId, publicationId)

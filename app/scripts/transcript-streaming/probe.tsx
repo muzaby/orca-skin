@@ -4,7 +4,7 @@ import { TranscriptView } from '@renderer/features/chat/components/transcript/Tr
 import { transcriptHarness } from '@renderer/features/chat/harnesses/registries/transcript'
 import { initialChatState } from '@renderer/features/chat/reducer/chatReducer'
 import { ingestChatEvent, useChatStore } from '@renderer/features/chat/store/chatStore'
-import { advanceStableBlocks } from '@renderer/features/chat/lib/markdownBlocks'
+import { advanceStableBlocks } from '@renderer/shared/markdown/markdownBlocks'
 import {
   computeClient,
   setComputeClient,

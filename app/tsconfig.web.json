@@ -8,6 +8,8 @@
     "src/shared/**/*",
     "scripts/transcript-selection/probe.tsx",
     "scripts/transcript-history/probe.tsx",
+    "scripts/transcript-layout/probe.tsx",
+    "scripts/transcript-body/probe.tsx",
     "scripts/transcript-streaming/probe.tsx",
     "scripts/visible-views/probe.tsx",
     "scripts/fixtures/opencode-ui/main.tsx",
