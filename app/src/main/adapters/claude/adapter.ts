@@ -499,7 +499,14 @@ export class ClaudeAdapter implements SessionAdapter {
       choices
     )
     signal.throwIfAborted()
-    return { kind: 'claude-turn', pluginDefaults, plugins, choices, nativeDefinitions, deploymentRevision }
+    return {
+      kind: 'claude-turn',
+      pluginDefaults,
+      plugins,
+      choices,
+      nativeDefinitions,
+      deploymentRevision
+    }
   }
 
   sendMessage(req: TurnRequest): LiveTurn {
@@ -570,7 +577,8 @@ export class ClaudeAdapter implements SessionAdapter {
         b.attachmentImages ?? [],
         b.requirements ?? []
       )
-    const latestChoices = (): Record<string, boolean> => this.extensionControl?.global('claude') ?? {}
+    const latestChoices = (): Record<string, boolean> =>
+      this.extensionControl?.global('claude') ?? {}
     const deploymentChanged = (): boolean =>
       prepared.deploymentRevision !== this.extensionControl?.deploymentRevision?.()
     const startup = claudeInputResources(
@@ -817,12 +825,15 @@ export class ClaudeAdapter implements SessionAdapter {
           nativePlugins,
           prepared.nativeDefinitions
         )
-        if (deploymentChanged() || next.spawnKey !== startup.spawnKey) return { kind: 'restartBeforeAccept' }
-        const current = (): boolean => !deploymentChanged() && canonicalJson(latestChoices()) === revision
+        if (deploymentChanged() || next.spawnKey !== startup.spawnKey)
+          return { kind: 'restartBeforeAccept' }
+        const current = (): boolean =>
+          !deploymentChanged() && canonicalJson(latestChoices()) === revision
         if (next.targets.length) {
           try {
-            mutationScope ??= gitRootLineage(cwd).then(({root}) =>
-              canonicalJson([pluginPathKey(projectFiles[3]), pluginPathKey(root)]))
+            mutationScope ??= gitRootLineage(cwd).then(({ root }) =>
+              canonicalJson([pluginPathKey(projectFiles[3]), pluginPathKey(root)])
+            )
             await applyClaudeInputResources(
               handle,
               await mutationScope,
@@ -1073,7 +1084,8 @@ export class ClaudeAdapter implements SessionAdapter {
     }
 
     return {
-      inputResourcesChanged: () => deploymentChanged() || canonicalJson(latestChoices()) !== appliedChoices,
+      inputResourcesChanged: () =>
+        deploymentChanged() || canonicalJson(latestChoices()) !== appliedChoices,
       ...(checkInitial
         ? {
             submitInitial: (turnSignal?: AbortSignal) =>

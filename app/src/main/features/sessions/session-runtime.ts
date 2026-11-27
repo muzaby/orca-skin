@@ -588,7 +588,8 @@ export class SessionRuntime implements ManagedRuntime {
     const signal = this.channelController.signal
     const prepared = await this.adapter.prepareTurn?.(req, signal)
     if (signal.aborted || this.cancelled) throw new Error('submission_cancelled:before-spawn')
-    if (req.canSubmitInitial && !req.canSubmitInitial()) throw new Error('submission_stale:before-spawn')
+    if (req.canSubmitInitial && !req.canSubmitInitial())
+      throw new Error('submission_stale:before-spawn')
     return prepared
   }
 

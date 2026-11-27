@@ -70,7 +70,7 @@ async function fixture(): Promise<{
     { 'p@inline': true },
     persist
   )
-  resources.observePlugins([{name:'p',path:plugin}])
+  resources.observePlugins([{ name: 'p', path: plugin }])
   const reconcile = new ClaudeProjectReconciliation({
     cwd,
     root,

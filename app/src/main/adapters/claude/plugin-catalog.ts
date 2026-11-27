@@ -173,7 +173,8 @@ function catalogSelection(
   }
   const roots = new Set<string>()
   const entries = selectClaudePlugins(cwd, installed.plugins, enabled).filter((entry) => {
-    if ((!includeDisabled && !entry.enabled && !explicit[entry.key]) || !isAbsolute(entry.path)) return false
+    if ((!includeDisabled && !entry.enabled && !explicit[entry.key]) || !isAbsolute(entry.path))
+      return false
     const key = pluginPathKey(entry.path)
     if (roots.has(key)) return false
     roots.add(key)
@@ -207,9 +208,9 @@ function projectCatalog(
   const filesByName = new Map<string, Omit<ClaudePluginCatalog['files'][number], 'name'>>()
   const installations: ClaudePluginCatalog['installations'] = []
   const named = new Map<string, number>()
-  for (const {entry,manifest} of loaded) {
-    const name = claudePluginName(entry.path,manifest) ?? basename(entry.path)
-    named.set(name,(named.get(name) ?? 0)+1)
+  for (const { entry, manifest } of loaded) {
+    const name = claudePluginName(entry.path, manifest) ?? basename(entry.path)
+    named.set(name, (named.get(name) ?? 0) + 1)
   }
   for (const { entry, manifest, files, bundledMcp } of loaded) {
     const root = resolve(entry.path)
@@ -218,8 +219,10 @@ function projectCatalog(
     // An explicitly disabled installation can be omitted by path even before this
     // process has observed the SDK's optional manifest name.
     const identified = !!resolvedName || explicit[entry.key] === false
-    const selection = identified && named.get(pluginName) === 1 && entry.scope === 'user'
-      ? explicit[entry.key] : undefined
+    const selection =
+      identified && named.get(pluginName) === 1 && entry.scope === 'user'
+        ? explicit[entry.key]
+        : undefined
     const enabled = selection ?? entry.enabled
     if (!includeDisabled && !enabled) continue
     if (selection !== false) roots.push(root)

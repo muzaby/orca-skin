@@ -75,7 +75,7 @@ export function claudeNativeResources(
   }
   observePlugins(installations.filter((plugin) => plugin.enabled))
   // A prepared root is a startup choice. Only SDK init/reload establishes that it ran.
-  plugins = plugins.map((plugin) => ({...plugin, status: 'configured'}))
+  plugins = plugins.map((plugin) => ({ ...plugin, status: 'configured' }))
   const isNative = (server: McpServerStatus): boolean =>
     !injectedServers.includes(server.name) &&
     ![...injectedNames].some((name) => server.name.startsWith(`plugin:${name}:`))
