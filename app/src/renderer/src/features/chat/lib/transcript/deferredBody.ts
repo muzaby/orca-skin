@@ -6,6 +6,7 @@ import {
 } from '../../../../../../shared/history-page'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
 import { computeClient, type ComputeHandle } from '../../../../shared/compute/client'
+import { rendererLog } from '../../../../shared/logging'
 import { rememberHistoryLayout } from '../../../../shared/markdown/historyLayout'
 import type { ComputeResults, HistoryBodyRequest } from '../../../../shared/compute/protocol'
 import type { Message } from '../../reducer/chatReducer'
@@ -119,6 +120,10 @@ export async function readDeferredParts(
     return result.parts
   } finally {
     signal?.removeEventListener('abort', cancel)
-    if (started && !completed) void request(null).promise.catch(() => {})
+    if (started && !completed) {
+      void request(null).promise.catch((error: unknown) => {
+        rendererLog.warn('history.body.release-failed', 'chat', { error: String(error) })
+      })
+    }
   }
 }
