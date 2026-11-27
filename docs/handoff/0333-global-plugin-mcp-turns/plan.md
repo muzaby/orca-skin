@@ -2,7 +2,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 상태 | impl / **IN_PROGRESS** · 다음 담당 Codex · V1 + ΔV1 · §19-A Windows 설치본 인수 환경 대기 |
+| 상태 | impl / **IN_PROGRESS** · r1.2 · 다음 담당 Codex · V1 + ΔV1 · §19-A Windows 설치본 인수 환경 대기 |
 | 설계 | Codex · 사용자 요청에 따른 새 핸드오프 |
 | 기준 트리 | `ccr-59ce68d5-h1xutf`의 `28f79eaf` |
 | 추적 | V1 설계 `8fb06d6d` → ΔV1. PR #656의 0333 리뷰 다섯 항목을 §7·§8–11에 반영했다. [리뷰 원문](https://github.com/muzaby/orca-skin/pull/656#issuecomment-7193458574) |
