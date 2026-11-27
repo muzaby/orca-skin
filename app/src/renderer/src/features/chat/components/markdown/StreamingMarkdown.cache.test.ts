@@ -8,7 +8,7 @@ vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   ...(await import('../../../../shared/ui/renderHarness.testfixture')).fakeHooks
 }))
-vi.mock('../../lib/markdownBlocks', { spy: true })
+vi.mock('../../../../shared/markdown/markdownBlocks', { spy: true })
 vi.mock('../../../../shared/ui/markdown/CodeBlock', () => ({
   CodeBlock: ({ code }: { code: string }) => createElement('code', { 'data-fence': 'true' }, code)
 }))
