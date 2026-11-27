@@ -13,7 +13,10 @@ import { emptyBackgroundState } from '../../src/shared/background-task'
 import { HarnessScrollController } from '@renderer/features/chat/components/transcript/HarnessScrollController'
 import { TranscriptView } from '@renderer/features/chat/components/transcript/TranscriptView'
 import { chatActions, useChatStore } from '@renderer/features/chat/store/chatStore'
-import type { HistoryEdgeState } from '@renderer/features/chat/lib/transcript/historyGesture'
+import {
+  HISTORY_GESTURE_GAP_MS,
+  type HistoryEdgeState
+} from '@renderer/features/chat/lib/transcript/historyGesture'
 import appCss from '@renderer/styles/app.css?inline'
 
 const [backend, agentKind] = new URLSearchParams(location.search).get('screen')!.split('-') as [
@@ -409,8 +412,36 @@ Object.assign(window, {
       await settle(8)
       const first = ids()
       const rowsBeforeScroll = requestsBeforeUnitInput ?? [...searchRequests]
+      const wheelAt = wheels.at(-1)?.at
+      const waitStartedAt = performance.now()
+      let idleAt: number | undefined
+      if (scenario === 'framesUnit' && !releaseUnit) {
+        // Chromium can hold idle callbacks for two seconds after a native wheel.
+        // Observe the first input-free idle period before testing the idle reader.
+        const remaining = (wheelAt ?? 0) + HISTORY_GESTURE_GAP_MS - waitStartedAt
+        if (remaining > 0) await new Promise((resolve) => window.setTimeout(resolve, remaining))
+        idleAt = await new Promise<number>((resolve, reject) => {
+          const idle = window.requestIdleCallback(() => {
+            window.clearTimeout(timer)
+            resolve(performance.now())
+          })
+          const timer = window.setTimeout(() => {
+            window.cancelIdleCallback(idle)
+            reject(
+              Error(
+                'Browser did not enter an idle period after the wheel ' +
+                  JSON.stringify({ wheelAt, waitStartedAt })
+              )
+            )
+          }, 5000)
+        })
+      }
       for (let n = 0; !releaseUnit && n < 90; n++) await frame()
-      if (!releaseUnit) throw Error('Missing unit request')
+      if (!releaseUnit)
+        throw Error(
+          'Missing unit request: ' +
+            JSON.stringify({ wheelAt, waitStartedAt, idleAt, requests: searchRequests })
+        )
       reading = visibleLine()
       const before = snapshot()
       releaseUnit()
@@ -419,6 +450,9 @@ Object.assign(window, {
         first,
         ids: ids(),
         rowsBeforeScroll,
+        wheelAt,
+        waitStartedAt,
+        idleAt,
         unitPlacement,
         unitRequestGeometry,
         requests: searchRequests,
