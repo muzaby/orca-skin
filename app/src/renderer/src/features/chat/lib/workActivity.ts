@@ -297,13 +297,22 @@ export function createWorkProjector(
     if (!atoms.some((atom) => atom.kind === 'boundary')) return null
     const output: WorkActivityNode[] = []
     let active: { id: string; start: ResponseBoundary; items: SegmentNode[] } | undefined
-    const errorMessages = new Set(
-      atoms.flatMap((atom) =>
-        atom.kind === 'segment' && atom.segment.kind === 'error' && atom.segment.failure
-          ? [atom.segment.failure.assistantMessageKey]
-          : []
+    const failedBoundaries = new Set<string>()
+    const unboundErrors = new Set<string>()
+    const endCounts = new Map<string, number>()
+    for (const atom of atoms) {
+      if (
+        atom.kind === 'boundary' &&
+        atom.boundary.phase === 'end' &&
+        atom.boundary.outcome === 'failed'
       )
-    )
+        endCounts.set(atom.messageId, (endCounts.get(atom.messageId) ?? 0) + 1)
+      if (atom.kind !== 'segment' || atom.segment.kind !== 'error' || !atom.segment.failure)
+        continue
+      const receipt = atom.segment.failure
+      if (receipt.responseBoundaryId) failedBoundaries.add(receipt.responseBoundaryId)
+      else unboundErrors.add(receipt.assistantMessageKey)
+    }
     function finish(
       outcome: 'ended' | 'aborted' | 'failed' | 'unknown',
       endMessageId?: string
@@ -361,8 +370,14 @@ export function createWorkProjector(
       output.push(...trailingText)
       if (
         outcome === 'failed' &&
-        ((endMessageId && errorMessages.has(endMessageId)) ||
-          items.some((item) => item.segment.kind === 'error' && item.segment.failure))
+        (failedBoundaries.has(id) ||
+          (endMessageId && unboundErrors.has(endMessageId) && endCounts.get(endMessageId) === 1) ||
+          items.some(
+            (item) =>
+              item.segment.kind === 'error' &&
+              item.segment.failure &&
+              !item.segment.failure.responseBoundaryId
+          ))
       ) {
         active = undefined
         return

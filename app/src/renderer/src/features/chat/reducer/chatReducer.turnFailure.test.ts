@@ -170,3 +170,33 @@ it('reconciles a more recent overlapping page by occurrence, including two disti
   })
   expect(state.messages[1].parts).toEqual([firstPart, secondPart])
 })
+
+it('links a failed Work boundary to its receipt across assistant rows, preserving an unrelated failure', () => {
+  const first = failure('u:q', 'detail').failure
+  const rows = createWorkProjector()([
+    {
+      id: 'a:work',
+      createdAt: 0,
+      role: 'assistant',
+      parts: [
+        { type: 'response_boundary', boundary: { phase: 'begin', id: 'independent' } },
+        {
+          type: 'response_boundary',
+          boundary: { phase: 'end', id: 'independent', outcome: 'failed' }
+        },
+        { type: 'response_boundary', boundary: { phase: 'begin', id: 'work' } },
+        { type: 'response_boundary', boundary: { phase: 'end', id: 'work', outcome: 'failed' } }
+      ]
+    },
+    {
+      id: 'a:detail',
+      createdAt: 0,
+      role: 'assistant',
+      parts: [{ type: 'error', error, failure: { ...first, responseBoundaryId: 'work' } }]
+    }
+  ])
+  expect(rows?.map((n) => (n.kind === 'status' ? n.key : n.kind))).toEqual([
+    'status:independent',
+    'segment'
+  ])
+})
