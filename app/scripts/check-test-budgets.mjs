@@ -195,12 +195,6 @@ export const SEMANTIC_DELAYS = [
     reason: 'SDK transport 의 실제 AbortSignal.timeout(2.5s) 을 넘겨야 하는 대기'
   },
   {
-    file: 'main/app/handlers/session-resources.claude-assembly.test.ts',
-    value: '1000',
-    count: 1,
-    reason: '설정 파일 mtime 을 구별하기 위한 1초 간격'
-  },
-  {
     file: 'main/features/plugins/mail/sync-manager.test.ts',
     value: '25_000',
     count: 1,
