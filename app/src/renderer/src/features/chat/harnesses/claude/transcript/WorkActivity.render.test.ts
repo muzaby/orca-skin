@@ -18,6 +18,7 @@ const turn: Turn = {
   startIndex: 0,
   messages: [
     {
+      id: 'm-20',
       role: 'assistant',
       createdAt: 1,
       parts: [

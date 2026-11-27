@@ -43,6 +43,7 @@ afterEach(() => {
 
 const backgroundMessages = (toolRunId: string, description: string): Message[] => [
   {
+    id: 'm-45',
     role: 'assistant',
     createdAt: 1_700_000_000_000,
     parts: [{ type: 'tool_call', toolRunId, toolName: 'Task', args: { description, prompt: 'p' } }]

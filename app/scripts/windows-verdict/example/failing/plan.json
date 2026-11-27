@@ -1,0 +1,175 @@
+{
+  "revision": "example-v1",
+  "lockedAt": "2026-11-20T00:00:00Z",
+  "wBaselineSha": "1111111111111111111111111111111111111111",
+  "integrationSha": "2222222222222222222222222222222222222222",
+  "profiles": [
+    {
+      "id": "desktop",
+      "os": "win32",
+      "hz": 60
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T17",
+      "owners": [
+        "0326"
+      ]
+    },
+    {
+      "id": "T09",
+      "owners": [
+        "0329"
+      ]
+    }
+  ],
+  "cells": [
+    {
+      "key": "typing",
+      "task": "T17",
+      "owner": "0326",
+      "ownerRevision": "V1",
+      "sample": "w",
+      "scenario": "W1",
+      "operation": "typing",
+      "load": "fixture",
+      "harness": "claude",
+      "profile": "desktop",
+      "pair": {
+        "id": "W",
+        "beforeSha": "1111111111111111111111111111111111111111",
+        "afterSha": "2222222222222222222222222222222222222222"
+      },
+      "side": "after",
+      "buildKind": "diagnostic",
+      "metric": "input-p95",
+      "interval": "interaction",
+      "required": true,
+      "ownerChecks": {
+        "machine": true,
+        "windows": true
+      },
+      "rule": {
+        "aggregate": "p95",
+        "combine": "pooled",
+        "operator": "≤",
+        "value": 50,
+        "inputUnit": "ms",
+        "unit": "ms",
+        "mode": "absolute"
+      }
+    },
+    {
+      "key": "scroll",
+      "task": "T17",
+      "owner": "0326",
+      "ownerRevision": "V1",
+      "sample": "w",
+      "scenario": "W1",
+      "operation": "scroll",
+      "load": "fixture",
+      "harness": "claude",
+      "profile": "desktop",
+      "pair": {
+        "id": "W",
+        "beforeSha": "1111111111111111111111111111111111111111",
+        "afterSha": "2222222222222222222222222222222222222222"
+      },
+      "side": "after",
+      "buildKind": "diagnostic",
+      "metric": "scroll-max",
+      "interval": "interaction",
+      "required": true,
+      "ownerChecks": {
+        "machine": true,
+        "windows": true
+      },
+      "rule": {
+        "aggregate": "max",
+        "combine": "pooled",
+        "operator": "≤",
+        "value": 50,
+        "inputUnit": "ms",
+        "unit": "ms",
+        "mode": "absolute"
+      }
+    },
+    {
+      "key": "prepend",
+      "task": "T17",
+      "owner": "0326",
+      "ownerRevision": "V1",
+      "sample": "w",
+      "scenario": "W1",
+      "operation": "prepend",
+      "load": "fixture",
+      "harness": "claude",
+      "profile": "desktop",
+      "pair": {
+        "id": "W",
+        "beforeSha": "1111111111111111111111111111111111111111",
+        "afterSha": "2222222222222222222222222222222222222222"
+      },
+      "side": "after",
+      "buildKind": "diagnostic",
+      "metric": "anchor-offset",
+      "interval": "interaction",
+      "required": true,
+      "ownerChecks": {
+        "machine": true,
+        "windows": true
+      },
+      "rule": {
+        "aggregate": "max",
+        "combine": "pooled",
+        "operator": "≤",
+        "value": 1,
+        "inputUnit": "px",
+        "unit": "px",
+        "mode": "absolute"
+      }
+    },
+    {
+      "key": "search",
+      "task": "T09",
+      "owner": "0329",
+      "ownerRevision": "V1",
+      "sample": "w",
+      "scenario": "S-E5",
+      "operation": "select",
+      "load": "fixture",
+      "harness": "claude",
+      "profile": "desktop",
+      "pair": {
+        "id": "W",
+        "beforeSha": "1111111111111111111111111111111111111111",
+        "afterSha": "2222222222222222222222222222222222222222"
+      },
+      "side": "after",
+      "buildKind": "diagnostic",
+      "metric": "first-visible",
+      "interval": "interaction",
+      "required": true,
+      "ownerChecks": {
+        "machine": true,
+        "windows": true
+      },
+      "rule": {
+        "aggregate": "max",
+        "combine": "pooled",
+        "operator": "≤",
+        "value": 50,
+        "inputUnit": "ms",
+        "unit": "ms",
+        "mode": "absolute"
+      },
+      "target": {
+        "kind": "search-target",
+        "sessionId": "sB",
+        "messageId": "m63",
+        "expectText": "fixture message 63"
+      }
+    }
+  ]
+}

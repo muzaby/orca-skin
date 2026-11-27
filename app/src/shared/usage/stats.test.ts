@@ -101,8 +101,17 @@ describe('fillDailySeries', () => {
   it('전체 범위가 캡을 넘으면 최근 MAX_FILLED_DAYS 로 자른다', () => {
     const filled = fillDailySeries([day('2020-01-01', 1)], null, NOW)
     expect(filled).toHaveLength(MAX_FILLED_DAYS)
+    expect(filled).toHaveLength(730)
     expect(filled[filled.length - 1].day).toBe('2026-07-16')
   })
+})
+
+it('ignores a future-only series when displaying all recorded days', () => {
+  expect(fillDailySeries([day('2027-01-01', 9)], null, NOW)).toEqual([])
+  const recent = day('2026-07-12', 3)
+  expect(fillDailySeries([day('2027-01-01', 9), recent], null, NOW)).toEqual(
+    fillDailySeries([recent], null, NOW)
+  )
 })
 
 describe('aggregateWeekly', () => {

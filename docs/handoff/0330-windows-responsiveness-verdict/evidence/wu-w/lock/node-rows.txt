@@ -1,0 +1,109 @@
+Node v22.15.1 · win32/x64
+| 입력 | 내용 | 중앙값 / 최대 (예열 1 뒤 9회) |
+| I1 | 빈 parts 메시지 200,000건 분할·조립 | 73.31ms / 90.20ms |
+| I2 | 5만 추가 줄 patch → hunk | 24.83ms / 154.56ms |
+| I3 | 초안 400,000자 장식 | 0.00ms / 0.01ms |
+| I4 | `/z` + 마침표 19,998개(20,000자) 장식 | 0.51ms / 0.80ms |
+| I5 | `/z` + 마침표 19,999개(20,001자) 장식 | 0.00ms / 0.00ms |
+| I6 | MultiEdit 50 × (200+200줄) 머리 | 0.01ms / 0.18ms |
+| I7 | 한 줄 5,000,000자 쌍 인라인 diff | 0.00ms / 0.01ms |
+| I8 | patch 3 × 404,045자 머리 | 0.00ms / 0.02ms |
+| I9 | 10,000 exchange 뒤 1건 추가 그룹화(groupExchanges) | N/A(함수 없음) |
+| J1:coldBuild | Claude Code · 10,000 exchange 끝 part 추가 (coldBuild) | 496.16ms / 688.42ms |
+| J1:incremental | Claude Code · 10,000 exchange 끝 part 추가 (incremental) | 1.43ms / 2.33ms |
+| J1:cacheHit | Claude Code · 10,000 exchange 끝 part 추가 (cacheHit) | 0.01ms / 0.02ms |
+| J1(work):coldBuild | Claude Work · 10,000 exchange 끝 part 추가 (coldBuild) | 1523.85ms / 2485.86ms |
+| J1(work):incremental | Claude Work · 10,000 exchange 끝 part 추가 (incremental) | 1.33ms / 1.95ms |
+| J1(work):cacheHit | Claude Work · 10,000 exchange 끝 part 추가 (cacheHit) | 0.01ms / 0.01ms |
+| J2:coldBuild | OpenCode · 10,000 exchange 끝 part 추가 (coldBuild) | 616.80ms / 1403.47ms |
+| J2:incremental | OpenCode · 10,000 exchange 끝 part 추가 (incremental) | 1.43ms / 9.34ms |
+| J2:cacheHit | OpenCode · 10,000 exchange 끝 part 추가 (cacheHit) | 0.01ms / 0.01ms |
+| J3:coldBuild | index 1 산출물 · reducer와 Claude 블록 (coldBuild) | 655.33ms / 1087.78ms |
+| J3:incremental | index 1 산출물 · reducer와 Claude 블록 (incremental) | 1.35ms / 11.89ms |
+| J3:cacheHit | index 1 산출물 · reducer와 Claude 블록 (cacheHit) | 0.01ms / 0.01ms |
+| J4:coldBuild | index 1 산출물 · 패널 9개 뷰 (coldBuild) | 200.73ms / 320.18ms |
+| J4:incremental | index 1 산출물 · 패널 9개 뷰 (incremental) | 0.45ms / 2.70ms |
+| J4:cacheHit | index 1 산출물 · 패널 9개 뷰 (cacheHit) | 0.02ms / 0.03ms |
+| J5:coldBuild | 작업 보드 100개 · TaskUpdate 결과 (coldBuild) | 0.99ms / 1.48ms |
+| J5:incremental | 작업 보드 100개 · TaskUpdate 결과 (incremental) | 0.84ms / 14.21ms |
+| J5:cacheHit | 작업 보드 100개 · TaskUpdate 결과 (cacheHit) | 0.01ms / 0.14ms |
+| J5(1000):coldBuild | 작업 보드 1000개 · TaskUpdate 결과 (coldBuild) | 3.08ms / 21.89ms |
+| J5(1000):incremental | 작업 보드 1000개 · TaskUpdate 결과 (incremental) | 2.37ms / 20.21ms |
+| J5(1000):cacheHit | 작업 보드 1000개 · TaskUpdate 결과 (cacheHit) | 0.02ms / 0.06ms |
+| J6:coldBuild | 10,000 part · append (coldBuild) | 5.31ms / 7.81ms |
+| J6:incremental | 10,000 part · append (incremental) | 0.03ms / 10.76ms |
+| J6:cacheHit | 10,000 part · append (cacheHit) | 0.01ms / 0.01ms |
+| J6(withdraw):coldBuild | 10,000 part · withdraw (coldBuild) | 1.50ms / 2.83ms |
+| J6(withdraw):incremental | 10,000 part · withdraw (incremental) | 50.59ms / 89.07ms |
+| J6(withdraw):cacheHit | 10,000 part · withdraw (cacheHit) | 0.00ms / 0.01ms |
+| J6(different-kind):coldBuild | 10,000 part · different-kind (coldBuild) | 1.30ms / 68.90ms |
+| J6(different-kind):incremental | 10,000 part · different-kind (incremental) | 0.03ms / 0.13ms |
+| J6(different-kind):cacheHit | 10,000 part · different-kind (cacheHit) | 0.00ms / 0.01ms |
+| J7:coldBuild | 100,000자 · 50자씩 완결 줄 스캔 (coldBuild) | 4.05ms / 17.48ms |
+| J7:incremental | 100,000자 · 50자씩 완결 줄 스캔 (incremental) | 1.59ms / 6.71ms |
+| J7:cacheHit | 100,000자 · 50자씩 완결 줄 스캔 (cacheHit) | 0.20ms / 0.54ms |
+| J7(list):coldBuild | 100,000자 · 50자씩 완결 줄 스캔 (coldBuild) | 6.24ms / 24.49ms |
+| J7(list):incremental | 100,000자 · 50자씩 완결 줄 스캔 (incremental) | 3.81ms / 12.34ms |
+| J7(list):cacheHit | 100,000자 · 50자씩 완결 줄 스캔 (cacheHit) | 0.15ms / 0.18ms |
+| J7(paragraph):coldBuild | 100,000자 · 50자씩 완결 줄 스캔 (coldBuild) | 0.01ms / 0.01ms |
+| J7(paragraph):incremental | 100,000자 · 50자씩 완결 줄 스캔 (incremental) | 0.29ms / 9.48ms |
+| J7(paragraph):cacheHit | 100,000자 · 50자씩 완결 줄 스캔 (cacheHit) | 0.12ms / 0.22ms |
+| J7:code | 열린 펜스 · 코드 본문 문자열 2,000회 생성 | 14.32ms / 26.54ms |
+| J7:dom | 열린 펜스 · 준비한 코드 본문으로 DOM 텍스트 2,000회 갱신 | 0.88ms / 16.43ms |
+| J8:coldBuild | 앞삽입 1턴 · 기존 1턴 (coldBuild) | 0.07ms / 0.10ms |
+| J8:incremental | 앞삽입 1턴 · 기존 1턴 (incremental) | 0.15ms / 0.35ms |
+| J8:cacheHit | 앞삽입 1턴 · 기존 1턴 (cacheHit) | 0.00ms / 0.01ms |
+| J8(100):coldBuild | 앞삽입 1턴 · 기존 100턴 (coldBuild) | 10.67ms / 35.74ms |
+| J8(100):incremental | 앞삽입 1턴 · 기존 100턴 (incremental) | 0.29ms / 2.92ms |
+| J8(100):cacheHit | 앞삽입 1턴 · 기존 100턴 (cacheHit) | 0.01ms / 0.02ms |
+| J10(5000:content) | Virtualizer (5000블록, getItemKey=0) | 0.05ms / 0.09ms |
+| J10(5000:callback) | Virtualizer (5000블록, getItemKey=5017) | 1.31ms / 1.89ms |
+| J10(5000:count+1) | Virtualizer (5000블록, getItemKey=5018) | 1.39ms / 4.25ms |
+| J10(5000:topResize) | Virtualizer (5000블록, getItemKey=5018) | 1.23ms / 3.13ms |
+| J10(5000:lastResize) | Virtualizer (5000블록, getItemKey=20) | 0.07ms / 0.14ms |
+| J10(5000:reorder) | Virtualizer (5000블록, getItemKey=5017) | 0.44ms / 1.82ms |
+| J10(100000:content) | Virtualizer (100000블록, getItemKey=0) | 0.04ms / 0.04ms |
+| J10(100000:callback) | Virtualizer (100000블록, getItemKey=100017) | 5.43ms / 7.98ms |
+| J10(100000:count+1) | Virtualizer (100000블록, getItemKey=100018) | 5.83ms / 11.71ms |
+| J10(100000:topResize) | Virtualizer (100000블록, getItemKey=100018) | 6.66ms / 8.79ms |
+| J10(100000:lastResize) | Virtualizer (100000블록, getItemKey=20) | 0.84ms / 0.89ms |
+| J10(100000:reorder) | Virtualizer (100000블록, getItemKey=100017) | 5.22ms / 6.26ms |
+| K1 | 5000 diff rows | 16.18ms / 60.91ms (시도 10) |
+| K1 | 5001 diff rows | 14.41ms / 19.25ms (시도 10) |
+| K1 | 50000 diff rows | 155.41ms / 252.93ms (시도 10) |
+| K2 | tokens 0 | 115.19ms / 161.92ms (시도 10) |
+| K2 | tokens 49800 | 16366.19ms / 24827.38ms (시도 10) |
+| K3 | 1MB markdown, first 30 blocks | 122.96ms / 208.52ms (시도 10) |
+| K4 | loose list 4000 | 411.02ms / 439.45ms (시도 10) |
+| K4 | loose list 20000 | 654.33ms / 730.55ms (시도 10) |
+| K4 | loose list 50000 | 2320.75ms / 3577.35ms (시도 10) |
+| K5 | 5MiB code index and first 200 rows | 104.75ms / 115.63ms (시도 10) |
+| K6 | 200 file paths | 0.33ms / 0.56ms (시도 10) |
+| K7 | 990044-char patch | 1.49ms / 8.46ms (시도 10) |
+| K8 | typescript | 314.66ms / 398.73ms (시도 10) |
+| K8 | javascript | 0.17ms / 0.28ms (시도 10) |
+| K9 | javascript 5000 | 4758.82ms / 6650.46ms (시도 10) |
+| K9 | javascript 20000 | 0.09ms / 0.10ms (시도 10) |
+| K9 | javascript 1000000 | 4.26ms / 26.20ms (시도 10) |
+| K9 | json 1000002 | 4.27ms / 22.03ms (시도 10) |
+| K10 | boundary 0 | 2336.09ms / 2850.10ms (시도 10) |
+| K10 | boundary 1 | 1.59ms / 8.80ms (시도 10) |
+| K10 | boundary 2 | 0.00ms / 0.01ms (시도 10) |
+| K10 | boundary 3 | 782.18ms / 921.26ms (시도 10) |
+| K10 | boundary 4 | 4937.49ms / 5514.43ms (시도 10) |
+| K10 | boundary 5 | 0.09ms / 0.09ms (시도 10) |
+| K10 | boundary 6 | 1736.97ms / 4739.92ms (시도 10) |
+| K11 | Read 1000000 | 3.03ms / 21.00ms (시도 10) |
+| K11 | Work string 1000000 | 0.03ms / 0.14ms (시도 10) |
+| K11 | Work object 1000000 | 6.88ms / 20.68ms (시도 10) |
+| K11 | Read 5000000 | 21.28ms / 41.92ms (시도 10) |
+| K11 | Work string 5000000 | 0.00ms / 0.01ms (시도 10) |
+| K11 | Work object 5000000 | 45.95ms / 104.93ms (시도 10) |
+| K11 | 50000 patch lines | 20.16ms / 28.86ms (시도 10) |
+| K13 | 50000 pair diff rows | 308.12ms / 402.45ms (시도 10) |
+| K13 | pair 2000 + 2000 | 1792.93ms / 3616.58ms (시도 10) |
+| K13 | pair 5000 + 5000 | 27209.34ms / 55869.08ms (시도 10) |
+| K13 | pair 50000 + 50000 | 170.73ms / 234.15ms (시도 10) |
+| K13 | 50000 model only | 58.97ms / 82.81ms (시도 10) |
+| K13 | 5MiB codeView | 148.67ms / 167.37ms (시도 10) |
+| K13 | 32000-char highlight | 445.97ms / 579.25ms (시도 10) |

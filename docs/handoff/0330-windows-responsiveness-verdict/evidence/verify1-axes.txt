@@ -1,0 +1,20 @@
+# verify 1 독립 축(하한 ⑥) — passing 예제 변형 19건 · 실행: `cd app && node ../docs/handoff/0330-windows-responsiveness-verdict/evidence/verify1-axes.mjs`(APP 경로는 파일 안 상수)
+baseline exit=0 :: 합격 | typing:충족 scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=0 dup=0 unexp=0 ownF=0 holds=
+agreementRevision exit=1 :: 판정 보류 | typing:미판정(합의 불일치) scroll:미판정(합의 불일치) prepend:미판정(합의 불일치) reply:미판정(합의 불일치) function:미판정(합의 불일치) search:미판정(합의 불일치) | miss=18 dup=0 unexp=0 ownF=0 holds=합의 불일치/필수 결측
+unknownSample exit=2 :: 잘못된 셀: typing
+unknownOperator exit=1 :: 판정 보류 | typing:미판정(지원 안 함: ≦) scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=3 dup=0 unexp=0 ownF=0 holds=필수 결측
+targetMissing exit=2 :: target 필요: search
+rawDeleted exit=1 :: 판정 보류 | typing:미판정(수집 실패) scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=1 dup=0 unexp=0 ownF=0 holds=필수 결측
+manifestRuntimeLie exit=1 :: 판정 보류 | typing:충족 scroll:충족 prepend:충족 reply:충족 function:미판정(런타임 불일치: 원본) search:충족 | miss=3 dup=0 unexp=0 ownF=0 holds=필수 결측
+confirmEarly exit=1 :: 판정 보류 | typing:충족 scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=0 dup=0 unexp=0 ownF=0 holds=확정이 실행보다 앞섬
+dupLine exit=0 :: 합격 | typing:충족 scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=0 dup=1 unexp=0 ownF=0 holds=
+wrongIntegrationSha exit=1 :: 판정 보류 | typing:충족 scroll:미판정(통합 SHA 아님) prepend:충족 reply:충족 function:충족 search:충족 | miss=1 dup=0 unexp=0 ownF=0 holds=필수 결측
+optionalViolation exit=0 :: 합격 | typing:충족 scroll:기록 전용 prepend:충족 reply:충족 function:충족 search:충족 | miss=0 dup=0 unexp=0 ownF=0 holds=
+ownerRowRemoved exit=1 :: 판정 보류 | typing:충족 scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=1 dup=0 unexp=0 ownF=0 holds=소유 판정 없음/필수 결측
+unitFrames exit=1 :: 판정 보류 | typing:미판정(단위 불일치) scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=1 dup=0 unexp=0 ownF=0 holds=필수 결측
+opIdOtherRun exit=1 :: 판정 보류 | typing:충족 scroll:충족 prepend:충족 reply:충족 function:충족 search:미판정(다른 선택) | miss=1 dup=0 unexp=0 ownF=0 holds=필수 결측
+valueMismatchMarker exit=0 :: 합격 | typing:충족 scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=0 dup=0 unexp=0 ownF=0 holds=
+ownerFailNoRef exit=1 :: 판정 보류 | typing:충족 scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=1 dup=0 unexp=0 ownF=0 holds=소유 판정 없음/필수 결측
+extraUnknownRow exit=0 :: 합격 | typing:충족 scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=0 dup=0 unexp=1 ownF=0 holds=
+emptyValues exit=1 :: 판정 보류 | typing:미판정(표본 없음) scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=1 dup=0 unexp=0 ownF=0 holds=필수 결측
+nanValue exit=1 :: 판정 보류 | typing:미판정(표본 없음) scroll:충족 prepend:충족 reply:충족 function:충족 search:충족 | miss=1 dup=0 unexp=0 ownF=0 holds=필수 결측

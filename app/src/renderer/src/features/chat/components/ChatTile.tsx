@@ -136,7 +136,7 @@ export function ChatTile({
             inflight={inflight}
             onControls={onScrollControls}
           >
-            {({ scrollRef, contentRef, onScroll, anchored }) => (
+            {({ scrollRef, contentRef, onScroll, anchored, isPinned }) => (
               <>
                 {/* transcript 상·하단 soft fade — 타이틀 아래/컴포저 위 경계에서 스크롤되는
               내용이 배경색(from-bg)으로 흐려진다. pointer-events-none 으로 스크롤·선택·
@@ -147,6 +147,7 @@ export function ChatTile({
                     key={policy.transcript.remountTranscriptBySession ? activeKey : undefined}
                     agentKind={agentKind}
                     backend={backend}
+                    sessionId={sessionId}
                     messages={messages}
                     pendingSteer={pendingSteer}
                     onRestoreSteerDraft={restoreSteerDraft}
@@ -154,6 +155,7 @@ export function ChatTile({
                     loadingSession={loadingSession}
                     error={error}
                     anchored={anchored}
+                    isPinned={isPinned}
                     scrollRef={scrollRef}
                     contentRef={contentRef}
                     onScroll={onScroll}

@@ -2,10 +2,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SESSION_LOAD_CANCELLED, type ChunkedSession } from '../../../../../shared/data-host'
 import type { LoadedMessage } from '../../../../../shared/ipc'
+import { HISTORY_PAGE_PARTS, type HistoryQuery } from '../../../../../shared/history-page'
 import { createSessionLoadClient } from './session-load'
 
 const CHANNELS = { load: 'load', refresh: 'refresh', chunk: 'chunk', cancel: 'cancel' }
 const message = (text: string): LoadedMessage => ({
+  id: text,
   role: 'user',
   createdAt: 1,
   parts: [{ type: 'text', text }]
@@ -20,7 +22,7 @@ const head = (id: string, chunks: number, messages: number): ChunkedSession => (
 })
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function setup() {
+function setup(paged = false) {
   const calls: Array<{ channel: string; payload: { sessionId: string; requestId: number } }> = []
   const replies = new Map<number, (value: unknown) => void>()
   const sent: Array<[string, unknown]> = []
@@ -37,7 +39,7 @@ function setup() {
       onChunk = handler
       return () => {}
     },
-    channels: CHANNELS
+    channels: paged ? { ...CHANNELS, page: 'history-page' } : CHANNELS
   })
   return {
     client,
@@ -53,6 +55,7 @@ describe('세션 본문 조립', () => {
   // 0325 VP-01 — 상한 이전 형상(한 조각 200,000건)과 상한 형상(400조각) 모두 인자 펼침 없이 조립한다.
   it('200,000건을 한 조각·400조각으로 받아도 순서대로 조립한다', async () => {
     const messages: LoadedMessage[] = Array.from({ length: 200_000 }, (_, index) => ({
+      id: String(index),
       role: 'user',
       createdAt: index,
       parts: []
@@ -178,5 +181,127 @@ describe('세션 본문 조립', () => {
     h.reply(1, head('a', 1, 1))
     void second.then(spy)
     expect((await second)?.messages).toEqual([message('둘째')])
+  })
+})
+
+describe('bounded history page replies', () => {
+  const ok = {
+    status: 'ok',
+    requestId: 0,
+    openGeneration: 0,
+    sessionId: 's',
+    session: {
+      id: 's',
+      backend: 'claude',
+      agentKind: 'code',
+      title: null,
+      complete: false,
+      history: { generation: 'gen' },
+      messages: [message('tail')]
+    }
+  }
+  it('accepts one matching page and keeps refresh on the bounded path', async () => {
+    const port = setup(true)
+    const first = port.client.loadLatest('s')
+    expect(port.calls[0]).toEqual({
+      channel: 'history-page',
+      payload: { sessionId: 's', kind: 'latest', openGeneration: 0, requestId: 0 }
+    })
+    port.reply(0, ok)
+    expect(await first).toEqual(ok.session)
+    const refresh = port.client.refresh('s')
+    expect(port.calls[1].payload).toMatchObject({ requestId: 1, openGeneration: 1 })
+    port.reply(1, { status: 'unchanged' })
+    expect(await refresh).toEqual({ status: 'unchanged' })
+  })
+  const ref = { kind: 'parts' as const, message: 'tail', session: 's', generation: 'gen', bytes: 8 }
+  const withRef = (patch: Partial<typeof ref>): typeof ok.session => ({
+    ...ok.session,
+    messages: [{ ...message('tail'), parts: [], deferredBody: { ...ref, ...patch } }]
+  })
+  it.each([
+    ['inner session', { ...ok.session, id: 'wrong' }],
+    [
+      'total parts',
+      {
+        ...ok.session,
+        messages: ['a', 'b'].map((id) => ({
+          ...message(id),
+          parts: Array(Math.floor(HISTORY_PAGE_PARTS / 2) + 1).fill({ type: 'text', text: 'x' })
+        }))
+      }
+    ],
+    ['ref session', withRef({ session: 'other' })],
+    ['ref generation', withRef({ generation: 'other' })],
+    ['ref owner', withRef({ message: 'other' })]
+  ])('rejects a structurally valid page with a mismatched %s', async (_field, session) => {
+    const port = setup(true)
+    const pending = port.client.loadLatest('s')
+    port.reply(0, { ...ok, session })
+    await expect(pending).rejects.toThrow('Mismatched history reply')
+  })
+  it.each([
+    ['offset', { offset: 2 }],
+    ['nonadvancing', { nextOffset: 1 }],
+    ['beyond reference', { nextOffset: 9 }],
+    ['premature done', { done: true }],
+    ['missing done', { nextOffset: 8, done: false }],
+    ['page instead of body', ok]
+  ])('checks the body response against its request (%s)', async (_case, patch) => {
+    const port = setup(true)
+    const pending = port.client.page({
+      sessionId: 's',
+      openGeneration: 0,
+      kind: 'body',
+      ref,
+      offset: 1
+    })
+    port.reply(0, {
+      ...ok,
+      status: 'body',
+      offset: 1,
+      nextOffset: 4,
+      done: false,
+      base64: 'YWJj',
+      ...patch
+    })
+    await expect(pending).rejects.toThrow('Mismatched history reply')
+  })
+  it('rejects confirmation for a different cached message and cancels a target already in flight', async () => {
+    const port = setup(true)
+    const query: HistoryQuery = {
+      kind: 'target',
+      sessionId: 's',
+      openGeneration: 5,
+      locator: { v: 1, session: 's', source: 'local', epoch: 'e', identity: 'tail' },
+      cached: { generation: 'gen', messageKey: 'tail' }
+    }
+    const pending = port.client.page(query)
+    port.reply(0, {
+      sessionId: 's',
+      openGeneration: 5,
+      requestId: 0,
+      status: 'useCached',
+      generation: 'gen',
+      messageKey: 'other'
+    })
+    await expect(pending).rejects.toThrow('Mismatched history reply')
+    const late = port.client.page(query)
+    port.client.cancelLoad('s', 5)
+    port.reply(1, { ...ok, openGeneration: 5, requestId: 1 })
+    await expect(late).rejects.toThrow(SESSION_LOAD_CANCELLED)
+  })
+  it.each([
+    { sessionId: 'other' },
+    { requestId: 71 },
+    { openGeneration: 72 },
+    { status: 'unknown' },
+    { session: { ...ok.session, messages: [message('tail'), message('tail')] } },
+    { session: { ...ok.session, messages: [], history: null } }
+  ])('rejects mismatched or incomplete replies %j', async (patch) => {
+    const port = setup(true)
+    const first = port.client.loadLatest('s')
+    port.reply(0, { ...ok, ...patch })
+    await expect(first).rejects.toThrow('Mismatched history reply')
   })
 })

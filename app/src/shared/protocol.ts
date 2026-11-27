@@ -290,7 +290,13 @@ export const DebugMockPatchSchema = z
 
 export const ListFilesRequestSchema = z.object({
   cwd: z.string().min(1),
-  relDir: z.string()
+  relDir: z.string(),
+  observation: z
+    .object({
+      owner: z.string().min(1).max(256),
+      active: z.boolean()
+    })
+    .optional()
 })
 
 export const OpenContextFileRequestSchema = z.object({
@@ -370,7 +376,8 @@ export const SetSkillEnabledSchema = SkillTargetSchema.extend({
 // `requestId` 가 있으면 본문을 조각 통지로 보낸다(0324 EP-4′ — `shared/data-host.ts`).
 export const LoadSessionRequestSchema = z.object({
   sessionId: z.string().min(1),
-  requestId: z.number().int().nonnegative().optional()
+  requestId: z.number().int().nonnegative().optional(),
+  openGeneration: z.number().int().nonnegative().optional()
 })
 const SessionResourceRequestSchema = z.object({ sessionId: z.string().min(1).max(512) }).strict()
 export const ComposerCatalogReleaseSchema = z.object({ owner: z.uuid() }).strict()

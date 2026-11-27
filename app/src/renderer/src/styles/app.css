@@ -519,3 +519,13 @@
     opacity: 1;
   }
 }
+
+[data-selection-suppressed],
+[data-selection-suppressed] * {
+  user-select: none !important;
+}
+
+[data-history-highlight] {
+  outline: 2px solid var(--color-rust);
+  outline-offset: -2px;
+}

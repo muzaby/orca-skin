@@ -1,0 +1,164 @@
+# verify 3 고장 이력 — mutate.py · oracle = node --test scripts/windows-verdict.test.mjs 전체(이름 필터 없음). 구현자 r3 원장 136행 재실행 + 검증자 V3.* 21행 + verify 2 형제 맞바꿈 X5.1~4 재구성. call-late는 수동(호출을 판정 직전으로 이동 → U40 red). 원복 확인: 모든 파일 원문 그대로
+id	결과	exit	요약
+call-order	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+c-value	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+c-field	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+c-target	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+c-미완	red (기대 일치)	1	node --test fail 2 · U17/U24 task with two owners and independently required columns; U39 keeps owner failures and reports missing evidence for each owner column
+c-FAIL	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+c-PASS	red (기대 일치)	1	node --test fail 26 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence st
+c-null	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+c-empty	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+c-windows	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+c-machine	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+b-id	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+b-null	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+b-empty	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+b-key	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+b-owner	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+b-task	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+a-id	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+a-every-row	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+a-owner	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+a-task	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+A-8c	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+A-9c	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+A-9b	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+A-9a	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+X5.4	red (기대 일치)	1	node --test fail 4 · U4–U5, U33, U34 absence, unobservable evidence and actual functional failures; U10/U11 nearest rank, even median, censored floor and zero relative denominator; 
+X5.3	red (기대 일치)	1	node --test fail 22 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence st
+X5.2	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+X5.1	red (기대 일치)	1	node --test fail 3 · report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence still fails; U34/U37 read numeric Node table cells, N/A reaso
+P5.8-reference	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+P5.8-ref-column	red (기대 일치)	1	node --test fail 2 · report CLI: owner FAIL without evidence still fails; U39 keeps owner failures and reports missing evidence for each owner column
+P5.8-hold	red (기대 일치)	1	node --test fail 2 · report CLI: owner FAIL without evidence still fails; U39 keeps owner failures and reports missing evidence for each owner column
+P5.8-mixed-fail	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+P5.8-own-ref	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+P5.8-incomplete	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+P5.8b	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+P5.8a	red (기대 일치)	1	node --test fail 3 · report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan; U39 keeps owner failures and reports missing evidence for each own
+P1.4d	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+C4	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence st
+C3	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence st
+C2	red (기대 일치)	1	node --test fail 1 · cli rejects missing arguments and malformed input and supports optional owners
+C1	red (기대 일치)	1	node --test fail 1 · cli rejects missing arguments and malformed input and supports optional owners
+P5.7	red (기대 일치)	1	node --test fail 6 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+P5.6b	red (기대 일치)	1	node --test fail 1 · U8/U17/U24 distinguish required keys, unrequested owner columns, and missing owners
+P5.6a	red (기대 일치)	1	node --test fail 1 · U17/U24 task with two owners and independently required columns
+P5.5	red (기대 일치)	1	node --test fail 2 · U17/U24 task with two owners and independently required columns; U39 keeps owner failures and reports missing evidence for each owner column
+P5.4	red (기대 일치)	1	node --test fail 1 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row
+P5.3	red (기대 일치)	1	node --test fail 1 · U8/U17/U24 distinguish required keys, unrequested owner columns, and missing owners
+P5.2	red (기대 일치)	1	node --test fail 1 · U7/U8/U15 required slots, unexpected observations, missing repeats and owner failures coexist
+P5.1	red (기대 일치)	1	node --test fail 4 · report CLI: failing example before and after confirmation; U7/U8/U15 required slots, unexpected observations, missing repeats and owner failures coexist; U9 all
+P4.8	red (기대 일치)	1	node --test fail 7 · report CLI: passing example before and after confirmation; U9 all five comparisons around equality and unsupported rules; U12/U14/U18 agreement precedes samples
+P4.7	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U12/U14/U18 agreement precedes samples and
+P4.6	red (기대 일치)	1	node --test fail 2 · report CLI: failing example before and after confirmation; U9 all five comparisons around equality and unsupported rules
+P4.priority8	red (기대 일치)	1	node --test fail 8 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+P4.priority5	red (기대 일치)	1	node --test fail 4 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+P4.4c	red (기대 일치)	1	node --test fail 1 · U13 checks owner pair and W side identities independently
+P4.4b	red (기대 일치)	1	node --test fail 1 · U13 checks owner pair and W side identities independently
+P4.4a	red (기대 일치)	1	node --test fail 1 · U13 checks owner pair and W side identities independently
+P4.3prime	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P4.3	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.2	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.1e	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.1d	red (기대 일치)	1	node --test fail 2 · U9 all five comparisons around equality and unsupported rules; U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P4.1c	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.1b	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P4.1a	red (기대 일치)	1	node --test fail 1 · U9 all five comparisons around equality and unsupported rules
+P3.16b	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.16a	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.15c	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.15b	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.15a	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.14	red (기대 일치)	1	node --test fail 1 · U22 requires the before side of the same pair and repeat
+P3.13	red (기대 일치)	1	node --test fail 9 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U1–U3 independent intervals and metrics, i
+P3.12	red (기대 일치)	1	node --test fail 1 · U10/U11 nearest rank, even median, censored floor and zero relative denominator
+P3.11	red (기대 일치)	1	node --test fail 1 · U10/U11 nearest rank, even median, censored floor and zero relative denominator
+P3.10	red (기대 일치)	1	node --test fail 2 · U4–U5, U33, U34 absence, unobservable evidence and actual functional failures; U31–U33/U36/U38 target markers belong to the right selection, repeat, session and
+P3.9prime	red (기대 일치)	1	node --test fail 2 · U4–U5, U33, U34 absence, unobservable evidence and actual functional failures; U31–U33/U36/U38 target markers belong to the right selection, repeat, session and
+P3.9	red (기대 일치)	1	node --test fail 1 · U4–U5, U33, U34 absence, unobservable evidence and actual functional failures
+P3.8	red (기대 일치)	1	node --test fail 23 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence st
+P3.7	red (기대 일치)	1	node --test fail 1 · U1–U3 independent intervals and metrics, identical resubmission and conflicting evidence
+P3.6	red (기대 일치)	1	node --test fail 1 · U1–U3 independent intervals and metrics, identical resubmission and conflicting evidence
+P3.5c	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.5b	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.5a	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.4	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.3	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.2	red (기대 일치)	1	node --test fail 1 · U20/U21/U29/U30 aggregation, combination, result units and unsupported equal combinations
+P3.1c	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U29 byte maxima retain the measured value 
+P3.1b	red (기대 일치)	1	node --test fail 1 · U10/U11 nearest rank, even median, censored floor and zero relative denominator
+P3.1a	red (기대 일치)	1	node --test fail 2 · U10/U11 nearest rank, even median, censored floor and zero relative denominator; U20/U21/U29/U30 aggregation, combination, result units and unsupported equal co
+P2.10	red (기대 일치)	1	node --test fail 1 · U34/U37 read numeric Node table cells, N/A reasons, and only the matching run
+P2.9c	red (기대 일치)	1	node --test fail 1 · U34/U37 read numeric Node table cells, N/A reasons, and only the matching run
+P2.9b	red (기대 일치)	1	node --test fail 3 · report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence still fails; U34/U37 read numeric Node table cells, N/A reaso
+P2.9a	red (기대 일치)	1	node --test fail 1 · U34/U37 read numeric Node table cells, N/A reasons, and only the matching run
+P2.8e	red (기대 일치)	1	node --test fail 1 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row
+P2.8d	red (기대 일치)	1	node --test fail 1 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row
+P2.8c	red (기대 일치)	1	node --test fail 1 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row
+P2.8b	red (기대 일치)	1	node --test fail 6 · report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence still fails; U31–U33/U36/U38 target markers belong to the rig
+P2.8a	red (기대 일치)	1	node --test fail 2 · U31–U33/U36/U38 target markers belong to the right selection, repeat, session and row; U32 a later search cannot consume an earlier selection’s delayed mark
+P2.7d	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.7c	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.7b	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.7a	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.6	red (기대 일치)	1	node --test fail 1 · U6/U16 profile and build kind must match the locked cell
+P2.5	red (기대 일치)	1	node --test fail 1 · U7/U8/U15 required slots, unexpected observations, missing repeats and owner failures coexist
+P2.4b	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.4a	red (기대 일치)	1	node --test fail 1 · U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.3f	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3e	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3d	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3c	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3b	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.3a	red (기대 일치)	1	node --test fail 1 · U19/U28 raw hash, path and the exact range must be verifiable
+P2.2	red (기대 일치)	1	node --test fail 2 · U19/U28 raw hash, path and the exact range must be verifiable; U23/U25/U26/U27/U35 runtime, collection and tool origin
+P2.1	red (기대 일치)	1	node --test fail 2 · U19/U28 raw hash, path and the exact range must be verifiable; U23/U25/U26/U27/U35 runtime, collection and tool origin
+P1.5	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U12/U14/U18 agreement precedes samples and
+P1.4c	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+P1.4b	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+P1.4a	red (기대 일치)	1	node --test fail 3 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; U12/U14/U18 agreement precedes samples and
+P1.3	red (기대 일치)	1	node --test fail 1 · U6/U16 profile and build kind must match the locked cell
+P1.2	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+P1.1b	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+P1.1a	red (기대 일치)	1	node --test fail 1 · U12/U14/U18 agreement precedes samples and confirmation follows the last run
+V2.a8-rm	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+V2.flag-rm	red (기대 일치)	1	node --test fail 2 · report CLI: owner FAIL without evidence still fails; U39 keeps owner failures and reports missing evidence for each owner column
+V2.hold-rm	red (기대 일치)	1	node --test fail 2 · report CLI: owner FAIL without evidence still fails; U39 keeps owner failures and reports missing evidence for each owner column
+V2.b8-rm	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+V2.ref-swap	red (기대 일치)	1	node --test fail 2 · report CLI: owner FAIL without evidence still fails; U39 keeps owner failures and reports missing evidence for each owner column
+V2.some-every	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+V2.ref-guard	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+V2.textValue-truthy	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+V2.fail-early-rm	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+V2.hold-order	green (기대 일치)	0	node --test fail 0
+A-call	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+P5.8-fail-column	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+V3.a-task	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+V3.a-owner	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+V3.b-nullkey	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+V3.b-undefkey	red (기대 일치)	1	node --test fail 26 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence st
+V3.b-task	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+V3.b-owner	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+V3.b-key	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+V3.b-suffix	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+V3.c-PASS	red (기대 일치)	1	node --test fail 26 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence st
+V3.c-FAIL	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+V3.c-miwan	red (기대 일치)	1	node --test fail 2 · U17/U24 task with two owners and independently required columns; U39 keeps owner failures and reports missing evidence for each owner column
+V3.c-null	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+V3.c-machine-only	red (기대 일치)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns
+V3.c-windows-only	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+V3.c-ci	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+V3.c-msgval	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+V3.a-msg	red (기대 일치)	1	node --test fail 2 · cli rejects owner rows outside the plan; U40 checks every owner row against its task, owner, cell and verdict columns
+V3.c8-truthy	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+V3.c8-string	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+V3.c8-nonnull	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+V3.c8-trimless	red (기대 일치)	1	node --test fail 1 · U39 keeps owner failures and reports missing evidence for each owner column
+V3.fixture-noop	red (기대 일치)	1	node --test fail 20 · U1–U3 independent intervals and metrics, identical resubmission and conflicting evidence; U4–U5, U33, U34 absence, unobservable evidence and actual functional f
+X5.1	red (기대 일치)	1	node --test fail 3 · report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence still fails; U34/U37 read numeric Node table cells, N/A reaso
+X5.2	red (기대 일치)	1	node --test fail 5 · report CLI: failing example before and after confirmation; report CLI: owner FAIL without evidence still fails; cli rejects owner rows outside the plan
+X5.3	red (기대 일치)	1	node --test fail 22 · report CLI: failing example before and after confirmation; report CLI: passing example before and after confirmation; report CLI: owner FAIL without evidence st
+X5.4	red (기대 일치)	1	node --test fail 4 · U4–U5, U33, U34 absence, unobservable evidence and actual functional failures; U10/U11 nearest rank, even median, censored floor and zero relative denominator; 
+call-late	red (기대 일치 · 수동)	1	node --test fail 1 · U40 checks every owner row against its task, owner, cell and verdict columns

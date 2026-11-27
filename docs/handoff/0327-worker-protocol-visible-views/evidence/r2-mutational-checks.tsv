@@ -1,0 +1,23 @@
+mutation	exit_code	detected_by
+revision	1	pk2 token revision, theme, language and range each distinguish requests / pk4 markdown and code windows distinguish bounds and document
+worker-lane	1	l1 compute dispatches before markdown returns / l2 each lane has its own document capacity and worker failure state
+pair-span	1	cp1 matches the previous lookup across all short runs and seeded mixed files
+sync-source	1	dv1 source bounds count original lines and characters before packing
+pair-wait	1	q12 records waiting time separately from each token slice and preserves queue time on promotion / q11 waiting highlight starts exactly when the running pair returns
+first-paint	1	fx2 records the first paint per request key within each timing session
+draft-pin	1	v7/v7b/v7c/ea3 a draft pins just its row in the distant file among 200 expanded sections
+scroll-size	1	sc3 file virtualizer delegates row size scroll correction to the panel
+up-anchor	1	v5 upward context expansion keeps the following row in place / v5b upward context expansion keeps the following row in place / v5w upward context expansion keeps the following row in place
+stale-source	1	pending source change cannot reuse stale rows / pending options change cannot reuse stale rows
+panel-closed	1	cs6 initially closed OpenCode file skips parsing and worker requests
+matching-tail	1	s15: 같은 꼬리 인스턴스에서 공통 첫 문장 뒤가 다른 늦은 결과를 버리고 최신 대기 하나만 보낸다 / s4 replaced prefix cannot publish stale markup
+line-numbers	1	cb1: 같은 코드로 열 번 다시 그려도 줄 번호는 한 번만 계산한다
+promote	1	wt5 promotes and demotes without starting a new request
+late-result	0	—
+short-tail	1	s11/s12: 확정 본문이나 delta 크기와 무관하게 열린 꼬리 길이로만 워커를 선택한다 / s6 exactly 4000 stays in synchronous Markdown
+markdown-budget	1	m7 node budget fallback shows raw text / m7 later oversized chunk removes previously rendered table rows and stops further requests
+axis-key	1	pk5 axis, source kind and whitespace policy distinguish token rows
+whitespace-model	0	—
+row-window	1	dv3 prioritizes visible and mixed windows ahead of overscan-only rows
+late-result-recheck	1	wt4 ignores late results after changing revision / wt4 ignores late results after changing theme / wt4 ignores late results after changing window
+whitespace-model-recheck	1	v9 renderer model is reused for local updates and worker size opens no local model

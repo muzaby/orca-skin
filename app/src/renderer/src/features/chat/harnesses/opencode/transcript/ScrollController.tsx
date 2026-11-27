@@ -1,12 +1,11 @@
+import { nestedScrollConsumes } from '../../../lib/transcript/viewport/scrollGeometry'
+import { writeScrollTop } from '../../../components/transcript/TranscriptViewport'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
+import { entryPolicy } from '../../../lib/transcript/viewport/entry'
+import { consumeEntryIntent } from '../../../store/chatStore'
 import { TimelineScrollContext, type TimelineScroll } from './scrollContext'
-import {
-  canConsumeScroll,
-  isTimelineBottom,
-  nextTimelinePin,
-  shouldShowTimelineJump
-} from './scrollPolicy'
+import { isTimelineBottom, nextTimelinePin, shouldShowTimelineJump } from './scrollPolicy'
 import { timelineViewState } from './viewState'
 const geometry = (el: HTMLDivElement): { top: number; height: number; viewport: number } => ({
   top: el.scrollTop,
@@ -37,7 +36,6 @@ export function OpenCodeScrollController({
   const automaticTop = useRef<number | null>(null)
   const captureFrame = useRef<number | null>(null)
   const [showJump, setShowJump] = useState(false)
-  const [retained, setRetained] = useState<string[]>([])
   const capture = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
@@ -56,7 +54,7 @@ export function OpenCodeScrollController({
     (top: number) => {
       const el = scrollRef.current
       if (!el) return
-      el.scrollTop = top
+      writeScrollTop(el, top, undefined, 'opencode')
       automaticTop.current = el.scrollTop
       lastTop.current = el.scrollTop
       state.setTop(el.scrollTop)
@@ -101,36 +99,32 @@ export function OpenCodeScrollController({
     const content = contentRef.current
     if (!el || !content) return
     let frame: number | null = null
-    writeTop(state.pinned ? el.scrollHeight : state.top)
-    const nested = (target: EventTarget | null, direction = 0): boolean => {
-      if (!(target instanceof Element)) return false
-      // Markdown code fences are shared with Claude and need no harness-specific
-      // DOM changes. Respect their own vertical scroll region as well.
-      for (let node: Element | null = target; node && node !== el; node = node.parentElement) {
-        if (
-          canConsumeScroll(
-            { top: node.scrollTop, height: node.scrollHeight, viewport: node.clientHeight },
-            direction
-          ) &&
-          /auto|scroll/.test(getComputedStyle(node).overflowY)
-        )
-          return true
-      }
-      return false
+    const intent = consumeEntryIntent(sessionKey)
+    const placement = entryPolicy(intent ? 'open' : 'resume', 'opencode', {
+      pinned: state.pinned,
+      scrollTop: state.top,
+      anchorKey: state.anchor?.key
+    })
+    if (placement.action === 'scroll-bottom') {
+      state.setPinned(true)
+      state.setAnchor(null)
+      writeTop(el.scrollHeight)
+    } else if (placement.action === 'restore-saved') {
+      writeTop(placement.saved.scrollTop)
     }
     const unpin = (): void => {
       state.setPinned(false)
       capture()
     }
     const wheel = (event: WheelEvent): void => {
-      if (nested(event.target, event.deltaY)) return
+      if (nestedScrollConsumes(event.target, el, event.deltaY)) return
       gestureUntil.current = Date.now() + 250
       if (event.deltaY < 0) unpin()
     }
     const key = (event: KeyboardEvent): void => {
       const upward =
         ['ArrowUp', 'PageUp', 'Home'].includes(event.key) || (event.key === ' ' && event.shiftKey)
-      if (nested(event.target, upward ? -1 : 1)) return
+      if (nestedScrollConsumes(event.target, el, upward ? -1 : 1)) return
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
         gestureUntil.current = Date.now() + 250
         if (
@@ -141,20 +135,16 @@ export function OpenCodeScrollController({
       }
     }
     const down = (event: PointerEvent): void => {
-      if (nested(event.target)) return
+      if (nestedScrollConsumes(event.target, el)) return
       capture()
       held.current = true
-      const row = rowFor(event.target instanceof Node ? event.target : null)
-      if (row?.dataset.timelineKey) setRetained([row.dataset.timelineKey])
     }
     const selection = (): void => {
       const value = document.getSelection()
       const start = rowFor(value?.anchorNode ?? null)
       const end = rowFor(value?.focusNode ?? null)
-      if (!value?.isCollapsed && start && end && el.contains(start) && el.contains(end)) {
-        unpin()
-        setRetained([start.dataset.timelineKey!, end.dataset.timelineKey!])
-      } else if (!held.current) setRetained([])
+      // A transcript selection unpins (0326 ΔV2: the viewport neither keeps nor restores it).
+      if (!value?.isCollapsed && start && end && el.contains(start) && el.contains(end)) unpin()
     }
     const up = (): void => {
       if (!held.current) return
@@ -167,19 +157,8 @@ export function OpenCodeScrollController({
         frame = null
         if (held.current) return
         if (state.pinned) writeTop(el.scrollHeight)
-        // A queued capture owns a newer scroll position than the saved anchor.
-        else if (captureFrame.current === null && state.anchor) {
-          const anchor = Array.from(el.querySelectorAll<HTMLElement>('[data-timeline-key]')).find(
-            (row) => row.dataset.timelineKey === state.anchor!.key
-          )
-          if (anchor) {
-            const delta =
-              anchor.getBoundingClientRect().top -
-              el.getBoundingClientRect().top -
-              state.anchor.offset
-            writeTop(el.scrollTop + delta)
-          }
-        }
+        // While reading history, TranscriptViewport restores the visible character after
+        // layout changes. Reapplying the saved row here would override that correction.
         setShowJump(shouldShowTimelineJump(geometry(el)))
       })
     }
@@ -206,7 +185,8 @@ export function OpenCodeScrollController({
       document.removeEventListener('pointercancel', up)
       document.removeEventListener('selectionchange', selection)
     }
-  }, [capture, state, writeTop])
+  }, [capture, sessionKey, state, writeTop])
+  const isPinned = useCallback(() => state.pinned, [state])
   const scroll: TimelineScroll = {
     scrollRef,
     contentRef,
@@ -214,8 +194,8 @@ export function OpenCodeScrollController({
     showJump,
     scrollToBottom,
     anchored: false,
-    state,
-    retained
+    isPinned,
+    state
   }
   return (
     <TimelineScrollContext.Provider value={scroll}>

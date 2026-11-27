@@ -1,12 +1,13 @@
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useRef, type ReactNode } from 'react'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
 import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
 import { chatActions, useChatSession } from '../../../store/chatStore'
 import { usePlanCommentSelection } from '../../../hooks/usePlanCommentSelection'
-import { rangeFromOffsets, rectsForRange } from '../../../lib/planCommentDom'
+import type { PlanCommentIndex } from '../../../lib/planCommentDom'
+import { usePlanCommentGeometry } from '../../../hooks/usePlanCommentGeometry'
 import { PlanCommentOverlay } from './PlanCommentOverlay'
-import { PlanCommentPopover, type PopoverAnchorPoint } from './PlanCommentPopover'
+import { PlanCommentPopover } from './PlanCommentPopover'
 import { useI18n, type MessageKey } from '../../../../../shared/i18n'
 import { TaskProgressList } from './TaskProgressList'
 import { useTaskBoard } from '../../../hooks/useTaskBoard'
@@ -84,36 +85,28 @@ function PlanDocument({
   const comments = useChatSession((s) => s.planComments)
   const activeId = useChatSession((s) => s.activePlanCommentId)
 
-  // 마크다운 본문만 감싸는 컨테이너(힌트 제외) — 선택 오프셋·하이라이트 rect 기준.
   const contentRef = useRef<HTMLDivElement>(null)
-  const { draft, clear } = usePlanCommentSelection(contentRef, enabled)
-  const [editAnchor, setEditAnchor] = useState<PopoverAnchorPoint | null>(null)
-
-  const activeComment = comments.find((c) => c.id === activeId) ?? null
-
-  // 편집 대상 코멘트 선택 시 해당 구간으로 스크롤 + 팝오버 앵커 rect 계산. setState 는 rAF
-  // (비동기) 안에서만 — effect 본문 동기 setState 회피. activeComment 가 없을 땐 아래 렌더
-  // 가드(activeComment && editAnchor)가 팝오버를 숨기므로 editAnchor 를 비울 필요가 없다.
-  useLayoutEffect(() => {
-    if (!activeComment) return
-    const container = contentRef.current
-    if (!container) return
-    const range = rangeFromOffsets(container, activeComment.start, activeComment.end)
-    if (!range) return
-    range.startContainer.parentElement?.scrollIntoView({ block: 'nearest' })
-    const id = requestAnimationFrame(() => {
-      const rects = rectsForRange(range, container)
-      const first = rects[0]
-      if (!first) return
-      setEditAnchor({
-        x: first.left + first.width / 2,
-        top: first.top,
-        bottom: first.top + first.height,
-        containerWidth: container.clientWidth
-      })
-    })
-    return () => cancelAnimationFrame(id)
-  }, [activeComment])
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const indexRef = useRef<PlanCommentIndex | null>(null)
+  const { draft, clear } = usePlanCommentSelection(
+    contentRef,
+    enabled,
+    indexRef,
+    planContent,
+    overlayRef
+  )
+  const activeComment = comments.find((comment) => comment.id === activeId) ?? null
+  const geometry = usePlanCommentGeometry(
+    contentRef,
+    overlayRef,
+    planContent,
+    comments,
+    activeComment,
+    draft,
+    indexRef
+  )
+  const editAnchor = geometry?.activeId === activeId ? geometry?.anchor : null
+  const closeEdit = useCallback(() => chatActions.setActivePlanComment(null), [])
 
   const onCreateSave = useCallback(
     (body: string): void => {
@@ -166,14 +159,14 @@ function PlanDocument({
         <Icon name="doc" size={13} />
         <span>{tr(selectHintKey)}</span>
       </div>
-      <div ref={contentRef} className="relative">
-        <Markdown source={planContent} />
+      <div ref={overlayRef} className="relative">
+        <div ref={contentRef}>
+          <Markdown source={planContent} />
+        </div>
         <PlanCommentOverlay
-          containerRef={contentRef}
-          comments={comments}
+          rectsByComment={geometry?.comments ?? []}
+          draftRects={geometry?.draft ?? []}
           activeId={activeId}
-          draft={draft ? { start: draft.start, end: draft.end } : null}
-          contentKey={planContent}
           onSelect={(id) => chatActions.setActivePlanComment(id)}
         />
         {draft ? (
@@ -199,7 +192,7 @@ function PlanDocument({
                 chatActions.setActivePlanComment(null)
               }}
               onDelete={() => chatActions.removePlanComment(activeComment.id)}
-              onClose={() => chatActions.setActivePlanComment(null)}
+              onClose={closeEdit}
             />
           )
         )}

@@ -20,8 +20,9 @@
 | 상태 | PASS / FAIL / RETURN_TO_PLAN / CLOSED |
 | 확장 창 | verify N회째 — 창 안(1·2회째) / 창 밖 · 창이 다시 열린 노드(사용자 요구 변경 ΔV): 없음 / … |
 | 독립 축(⑥) | 축 이름·시도 수 — 구현 주체와 무관하게 최소 1개. 만들 수 없었으면 그 사실(PASS 불가) |
-| 열거 sweep(⑦) | 범위(1회째 전수 / diff 범위 + 직전 실패) · 항목 N · 못 잡음 M |
+| 열거 sweep(⑦) | 범위(1회째 전수 / diff 범위 + 직전 실패 + 앞 verify 전수 잔여) · 항목 N · 못 잡음 M · 남긴 전수 잔여: 0 / 항목 목록(0이 아니면 PASS 불가 — 다음 verify로 넘어감) |
 | 발견 분류 | 이행 a · 현재 b · 확장 c(막음 c1 / 후보 표 c2) · 경계 d · 비귀속 e |
+| 리뷰 필요 여부 | 필수 / 권고 / 불필요 — §14 표의 한 줄 요약(판정과 별개) |
 | 구현 주체·문맥 | 기록만 — 판정에 쓰지 않는다 · 설계자 = 검증자면 plan validity가 자기 설계 감사임을 적는다 |
 
 ## 0. 기준선 / plan 변경 확인
@@ -42,7 +43,7 @@
 | Baseline V / Delta V mode·상속 기준 | 유효 / PLAN_GAP | … |
 | NEW/CHANGED node ↔ 같은 레벨 REQUIRED pair | 유효 / PLAN_GAP | … |
 | 영향받은 INHERITED ↔ REGRESSION pair | 유효 / PLAN_GAP | … |
-| pair별 path·§10 자리 목록(기록된 검색 재실행 차집합 · 술어 = 주어 · 범위 = path 파일 전부)·직접 oracle | 유효 / 목록 미고정 / PLAN_GAP | … |
+| pair별 path·§10 자리 목록(기록된 검색의 `site_census.mjs` 미분류 0 · 술어 = 주어 · 범위 = path 파일 전부)·직접 oracle | 유효 / 목록 미고정 / PLAN_GAP | … |
 | 필요한 pair의 선택적 적대 증거·선택 이유 | 유효 / PLAN_GAP | … |
 | `SUPERSEDED` pair의 AC·적대 증거 이관 | 유효 / 해당 없음 / PLAN_GAP | … |
 | 현재 변경 산출물의 운영 gate·범위 | 유효 / PLAN_GAP | … |
@@ -105,7 +106,8 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - **직전 `못 잡음`·`동치` 재실행(③)** — 후보 표·`경계` 행 제외: N행 → 결과 나란히
 - **이전 라운드 대조(④)** — diff가 닿은 행(공용 설정이 바뀌었으면 전부) 재실행: 지난 라운드 red 중 이번 green 0건 / N건 → 덮개 회귀 finding · 원문이 옮겨 간 행은 재앵커 행(원 ID → 옮긴 자리)과 원문 줄이 운반하는 것의 분류를 함께
 - **독립 축(⑥)** — 구현 보고·등록 목록에 없던 축 N건(어떤 축인지와 결과) · 창 안이면 가정 입력·형태 변이 포함, 창 밖이면 열거 원문 유도·현재 결함 우선
-- **열거 sweep(⑦)** — `python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` · 범위 … · 항목 N · 못 잡음 M · 규칙 칸 분기·여러 항 §10 자리 문장의 항은 그것을 구현한 diff 자리 변이 K개(인용한 분기·항 · 동치 · 확장)
+- **열거 sweep(⑦)** — `python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` · 범위 …(이후 회차: diff가 닿은 항목 · 이번 Delta V가 새로 열거하거나 바꾼 항목 · 직전 실패 · 앞 verify가 남긴 전수 잔여) · 항목 N · 못 잡음 M · 기본 변이는 항목 하나만 지움(더 넓은 등록 변이로 갈음한 행 0) · 규칙 칸 분기·여러 항 §10 자리 문장의 항은 그것을 구현한 diff 자리 변이 K개(인용한 분기·항 · 동치 · 확장)
+- **`잡음`의 실패 이유** — 좌표마다 실패 이유가 그 변이의 실수인지 확인 · 상태를 공유하는 좌표를 묶어 돌린 행은 좌표 하나씩 다시 돌린 결과로 적음: 해당 없음 / …
 
 **고장 이력** — 이번 verify가 시도한 고장 전부. 종류는 제거·빈 값·다른 값·맞바꿈·뒤집기·고정값·호출 대체 중 하나이고, 하한(①~⑦) 밖의 자리·방식은 재량이다(`docs/handoff/AGENTS.md §고장 내 보기`).
 
@@ -133,7 +135,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - 종속 `BLOCKED_BY`: 없음 / VP-… → VP-…
 - 하나의 증거가 함께 닫은 pair와 직접 판정 범위: 해당 없음 / …
 - 이번 라운드 실행 범위: 최초 검증 — 유효 V의 REQUIRED/REGRESSION 전건 / 재검증 — root·종속·변경 영향 pair + 현재 변경 운영 gate; 이전 PASS 참조 — 좌표 실재 확인(좌표 없이 난 PASS는 재판정) …
-- 좌표의 실행 구간: 자리마다 들어간 곳 → 관측한 곳 · mock한 path 구성요소 · production 조립과 다른 의존성 주입 · 운반 항별 구별 입력·관측(호출·분기 변이는 인자 항을 잠그지 않음) — 구간 밖 자리와 운반 값이 기본값·빈 값·형제 동일 값뿐이거나 규칙 분기 중 입력 없는 분기가 있는 자리는 닫히지 않음 / 하위 pair 좌표로 닫은 상위 pair는 path edge별 대응 …
+- 좌표의 실행 구간: 자리마다 들어간 곳 → 관측한 곳 · mock한 path 구성요소 · production 조립과 다른 의존성 주입 · 운반 항별 구별 입력·관측(호출·분기 변이와 블록·여러 항을 함께 지운 변이는 그 안의 항을 잠그지 않음) — 구간 밖 자리와 운반 값이 기본값·빈 값·형제 동일 값뿐이거나 규칙 분기 중 입력 없는 분기가 있는 자리는 닫히지 않음 / 하위 pair 좌표로 닫은 상위 pair는 path edge별 대응 …
 
 ### AT / AC 세부와 합계
 
@@ -259,12 +261,24 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 | D… | … | 이행(원문 인용) / 현재(재현) / 확장 / 경계 / 비귀속 | VP-… / Decision·AC·§10·현재 산출물 gate | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF(확장·독립) | … | 구현 / planner(채택·경계) / 기록 / 후보 표 |
 
 > plan의 `[검증자 기입] 파생 이슈`로 이관한다. 분류와 disposition의 정본은 `docs/handoff/AGENTS.md §판정 범위와 운영 gate`다.
+
+### 발견 원장 — verify N
+
+| ID | disposition | 직전 상태 | 이번 결과 | 직전 기록 | 증거 |
+|---|---|---|---|---|---|
+| D… | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF(…) / 경계 | — / 열림 / closed 보고(구현자 보고) / 닫힘(verify 종결 확인) | 열림 / 닫힘 | — / 검사 완료 / 명시 이월 / 확인 불가 | 새 실행 / 기존 증거 재분류 |
+
+> 이번 판정 시점에 남은 것과 이번에 닫힌 것을 모두 적는다. 합계(F)는 적지 않는다 — `review_metrics.py`가 `이번 결과 = 열림`인 `BLOCKING`·`PLAN_GAP` 고유 ID를 센다(SKILL §11 발견 원장). 판정 정정은 `### 발견 원장 — verify N 정정(round K)`로 다시 적는다.
 > 이행·현재 결함은 창과 무관하게 막는다(`BLOCKING`, 계약 정정이 필요하면 `PLAN_GAP`). 확장 후보는 verify 1·2회째에만 `PLAN_GAP`(설계자 채택·경계)이고, 3회째부터는 `NEXT_HANDOFF(확장)`로 후보 표에 간다 — 고칠 의무·재실행 의무 없음.
 > `PLAN_GAP`이 하나라도 있으면 결과는 `RETURN_TO_PLAN`이고 다음 주체는 설계자다. 명시 계약 위반은 `PAIR_FAIL`로 유지하며 gap으로 낮추지 않는다.
 
-## 14. Review Signals — 사실만
+## 14. Review Signals — 사실과 리뷰 필요 여부
 
-> 원인 분류와 SKILL 변경은 `handoff-review`가 한다.
+> 원인 분류와 SKILL 변경은 `handoff-review`가 한다. verify는 review를 호출하지 않는다.
+
+| 리뷰 필요 여부 | 근거 | 검토할 질문 |
+|---|---|---|
+| 필수 / 권고 / 불필요 | 필수: AGENTS 의무 트리거(3·6회째 비PASS · 9회째 CLOSED) / 권고: 발견 ID와 앞 회차 기록(예: `검사 완료` 범위의 늦은 발견) / 불필요: — | 한 문장. 특정할 수 없고 의무 트리거도 없으면 `불필요` — 단순 FAIL · F 증가 · `명시 이월` 범위의 발견만으로는 권고하지 않는다 |
 
 - 이전 라운드와 동일/유사 증상: 없음 / …
 - 관련 plan 지침/AC의 존재 여부: …
@@ -275,9 +289,10 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 ## 15. 결론
 
 - 상태: PASS / FAIL / RETURN_TO_PLAN / CLOSED(이 handoff의 verify 9회째, PASS 아님)
-- verify 횟수: N회째 — 확장 창 안/밖 (3·6회째 PASS가 아니면 다음 재구현 전 handoff-review · 9회째면 종료)
+- verify 횟수: N회째 — 확장 창 안/밖 (9회째면 종료)
+- 리뷰 필요 여부: `리뷰 <필수|권고|불필요> — <근거>. <검토할 질문>` (예: 리뷰 필수 — verify 3회째 비PASS. ΔV5 설계와 verify 3이 같은 검색 결과에서 운반 줄을 누락했다. 두 단계의 대조 절차가 왜 이 누락을 걸러내지 못했는지 검토.)
 - 후보 표로 간 확장 후보: 없음 / N건(INDEX `## 새 handoff 후보` 행)
-- 종료 이관 목록(CLOSED일 때만): 남은 BLOCKING · PLAN_GAP · 고장 이력 `못 잡음` → 새 handoff 후보
+- 종료 이관 목록(CLOSED일 때만): 남은 BLOCKING · PLAN_GAP · 고장 이력 `못 잡음` · ⑦ 전수 잔여 → 새 handoff 후보
 - pair 결과: REQUIRED/REGRESSION PASS N · root PAIR_FAIL M · BLOCKED_BY K
 - PLAN_GAP: 없음 / root gap … → 영향 pair …
 - Product/UX 및 ACTIVE Decision 충족: …

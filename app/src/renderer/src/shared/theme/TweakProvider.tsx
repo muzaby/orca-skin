@@ -191,3 +191,13 @@ export function useTweakContext<T>(selector: (t: Tweaks) => T): {
   )
   return { t: selected, setTweak: store.getState().setTweak }
 }
+
+const FALLBACK_STORE = createTweakStore()
+
+export function useOptionalTweak<T>(selector: (t: Tweaks) => T): T {
+  const store = useContext(TweakContext) ?? FALLBACK_STORE
+  return useStore(
+    store,
+    useShallow((state) => selector(state.t))
+  )
+}

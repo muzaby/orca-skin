@@ -80,6 +80,7 @@ it('keeps the pending Work ask in Composer, sends its actual answer callback to 
     inflight: true,
     messages: [
       {
+        id: 'm-82',
         role: 'assistant',
         createdAt: 1,
         parts: [

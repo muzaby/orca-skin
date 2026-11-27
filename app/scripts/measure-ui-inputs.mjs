@@ -19,6 +19,7 @@
 //   · 요약은 예열 1회를 뺀 9회의 중앙값·최대다.
 // 순수 부분(입력 생성 · 요약 · N/A)과 `--src` 번들(임시 트리)은 `measure-ui-inputs.test.mjs` 가 돌린다 — git 은 실행하지 않는다.
 
+import { DOMImplementation } from '@xmldom/xmldom'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -26,6 +27,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { deflateSync } from 'node:zlib'
 
+import { visibleModules, visibleInputs, measureVisible } from './visible-views/measure.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const APP = resolve(HERE, '..')
 
@@ -231,7 +233,27 @@ export const SOURCE_MODULES = {
   inline: 'src/renderer/src/shared/compute/inline.ts',
   filePresentation:
     'src/renderer/src/features/chat/harnesses/opencode/transcript/filePresentation.ts',
-  turns: 'src/renderer/src/features/chat/lib/turns.ts'
+  turns: 'src/renderer/src/features/chat/lib/turns.ts',
+  changeLog: 'src/renderer/src/features/chat/lib/transcript/changeLog.ts',
+  reducer: 'src/renderer/src/features/chat/reducer/chatReducer.ts',
+  messageOrder: 'src/renderer/src/features/chat/lib/transcript/messageOrder.ts',
+  blockList: 'src/renderer/src/features/chat/lib/transcript/blockList.ts',
+  claudeBlocks: 'src/renderer/src/features/chat/harnesses/claude/transcript/claudeBlocks.ts',
+  openCodeBlocks: 'src/renderer/src/features/chat/harnesses/opencode/transcript/openCodeBlocks.ts',
+  segmentCache: 'src/renderer/src/features/chat/lib/segmentCache.ts',
+  transcriptIndex: 'src/renderer/src/features/chat/lib/transcriptIndex.ts',
+  markdownBlocks: 'src/renderer/src/features/chat/lib/markdownBlocks.ts'
+}
+
+// 0326 이전 Timeline과 패널이 사용하던 함수. 옛 트리를 측정할 때만 번들한다.
+const priorTranscriptModules = {
+  workResults: 'src/renderer/src/features/chat/lib/workToolResults.ts',
+  head: 'src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts',
+  parts: 'src/renderer/src/features/chat/lib/parts.ts',
+  taskBoard: 'src/renderer/src/features/chat/lib/taskBoard.ts',
+  taskContext: 'src/renderer/src/features/chat/lib/taskContext.ts',
+  background: 'src/renderer/src/features/chat/lib/canonicalBackground.ts',
+  panel: 'src/renderer/src/features/chat/harnesses/opencode/rightpanel/model.ts'
 }
 
 // I1~I9 — 각 행은 모듈에서 함수를 고르고(없으면 `undefined`) 입력을 미리 만든다.
@@ -333,11 +355,16 @@ export function measurementCases(modules) {
 }
 
 // `--src` 트리의 소스만 번들해 불러온다 — 없는 모듈 파일은 빈 모듈이다(0325 EP-10 ④).
-export async function loadTree(tree) {
+export async function loadTree(tree, selected) {
   const { build } = await import('esbuild')
   const work = mkdtempSync(join(tmpdir(), 'measure-ui-inputs-'))
   try {
-    const entry = Object.entries(SOURCE_MODULES)
+    const sources =
+      selected ??
+      (existsSync(join(tree, SOURCE_MODULES.claudeBlocks))
+        ? SOURCE_MODULES
+        : { ...SOURCE_MODULES, ...priorTranscriptModules })
+    const entry = Object.entries(sources)
       .map(([name, file]) => {
         const path = join(tree, file)
         return existsSync(path)
@@ -345,13 +372,24 @@ export async function loadTree(tree) {
           : `export const ${name} = {}`
       })
       .join('\n')
-    writeFileSync(join(work, 'entry.mjs'), entry)
+    const hastPath = join(tree, 'src/renderer/src/shared/ui/markdown/MarkdownHast.tsx')
+    const ssr =
+      selected && existsSync(hastPath)
+        ? [
+            "import {createElement} from 'react'",
+            "import {renderToStaticMarkup} from 'react-dom/server.browser'",
+            'import {MarkdownHast} from ' + JSON.stringify(hastPath),
+            'export const renderHast=(hast,source)=>renderToStaticMarkup(createElement(MarkdownHast,{hast,source}))'
+          ].join('\n')
+        : ''
+    writeFileSync(join(work, 'entry.mjs'), entry + '\n' + ssr)
     const outfile = join(work, 'bundle.mjs')
     await build({
       entryPoints: [join(work, 'entry.mjs')],
       outfile,
       bundle: true,
       platform: 'node',
+      jsx: 'automatic',
       format: 'esm',
       logLevel: 'silent',
       nodePaths: [join(APP, 'node_modules')]
@@ -362,16 +400,516 @@ export async function loadTree(tree) {
   }
 }
 
+// ── 0326 입력 J1~J10 · 세 갈래 요약(coldBuild / incremental / cacheHit) ───────
+// J9(복사 상한 탐색)는 0326 ΔV2 D-102 로 폐지했다 — 선택 복사는 브라우저 기본이다.
+
+export function jTranscriptMessages(turns = 500) {
+  const messages = []
+  for (let i = 0; i < turns; i++) {
+    messages.push({
+      id: `u:j-${i}`,
+      role: 'user',
+      createdAt: i * 2 + 1,
+      parts: [{ type: 'text', text: `question ${i}` }]
+    })
+    messages.push({
+      id: `a:j-${i}`,
+      role: 'assistant',
+      createdAt: i * 2 + 2,
+      parts: [
+        { type: 'text', text: `answer ${i}` },
+        { type: 'tool_call', toolRunId: `jt-${i}`, toolName: 'Read', args: { path: `f${i}.ts` } },
+        { type: 'tool_result', toolRunId: `jt-${i}`, result: `content ${i}`, isError: false }
+      ]
+    })
+  }
+  return messages
+}
+
+export function jOpenFenceStream(chars = 100_000, chunk = 50) {
+  const header = '```ts\n'
+  const full = (header + 'const x = 1;\n'.repeat(Math.ceil(chars / 13))).slice(0, chars)
+  const deltas = []
+  for (let i = 0; i < full.length; i += chunk) deltas.push(full.slice(i, i + chunk))
+  return { full, deltas }
+}
+
+export async function measureJ10Virtualizer(sizes = [5_000, 100_000]) {
+  const changes = ['content', 'callback', 'count+1', 'topResize', 'lastResize', 'reorder']
+  let Virtualizer
+  try {
+    const core = await import('@tanstack/virtual-core')
+    Virtualizer = core.Virtualizer
+  } catch {
+    return sizes.flatMap((count) =>
+      changes.map((change) => ({
+        id: `J10(${count}:${change})`,
+        count,
+        result: 'N/A(함수 없음)',
+        getItemKeyCalls: 0
+      }))
+    )
+  }
+  const rows = []
+  for (const count of sizes) {
+    let getItemKeyCalls = 0
+    const keys = Array.from({ length: count + 1 }, (_, i) => `k:${i}`)
+    const getItemKey = (index) => {
+      getItemKeyCalls++
+      return keys[index]
+    }
+    const makeVirt = (n) => {
+      const element = {}
+      const v = new Virtualizer({
+        count: n,
+        getScrollElement: () => element,
+        estimateSize: () => 50,
+        getItemKey,
+        scrollToFn: () => {},
+        observeElementRect: (_inst, cb) => cb({ width: 600, height: 800 }, false),
+        observeElementOffset: (_inst, cb) => cb(0, false)
+      })
+      v.shouldAdjustScrollPositionOnItemSizeChange = () => false
+      v._didMount()
+      v._willUpdate()
+      v.getVirtualItems()
+      return v
+    }
+
+    for (const change of changes) {
+      let firstKey
+      const prepare = () => {
+        const v = makeVirt(count)
+        getItemKeyCalls = 0
+        return v
+      }
+      const run = (v) => {
+        // A content-only advance preserves the key sequence and callback identity.
+        if (change === 'content') v.setOptions({ ...v.options, getItemKey })
+        if (change === 'callback') v.setOptions({ ...v.options, getItemKey: (i) => getItemKey(i) })
+        if (change === 'count+1') v.setOptions({ ...v.options, count: count + 1 })
+        if (change === 'topResize') v.resizeItem(0, 80)
+        if (change === 'lastResize') v.resizeItem(count - 1, 80)
+        if (change === 'reorder') {
+          v.setOptions({
+            ...v.options,
+            getItemKey: (i) => getItemKey(i === 0 ? 1 : i === 1 ? 0 : i)
+          })
+        }
+        v._willUpdate()
+        firstKey = v.getVirtualItems()[0]?.key
+      }
+      const result = measureCase(run, { prepare })
+      rows.push({ id: `J10(${count}:${change})`, count, result, getItemKeyCalls, firstKey })
+    }
+  }
+  return rows
+}
+
+// Timeline은 같은 messages 참조에서 useMemo 결과를 재사용한다.
+function priorTimeline(project) {
+  let previous
+  let view
+  return {
+    advance({ messages }) {
+      if (messages !== previous) {
+        view = project(messages)
+        previous = messages
+      }
+      return view
+    }
+  }
+}
+
+export function transcriptMeasurementCases(modules) {
+  const {
+    claudeBlocks = {},
+    openCodeBlocks = {},
+    segmentCache = {},
+    transcriptIndex = {},
+    markdownBlocks = {}
+  } = modules
+  const msgs = jTranscriptMessages(10_000)
+  const fence = jOpenFenceStream()
+
+  const threeBranch = (id, label, fns) => [
+    { id: `${id}:coldBuild`, input: `${label} (coldBuild)`, ...fns.coldBuild },
+    { id: `${id}:incremental`, input: `${label} (incremental)`, ...fns.incremental },
+    { id: `${id}:cacheHit`, input: `${label} (cacheHit)`, ...fns.cacheHit }
+  ]
+
+  function prependCase(turns, branch) {
+    const reducer = modules.reducer
+    if (!reducer?.chatReducer || !claudeBlocks.createClaudeBlockModel) return {}
+    const messages = jTranscriptMessages(turns + 1)
+    const page = messages.slice(0, 2)
+    return {
+      prepare() {
+        const model = claudeBlocks.createClaudeBlockModel({ mode: 'code', sessionKey: 'j8' })
+        const state = reducer.chatReducer(reducer.initialChatState, {
+          type: 'LOAD_SESSION',
+          session: { id: 'j8', backend: 'claude', agentKind: 'code', messages: messages.slice(2) },
+          complete: false
+        })
+        if (branch !== 'coldBuild') model.advance(state)
+        return { model, state }
+      },
+      run({ model, state }) {
+        const next =
+          branch === 'incremental'
+            ? reducer.chatReducer(state, {
+                type: 'PREPEND_HISTORY',
+                messages: page,
+                reachedStart: false
+              })
+            : state
+        return { blocks: model.advance(next).count, messages: next.messages.length }
+      }
+    }
+  }
+
+  function modelCases(id, label, createModel, update, read, messages = msgs) {
+    function branch(warm, modify) {
+      if (!createModel || !modules.reducer?.chatReducer) return {}
+      return {
+        prepare() {
+          const state = modules.reducer.chatReducer(modules.reducer.initialChatState, {
+            type: 'LOAD_SESSION',
+            session: { id: 'j', backend: 'claude', agentKind: 'code', messages },
+            complete: true
+          })
+          const model = createModel()
+          if (warm) read(model, state)
+          return { model, state }
+        },
+        run({ model, state }) {
+          const current = modify ? modules.reducer.chatReducer(state, update) : state
+          return read(model, current)
+        }
+      }
+    }
+    return threeBranch(id, label, {
+      coldBuild: branch(false, false),
+      incremental: branch(true, true),
+      cacheHit: branch(true, false)
+    })
+  }
+
+  const appendText = { type: 'COMMIT_PENDING_TEXT', text: 'tail', messageKey: msgs.at(-1).id }
+  const publish = {
+    type: 'RECV_EVENT',
+    event: {
+      type: 'output.captured',
+      sessionId: 'j',
+      toolRunId: 'jt-0',
+      artifact: {
+        publicationId: 'j-artifact',
+        artifactFileId: 'j-file',
+        filename: 'test.txt',
+        title: 'Test',
+        kind: 'text',
+        sizeBytes: 1,
+        publishedAt: 1
+      }
+    }
+  }
+  function claudeModel(mode) {
+    if (claudeBlocks.createClaudeBlockModel)
+      return () => claudeBlocks.createClaudeBlockModel({ mode, sessionKey: 'j' })
+    if (!modules.turns?.createExchangeGrouper || !modules.workResults?.createWorkToolResultSelector)
+      return undefined
+    return () => {
+      const group = modules.turns.createExchangeGrouper()
+      const work = modules.workResults.createWorkToolResultSelector()
+      return priorTimeline((messages) => {
+        const exchanges = group(messages)
+        return mode === 'work' ? work(exchanges) : exchanges
+      })
+    }
+  }
+  const openCodeModel =
+    openCodeBlocks.createOpenCodeBlockModel ??
+    (modules.head?.projectTimelineHead && (() => priorTimeline(modules.head.projectTimelineHead)))
+  const panelModel = transcriptIndex.transcriptIndexFor
+    ? () => transcriptIndex.transcriptIndexFor
+    : modules.panel?.sessionPanelModel &&
+      (() => modules.taskContext.createTaskContextSourceSelector())
+  const boardModel = transcriptIndex.transcriptIndexFor
+    ? () => transcriptIndex.transcriptIndexFor
+    : modules.taskBoard?.taskBoardForMessages && (() => modules.taskBoard.taskBoardForMessages)
+  const readBlocks = (model, state) => model.advance(state)
+  const readPanels = (indexFor, state) => {
+    if (!transcriptIndex.transcriptIndexFor) {
+      const { messages } = state
+      return [
+        modules.taskBoard.taskBoardForMessages(messages),
+        indexFor(messages),
+        modules.parts.subagentTasksFromMessages(messages, false),
+        modules.parts.subagentTasksFromMessages(messages, true),
+        modules.parts.subagentTaskDescription(messages, 'jt-0'),
+        modules.parts.childMessageForParentToolRunId(messages, 'jt-0'),
+        modules.background.transcriptResultsByToolUseId(messages),
+        modules.background.persistedBackgroundModels(messages),
+        modules.panel.sessionPanelModel(messages)
+      ]
+    }
+    const index = indexFor(state)
+    return [
+      index.taskBoard(),
+      index.taskContextSources(),
+      index.subagentTasks(),
+      index.subagentTasks(true),
+      index.taskDescription('jt-0'),
+      index.childMessage('jt-0'),
+      index.transcriptResults(),
+      index.backgroundModels(),
+      index.openCodePanelModel()
+    ]
+  }
+
+  function taskBoardCases(size) {
+    const messages = Array.from({ length: size }, (_, i) => {
+      const id = String(i + 1)
+      const subject = `Task ${id}`
+      return {
+        id: `a:task-${id}`,
+        role: 'assistant',
+        createdAt: i,
+        parts: [
+          { type: 'tool_call', toolRunId: id, toolName: 'TaskCreate', args: { subject } },
+          {
+            type: 'tool_result',
+            toolRunId: id,
+            result: 'created',
+            isError: false,
+            structuredOutput: { task: { id, subject } }
+          }
+        ]
+      }
+    })
+    const last = messages.at(-1)
+    last.parts.push({
+      type: 'tool_call',
+      toolRunId: 'update',
+      toolName: 'TaskUpdate',
+      args: { taskId: '1', status: 'completed' }
+    })
+    const update = {
+      type: 'RECV_EVENT',
+      event: {
+        type: 'tool.call.completed',
+        sessionId: 'j',
+        toolRunId: 'update',
+        messageKey: last.id,
+        isError: false,
+        result: 'updated',
+        structuredOutput: {
+          success: true,
+          taskId: '1',
+          updatedFields: ['status'],
+          statusChange: { from: 'pending', to: 'completed' }
+        }
+      }
+    }
+    return modelCases(
+      size === 100 ? 'J5' : `J5(${size})`,
+      `작업 보드 ${size}개 · TaskUpdate 결과`,
+      boardModel,
+      update,
+      (read, state) =>
+        transcriptIndex.transcriptIndexFor ? read(state).taskBoard() : read(state.messages),
+      messages
+    )
+  }
+
+  function scanCases(id, full) {
+    const { advanceStableBlocks, scanIncrement } = markdownBlocks
+    return threeBranch(id, '100,000자 · 50자씩 완결 줄 스캔', {
+      coldBuild: {
+        run: advanceStableBlocks && (() => advanceStableBlocks(null, full))
+      },
+      incremental: {
+        prepare: advanceStableBlocks && (() => advanceStableBlocks(null, '')),
+        run:
+          !scanIncrement && advanceStableBlocks
+            ? (initial) => {
+                let cache = initial.cache
+                for (let step = 1; step * 50 <= full.length; step++)
+                  cache = advanceStableBlocks(cache, full.slice(0, step * 50)).cache
+                return cache
+              }
+            : scanIncrement &&
+              ((initial) => {
+                let stable = initial.stable
+                let state = initial.scanState
+                for (let end = 50; end <= full.length; end += 50) {
+                  const next = scanIncrement(full.slice(0, end), stable, state)
+                  stable = next.stable
+                  state = next.state
+                }
+                return state.scannedChars
+              })
+      },
+      cacheHit: {
+        prepare: advanceStableBlocks && (() => advanceStableBlocks(null, full).cache),
+        run: advanceStableBlocks && ((cache) => advanceStableBlocks(cache, full))
+      }
+    })
+  }
+
+  function segmentCases(edit) {
+    const id = edit === 'append' ? 'J6' : `J6(${edit})`
+    const parts = Array.from({ length: 10_000 }, () => ({ type: 'text', text: 'x' }))
+    if (edit === 'withdraw') {
+      parts[0] = { type: 'tool_call', toolRunId: 'r', toolName: 'Read', args: {} }
+      parts[1] = { type: 'tool_result', toolRunId: 'r', result: 'old', isError: false }
+    }
+    const initial = { id: 'a:j6', role: 'assistant', createdAt: 0, parts }
+    const nextParts = [...parts]
+    if (edit === 'withdraw') nextParts[1] = { type: 'text', text: 'replacement' }
+    else nextParts.push({ type: edit === 'append' ? 'text' : 'reasoning', text: 'new' })
+    const next = { ...initial, parts: nextParts }
+    const from = edit === 'withdraw' ? 1 : parts.length
+    const branch = (warm, modified) =>
+      segmentCache.createSegmentCache
+        ? {
+            prepare() {
+              const cache = segmentCache.createSegmentCache()
+              if (warm) cache.segmentsFor(initial)
+              return cache
+            },
+            run: (cache) => (modified ? cache.segmentsFor(next, from) : cache.segmentsFor(initial))
+          }
+        : modules.parts?.reconcileSegments
+          ? {
+              prepare: () => (warm ? modules.parts.messageSegments(initial.parts) : null),
+              run(prior) {
+                if (warm && !modified) return prior
+                return modules.parts.reconcileSegments(
+                  prior,
+                  modules.parts.messageSegments(modified ? next.parts : initial.parts)
+                )
+              }
+            }
+          : {}
+    return threeBranch(id, `10,000 part · ${edit}`, {
+      coldBuild: branch(false, false),
+      incremental: branch(true, true),
+      cacheHit: branch(true, false)
+    })
+  }
+
+  return [
+    ...modelCases(
+      'J1',
+      'Claude Code · 10,000 exchange 끝 part 추가',
+      claudeModel('code'),
+      appendText,
+      readBlocks
+    ),
+    ...modelCases(
+      'J1(work)',
+      'Claude Work · 10,000 exchange 끝 part 추가',
+      claudeModel('work'),
+      appendText,
+      readBlocks
+    ),
+    ...modelCases(
+      'J2',
+      'OpenCode · 10,000 exchange 끝 part 추가',
+      openCodeModel,
+      appendText,
+      readBlocks
+    ),
+    ...modelCases(
+      'J3',
+      'index 1 산출물 · reducer와 Claude 블록',
+      claudeModel('code'),
+      publish,
+      readBlocks
+    ),
+    ...modelCases('J4', 'index 1 산출물 · 패널 9개 뷰', panelModel, publish, readPanels),
+    ...[100, 1_000].flatMap(taskBoardCases),
+    ...['append', 'withdraw', 'different-kind'].flatMap(segmentCases),
+    ...scanCases('J7', fence.full),
+    ...scanCases('J7(list)', '- loose item\n\n'.repeat(8_000).slice(0, 100_000)),
+    ...scanCases('J7(paragraph)', 'word '.repeat(20_000)),
+    {
+      id: 'J7:code',
+      input: '열린 펜스 · 코드 본문 문자열 2,000회 생성',
+      prepare:
+        markdownBlocks.advanceStableBlocks &&
+        (() => markdownBlocks.advanceStableBlocks(null, fence.full.slice(0, 50)).scanState),
+      run:
+        markdownBlocks.openFenceTail &&
+        ((state) => {
+          let code
+          for (let end = 50; end <= fence.full.length; end += 50)
+            code = markdownBlocks.openFenceTail(fence.full.slice(0, end), state).code
+          return code
+        })
+    },
+    {
+      id: 'J7:dom',
+      input: '열린 펜스 · 준비한 코드 본문으로 DOM 텍스트 2,000회 갱신',
+      prepare:
+        markdownBlocks.openFenceTail &&
+        (() => {
+          const node = new DOMImplementation().createDocument(null, 'code', null).documentElement
+          const state = markdownBlocks.advanceStableBlocks(null, fence.full.slice(0, 50)).scanState
+          const values = fence.deltas.map(
+            (_, i) => markdownBlocks.openFenceTail(fence.full.slice(0, (i + 1) * 50), state).code
+          )
+          return { node, values }
+        }),
+      run:
+        markdownBlocks.openFenceTail &&
+        (({ node, values }) => {
+          for (const value of values) node.textContent = value
+          return node.textContent
+        })
+    },
+    ...[1, 100].flatMap((turns) =>
+      threeBranch(turns === 1 ? 'J8' : 'J8(100)', `앞삽입 1턴 · 기존 ${turns}턴`, {
+        coldBuild: prependCase(turns, 'coldBuild'),
+        incremental: prependCase(turns, 'incremental'),
+        cacheHit: prependCase(turns, 'cacheHit')
+      })
+    )
+  ]
+}
+
+export function formatJ10Rows(j10) {
+  return [
+    ...j10.map(
+      (r) =>
+        `| ${r.id} | Virtualizer (${r.count}블록, getItemKey=${r.getItemKeyCalls}) | ${formatCell(r.result)} |`
+    )
+  ]
+}
+
 async function measureTree(tree) {
   const modules = await loadTree(tree)
-  const rows = measurementCases(modules).map((item) => ({
-    ...item,
-    result: measureCase(item.run, { prepare: item.prepare })
-  }))
+  const rows = [...measurementCases(modules), ...transcriptMeasurementCases(modules)].map(
+    (item) => ({
+      ...item,
+      result: measureCase(item.run, { prepare: item.prepare })
+    })
+  )
+  const k = await measureVisible(
+    await loadTree(tree, visibleModules),
+    addedPatchLines(),
+    addedPatchText(990044, 5000)
+  )
+  const j10 = await measureJ10Virtualizer()
   const lines = [
     `| 입력 | 내용 | 중앙값 / 최대 (예열 ${WARMUP_RUNS} 뒤 ${MEASURED_RUNS}회) |`,
     '|---|---|---|',
-    ...rows.map((row) => `| ${row.id} | ${row.input} | ${formatCell(row.result)} |`)
+    ...rows.map((row) => `| ${row.id} | ${row.input} | ${formatCell(row.result)} |`),
+    ...formatJ10Rows(j10),
+    ...k.map(
+      (row) => `| ${row.id} | ${row.name} | ${formatCell(row.result)} (시도 ${row.attempts ?? 0}) |`
+    )
   ]
   process.stdout.write(
     `트리: ${tree}\nNode ${process.version} · ${process.platform}/${process.arch}\n\n${lines.join('\n')}\n`
@@ -379,7 +917,7 @@ async function measureTree(tree) {
 }
 
 function writeInputs(folder) {
-  for (const [name, bytes] of Object.entries(inputFiles())) {
+  for (const [name, bytes] of Object.entries({ ...inputFiles(), ...visibleInputs() })) {
     if (name.startsWith('git-50000/')) continue
     mkdirSync(folder, { recursive: true })
     writeFileSync(join(folder, name), bytes)
@@ -398,12 +936,40 @@ function writeInputs(folder) {
   git('add', 'generated.ts')
   git('commit', '-q', '-m', 'empty')
   writeFileSync(join(repo, 'generated.ts'), inputFiles()['git-50000/generated.ts'])
+  const many = join(folder, 'git-200-files')
+  mkdirSync(many, { recursive: true })
+  const gitMany = (...args) =>
+    execFileSync(
+      'git',
+      ['-c', 'user.name=measure', '-c', 'user.email=measure@example.invalid', ...args],
+      { cwd: many, stdio: 'ignore' }
+    )
+  gitMany('init', '-q')
+  for (let i = 0; i < 200; i++) writeFileSync(join(many, 'file-' + i + '.ts'), '')
+  gitMany('add', '.')
+  gitMany('commit', '-q', '-m', 'empty files')
+  for (let i = 0; i < 200; i++) writeFileSync(join(many, 'file-' + i + '.ts'), gitFileContent(401))
   process.stdout.write(`재현 입력을 썼다: ${folder}\n`)
 }
 
 async function main(argv) {
   const flag = argv[0]
   const value = argv[1]
+  if (flag === '--visible' && value) {
+    const rows = await measureVisible(
+      await loadTree(resolve(value), visibleModules),
+      addedPatchLines(),
+      addedPatchText(990044, 5000)
+    )
+    // The browser SSR bundle keeps a MessagePort open in Node. Finish the CLI
+    // after the complete JSON has reached stdout, including when it is piped.
+    await new Promise((resolve, reject) => {
+      process.stdout.write(JSON.stringify(rows, null, 2) + '\n', (error) =>
+        error ? reject(error) : resolve()
+      )
+    })
+    process.exit(0)
+  }
   if (flag === '--src' && value) return measureTree(resolve(value))
   if (flag === '--write-inputs' && value) return writeInputs(resolve(value))
   process.stderr.write(

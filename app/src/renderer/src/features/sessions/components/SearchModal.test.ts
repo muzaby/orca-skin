@@ -11,7 +11,7 @@ const h = vi.hoisted(() => ({
   refCursor: 0,
   effects: [] as (() => void | (() => void))[],
   search: vi.fn(),
-  navigate: vi.fn(),
+  navigate: vi.fn(async () => true),
   close: vi.fn()
 }))
 vi.mock('react', async (original) => ({
@@ -43,6 +43,7 @@ function render(): ReturnType<typeof SearchModal> {
 type ElementProps = {
   children?: ReactNode
   onChange?: (event: { target: { value: string } }) => void
+  onClick?: () => void
   onKeyDown?: (event: { key: string; preventDefault: () => void }) => void
 } & Record<string, unknown>
 type TestElement = { type: unknown; props: ElementProps }
@@ -114,7 +115,18 @@ describe('actual search modal before and after responsibility relocation', () =>
     expect(h.states[1]).toEqual([hit('b')])
   })
 
-  it('keeps arrow selection, navigation-before-close and escaped snippet output', () => {
+  it('opens the highlighted result and discards the old selection immediately on edit', async () => {
+    h.states = ['query', [hit('a'), hit('b')], 0]
+    const press = (key: string): void => input().props.onKeyDown!({ key, preventDefault: vi.fn() })
+    press('ArrowDown')
+    press('Enter')
+    expect(h.navigate).toHaveBeenCalledExactlyOnceWith(hit('b'), true)
+    input().props.onChange!({ target: { value: 'different' } })
+    press('Enter')
+    expect(h.navigate).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps arrow selection, navigation-before-close and escaped snippet output', async () => {
     h.states = ['query', [hit('a'), hit('b')], 0]
     const preventDefault = vi.fn()
     input().props.onKeyDown!({ key: 'ArrowDown', preventDefault })
@@ -123,7 +135,8 @@ describe('actual search modal before and after responsibility relocation', () =>
     input().props.onKeyDown!({ key: 'ArrowUp', preventDefault })
     expect(h.states[2]).toBe(0)
     input().props.onKeyDown!({ key: 'Enter', preventDefault })
-    expect(h.navigate).toHaveBeenCalledExactlyOnceWith('a')
+    await Promise.resolve()
+    expect(h.navigate).toHaveBeenCalledExactlyOnceWith(hit('a'), true)
     expect(h.navigate.mock.invocationCallOrder[0]).toBeLessThan(h.close.mock.invocationCallOrder[0])
     const result = elements(render()).find(
       (el) => typeof el.type === 'function' && el.type.name === 'SearchResults'
@@ -132,6 +145,20 @@ describe('actual search modal before and after responsibility relocation', () =>
     const html = renderToStaticMarkup(resultElement)
     expect(html).toContain('&lt;script&gt;unsafe&lt;/script&gt;')
     expect(html).toContain('<mark class="bg-rust-soft text-rust">answer</mark>')
+  })
+
+  it('opens the clicked result as a pointer selection before closing the modal', async () => {
+    h.states = ['query', [hit('a'), hit('b')], 0]
+    const results = elements(render()).find(
+      (el) => typeof el.type === 'function' && el.type.name === 'SearchResults'
+    )!
+    const options = elements(
+      (results.type as (props: ElementProps) => ReactNode)(results.props)
+    ).filter((el) => el.props.role === 'option')
+    options[1].props.onClick!()
+    expect(h.navigate).toHaveBeenCalledExactlyOnceWith(hit('b'), false)
+    await Promise.resolve()
+    expect(h.close).toHaveBeenCalledOnce()
   })
 
   it('closes on outside mousedown and Escape and removes both listeners on cleanup', () => {

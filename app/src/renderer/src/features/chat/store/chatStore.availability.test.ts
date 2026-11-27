@@ -143,13 +143,24 @@ it.each(['fork', 'handoff', 'saved'] as const)(
         sessionId: 'source',
         modelFamily: 'old',
         messages: [
-          { role: 'user' as const, createdAt: 1, parts: [{ type: 'text' as const, text: 'one' }] },
           {
+            id: 'm-146',
+            role: 'user' as const,
+            createdAt: 1,
+            parts: [{ type: 'text' as const, text: 'one' }]
+          },
+          {
+            id: 'm-148',
             role: 'assistant' as const,
             createdAt: 2,
             parts: [{ type: 'text' as const, text: 'answer' }]
           },
-          { role: 'user' as const, createdAt: 3, parts: [{ type: 'text' as const, text: 'two' }] }
+          {
+            id: 'm-152',
+            role: 'user' as const,
+            createdAt: 3,
+            parts: [{ type: 'text' as const, text: 'two' }]
+          }
         ]
       }
     }

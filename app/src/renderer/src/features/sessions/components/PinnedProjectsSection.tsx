@@ -7,6 +7,7 @@ import { Popover } from '../../../shared/ui/Popover'
 import { CollapsibleSection } from '../../../shared/ui/SidebarSection'
 import { useI18n } from '../../../shared/i18n'
 import type { Project } from '../../../../../shared/ipc'
+import { SidebarRows } from './SidebarRows'
 import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import { useNavSections } from '../hooks/useNavSections'
 import type { ProjectChildSessions } from '../lib/navSections'
@@ -44,15 +45,21 @@ export const PinnedProjectsSectionView = memo(function PinnedProjectsSectionView
   ...row
 }: PinnedProjectsSectionViewProps): React.JSX.Element {
   const { tr } = useI18n()
-  const rows = pinnedProjects.map((project) => (
-    <PinnedProjectRow
-      key={project.id}
-      project={project}
-      sessions={projectChildren[project.id]}
-      onExpandProject={onExpandProject}
-      {...row}
+  const rows = (
+    <SidebarRows
+      items={pinnedProjects}
+      documentKey="sidebar-projects"
+      renderRow={(project) => (
+        <PinnedProjectRow
+          key={project.id}
+          project={project}
+          sessions={projectChildren[project.id]}
+          onExpandProject={onExpandProject}
+          {...row}
+        />
+      )}
     />
-  ))
+  )
   if (embedded) return <>{rows}</>
 
   return (
@@ -182,6 +189,7 @@ function PinnedProjectRow({
           <PinnedProjectChildren
             agentAppearance={agentAppearance}
             sessions={sessions}
+            projectId={project.id}
             currentSessionId={currentSessionId}
             onSelectSession={onSelectSession}
             onTogglePinSession={onTogglePinSession}
@@ -195,6 +203,7 @@ function PinnedProjectRow({
 }
 
 export interface PinnedProjectChildrenProps {
+  projectId?: string
   agentAppearance: AgentAppearanceResolver
   // `undefined` = 미조회 → 로딩. `[]` = 조회했고 보여 줄 대화가 없음.
   // ΔV2 EP-11 — 슬롯 브랜드.
@@ -212,6 +221,7 @@ export interface PinnedProjectChildrenProps {
 // export 하는 이유(0203 D7): 이 목록은 행의 `expanded` 상태 뒤에 있어 구획 단위 SSR 렌더로는
 // **아무것도 그려지지 않는다** — 그 출력에 대한 음성 단언은 무엇을 넣어도 참이 된다.
 export function PinnedProjectChildren({
+  projectId,
   agentAppearance,
   sessions,
   currentSessionId,
@@ -230,18 +240,22 @@ export function PinnedProjectChildren({
   }
   return (
     <>
-      {sessions.map((s) => (
-        <SessionRow
-          key={s.id}
-          session={s}
-          appearance={agentAppearance(s.agentKind)}
-          isActive={s.id === currentSessionId}
-          onSelect={onSelectSession}
-          onTogglePin={onTogglePinSession}
-          onDelete={onDeleteSession}
-          onRename={onRenameSession}
-        />
-      ))}
+      <SidebarRows
+        items={sessions}
+        documentKey={projectId ?? 'project-sessions'}
+        renderRow={(s) => (
+          <SessionRow
+            key={s.id}
+            session={s}
+            appearance={agentAppearance(s.agentKind)}
+            isActive={s.id === currentSessionId}
+            onSelect={onSelectSession}
+            onTogglePin={onTogglePinSession}
+            onDelete={onDeleteSession}
+            onRename={onRenameSession}
+          />
+        )}
+      />
     </>
   )
 }

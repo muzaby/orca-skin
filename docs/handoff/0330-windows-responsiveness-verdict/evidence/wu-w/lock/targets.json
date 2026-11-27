@@ -1,0 +1,92 @@
+{
+ "S-E1/claude-code/turns-1": {
+  "kind": "first-body",
+  "sessionId": "seed-claude-code-turns-1",
+  "messageId": "n:seed%3Aseed-claude-code-turns-1%3A2%3Aa0",
+  "expectText": "최신 답변 본문"
+ },
+ "S-E1/claude-code/turns-100": {
+  "kind": "first-body",
+  "sessionId": "seed-claude-code-turns-100",
+  "messageId": "n:seed%3Aseed-claude-code-turns-100%3A101%3Aa0",
+  "expectText": "최신 답변 본문"
+ },
+ "S-E1/claude-code/turns-10000": {
+  "kind": "first-body",
+  "sessionId": "seed-claude-code-turns-10000",
+  "messageId": "n:seed%3Aseed-claude-code-turns-10000%3A10001%3Aa0",
+  "expectText": "최신 답변 본문"
+ },
+ "S-E5/claude-code/click": {
+  "kind": "search-target",
+  "sessionId": "seed-claude-code-search-100",
+  "messageId": "n:seed%3Aseed-claude-code-search-100%3A63%3Aa0",
+  "expectText": "센서 A 측정값 63턴"
+ },
+ "S-E5/claude-code/enter": {
+  "kind": "search-target",
+  "sessionId": "seed-claude-code-search-100",
+  "messageId": "n:seed%3Aseed-claude-code-search-100%3A63%3Aa0",
+  "expectText": "센서 A 측정값 63턴"
+ },
+ "S-E1/claude-work/turns-1": {
+  "kind": "first-body",
+  "sessionId": "seed-claude-work-turns-1",
+  "messageId": "n:seed%3Aseed-claude-work-turns-1%3A2%3Aa0",
+  "expectText": "최신 답변 본문"
+ },
+ "S-E1/claude-work/turns-100": {
+  "kind": "first-body",
+  "sessionId": "seed-claude-work-turns-100",
+  "messageId": "n:seed%3Aseed-claude-work-turns-100%3A101%3Aa0",
+  "expectText": "최신 답변 본문"
+ },
+ "S-E1/claude-work/turns-10000": {
+  "kind": "first-body",
+  "sessionId": "seed-claude-work-turns-10000",
+  "messageId": "n:seed%3Aseed-claude-work-turns-10000%3A10001%3Aa0",
+  "expectText": "최신 답변 본문"
+ },
+ "S-E5/claude-work/click": {
+  "kind": "search-target",
+  "sessionId": "seed-claude-work-search-100",
+  "messageId": "n:seed%3Aseed-claude-work-search-100%3A63%3Aa0",
+  "expectText": "센서 A 측정값 63턴"
+ },
+ "S-E5/claude-work/enter": {
+  "kind": "search-target",
+  "sessionId": "seed-claude-work-search-100",
+  "messageId": "n:seed%3Aseed-claude-work-search-100%3A63%3Aa0",
+  "expectText": "센서 A 측정값 63턴"
+ },
+ "S-E1/opencode/turns-1": {
+  "kind": "first-body",
+  "sessionId": "seed-opencode-turns-1",
+  "messageId": "n:seed%3Aseed-opencode-turns-1%3A2%3Aa0",
+  "expectText": "최신 답변 본문"
+ },
+ "S-E1/opencode/turns-100": {
+  "kind": "first-body",
+  "sessionId": "seed-opencode-turns-100",
+  "messageId": "n:seed%3Aseed-opencode-turns-100%3A101%3Aa0",
+  "expectText": "최신 답변 본문"
+ },
+ "S-E1/opencode/turns-10000": {
+  "kind": "first-body",
+  "sessionId": "seed-opencode-turns-10000",
+  "messageId": "n:seed%3Aseed-opencode-turns-10000%3A10001%3Aa0",
+  "expectText": "최신 답변 본문"
+ },
+ "S-E5/opencode/click": {
+  "kind": "search-target",
+  "sessionId": "seed-opencode-search-100",
+  "messageId": "n:seed%3Aseed-opencode-search-100%3A63%3Aa0",
+  "expectText": "센서 A 측정값 63턴"
+ },
+ "S-E5/opencode/enter": {
+  "kind": "search-target",
+  "sessionId": "seed-opencode-search-100",
+  "messageId": "n:seed%3Aseed-opencode-search-100%3A63%3Aa0",
+  "expectText": "센서 A 측정값 63턴"
+ }
+}

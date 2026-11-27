@@ -183,7 +183,10 @@ const NORMALIZED_TO_CLAUDE_EVENT: Record<NormalizedHookEvent, HookEvent> = {
 // 정규화된 Hook 집합을 claude options.hooks 조각으로 변환한다. 핸들러가 등록된 이벤트만 매처로
 // 묶고, 비어 있으면 옵션 자체를 생략 — 이번 PR 의 빌더는 {normalized:{}} 를 공급하므로 {} 가 되어
 // options.hooks 가 런타임에 주입되지 않는다 (실 채팅 동작 0 변경).
-export function adaptHooks(set: NormalizedHookSet): object {
+export function adaptHooks(
+  set: NormalizedHookSet,
+  routeSessionId?: (id: string) => string
+): object {
   const active = (
     Object.entries(set.normalized) as [NormalizedHookEvent, NormalizedHookHandler[] | undefined][]
   ).filter(
@@ -194,7 +197,7 @@ export function adaptHooks(set: NormalizedHookSet): object {
   const hooks: Partial<Record<HookEvent, HookCallbackMatcher[]>> = {}
   for (const [event, handlers] of active) {
     hooks[NORMALIZED_TO_CLAUDE_EVENT[event]] = [
-      { hooks: [makeClaudeHookCallback(event, handlers)] }
+      { hooks: [makeClaudeHookCallback(event, handlers, routeSessionId)] }
     ]
   }
   return { hooks }
@@ -296,11 +299,12 @@ interface ClaudeHookInputLike {
 export function toContext(
   event: NormalizedHookEvent,
   input: ClaudeHookInputLike,
-  signal: AbortSignal
+  signal: AbortSignal,
+  routeSessionId: (id: string) => string = (id) => id
 ): NormalizedHookContext {
   return {
     event,
-    sessionId: input.session_id ?? '',
+    sessionId: routeSessionId(input.session_id ?? ''),
     cwd: input.cwd ?? '',
     ...(input.tool_name !== undefined ? { toolName: input.tool_name } : {}),
     ...(input.tool_input !== undefined ? { toolInput: input.tool_input } : {}),
@@ -371,10 +375,11 @@ export function toClaudeHookOutput(
 // → resolveHookDecisions 로 1결정 병합 → toClaudeHookOutput 으로 다시 변환한다.
 export function makeClaudeHookCallback(
   event: NormalizedHookEvent,
-  handlers: NormalizedHookHandler[]
+  handlers: NormalizedHookHandler[],
+  routeSessionId?: (id: string) => string
 ): HookCallback {
   return async (input, _toolUseID, { signal }) => {
-    const ctx = toContext(event, input as unknown as ClaudeHookInputLike, signal)
+    const ctx = toContext(event, input as unknown as ClaudeHookInputLike, signal, routeSessionId)
     const decisions: NormalizedHookDecision[] = []
     for (const handler of handlers) decisions.push(await handler(ctx))
     return toClaudeHookOutput(event, resolveHookDecisions(decisions))

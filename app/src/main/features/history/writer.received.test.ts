@@ -22,6 +22,7 @@ describe('received input format history', () => {
           const message = messages[part.messageId - 1]
           parts.push({
             message_id: part.messageId,
+            message_key: null,
             role: message.role,
             created_at: message.createdAt,
             complete: 1,
@@ -63,6 +64,7 @@ describe('received input format history', () => {
       expect(loaded?.backend).toBe(backend)
       expect(loaded?.messages).toEqual(
         input.map((item, index) => ({
+          id: `m:${index + 1}`,
           role: 'user',
           createdAt: 100 + index,
           parts: [{ type: 'text', ...item }]

@@ -1,0 +1,193 @@
+{
+  "revision": "example-v1",
+  "cells": [
+    {
+      "key": "typing",
+      "revision": "example-v1",
+      "aggregate": 12,
+      "n": 3,
+      "unit": "ms",
+      "rawRefs": [
+        {
+          "path": "typing-1.json",
+          "sha256": "6a5ce3ef1d420abfed262dd6761bdbcb304b0553d6efb56c5849de58631178f4",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "typing-2.json",
+          "sha256": "6a5ce3ef1d420abfed262dd6761bdbcb304b0553d6efb56c5849de58631178f4",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "typing-3.json",
+          "sha256": "6a5ce3ef1d420abfed262dd6761bdbcb304b0553d6efb56c5849de58631178f4",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        }
+      ],
+      "status": "충족",
+      "ownerMachine": "PASS",
+      "ownerWindows": "FAIL",
+      "w": "충족",
+      "user": "사용자 확정 대기"
+    },
+    {
+      "key": "scroll",
+      "revision": "example-v1",
+      "aggregate": 75,
+      "n": 3,
+      "unit": "ms",
+      "rawRefs": [
+        {
+          "path": "scroll-1.json",
+          "sha256": "ad327a7d9c1e1b0513cbdc3f05c8dc14f0c5171f3fc050fb82004db4d882e3f7",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "scroll-2.json",
+          "sha256": "ad327a7d9c1e1b0513cbdc3f05c8dc14f0c5171f3fc050fb82004db4d882e3f7",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        },
+        {
+          "path": "scroll-3.json",
+          "sha256": "ad327a7d9c1e1b0513cbdc3f05c8dc14f0c5171f3fc050fb82004db4d882e3f7",
+          "range": {
+            "kind": "json-pointer",
+            "pointer": "/values"
+          }
+        }
+      ],
+      "status": "위반",
+      "ownerMachine": "PASS",
+      "ownerWindows": "FAIL",
+      "w": "위반",
+      "user": "사용자 확정 대기"
+    },
+    {
+      "key": "prepend",
+      "revision": "example-v1",
+      "aggregate": null,
+      "n": 0,
+      "unit": "px",
+      "rawRefs": [],
+      "status": "미판정",
+      "reason": "반복 부족",
+      "ownerMachine": "PASS",
+      "ownerWindows": "FAIL",
+      "w": "미판정",
+      "user": "사용자 확정 대기"
+    },
+    {
+      "key": "search",
+      "revision": "example-v1",
+      "aggregate": null,
+      "n": 0,
+      "unit": "ms",
+      "rawRefs": [
+        {
+          "path": "search-1.json",
+          "sha256": "93e8ee89e11f077da5703d2ee3f4cc22b813c4609f682f27d8e96ccdad20a1c5",
+          "range": {
+            "kind": "trace-marker",
+            "start": 100,
+            "end": 200,
+            "opId": "op-r1"
+          }
+        },
+        {
+          "path": "search-2.json",
+          "sha256": "1951219f25410e680541d241cc4f900bcf12533663a0cb45a96b1451f5976c42",
+          "range": {
+            "kind": "trace-marker",
+            "start": 100,
+            "end": 200,
+            "opId": "op-r2"
+          }
+        },
+        {
+          "path": "search-3.json",
+          "sha256": "15eef6e8dd8fa3223b8cfd7098beb1fd83c76472aa6aaebd0444c6fbdb5df7d9",
+          "range": {
+            "kind": "trace-marker",
+            "start": 100,
+            "end": 200,
+            "opId": "op-r3"
+          }
+        }
+      ],
+      "status": "미판정",
+      "reason": "대상 표시 기록 없음",
+      "ownerMachine": "PASS",
+      "ownerWindows": "PASS",
+      "w": "미판정",
+      "user": "사용자 확정 대기"
+    }
+  ],
+  "violations": [
+    "scroll"
+  ],
+  "missing": [
+    {
+      "key": "prepend",
+      "repeat": 1,
+      "side": "after",
+      "reason": "반복 부족"
+    },
+    {
+      "key": "prepend",
+      "repeat": 2,
+      "side": "after",
+      "reason": "반복 부족"
+    },
+    {
+      "key": "prepend",
+      "repeat": 3,
+      "side": "after",
+      "reason": "반복 부족"
+    },
+    {
+      "key": "search",
+      "repeat": 1,
+      "side": "after",
+      "reason": "대상 표시 기록 없음"
+    },
+    {
+      "key": "search",
+      "repeat": 2,
+      "side": "after",
+      "reason": "대상 표시 기록 없음"
+    },
+    {
+      "key": "search",
+      "repeat": 3,
+      "side": "after",
+      "reason": "대상 표시 기록 없음"
+    }
+  ],
+  "unexpected": [],
+  "duplicates": [],
+  "conflicts": [],
+  "ownerFailures": [
+    "T17/0326"
+  ],
+  "holds": [
+    "사용자 확정 대기",
+    "필수 결측"
+  ],
+  "overall": "불합격",
+  "overallReason": "위반 또는 소유자 FAIL"
+}

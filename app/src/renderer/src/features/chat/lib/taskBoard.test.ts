@@ -1,10 +1,10 @@
+import { taskBoardFromMessages } from './transcriptIndex.legacy.testfixture'
 import { describe, expect, it } from 'vitest'
 import {
   agentTaskKey,
   backgroundBoardStatus,
   canBackgroundStatus,
   canStopBackgroundStatus,
-  taskBoardFromMessages,
   taskBoardOrdered,
   taskDetailRows,
   type TaskBoardItem
@@ -38,7 +38,7 @@ function call(
 }
 
 function messages(...parts: AppMessagePart[][]): Message[] {
-  return [{ role: 'assistant', createdAt: 1_700_000_000_000, parts: parts.flat() }]
+  return [{ id: 'm-41', role: 'assistant', createdAt: 1_700_000_000_000, parts: parts.flat() }]
 }
 
 const created = (id: string, subject: string): unknown => ({ task: { id, subject } })

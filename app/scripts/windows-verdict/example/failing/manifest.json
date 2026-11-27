@@ -1,0 +1,364 @@
+{
+  "runs": [
+    {
+      "runId": "typing-1",
+      "sample": "w",
+      "pairId": "W",
+      "side": "after",
+      "runtime": "win32-electron",
+      "sha": "2222222222222222222222222222222222222222",
+      "tool": "4444444444444444444444444444444444444444",
+      "appSource": {
+        "commit": "2222222222222222222222222222222222222222",
+        "tree": "3333333333333333333333333333333333333333",
+        "dirty": false
+      },
+      "binarySha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "buildKind": "diagnostic",
+      "profile": "desktop",
+      "harness": "claude",
+      "scenario": "W1",
+      "operation": "typing",
+      "load": "fixture",
+      "repeat": 1,
+      "startedAt": "2026-11-21T00:00:00Z",
+      "endedAt": "2026-11-21T00:01:00Z",
+      "tools": {
+        "probe": {
+          "version": "fixture-v1",
+          "environment": "win32-electron"
+        }
+      },
+      "runRef": {
+        "path": "typing-1.json",
+        "sha256": "6a5ce3ef1d420abfed262dd6761bdbcb304b0553d6efb56c5849de58631178f4",
+        "kind": "electron-json"
+      }
+    },
+    {
+      "runId": "typing-2",
+      "sample": "w",
+      "pairId": "W",
+      "side": "after",
+      "runtime": "win32-electron",
+      "sha": "2222222222222222222222222222222222222222",
+      "tool": "4444444444444444444444444444444444444444",
+      "appSource": {
+        "commit": "2222222222222222222222222222222222222222",
+        "tree": "3333333333333333333333333333333333333333",
+        "dirty": false
+      },
+      "binarySha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "buildKind": "diagnostic",
+      "profile": "desktop",
+      "harness": "claude",
+      "scenario": "W1",
+      "operation": "typing",
+      "load": "fixture",
+      "repeat": 2,
+      "startedAt": "2026-11-21T00:00:00Z",
+      "endedAt": "2026-11-21T00:01:00Z",
+      "tools": {
+        "probe": {
+          "version": "fixture-v1",
+          "environment": "win32-electron"
+        }
+      },
+      "runRef": {
+        "path": "typing-2.json",
+        "sha256": "6a5ce3ef1d420abfed262dd6761bdbcb304b0553d6efb56c5849de58631178f4",
+        "kind": "electron-json"
+      }
+    },
+    {
+      "runId": "typing-3",
+      "sample": "w",
+      "pairId": "W",
+      "side": "after",
+      "runtime": "win32-electron",
+      "sha": "2222222222222222222222222222222222222222",
+      "tool": "4444444444444444444444444444444444444444",
+      "appSource": {
+        "commit": "2222222222222222222222222222222222222222",
+        "tree": "3333333333333333333333333333333333333333",
+        "dirty": false
+      },
+      "binarySha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "buildKind": "diagnostic",
+      "profile": "desktop",
+      "harness": "claude",
+      "scenario": "W1",
+      "operation": "typing",
+      "load": "fixture",
+      "repeat": 3,
+      "startedAt": "2026-11-21T00:00:00Z",
+      "endedAt": "2026-11-21T00:01:00Z",
+      "tools": {
+        "probe": {
+          "version": "fixture-v1",
+          "environment": "win32-electron"
+        }
+      },
+      "runRef": {
+        "path": "typing-3.json",
+        "sha256": "6a5ce3ef1d420abfed262dd6761bdbcb304b0553d6efb56c5849de58631178f4",
+        "kind": "electron-json"
+      }
+    },
+    {
+      "runId": "scroll-1",
+      "sample": "w",
+      "pairId": "W",
+      "side": "after",
+      "runtime": "win32-electron",
+      "sha": "2222222222222222222222222222222222222222",
+      "tool": "4444444444444444444444444444444444444444",
+      "appSource": {
+        "commit": "2222222222222222222222222222222222222222",
+        "tree": "3333333333333333333333333333333333333333",
+        "dirty": false
+      },
+      "binarySha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "buildKind": "diagnostic",
+      "profile": "desktop",
+      "harness": "claude",
+      "scenario": "W1",
+      "operation": "scroll",
+      "load": "fixture",
+      "repeat": 1,
+      "startedAt": "2026-11-21T00:00:00Z",
+      "endedAt": "2026-11-21T00:01:00Z",
+      "tools": {
+        "probe": {
+          "version": "fixture-v1",
+          "environment": "win32-electron"
+        }
+      },
+      "runRef": {
+        "path": "scroll-1.json",
+        "sha256": "ad327a7d9c1e1b0513cbdc3f05c8dc14f0c5171f3fc050fb82004db4d882e3f7",
+        "kind": "electron-json"
+      }
+    },
+    {
+      "runId": "scroll-2",
+      "sample": "w",
+      "pairId": "W",
+      "side": "after",
+      "runtime": "win32-electron",
+      "sha": "2222222222222222222222222222222222222222",
+      "tool": "4444444444444444444444444444444444444444",
+      "appSource": {
+        "commit": "2222222222222222222222222222222222222222",
+        "tree": "3333333333333333333333333333333333333333",
+        "dirty": false
+      },
+      "binarySha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "buildKind": "diagnostic",
+      "profile": "desktop",
+      "harness": "claude",
+      "scenario": "W1",
+      "operation": "scroll",
+      "load": "fixture",
+      "repeat": 2,
+      "startedAt": "2026-11-21T00:00:00Z",
+      "endedAt": "2026-11-21T00:01:00Z",
+      "tools": {
+        "probe": {
+          "version": "fixture-v1",
+          "environment": "win32-electron"
+        }
+      },
+      "runRef": {
+        "path": "scroll-2.json",
+        "sha256": "ad327a7d9c1e1b0513cbdc3f05c8dc14f0c5171f3fc050fb82004db4d882e3f7",
+        "kind": "electron-json"
+      }
+    },
+    {
+      "runId": "scroll-3",
+      "sample": "w",
+      "pairId": "W",
+      "side": "after",
+      "runtime": "win32-electron",
+      "sha": "2222222222222222222222222222222222222222",
+      "tool": "4444444444444444444444444444444444444444",
+      "appSource": {
+        "commit": "2222222222222222222222222222222222222222",
+        "tree": "3333333333333333333333333333333333333333",
+        "dirty": false
+      },
+      "binarySha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "buildKind": "diagnostic",
+      "profile": "desktop",
+      "harness": "claude",
+      "scenario": "W1",
+      "operation": "scroll",
+      "load": "fixture",
+      "repeat": 3,
+      "startedAt": "2026-11-21T00:00:00Z",
+      "endedAt": "2026-11-21T00:01:00Z",
+      "tools": {
+        "probe": {
+          "version": "fixture-v1",
+          "environment": "win32-electron"
+        }
+      },
+      "runRef": {
+        "path": "scroll-3.json",
+        "sha256": "ad327a7d9c1e1b0513cbdc3f05c8dc14f0c5171f3fc050fb82004db4d882e3f7",
+        "kind": "electron-json"
+      }
+    },
+    {
+      "runId": "search-1",
+      "sample": "w",
+      "pairId": "W",
+      "side": "after",
+      "runtime": "win32-electron",
+      "sha": "2222222222222222222222222222222222222222",
+      "tool": "4444444444444444444444444444444444444444",
+      "appSource": {
+        "commit": "2222222222222222222222222222222222222222",
+        "tree": "3333333333333333333333333333333333333333",
+        "dirty": false
+      },
+      "binarySha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "buildKind": "diagnostic",
+      "profile": "desktop",
+      "harness": "claude",
+      "scenario": "S-E5",
+      "operation": "select",
+      "load": "fixture",
+      "repeat": 1,
+      "startedAt": "2026-11-21T00:00:00Z",
+      "endedAt": "2026-11-21T00:01:00Z",
+      "tools": {
+        "probe": {
+          "version": "fixture-v1",
+          "environment": "win32-electron"
+        }
+      },
+      "selections": [
+        {
+          "opId": "op-r1",
+          "input": "click",
+          "target": {
+            "kind": "search-target",
+            "sessionId": "sB",
+            "messageId": "m63"
+          }
+        }
+      ],
+      "profileRef": {
+        "path": "device.txt",
+        "sha256": "4d8683065f274db7a5f83fae0cc9c3f06b2bea7a3ec5ac7a46ba0e27d88a715e"
+      },
+      "runRef": {
+        "path": "search-1.json",
+        "sha256": "93e8ee89e11f077da5703d2ee3f4cc22b813c4609f682f27d8e96ccdad20a1c5",
+        "kind": "trace"
+      }
+    },
+    {
+      "runId": "search-2",
+      "sample": "w",
+      "pairId": "W",
+      "side": "after",
+      "runtime": "win32-electron",
+      "sha": "2222222222222222222222222222222222222222",
+      "tool": "4444444444444444444444444444444444444444",
+      "appSource": {
+        "commit": "2222222222222222222222222222222222222222",
+        "tree": "3333333333333333333333333333333333333333",
+        "dirty": false
+      },
+      "binarySha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "buildKind": "diagnostic",
+      "profile": "desktop",
+      "harness": "claude",
+      "scenario": "S-E5",
+      "operation": "select",
+      "load": "fixture",
+      "repeat": 2,
+      "startedAt": "2026-11-21T00:00:00Z",
+      "endedAt": "2026-11-21T00:01:00Z",
+      "tools": {
+        "probe": {
+          "version": "fixture-v1",
+          "environment": "win32-electron"
+        }
+      },
+      "selections": [
+        {
+          "opId": "op-r2",
+          "input": "click",
+          "target": {
+            "kind": "search-target",
+            "sessionId": "sB",
+            "messageId": "m63"
+          }
+        }
+      ],
+      "profileRef": {
+        "path": "device.txt",
+        "sha256": "4d8683065f274db7a5f83fae0cc9c3f06b2bea7a3ec5ac7a46ba0e27d88a715e"
+      },
+      "runRef": {
+        "path": "search-2.json",
+        "sha256": "1951219f25410e680541d241cc4f900bcf12533663a0cb45a96b1451f5976c42",
+        "kind": "trace"
+      }
+    },
+    {
+      "runId": "search-3",
+      "sample": "w",
+      "pairId": "W",
+      "side": "after",
+      "runtime": "win32-electron",
+      "sha": "2222222222222222222222222222222222222222",
+      "tool": "4444444444444444444444444444444444444444",
+      "appSource": {
+        "commit": "2222222222222222222222222222222222222222",
+        "tree": "3333333333333333333333333333333333333333",
+        "dirty": false
+      },
+      "binarySha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "buildKind": "diagnostic",
+      "profile": "desktop",
+      "harness": "claude",
+      "scenario": "S-E5",
+      "operation": "select",
+      "load": "fixture",
+      "repeat": 3,
+      "startedAt": "2026-11-21T00:00:00Z",
+      "endedAt": "2026-11-21T00:01:00Z",
+      "tools": {
+        "probe": {
+          "version": "fixture-v1",
+          "environment": "win32-electron"
+        }
+      },
+      "selections": [
+        {
+          "opId": "op-r3",
+          "input": "click",
+          "target": {
+            "kind": "search-target",
+            "sessionId": "sB",
+            "messageId": "m63"
+          }
+        }
+      ],
+      "profileRef": {
+        "path": "device.txt",
+        "sha256": "4d8683065f274db7a5f83fae0cc9c3f06b2bea7a3ec5ac7a46ba0e27d88a715e"
+      },
+      "runRef": {
+        "path": "search-3.json",
+        "sha256": "15eef6e8dd8fa3223b8cfd7098beb1fd83c76472aa6aaebd0444c6fbdb5df7d9",
+        "kind": "trace"
+      }
+    }
+  ]
+}

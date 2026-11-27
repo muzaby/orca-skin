@@ -16,6 +16,7 @@ describe('incoming prompt origin', () => {
     const html = renderToStaticMarkup(
       createElement(UserMessage, {
         message: {
+          id: 'm-19',
           role: 'user',
           createdAt: 1,
           parts: [{ type: 'text', text: '수신된 작업 내용을 처리하세요.', origin }]
@@ -31,7 +32,12 @@ describe('incoming prompt origin', () => {
   it('does not label ordinary user messages', () => {
     const html = renderToStaticMarkup(
       createElement(UserMessage, {
-        message: { role: 'user', createdAt: 1, parts: [{ type: 'text', text: '일반 메시지' }] }
+        message: {
+          id: 'm-34',
+          role: 'user',
+          createdAt: 1,
+          parts: [{ type: 'text', text: '일반 메시지' }]
+        }
       })
     )
     expect(html).toContain('일반 메시지')

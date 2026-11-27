@@ -14,7 +14,8 @@ import type { SearchHit } from '../../../../../shared/ipc'
 
 interface SearchModalProps {
   onClose: () => void
-  onChoose: (sessionId: string) => void
+  onCancelChoice?: () => void
+  onChoose: (hit: SearchHit, keyboard: boolean) => Promise<boolean>
 }
 
 const DEBOUNCE_MS = 150
@@ -24,17 +25,22 @@ const LIMIT = 30
 // open prop 은 없다 — unmount 가 곧 닫힘이고 state 자연 reset. 입력어는 150ms
 // debounce 후 main 의 FTS5 IPC 로 전달. 인플라이트 request id 시퀀스 비교로 stale
 // 응답을 폐기 — 빠르게 타이핑해도 마지막 응답만 반영.
-export function SearchModal({ onClose, onChoose }: SearchModalProps): React.JSX.Element {
+export function SearchModal({
+  onClose,
+  onChoose,
+  onCancelChoice
+}: SearchModalProps): React.JSX.Element {
   const { tr } = useI18n()
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<SearchHit[] | null>(null)
   const [selectedIdx, setSelectedIdx] = useState(0)
+  const [positionFailed, setPositionFailed] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const reqSeqRef = useRef(0)
+  const choice = useRef(0)
 
-  // 입력어 변경 → debounce → IPC. 빈 입력일 땐 IPC skip; 렌더 측에서 query 가
-  // empty 면 "검색어를 입력하세요" 분기로 가니 hits 잔존값은 화면에 노출되지 않는다.
+  // 검색어가 바뀌면 기존 선택을 비우고 최신 요청의 결과만 표시한다.
   useEffect(() => {
     const trimmed = query.trim()
     if (trimmed === '') return
@@ -59,18 +65,30 @@ export function SearchModal({ onClose, onChoose }: SearchModalProps): React.JSX.
     const onKey = (e: globalThis.KeyboardEvent): void => {
       if (e.key === 'Escape') onClose()
     }
+    const onWheel = (event: WheelEvent): void => {
+      if (panelRef.current?.contains(event.target as Node)) return
+      ++choice.current
+      onCancelChoice?.()
+    }
+    document.addEventListener('wheel', onWheel, { capture: true, passive: true })
     document.addEventListener('mousedown', onMouseDown)
     document.addEventListener('keydown', onKey)
     return () => {
+      document.removeEventListener('wheel', onWheel, true)
       document.removeEventListener('mousedown', onMouseDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [onClose])
+  }, [onClose, onCancelChoice])
 
   const goto = useCallback(
-    (hit: SearchHit): void => {
-      onChoose(hit.sessionId)
-      onClose()
+    (hit: SearchHit, keyboard = false): void => {
+      const request = ++choice.current
+      setPositionFailed(false)
+      void onChoose(hit, keyboard).then((found) => {
+        if (request !== choice.current) return
+        if (found) onClose()
+        else setPositionFailed(true)
+      })
     },
     [onChoose, onClose]
   )
@@ -86,7 +104,7 @@ export function SearchModal({ onClose, onChoose }: SearchModalProps): React.JSX.
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const hit = hits[selectedIdx]
-      if (hit) goto(hit)
+      if (hit) goto(hit, true)
     }
   }
 
@@ -101,6 +119,11 @@ export function SearchModal({ onClose, onChoose }: SearchModalProps): React.JSX.
         data-context="modal"
         data-behavior="focus-trap"
       >
+        {positionFailed && (
+          <p role="status" className="px-6 pt-3 text-sm text-ink3">
+            {tr('search.locationMissing')}
+          </p>
+        )}
         <div className="flex flex-shrink-0 items-center gap-2 pl-6 pr-2.5 pt-[1.1rem] pb-[0.9rem]">
           <Icon name="search" size={18} />
           <input
@@ -108,7 +131,15 @@ export function SearchModal({ onClose, onChoose }: SearchModalProps): React.JSX.
             id="search-modal-input"
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              reqSeqRef.current++
+              ++choice.current
+              onCancelChoice?.()
+              setPositionFailed(false)
+              setHits(null)
+              setSelectedIdx(0)
+              setQuery(e.target.value)
+            }}
             onKeyDown={onInputKey}
             placeholder={tr('search.placeholder')}
             autoFocus

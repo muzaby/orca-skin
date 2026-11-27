@@ -1,3 +1,4 @@
+import { subagentTasksFromMessages } from '../../../lib/transcriptIndex.legacy.testfixture'
 // 0319 W1 — 백그라운드 타일 카드 세 종의 키·클릭 열기 계약을 실제 렌더에서 꺼낸 처리기로 본다.
 // 카드 안 버튼(전환·중단)에서 올라온 Enter·Space 는 카드를 열지 않고 기본 동작도 막지 않아야 버튼이 눌린다.
 //
@@ -13,7 +14,7 @@ import {
   BackgroundTaskCard,
   CanonicalBackgroundContent
 } from '../../claude/rightpanel/CanonicalBackgroundContent'
-import { subagentTasksFromMessages } from '../../../lib/parts'
+
 import { chatActions, useChatStore } from '../../../store/chatStore'
 import { selectBackgroundItem, useBackgroundStore } from '../../../store/backgroundStore'
 import {
@@ -66,6 +67,7 @@ function cards(render: () => void): Props[] {
 function legacyCards(): Props[] {
   const messages: Message[] = [
     {
+      id: 'm-68',
       role: 'assistant',
       createdAt: 1_700_000_000_000,
       parts: [

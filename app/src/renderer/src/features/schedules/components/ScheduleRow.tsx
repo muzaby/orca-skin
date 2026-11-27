@@ -6,11 +6,13 @@ import { Icon } from '../../../shared/ui/Icon'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { Toggle } from '../../../shared/ui/Toggle'
+import type { CatalogRowPosition } from '../../../shared/ui/virtual/VirtualCatalogList'
 import type { ScheduledTask } from '../../../../../shared/scheduled-tasks'
 import { formatDateTime, triggerSummary } from '../lib/triggerLabel'
 
 interface ScheduleRowProps {
   task: ScheduledTask
+  position?: CatalogRowPosition
   // null = 프로젝트가 삭제됨.
   projectName: string | null
   // 우측 상세 패널에 열린 작업.
@@ -24,6 +26,7 @@ interface ScheduleRowProps {
 
 export function ScheduleRow({
   task,
+  position,
   projectName,
   selected,
   onSelect,
@@ -56,6 +59,7 @@ export function ScheduleRow({
         : null
   return (
     <CatalogListRow
+      {...position}
       data-schedule-row={task.id}
       data-schedule-enabled={task.enabled}
       selected={selected}

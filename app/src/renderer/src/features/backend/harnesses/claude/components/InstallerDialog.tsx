@@ -3,6 +3,8 @@ import type { InstallStatus } from '../../../../../../../shared/ipc'
 import { installApi } from '../../../../../shared/api/ipc'
 import { Button } from '../../../../../shared/ui/Button'
 import { useEscToClose } from '../../../../../shared/hooks/useEscToClose'
+import { InstallLog } from './InstallLog'
+import { InstallLogArchive } from './installLogArchive'
 import { useI18n } from '../../../../../shared/i18n'
 
 interface InstallerDialogProps {
@@ -17,43 +19,78 @@ export function InstallerDialog({
   onComplete
 }: InstallerDialogProps): React.JSX.Element | null {
   const { tr } = useI18n()
-  const [log, setLog] = useState<string>('')
+  const [log, setLog] = useState(() => ({ generation: 0, archive: new InstallLogArchive() }))
+  const [revision, setRevision] = useState(0)
+  const run = useRef<{ generation: number; archive: InstallLogArchive; failed: boolean } | null>(
+    null
+  )
+  const nextGeneration = useRef(0)
+  const completeRef = useRef(onComplete)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
-  const logRef = useRef<HTMLPreElement>(null)
 
   // 설치 진행 중에는 Esc·바깥 클릭 닫기를 차단한다 (handoff 0121 닫기 UX 통일).
   useEscToClose(open && !running, onClose)
 
   useEffect(() => {
+    completeRef.current = onComplete
+  }, [onComplete])
+  useEffect(() => {
     if (!open) return
-    const unsub = installApi.onStatus((st: InstallStatus) => {
-      if (st.log) setLog((prev) => prev + st.log)
-      if (st.error) setError(st.error)
-      if (st.done) {
+    let frame: number | undefined
+    const unsub = installApi.onStatus((status: InstallStatus) => {
+      const active = run.current
+      if (!active) return
+      if (status.log) {
+        active.archive.append(status.log)
+        frame ??= requestAnimationFrame(() => {
+          frame = undefined
+          setRevision((previous) => previous + 1)
+        })
+      }
+      if (status.error) {
+        active.failed = true
+        setError(status.error)
+      }
+      if (status.done) {
+        if (frame !== undefined) {
+          cancelAnimationFrame(frame)
+          frame = undefined
+          setRevision((previous) => previous + 1)
+        }
+        run.current = null
         setRunning(false)
         setDone(true)
-        if (!st.error) onComplete()
+        if (!active.failed) completeRef.current()
       }
     })
-    return unsub
-  }, [open, onComplete])
-
-  useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
-  }, [log])
+    return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame)
+      run.current = null
+      unsub()
+    }
+  }, [open])
 
   if (!open) return null
 
   const start = async (): Promise<void> => {
-    setLog('')
+    if (run.current) return
+    const active = {
+      generation: ++nextGeneration.current,
+      archive: new InstallLogArchive(),
+      failed: false
+    }
+    run.current = active
+    setLog(active)
     setError(null)
     setDone(false)
     setRunning(true)
     try {
       await installApi.start('claude')
     } catch (err) {
+      if (run.current !== active) return
+      run.current = null
       setError(err instanceof Error ? err.message : String(err))
       setRunning(false)
     }
@@ -83,12 +120,7 @@ export function InstallerDialog({
         <div className="mb-3 rounded-r4 border border-border bg-bg px-2.5 py-1.5 font-mono text-[12px] text-ink">
           {manualCmd}
         </div>
-        <pre
-          ref={logRef}
-          className="mb-3 max-h-[200px] overflow-auto rounded-r4 border border-border bg-bg p-2 font-mono text-[11.5px] text-ink2"
-        >
-          {log || tr('backend.installer.preparing')}
-        </pre>
+        <InstallLog key={log.generation} {...log} revision={revision} />
         {error && (
           <div className="mb-3 rounded-r4 border border-rust bg-rust-soft px-2.5 py-1.5 text-[12px] text-ink">
             {tr('backend.installer.failedPrefix')} {error}

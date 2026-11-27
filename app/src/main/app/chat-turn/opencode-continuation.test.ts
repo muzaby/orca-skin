@@ -268,7 +268,10 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
     runtime,
     bus,
     persist: persistence,
-    forward: { forward: (_owner, event) => events.push(event) },
+    forward: {
+      forward: (_owner, event) => events.push(event),
+      relay: (_turn, event) => events.push(event)
+    },
     registry: supervisor,
     pendingMessages,
     backgroundTasks,

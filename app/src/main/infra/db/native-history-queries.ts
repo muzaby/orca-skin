@@ -47,6 +47,7 @@ export class NativeHistoryQueries {
     compactLegacyRaw: Database.Statement
     bind: Database.Statement
     bindings: Database.Statement
+    messageBindings: Database.Statement
     replace: Database.Statement
     deleteMissing: Database.Statement
     upsertMessage: Database.Statement
@@ -71,8 +72,9 @@ export class NativeHistoryQueries {
       WHERE session_id=? AND accepted=0`),
       acceptRecovery: db.prepare(`UPDATE native_session_recovery SET accepted=1, fresh_start=0
       WHERE session_id=? AND prompt_id=?`),
-      observe: db.prepare(`SELECT total_changes() AS version,
-      COALESCE((SELECT MAX(id) FROM messages WHERE session_id = ?), 0) AS frontier`),
+      observe:
+        db.prepare(`SELECT (SELECT revision FROM history_source_clock WHERE singleton=1) AS version,
+      COALESCE((SELECT MAX(id) FROM messages WHERE session_id = @sessionId), 0) AS frontier`),
       get: db.prepare(
         'SELECT payload_json, cursor_json, local_frontier, synced_at FROM native_history_snapshots WHERE session_id = ?'
       ),
@@ -87,6 +89,9 @@ export class NativeHistoryQueries {
       bindings: db.prepare(`SELECT b.message_id, b.native_message_id
       FROM native_message_bindings b JOIN messages m ON m.id = b.message_id
       WHERE m.session_id = ? ORDER BY m.idx`),
+      messageBindings: db.prepare(
+        'SELECT native_message_id FROM native_message_bindings WHERE message_id = ?'
+      ),
       replace:
         db.prepare(`INSERT INTO native_history_snapshots (session_id, payload_json, local_frontier, synced_at, cursor_json, raw_json)
         VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET
@@ -98,7 +103,8 @@ export class NativeHistoryQueries {
         (session_id, native_id, role, created_at, content) VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(session_id, native_id) DO UPDATE SET role=excluded.role, created_at=excluded.created_at, content=excluded.content
         WHERE native_history_messages.role IS NOT excluded.role OR native_history_messages.created_at IS NOT excluded.created_at OR native_history_messages.content IS NOT excluded.content`),
-      search: db.prepare(`SELECT -m.id AS message_id, m.session_id, m.role, m.created_at,
+      search:
+        db.prepare(`SELECT -m.id AS message_id, m.native_id, m.session_id, m.role, m.created_at,
         s.title AS session_title,
         snippet(native_history_fts, 0, '<mark>', '</mark>', '…', 24) AS snippet
       FROM native_history_fts
@@ -159,7 +165,7 @@ export class NativeHistoryQueries {
   }
 
   observe(sessionId: string): { version: number; frontier: number } {
-    return this.statements.observe.get(sessionId) as { version: number; frontier: number }
+    return this.statements.observe.get({ sessionId }) as { version: number; frontier: number }
   }
 
   get(sessionId: string): NativeSnapshotRow | undefined {
@@ -176,6 +182,14 @@ export class NativeHistoryQueries {
 
   bind(messageId: number, nativeMessageId: string): void {
     this.statements.bind.run(messageId, nativeMessageId)
+  }
+
+  messageBindings(messageId: number): string[] {
+    const rows = this.statements.messageBindings.all(messageId) as Pick<
+      NativeMessageBinding,
+      'native_message_id'
+    >[]
+    return rows.map((row) => row.native_message_id)
   }
 
   bindings(sessionId: string): NativeMessageBinding[] {

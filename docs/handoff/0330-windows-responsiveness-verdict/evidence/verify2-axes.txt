@@ -1,0 +1,12 @@
+# verify 2 독립 축(하한 ⑥) — W-038 소유자 근거 규칙 passing 예제 변형 11건 · 실행: `node verify2-axes.mjs`(APP 경로는 파일 안 상수)
+wsRefFail exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=소유 판정 근거 없음
+numRefPass exit=1 :: 판정 보류 | typing:미기록/PASS scroll:미기록/PASS prepend:미기록/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss=T17/0326 ownF= holds=소유 판정 없음/필수 결측
+nullRefFail exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=소유 판정 근거 없음
+windowsFailNoRef exit=1 :: 불합격 | typing:PASS/PASS scroll:PASS/PASS prepend:PASS/PASS reply:PASS/FAIL function:PASS/FAIL search:PASS/FAIL | miss= ownF=T09/0329 holds=소유 판정 근거 없음
+keyedCellFailNoRef exit=1 :: 불합격 | typing:PASS/PASS scroll:FAIL/PASS prepend:PASS/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=소유 판정 근거 없음
+keyedUnknownCellFailNoRef exit=0 :: 합격 | typing:PASS/PASS scroll:PASS/PASS prepend:PASS/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF= holds=
+bothOwnersFailNoRef exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:FAIL/PASS function:FAIL/PASS search:FAIL/PASS | miss= ownF=T17/0326,T09/0329 holds=소유 판정 근거 없음
+failNoRefPlusOwnerMissing exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:미기록/미기록 function:미기록/미기록 search:미기록/미기록 | miss=T09/0329 ownF=T17/0326 holds=소유 판정 근거 없음/소유 판정 없음/필수 결측
+failWithRefAndSiblingFailNoRef exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=소유 판정 근거 없음
+unknownTaskFailNoRef exit=0 :: 합격 | typing:PASS/PASS scroll:PASS/PASS prepend:PASS/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF= holds=
+failNoRefUnconfirmed exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=사용자 확정 대기/소유 판정 근거 없음

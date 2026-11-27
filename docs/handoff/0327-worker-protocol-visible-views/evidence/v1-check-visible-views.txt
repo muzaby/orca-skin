@@ -1,0 +1,6 @@
+code first and final rows, bounded mounts, native copy and worker rendering passed
+markdown first and final rows, bounded mounts, native copy and worker rendering passed
+diff first and final rows, bounded mounts, native copy and worker rendering passed
+git-inline first and final rows, bounded mounts, native copy and worker rendering passed
+git-split first and final rows, bounded mounts, native copy and worker rendering passed
+work first and final rows, bounded mounts, native copy and worker rendering passed

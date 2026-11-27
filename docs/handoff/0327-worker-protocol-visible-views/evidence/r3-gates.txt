@@ -1,0 +1,119 @@
+app/ · Linux · implementation self-check
+
+npm run typecheck
+Node · web · test passed
+
+eslint --cache ./src ./scripts
+✖ 12 problems (0 errors, 12 warnings)
+
+check-migrations-appendonly
+[migrations] sync ok: src/main/infra/db/migrations — 36 migrations
+[migrations] sync ok: src/main/features/plugins/mail/migrations — 2 migrations
+[migrations] no-copies ok: scanned 2371 source files, 3 list owners
+[migrations] no previous v* tag — append-only check skipped (first release)
+
+check-product-naming, check-test-budgets, check-ui-thread
+[product-naming] OK — 2628파일 · 허용 7항목
+[test-budgets] 18 real-git suites ok · all budget sites scaled
+check-ui-thread: OK
+
+electron-vite build
+✓ built in 31.54s
+
+smoke-preload.mjs out/preload
+smoke-preload: OK — require 는 electron 뿐 · 다리 `ooBridge` 노출(키 7)
+
+smoke-hosts.mjs
+[smoke-hosts] agent early oo:extensions:catalog: ok
+[smoke-hosts] data oo:settings:get: ok
+[smoke-hosts] data oo:session:list: ok
+[smoke-hosts] agent oo:backend:list: ok
+[smoke-hosts] agent oo:agent:list: ok
+[smoke-hosts] agent oo:settings:get: error — No handler registered for 'oo:settings:get'
+[smoke-hosts] OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료
+
+vitest run (changed test files)
+Test Files  17 passed (17)
+Tests  165 passed (165)
+
+node --test scripts/check-visible-views.test.mjs; node --test scripts/*.test.mjs
+ℹ tests 1097
+ℹ pass 1097
+ℹ fail 0
+ℹ skipped 0
+
+vitest run (all files)
+Test Files  9 failed | 1109 passed | 4 skipped (1122)
+Tests  22 failed | 10692 passed | 1 expected fail | 11 skipped (10726)
+Errors  1 error
+Duration  268.63s (transform 49.30s, setup 43.60s, import 226.16s, tests 320.24s, environment 135ms)
+Baseline-only names: 0. Current-only names: 0. Shared failures: 22.
+FAIL  |io| src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > keeps one process for A/B, waits for native completion, and fences same-directory reacquisition
+FAIL  |io| src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > retires failed cleanup without killing B and reports only a safe error before new generation startup
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > exposes runtime-native watch files and applies external project choices only after idle reconciliation
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > pins deployed MCP files for same-cwd peers and reloads until the final owner closes
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > reconciles plugin choices through the actual adapter while preserving provider flags
+FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > reports a reconciled plugin revision as applied but not a later external edit
+FAIL  |unit| src/main/adapters/claude/native-resources.test.ts > applies session-only inline flags and reloads actual plugin state while preserving sibling flags
+FAIL  |unit| src/main/adapters/claude/native-resources.test.ts > commits a plugin choice only after verified reload and restores flags and commands when persistence fails
+FAIL  |unit| src/main/adapters/claude/native-resources.test.ts > waits for durable persistence and serializes subsequent plugin mutations
+FAIL  |unit| src/main/adapters/claude/project-reconciliation.test.ts > projects native plugin flag false during external reconciliation
+FAIL  |unit| src/main/adapters/claude/project-reconciliation.test.ts > shows external selection with actual status immediately, waits for idle, and never saves it back
+FAIL  |unit| src/main/adapters/opencode/v1/adapter.persistent.test.ts > exposes native resources from the live channel client and its directory without mutations
+FAIL  |unit| src/main/adapters/opencode/v1/adapter.test.ts > OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime
+FAIL  |unit| src/main/app/composer-catalog.test.ts > does not start a native server after caller cancellation or session scope change during preparation
+FAIL  |unit| src/main/app/composer-catalog.test.ts > prepares draft and saved directory with the same production settings and env resolution as turns
+FAIL  |unit| src/main/app/composer-catalog.test.ts > preserves the acquire failure stage through the registered catalog handler
+FAIL  |unit| src/main/app/composer-catalog.test.ts > preserves the configuration failure stage through the registered catalog handler
+FAIL  |unit| src/main/app/composer-catalog.test.ts > returns prepared plugin and agent parts through IPC before blocked MCP/models without a session
+FAIL  |unit| src/main/app/composer-catalog.test.ts > wires the public handler through the production resolver and returns its shutdown cleanup
+FAIL  |unit| src/main/app/composer-preparation-service.test.ts > shares targets across catalog resources and warmup through the production assembly
+FAIL  |unit| src/main/app/handlers/session-resources.claude-assembly.test.ts > reconciles external plugin selections and publishes the final state through the real watcher
+Unhandled rejection: 이 플러그인은 프로젝트별 제어를 지원하지 않습니다.
+
+Linux Electron 39.8.10 · check-visible-views, check-transcript-selection, check-transcript-streaming
+visible 23 records, verdict=true
+select 90 records, verdict=true
+stream 18 records, verdict=true
+
+React DOM document-key replacement with a held pointer, Electron 39.8.10
+{"base":{"oldDrag":"true","replacement":"true","afterNewSelection":"native"},"r3":{"oldDrag":"true","replacement":"false","afterNewSelection":"native"}}
+
+check-doc-inventory.mjs --check
+[doc-inventory] generated doc ok (9 items, 125 channels)
+[doc-inventory] prose ok: no inventory counts restated in current-state docs
+[doc-inventory] links ok: every relative markdown link resolves
+
+measure-ui-inputs.mjs --visible .
+Node CLI exit 0, 39 rows, 10 attempts per row. Browser SSR fixture: base printed 39 rows and remained alive after 12 s; r3 printed 39 rows and exited 0.
+
+EP-30 (17 matches including one inherited outer pointerup)
+src/renderer/src/shared/ui/virtual/useVirtualRows.ts:45:  useMountedRows(list.getVirtualItems().map((item) => item.key))
+src/renderer/src/shared/ui/virtual/rowMount.ts:7:    const added = keys.some((key) => !previous.current.has(key))
+src/renderer/src/shared/ui/virtual/rowMount.ts:8:    previous.current = new Set(keys)
+src/renderer/src/shared/ui/virtual/rowMount.ts:9:    if (added) notify?.()
+src/renderer/src/features/chat/harnesses/common/rightpanel/FileDiffSection.tsx:451:  useMountedRows(
+src/renderer/src/features/chat/harnesses/common/rightpanel/DiffReview.tsx:126:        <VirtualRowMountContext.Provider value={nativeSelection.notify}>
+src/renderer/src/features/chat/harnesses/common/rightpanel/DiffReview.tsx:128:            onPointerDown={nativeSelection.onPointerDown}
+src/renderer/src/features/chat/harnesses/common/rightpanel/ArtifactViewer.tsx:132:      <VirtualRowMountContext.Provider value={nativeSelection.notify}>
+src/renderer/src/features/chat/harnesses/common/rightpanel/ArtifactViewer.tsx:134:          onPointerDown={nativeSelection.onPointerDown}
+src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx:462:  const cancelNestedSelection = useCallback((): void => {
+src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx:509:    document.addEventListener('pointerup', onUp, true)
+src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx:704:    <VirtualRowMountContext.Provider value={cancelNestedSelection}>
+src/renderer/src/features/chat/hooks/usePanelSelection.ts:26:  }, [documentKey])
+src/renderer/src/features/chat/hooks/usePanelSelection.ts:27:  const contains = useCallback(
+src/renderer/src/features/chat/hooks/usePanelSelection.ts:39:      if (inside.current && isSuppressed(gesture.current)) {
+src/renderer/src/features/chat/hooks/usePanelSelection.ts:47:    document.addEventListener('pointerup', up, true)
+src/renderer/src/features/chat/hooks/usePanelSelection.ts:57:  const notify = useCallback((): void => {
+
+EP-31 (9 matches, 6 sites)
+30:export function cancelFailures(r) {
+45:export function copyFailures(r) {
+59:export function isolationFailures(r) {
+67:export function judgeVisibleViews(records) {
+75:      failures.push({ screen, scenario, reason: 'unknown record' })
+88:        failures.push({ screen, scenario, reason: 'missing record' })
+92:export async function main(deps = MAIN_DEPS) {
+97:    return { env: false, verdict: false, reason: '환경 없음', error: String(error) }
+101:    const out = await deps.runElectron(binary, served.origin, 'visible-views', SCREENS, 1)

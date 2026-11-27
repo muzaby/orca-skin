@@ -26,6 +26,7 @@ let scenarioSessions: [string, string] = ['fixture-0-a', 'fixture-0-b']
 function history(count: number): Message[] {
   return Array.from({ length: count }, (_, i): Message[] => [
     {
+      id: `fixture-user-${i}`,
       role: 'user',
       createdAt: i * 2 + 1,
       parts: [
@@ -36,6 +37,7 @@ function history(count: number): Message[] {
       ]
     },
     {
+      id: `fixture-assistant-${i}`,
       role: 'assistant',
       createdAt: i * 2 + 2,
       parts: [

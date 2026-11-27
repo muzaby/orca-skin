@@ -1,8 +1,8 @@
+import { diffViewPath } from '../../../../../../shared/compute/diffViewPath'
 import { useMemo } from 'react'
 import { stringify } from '../../../../format'
-import { DiffTable } from '../../../common/transcript/DiffTable'
-import { DiffLinesStatus } from '../../../common/transcript/DiffLinesStatus'
-import { useDiffLines } from '../../../../hooks/useDiffLines'
+import { DiffTable, PairDiffTable, StructuredDiffTable } from '../../../common/transcript/DiffTable'
+import { diffLinesWithinCap } from '../../../../../../shared/compute/inline'
 import type { DiffLine } from '../../../../lib/diffLines'
 import { patchLinesToDiffLines } from '../../../../lib/diffPatchLines'
 import {
@@ -22,7 +22,10 @@ import type { ToolCall } from '../../../../reducer/chatReducer'
 
 // 줄 묶음 하나의 원천 — 구조화 패치는 이미 줄이고, 입력 쌍은 줄 계산이 필요하다. 쌍의 계산은
 // `useDiffLines` 가 상한에 따라 UI 스레드 또는 계산 워커에서 한다(0324 D-014).
-type DiffBlock = { lines: DiffLine[] } | { oldValue: string; newValue: string }
+type DiffBlock =
+  | { raw: ReturnType<typeof fileEditPatchLines> }
+  | { lines: DiffLine[] }
+  | { oldValue: string; newValue: string }
 
 function buildPairBlocks(call: ToolCall): DiffBlock[] {
   const rec = call.input as Record<string, unknown> | null
@@ -52,7 +55,11 @@ export function buildBlocks(call: ToolCall): DiffBlock[] {
   const hunks =
     readFileEditStructuredPatch(call.result?.structuredOutput) ??
     readFileEditStructuredPatch(call.editPreview)
-  if (hunks) return [{ lines: patchLinesToDiffLines(fileEditPatchLines(hunks)) }]
+  if (hunks) {
+    const raw = fileEditPatchLines(hunks)
+    if (diffViewPath(raw) === 'worker') return [{ raw }]
+    return [{ lines: patchLinesToDiffLines(raw) }]
+  }
   return buildPairBlocks(call)
 }
 
@@ -76,14 +83,18 @@ function PairBlock({
   newValue: string
   filePath?: string
 }): React.JSX.Element {
-  const state = useDiffLines(oldValue, newValue)
-  if (state.status === 'failed') return <RawInput call={call} />
+  const lines = useMemo(() => diffLinesWithinCap(oldValue, newValue), [oldValue, newValue])
   return (
     <div className="overflow-auto rounded-r4 border border-t5">
-      {state.status === 'loading' ? (
-        <DiffLinesStatus />
+      {lines ? (
+        <DiffTable lines={lines} filePath={filePath} />
       ) : (
-        <DiffTable lines={state.lines} filePath={filePath} />
+        <PairDiffTable
+          before={oldValue}
+          after={newValue}
+          filePath={filePath}
+          fallback={<RawInput call={call} />}
+        />
       )}
     </div>
   )
@@ -100,7 +111,14 @@ export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
         <RawInput call={call} />
       ) : (
         blocks.map((block, i) =>
-          'lines' in block ? (
+          'raw' in block ? (
+            <StructuredDiffTable
+              key={i}
+              lines={block.raw}
+              filePath={filePath}
+              fallback={<RawInput call={call} />}
+            />
+          ) : 'lines' in block ? (
             <div key={i} className="overflow-auto rounded-r4 border border-t5">
               <DiffTable lines={block.lines} filePath={filePath} />
             </div>

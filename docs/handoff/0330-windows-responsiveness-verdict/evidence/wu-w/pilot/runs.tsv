@@ -1,0 +1,2 @@
+owner	scenario	operation	load	harness	build	side	sha	repeat	runId	startedAt	endedAt	traceFile	checks	note
+0330	W1	long-chat-type-wheel-drag	history-1	claude-code	diagnostic	after	515ff58d60eb5d76744cc34aaad20bc7f186d928	1	pilot-w1-515-cc-h1-r1	2026-11-26T14:29:03.625Z	2026-11-26T14:30:29.852Z	w1-515-cc-h1-r1.json		CDP 합성 입력(IME 조합 아님) · pilot-w1.mjs

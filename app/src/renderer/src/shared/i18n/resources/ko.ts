@@ -137,6 +137,8 @@ export const ko = {
     capturesBreadcrumb: '캡처 히스토리'
   },
   search: {
+    locationMissing: '메시지 위치를 찾을 수 없습니다. 검색 결과를 다시 선택해 주세요.',
+    locationFound: '검색한 메시지로 이동했습니다.',
     placeholder: '대화 내용 검색…',
     inputAria: '대화 검색',
     typeToSearch: '검색어를 입력하세요',
@@ -413,6 +415,7 @@ export const ko = {
       statusSkipped: '건너뜀',
       exitCode: '종료 코드 {{code}}',
       openSession: '대화 열기',
+      output: '실행 출력',
       truncated: '출력이 길어 마지막 부분만 표시합니다.',
       errors: {
         project_missing: '프로젝트 없음',
@@ -697,6 +700,12 @@ export const ko = {
     completeBody: '응답이 완료되었습니다.'
   },
   chat: {
+    historyPanel: {
+      loading: '세션 이력을 불러오는 중…',
+      failed: '세션 이력을 불러올 수 없습니다.',
+      retry: '다시 시도',
+      more: '더 보기'
+    },
     nativeResources: {
       claudeCloseTitle: 'Claude 세션 종료',
       claudeCloseBody_one:
@@ -897,6 +906,16 @@ export const ko = {
       roleUser: '사용자'
     },
     transcript: {
+      historyEnd: '대화 끝',
+      historyStart: '대화 시작',
+      historyPull: '이전 부분 불러오기',
+      historyBody: '메시지 본문 열기',
+      historyBodyLoading: '본문을 불러오는 중…',
+      historyRetry: '다시 시도',
+      historyBefore: '이전 부분 보기',
+      historyAfter: '다음 부분 보기',
+      historyRetryLatest: '최신 대화 열기 다시 시도',
+      historyLatest: '최신 대화로',
       reasoning: '사고 과정',
       incompleteResponse: '응답이 완료되지 않았습니다',
       showMore: '더 보기',

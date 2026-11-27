@@ -30,7 +30,9 @@ it.each(['claude', 'opencode', null] as const)(
     fixture.state = {
       ...initialChatState,
       backend,
-      messages: [{ role: 'assistant', createdAt: 1, parts: [{ type: 'text', text: 'answer' }] }]
+      messages: [
+        { id: 'm-33', role: 'assistant', createdAt: 1, parts: [{ type: 'text', text: 'answer' }] }
+      ]
     }
     const writeText = vi.fn(async () => undefined)
     vi.stubGlobal('navigator', { clipboard: { writeText } })

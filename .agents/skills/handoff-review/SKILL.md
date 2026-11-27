@@ -1,6 +1,6 @@
 ---
 name: handoff-review
-description: handoff-plan·handoff-impl·handoff-verify(와 이 스킬)의 지침 **자체**를 진단하거나 고칠 때 쓴다 — 특정 구현을 한 번 더 검사하는 스킬이 아니다. verify가 3·6회째에 PASS가 아니거나 9회째로 CLOSED됐을 때, 같은 라운드에서 verify 없는 impl 턴이 3을 넘을 때, 같은 실수가 라운드·handoff를 넘어 반복되거나 확정 결정이 drift할 때, 사용자가 handoff 프로세스 리뷰·스킬 개선을 요청할 때, handoff SKILL·template·AGENTS·script·V 추적 규약·발견 분류를 바꾸는 메타 수정을 할 때(이미 고치는 중이어도) 로드한다. DIAGNOSE_ONLY/APPLY를 고르고, 실패를 A~F로 분류해 지침을 교체·통합하고, Tier 1/2 회귀 검증(운영지침 승계·historical regression·cross-document consistency)을 한 뒤, 판정 의미가 바뀌었으면 review를 발동시킨 handoff의 마지막 판정을 정정한다.
+description: handoff 지침(plan·impl·verify·review SKILL·template·script·AGENTS) **자체**를 진단하거나 고칠 때 쓴다 — 특정 구현을 다시 검사하는 스킬이 아니다. verify가 리뷰 필수(3·6회째 비PASS · 9회째 CLOSED)를 보고했거나 사용자가 권고를 수락했을 때(verify는 이 스킬을 부르지 않는다), verify 없는 impl 턴이 3을 넘을 때, 같은 실수가 라운드·handoff를 넘어 반복되거나 확정 결정이 drift할 때, 사용자가 handoff 프로세스 리뷰·스킬 개선을 요청할 때, 지침·도구·V 추적 규약·발견 분류를 바꾸는 메타 수정을 할 때(이미 고치는 중이어도) 로드한다. 실패 추세를 verify 이력으로 설명하고 원인을 갈라 지침·도구를 고친다.
 ---
 
 # handoff-review — handoff 지침을 고치고, 고친 지침이 아무것도 잃지 않았음을 보인다
@@ -20,15 +20,7 @@ plan·impl·verify는 작업을 수행하고, review는 그 수행을 정하는 
 
 ## 언제 하는가
 
-- 사용자가 handoff 스킬·지침 개선을 명시적으로 요청한다.
-- handoff `SKILL.md`(plan·impl·verify·review), template, script, `docs/handoff/AGENTS.md`, root `AGENTS.md`의 handoff 규칙을 바꾸는 메타 수정이다. skill을 새로 만들거나 정본을 다른 문서로 옮기는 것도 해당한다.
-- 한 handoff에서 같거나 비슷한 실패가 반복되거나, 여러 handoff에서 같은 설계·검증 실수가 재발한다.
-- 긴 대화의 확정 결정이 plan에서 사라지거나 변형되는 decision drift가 보인다.
-- verify가 같은 한계를 반복해서 사람 실기·환경 제약으로 넘긴다.
-- verify가 3회째·6회째에 `FAIL`·`RETURN_TO_PLAN`으로 끝났다(1→2→3→review→4→5→6→review→7→8→9), 또는 9회째로 `verify/CLOSED` 종료됐다 — 대상은 그 handoff다(`docs/handoff/AGENTS.md §라운드`).
-- 같은 라운드에서 verify 없는 impl 턴이 3을 넘는다 — 사용자 요구 변경에 따른 턴은 세지 않는다.
-
-정상 단일 PASS마다 자동으로 하지 않는다.
+발동 조건·횟수·예외와 verify `권고`의 처리는 `docs/handoff/AGENTS.md §handoff-review 트리거`가 정본이다. 정상 단일 PASS마다 하지 않는다.
 
 ## 절차
 
@@ -50,8 +42,8 @@ plan·impl·verify는 작업을 수행하고, review는 그 수행을 정하는 
 
 | 모드 | 언제 | 하는 일 |
 |---|---|---|
-| `DIAGNOSE_ONLY` | 사용자가 검토·진단·수정안만 요청 | 파일을 바꾸지 않고 증거·분류·정확한 변경안(§8 정정안 포함)을 보고 |
-| `APPLY` | 사용자가 수정·적용·진행을 명시 | 지침을 고치고, 선택한 tier의 회귀 검증·필요한 전환·git 동기화까지 완료 |
+| `DIAGNOSE_ONLY` | 사용자가 검토·진단·수정안만 요청 | 파일을 바꾸지 않는다. 발견·근거·분류와 정확한 수정안(§8 정정안 포함) 또는 유지 판단을 보고하면 끝난다 |
+| `APPLY` | 사용자가 수정·적용·진행을 명시 | 실제로 지침·도구를 바꾸면 그 Tier의 회귀 검증(§6)·기록(§7)·필요한 전환(§8)·커밋·push까지 한다. 검토 결과 바꿀 것이 없으면 유지 판단과 근거를 기록하고 끝난다 |
 
 모드의 근거가 된 사용자 문장을 기록한다. 진단 요청을 암묵적 수정 승인으로 읽지 않고, APPLY 중에도 분석 범위 밖의 제품·코드 변경으로 넓히지 않는다.
 
@@ -60,14 +52,20 @@ plan·impl·verify는 작업을 수행하고, review는 그 수행을 정하는 
 - 관련 plan/verify의 모든 라운드, `[구현자 기입]`과 diff·테스트, 여러 턴의 사용자 결정, 현재와 변경 전 plan·impl·verify SKILL·template, root·`docs/handoff/AGENTS.md`, 관련 하위 `AGENTS.md`, references/scripts를 읽는다. 최신 턴이나 변경 후 파일만 보고 이전 계약을 재구성하지 않는다.
 - **지침 리팩터링에서는 변경 전 파일도 1급 증거다.** `git diff <before>..<after>`로 삭제·이동·대체된 문장을 먼저 뽑는다(§6-A 도구).
 - V/lifecycle 변경이면 corpus만이 아니라 실제 라운드 이력을 replay한다. anchor에는 최소한 계획·oracle 실패, producer/consumer 누락, 반복 재구현, blocking 범위 분리가 각각 드러나는 handoff를 넣고, 선택 이유와 commit/range를 적는다.
-- verify 메타와 후보 표도 증거다 — 지침이 실제로 수행됐는지를 숫자가 말해 준다.
+- 지침이 실제로 수행됐는지는 아래 지표가 말한다.
 
 | 지표 | 읽는 곳 | 신호 |
 |---|---|---|
 | 확장 창 · 발견 분류 수(이행·현재·확장·경계·비귀속) | verify.md 메타 · §13 | 분류 왜곡 — §2 끝의 대조로 확인한다 |
 | 독립 축(⑥)의 축 이름·발견 | verify 메타 · Review Signals | 하한을 건너뜀(B), 또는 하한이 plan의 사각을 찌르지 못함(A) |
-| 열거 sweep(⑦) 항목·`못 잡음` | plan `[구현자 기입]` 잠금 표 · verify §4 | 구현 sweep에서 빠진 항목이 verify 1회째 이행 결함으로 나옴 |
+| 열거 sweep(⑦) 항목·`못 잡음`·`S/N`·전수 잔여 | plan `[구현자 기입]` 잠금 표 · verify 메타·§4 | 구현 sweep에서 빠진 항목이 verify 1회째 이행 결함으로 나옴 · 전수 잔여가 회차를 넘어 줄지 않음 |
 | 후보 표 행 | INDEX `## 새 handoff 후보` | 같은 축이 handoff를 넘어 쌓이면 plan 설계 지침(검사기 설계·선언 경계)의 gap 후보 |
+| verify의 `리뷰 필요 여부`·검토할 질문 | 발동 verify의 Review Signals | review의 출발 질문이다. 질문마다 A~F와 근거로 답하고, 질문 없이 열린 review는 발동 근거를 따로 적는다 |
+| F(N) 증가 | `python3 .agents/skills/handoff-review/scripts/review_metrics.py` 원장 전이 | 신규 · 계속 열림 · 재개(verify가 종결을 확인한 뒤 다시 열림)를 나누고, 신규는 `직전 기록`(검사 완료 · 명시 이월 · 확인 불가)과 대조한다. `검사 완료`였던 범위의 늦은 발견이 그 단계 지침의 적용 실패 후보다 |
+| F(N) 감소 | 같은 표 · verify 메타 | 실제 종결(verify 확인)과 분류 이동(비차단·창 밖)을 가르고, 그 회차의 검사 범위 · ⑦ 전수 잔여 · 독립 축 수행을 대조한다 — 덜 봐서 준 것은 개선이 아니다 |
+| F(N) 등락 반복 | 같은 표 · 원문 | 닫힌 결함의 재개 · 다른 ID로 나타난 같은 계약 위반(원문 대조) · 서로 다른 이월 범위를 차례로 검사한 경우를 구별한다 |
+
+증감 자체는 review 발동이나 원인 귀속의 근거가 아니다 — 위 대조로 후보를 찾고 원문으로 확인한다. 구간 FAIL 비율(판정 불명 제외)·지침 bytes는 handoff 규모를 통제하지 않아 맥락으로만 적는다.
 
 ## 2. 원인을 A~F로 가른다
 
@@ -98,7 +96,7 @@ A·B·C·E 이슈마다 순서대로 묻는다.
 5. 지침이 충분했는데 수행만 빠졌다면 B다 — 같은 문장을 반복하지 않는다.
 6. 지침이 없으면 가장 일반적인 형태로 어디에 넣을지 정한다.
 
-B에는 문장을 더하지 않는다. 체크 대신 evidence를 남기게 할지, 실행 순서를 바꿀지, template 필수 필드나 스크립트로 강제할지, 흩어진 규칙을 통합할지만 본다. 그것도 안 되면 capability limitation으로 기록한다.
+B에는 문장을 더하지 않는다. 체크 대신 evidence를 남기게 할지, 실행 순서를 바꿀지, template 필수 필드나 스크립트로 강제할지, 흩어진 규칙을 통합할지만 본다. **같은 지침의 B가 두 번째면(라운드·handoff 무관) 스크립트·필수 필드·실행 순서 중 하나로 옮긴다** — 같은 모델이 쓰고 다시 세면 사각이 같아 문장 강화로는 반복을 못 막는다(round 49: 운반 줄 분류 → `site_census.mjs`). 두 번째라고 쓰려면 이전 사례 · 그때 적용되던 지침 문장(그 시점 커밋) · 수행해야 했던 행동 · 이번 증거를 잇고, 같은 계약 위반인지는 원문을 대조해 정한다. 이을 수 없으면 무엇을 확인할 수 없는지 적고 귀속을 보류한다. 그것도 안 되면 capability limitation으로 기록한다.
 
 V 프로토콜이나 판정 규약을 건드리면 다음을 함께 감사한다.
 
@@ -122,6 +120,8 @@ V 프로토콜이나 판정 규약을 건드리면 다음을 함께 감사한다
 4. 정말 새로운 causal class일 때만 새 규칙을 더한다.
 
 사례 ID 자체를 실행 규칙으로 만들지 않는다. 사용자 변심을 모델 실패 패턴으로 쌓지 않는다.
+
+**라운드는 핵심 지침 5개(`review_metrics.py`가 재는 plan·impl·verify·review SKILL과 `docs/handoff/AGENTS.md`)의 바이트 합을 늘리지 않는다.** 늘어나는 변경은 같은 라운드에서 통합·사례 서사 이동으로 상쇄하고, 상쇄하지 못한 증가분은 이유와 함께 §7 기록에 적는다 — 길어진 지침은 이미 있는 규칙의 적용 실패(B)를 늘린다(round 49: 0329 D19는 기존 규칙이 덮는 자리였다).
 
 ### 어떻게 쓰나 — 지침을 읽는 것은 모델이다
 
@@ -174,7 +174,7 @@ python3 .agents/skills/handoff-review/scripts/instruction_delta.py --base <변�
 | `문장` | 표식 밖 문장 내용 대부분이 변경 후의 어느 한 줄에도 없다 | 다시 쓴 문장도 걸린다 — 전면 재작성이면 후보 전부를 규칙 단위로 판정한다 |
 
 - corpus는 `--pool`에 넣지 않는다. corpus의 `→ 규칙.` 문장이 지침에서 지운 규칙을 가린다. 사례 서사를 corpus로 옮긴 줄은 그 사례 ID로 corpus를 찾아 MOVE를 확인한다.
-- 후보 0은 회귀 0이 아니다. 문장이 거의 그대로인 줄에서 조건·범위·주체 단어 하나가 빠진 약화("만들거나 고친" → "만든")는 포함률이 높아 걸리지 않는다. 작은 수정은 `git diff --word-diff=plain <변경 전> <변경 후> -- <파일> | grep -oP '\[-.*?-\]'`로 지운 단어를 따로 본다.
+- 후보 0은 회귀 0이 아니다 — 조건·범위·주체 단어 하나가 빠진 약화("만들거나 고친" → "만든")는 걸리지 않으니, 작은 수정은 스크립트 머리말의 `git diff --word-diff` 명령으로 지운 단어를 본다.
 
 각 항목을 판정한다.
 
@@ -198,7 +198,7 @@ reference·script를 MOVE/REPLACE하면 존재만 보지 않는다.
 
 Tier 1에서 6-A를 닫은 **뒤에** [`references/failure-patterns.md`](references/failure-patterns.md)의 안내대로 corpus의 모든 `## P<number>`를 읽는다.
 
-1. P heading을 전수 추출한다 — `rg -n '^## P[0-9]+' .agents/skills/handoff-review/references/failure-patterns.corpus.md`. 번호 상한을 하드코딩하지 않는다.
+1. 변경 전후 P 집합부터 대조한다 — `instruction_delta.py --base <변경 전> --pset .agents/skills/handoff-review/references/failure-patterns.corpus.md`가 삭제·추가·중복·번호 변경을 낸다. 의도한 폐기·이동은 근거를 기록에 남기고, 번호 상한을 하드코딩하지 않는다.
 2. 각 패턴의 causal lesson을 한 문장으로 요약한다.
 3. 변경 전·후 지침의 방어 지점을 찾는다.
 4. `COVERED / PARTIAL / GAP / OBSOLETE`로 판정한다.
@@ -247,19 +247,19 @@ references / scripts
 - `references/failure-patterns.md`는 현재 정책을 설명하는 **진입점**이고, 사례 본문은 그것이 가리키는 corpus에 둔다. plan/impl/verify는 이를 직접 갱신하지 않는다.
 - corpus에는 기존 P에 없는 새 causal class이거나 새 지침의 대표 evidence일 때만 더한다. 같은 causal class의 재발은 장문 사례로 쌓지 않는다. 지침 리팩터링 중 생긴 운영지식 삭제는 design-failure P를 억지로 늘리지 말고 6-A 기록으로 남길 수 있다.
 - 규칙이 바뀌어 기존 P의 규칙·현재 방어가 달라지면 그 P 끝에 개정 메모를 단다 — `> round K(날짜, 출처)이 위 규칙의 …을 대체했다 — … 정본: …`. 본문은 당시의 증거라 고치지 않는다.
-- 라운드 기록은 `regression-coverage.md` 끝에 `# review round K — <대상>(<발동>): <요약>` 절로 더한다: 발동/모드 · 분류 표(`# · 발견 · 사례 · 조치`, `발견 → 사례 → 조치`는 표나 3문장 이내) · Tier · 6-A(기준 commit · 도구 후보 수 · 판정 표) · 6-B(P 전수 수 · 판정 분포 · 바뀐 P · replay 표) · 6-C · 남은 한계. 기록 문장도 §산출물 문장 규칙을 따른다.
+- 라운드 기록은 `regression-coverage.md` 끝에 `# review round K — <대상>(<발동>): <요약>` 절로 더한다: 발동/모드 · 분류 표(`# · 발견 · 사례 · 조치`, `발견 → 사례 → 조치`는 표나 3문장 이내) · Tier · 6-A(기준 commit · 도구 후보 수 · 판정 표) · 6-B(P 전수 수 · 판정 분포 · 바뀐 P · replay 표) · 6-C · 효과 지표 · 남은 한계.
+- 효과 지표: 앞 라운드 변경마다 그 뒤 handoff에 적용 기회가 있었는지 먼저 보고 `적용 기회 없음 / 앞 단계에서 검출 / 같은 단계에서 재발 / 증거 부족`으로 적는다 — 기회가 없었던 변경의 효과는 판정하지 않는다. 함께 독립 축 수행 · ⑦ 잔여 추이 · 핵심 지침 bytes 전후 · 이번 이슈의 A/B 수를 적는다. 같은 단계에서 재발했으면 같은 축의 다음 변경은 도구·순서·필드로 간다. 기록 문장도 §산출물 문장 규칙을 따른다.
 - 압축 대상은 서술이다. tier 판정 · 세 축 결과 · inbound `N`/semantic `M/M` evidence · P 전수 판정은 줄이지 않는다.
-- 별도 `roundN-review.md`는 기본 산출물이 아니다. 사용자가 감사·원문 보존을 요구했거나, 압축으로 잃는 rationale이 있다고 판단해 **보존 사유를 문서 첫머리에 적을 때만** 만들며 실행 정본이 아니다. **동시에 1개만 유지한다** — 새로 만들면 이전 것을 교체하고, 지침으로 승격된 내용은 SKILL·`regression-coverage.md`에만 남긴다. 라운드마다 파일이 늘면 corpus에서 몰아낸 사례 누적을 이 디렉토리에서 재현하게 된다.
-- 보존 사유에는 실제 출처를 적는다. 요구가 없었는데 "사용자 요청"으로 적으면 그 자체가 자기 정당화 기록이다.
+- 별도 `roundN-review.md`는 기본 산출물이 아니다. 사용자가 감사·원문 보존을 요구했거나, 압축으로 잃는 rationale이 있다고 판단해 **보존 사유와 그 실제 출처를 문서 첫머리에 적을 때만** 만들며 실행 정본이 아니다 — 요구가 없었는데 "사용자 요청"으로 적으면 자기 정당화 기록이다. **동시에 1개만 유지한다** — 새로 만들면 이전 것을 교체하고, 지침으로 승격된 내용은 SKILL·`regression-coverage.md`에만 남긴다. 라운드마다 파일이 늘면 corpus에서 몰아낸 사례 누적을 이 디렉토리에서 재현하게 된다.
 
 ## 8. 전환 — 바뀐 판정 의미를 발동 handoff에 적용한다
 
 review가 판정 의미(발견 분류·disposition·확장 창·하한이 막는 범위)를 바꾸면, review를 발동시킨 handoff — 그 마지막 verify가 이 review의 입력이다 — 의 판정이나 다음 주체가 새 규칙에서 달라지는지 보고 달라지면 정정한다(round 41: 0294 r3). 사용자가 요청하면 다른 진행 중 handoff도 같은 방식으로 정정한다. 정정은 검증자 산출물이고 `handoff-verify §11`의 분류·판정 표로 가른다.
 
 - 정정은 새 verify가 아니다. verify 횟수(확장 창·9회 상한)와 INDEX 라운드 칸을 바꾸지 않고, 마지막 `verify.md` 끝에 `# rN 판정 정정 — review round K (날짜)` 절을 더한다. 원문은 그대로 둔다.
-- 이미 있는 발견만 새 규칙으로 다시 가른다. 정정은 증거를 만들지 않으므로 **정정으로 PASS를 주지 않는다** — 막는 발견이 0이 되면 `PASS 후보`로 적고 INDEX를 `impl/IMPL_DONE`·다음 주체 검증자로 두어, 다음 verify가 현재 하한으로 확인한다.
+- 이미 있는 발견만 새 규칙으로 다시 가른다. 절에는 발동 당시 알았던 사실 · 기존 증거를 재분류한 결과 · 리뷰 중 새로 실행해 얻은 증거를 나눠 적고, 사후에 안 사실을 발동 근거로 소급하지 않는다. 같은 회차 정정은 재분류와 그것을 확인하는 실행까지다 — 새 결함 탐색이나 하한 sweep이 필요하면 새 verify가 맡는다. 그래서 **정정으로 PASS를 주지 않는다** — 막는 발견이 0이 되면 `PASS 후보`로 적고 INDEX를 `impl/IMPL_DONE`·다음 주체 검증자로 두어, 다음 verify가 현재 하한으로 확인한다.
 - 절에는 정정 판정을 첫 문장에 쓰고, 묶음별 `원 판정 → 새 분류 → 근거(원문 인용·재현) → disposition` 표, 다음 구현의 의무, 후보 표 등록을 적는다.
-- plan `[검증자 기입]` 파생 이슈의 상태·disposition과 INDEX 행(상태·다음 주체·비고)을 정정에 맞추고, 창 밖 확장 후보는 `## 새 handoff 후보` 표에 올린다.
+- plan `[검증자 기입]` 파생 이슈의 상태·disposition, `### 발견 원장 — verify N 정정(round K)`, INDEX 행(상태·다음 주체·비고)을 정정에 맞추고, 창 밖 확장 후보는 `## 새 handoff 후보` 표에 올린다.
 - 커밋은 review 커밋과 나눈다 — 검증 커밋 형식(`Handoff: docs/handoff/<slug>/` · `Status: verified` · `Verified-By` · `Next-Action`)이다. 섞이면 지침 변경과 판정 변경을 따로 되돌릴 수 없다.
 - 다른 주체가 진행 중인 턴(INDEX `impl/IN_PROGRESS` 등)은 건드리지 않는다 — 그 턴 뒤의 verify가 새 규칙으로 판정한다(round 40). 그 밖의 진행 중 handoff는 일괄 정정하지 않고 다음 verify부터 새 규칙을 쓴다(`docs/handoff/AGENTS.md §신규 템플릿 적용 경계`). `verify/CLOSED`는 종료 상태라 정정하지 않는다.
 - DIAGNOSE_ONLY면 정정안만 보고한다.
@@ -283,30 +283,21 @@ review가 판정 의미(발견 분류·disposition·확장 창·하한이 막는
 
 ## 완료 조건
 
-- [ ] 모드와 그 근거 문장을 기록했고 권한 범위를 지켰다(§0).
-- [ ] 이슈마다 A~F와 근거가 있고 A(coverage gap)와 B(실행 누락)를 갈랐으며, 사용자 결정 변경을 실패 패턴으로 쓰지 않았다(§2·§9).
-- [ ] verify 발견 분류를 판정 기준으로 다시 대조해 거짓 PASS·FAIL inflation 방향의 왜곡을 적었다(§2).
-- [ ] 사례 누적이 아니라 지침의 변경·유지를 판단했고, 새 규칙보다 교체·통합을 먼저 검토했다(§4).
-- [ ] 새로 쓴 지침이 §4 문장 원칙과 §산출물 문장 규칙을 지킨다 — 규칙 한 문장 + 이유, 사례 서사는 corpus, 완료 조건에만 있는 요구 없음.
-- [ ] plan/impl/verify의 현재 작업 비판 책임을 review로 가져오지 않았다(§5).
-- [ ] Tier를 골랐고 애매하면 Tier 1을 적용했다. Tier 2로 6-B를 생략했다면 normative 의미 불변 근거를 기록했다(§6).
-- [ ] 6-A: 도구 후보를 전부 판정했고 작은 수정은 지운 단어를 봤다. DELETE에는 근거가 있고, 설명 없이 사라진 gate·command·reference가 0이다. MOVE/REPLACE reference는 inbound `N`과 semantic `M/M` evidence가 있다.
-- [ ] 6-B(Tier 1): 모든 현재 P heading을 전수 대조했고 coverage 회귀가 0이다. V/lifecycle·판정 규약 변경이면 historical·시나리오 replay에서 거짓 PASS·FAIL inflation·다음 주체 없는 상태가 0이다.
-- [ ] 6-C: root AGENTS ↔ handoff AGENTS ↔ SKILL(description 포함) ↔ template ↔ references/scripts ↔ 하위 AGENTS·CI 정본의 명령·scope·어휘 충돌이 0이다. AGENTS를 바꿨으면 위생·부모/자식 충돌·`CLAUDE.md` stub을 확인했다.
-- [ ] INDEX·commit trailer 같은 협업 운영 규칙이 의도치 않게 지워지지 않았다(§6-A 축).
-- [ ] 정상 plan/impl/verify가 failure corpus를 매번 읽거나 직접 갱신하지 않는다(§5·§7).
-- [ ] 판정 의미가 바뀌었으면 발동 handoff를 §8대로 별도 커밋으로 정정했거나, 정정할 대상이 없음을 적었다.
-- [ ] `regression-coverage.md`에 라운드 기록을 남겼고, 서술만 줄이고 증거(tier·세 축 결과·`N`/`M/M`·P 전수 판정)는 줄이지 않았다(§7).
+공통(두 모드):
+- [ ] 모드와 근거 문장을 기록했고 권한 범위를 지켰다(§0).
+- [ ] verify의 검토할 질문마다 답했고, 추세는 §1 대조로 설명했다 — 증감만으로 귀속하지 않았다.
+- [ ] 이슈마다 A~F와 근거가 있고 A와 B를 갈랐다. "두 번째 B"는 이전 사례·당시 문장·해야 했던 행동·이번 증거를 이었거나 보류했다. 사용자 결정 변경을 실패 패턴으로 쓰지 않았다(§2·§3·§9).
+- [ ] verify 발견 분류를 다시 대조해 거짓 PASS·FAIL inflation 방향의 왜곡을 적었다(§2).
+- [ ] 사례 누적이 아니라 지침의 변경·유지를 판단했고 교체·통합을 먼저 검토했다. plan/impl/verify의 비판 책임을 가져오지 않았고 그들이 corpus를 읽거나 고치게 하지 않았다(§4·§5).
+
+`APPLY`에서 지침·도구를 실제로 바꿨을 때:
+- [ ] 새 문장이 §4 원칙과 §산출물 문장 규칙을 지키고, 핵심 지침 bytes가 늘었으면 상쇄했거나 이유를 적었다.
+- [ ] Tier를 골랐다(애매하면 Tier 1 · Tier 2면 6-B 생략 근거). 6-A 후보 전부 판정(작은 수정은 지운 단어까지) · 설명 없이 사라진 gate·command·reference·INDEX·trailer 운영 규칙 0 · reference 이동은 `N`/`M/M`. Tier 1이면 6-B P 집합 대조와 전수 판정, 판정 규약 변경이면 replay에서 거짓 PASS·inflation·다음 주체 없는 상태 0. 6-C 충돌 0(§6).
+- [ ] 판정 의미가 바뀌었으면 §8 정정을 별도 커밋으로 했거나 대상 없음을 적었다.
+- [ ] `regression-coverage.md`에 라운드 기록과 효과 지표(적용 기회 분류)를 남겼다(§7).
 
 ## 종료 보고
 
-다음을 나눠 보고한다.
+모든 모드: 실행 모드와 근거 · verify 질문별 답 · 추세 설명 · causal class와 변경 또는 유지 판단의 근거 · skill 변경으로 해결할 수 없는 한계.
 
-- causal class와 지침 변경 이유.
-- 실행 모드와 근거.
-- regression tier와 근거.
-- 6-A 결과 — 도구 후보 수, KEEP/MOVE/REPLACE/DELETE, regression 0 여부.
-- Tier 1이면 6-B 결과(P 수·판정 분포·replay), Tier 2면 생략 근거.
-- 6-C와 reference semantic-integrity 결과.
-- 전환 결과 — 정정한 handoff와 판정, 또는 해당 없음.
-- skill 변경으로 해결할 수 없는 capability·환경 한계.
+`APPLY`에서 바꿨으면 더한다: Tier와 근거 · 6-A 후보 수와 판정 · 6-B(P 집합 대조·판정 분포·replay) 또는 Tier 2 생략 근거 · 6-C · 전환 결과 · 효과 지표(적용 기회 분류 · 핵심 지침 bytes 전후).

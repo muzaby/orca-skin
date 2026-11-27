@@ -1,6 +1,34 @@
+import { readDeferredParts } from '../lib/transcript/deferredBody'
+import type {
+  HistoryWindow,
+  HistoryPageReply,
+  HistoryLocator,
+  HistoryBodyRef
+} from '../../../../../shared/history-page'
+import { clearDisclosures, setDisclosureActiveSession } from './disclosureStore'
+import { transcriptIndexFor } from '../lib/transcriptIndex'
+import type { BackgroundSessionState } from '../../../../../shared/background-task'
+import type { LoadedMessage } from '../../../../../shared/ipc'
+import type { TranscriptDiagnostic } from '../lib/transcript/heldParts'
+import { idleSearchDirection } from '../lib/idleSearchDirection'
+import { messageOrderFor } from '../lib/transcript/messageOrder'
+import { newTranscriptChanges, recordChange } from '../lib/transcript/changeLog'
+import { rendererMessageId, userMessageId } from '../../../../../shared/message-id'
 import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
+import { readHistoryMetadata, restoreMetadata } from './historyMetadata'
+import {
+  forgetSearchPositions,
+  rememberSearchOrigin,
+  searchPosition
+} from '../lib/transcript/viewport/searchVisit'
 import { useMemo } from 'react'
+import { isPublishedMessage, hasHandoffHistory } from '../reducer/chatReducer'
+import { TranscriptPanelProjection } from '../../../../../shared/history-panels/projection'
+import type { PanelKind } from '../../../../../shared/history-panels/rows'
+import { usePanelPages, domainPanels, mergePanelView, type PanelScope } from './historyPanels'
 import { create } from 'zustand'
+import type { EntryIntent } from '../lib/transcript/viewport/entry'
+import type { TranscriptChanges } from '../lib/transcript/changeLog'
 import { useShallow } from 'zustand/react/shallow'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import {
@@ -62,6 +90,7 @@ import { shouldQueueAsPending, steerBlockedByProviderBoundary } from '../lib/sen
 import {
   chatReducer,
   initialChatState,
+  fromLoadedMessage,
   type ChatAction,
   type ChatActivityState,
   type ChatState,
@@ -98,6 +127,8 @@ import {
 export interface LiveTurnState {
   // 스트리밍 중 누적 텍스트(구 ChatState.pendingDelta).
   text: string
+  textKey?: string
+  reasoningKey?: string
   // 라이브 확장사고 누적. 완성 시 message.reasoning 이 영속 reasoning 파트로 굳히며 비운다.
   reasoning: string
   // `hasSegmentReasoning(reasoning)` 과 언제나 같은 값 — 조각마다 OR 로 켜고 reasoning 을 비우는 자리에서
@@ -132,7 +163,36 @@ export interface SubagentMetaState {
   startedAtMs?: number
 }
 
+interface SessionPaging extends HistoryWindow {
+  sourceSessionId?: string
+  openGeneration: number
+  beforeState?: 'loading' | 'error'
+}
+let historyOpenGeneration = 0
+
+interface SearchWindow extends HistoryWindow {
+  messages: Message[]
+  changes: TranscriptChanges
+  beforeState?: 'loading' | 'error'
+  afterState?: 'loading' | 'error'
+}
+interface HistorySelection {
+  visit?: number
+  generation?: string
+  sessionId?: string
+  anchor?: import('../lib/transcript/viewport/anchor').AnchorTarget
+  returning?: boolean
+  returnFailed?: boolean
+  seq: number
+  locator?: HistoryLocator
+  target: string
+  keyboard: boolean
+  restore: boolean
+  view?: SearchWindow
+}
 export interface SessionEntry {
+  search?: HistorySelection
+  history?: SessionPaging
   clientKey?: string
   draftGeneration?: number
   cwdSelected?: boolean
@@ -176,6 +236,8 @@ export interface ChatStoreState {
     text: string
     mode?: ComposerDraftUpdate['mode']
   } | null
+  // 세션 열기 진입 의도(EP-11 ⑧ · D-074) — loadSession 으로 활성 세션이 바뀔 때만 기록하고 뷰포트가 한 번 소비.
+  entryIntent: EntryIntent | null
 }
 
 // 새-채팅(아직 sessionId 미발급) 엔트리의 예약 키. 창당 1개 — main 의 pending 슬롯과 대칭.
@@ -307,6 +369,7 @@ function freshEntry(projectId: string | null = null, cwd?: string | null): Sessi
     draftGeneration: ++draftGeneration,
     session: withoutDeletedProject({
       ...withLandingAgentKind(initialChatState, landingAgentKind),
+      transcriptChanges: newTranscriptChanges(),
       backend: landingBackend,
       ...(!supportsAgentKind(landingBackend, landingAgentKind)
         ? { agentKind: HARNESS_CAPABILITIES[landingBackend].agentKinds[0] }
@@ -328,10 +391,15 @@ export const useChatStore = create<ChatStoreState>()(() => ({
   newChatQueue: [],
   recentsEpoch: 0,
   concurrencyByProjectId: {},
-  draftRestore: null
+  draftRestore: null,
+  entryIntent: null
 }))
 
 const { setState, getState } = useChatStore
+setDisclosureActiveSession(NEW_CHAT_KEY)
+useChatStore.subscribe((state) => {
+  setDisclosureActiveSession(state.activeKey)
+})
 
 // 활성 엔트리의 커밋 상태 imperative read — effect(useChatRouteSync 등)가 상태 변화에
 // 재실행되지 않으면서 현재 값을 읽을 때 사용한다.
@@ -353,6 +421,39 @@ function patchEntry(key: string, update: (entry: SessionEntry) => SessionEntry):
 const permissionUpdates = new Map<string, { request: number; settlement: number }>()
 let permissionUpdateSequence = 0
 const sessionLoads = new Map<string, { entry: SessionEntry; liveChanged: boolean }>()
+
+function scheduleHistoryMetadata(
+  key: string,
+  ref: NonNullable<import('../../../../../shared/ipc').LoadedSession['metadataRef']>
+): void {
+  const entry = getState().sessions[key]
+  const version = entry.search?.seq ?? entry.history?.openGeneration
+  if (version === undefined) return
+  const current = (): boolean => {
+    const now = getState().sessions[key]
+    return (
+      !!now &&
+      now.session.sessionId === ref.session &&
+      (now.search?.seq ?? now.history?.openGeneration) === version
+    )
+  }
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      void readHistoryMetadata(ref, version, current).then(
+        (meta) => {
+          if (meta && current())
+            patchEntry(key, (e) => ({
+              ...e,
+              session: restoreMetadata(e.session, entry.session, meta)
+            }))
+        },
+        () => {
+          /* The bounded preview remains readable and reopening retries the metadata. */
+        }
+      )
+    })
+  )
+}
 
 function dispatchTo(key: string, action: ChatAction): void {
   if (
@@ -381,9 +482,26 @@ function dispatchTo(key: string, action: ChatAction): void {
     })
   }
   patchEntry(key, (entry) => {
-    const session = withoutDeletedProject(chatReducer(entry.session, action))
+    let session = withoutDeletedProject(chatReducer(entry.session, action))
+    if (action.type === 'LOAD_SESSION') {
+      const window = action.session.history
+      if (window && !window.before)
+        session = chatReducer(session, {
+          type: 'PREPEND_HISTORY',
+          messages: [],
+          reachedStart: true,
+          diagnostic: action.diagnostic
+        })
+      return {
+        ...entry,
+        session,
+        history: window ? { ...window, openGeneration: ++historyOpenGeneration } : undefined
+      }
+    }
     return session === entry.session ? entry : { ...entry, session }
   })
+  if (action.type === 'LOAD_SESSION' && action.session.metadataRef)
+    scheduleHistoryMetadata(key, action.session.metadataRef)
 }
 
 function dispatchActive(action: ChatAction): void {
@@ -482,7 +600,7 @@ function userBubbleText(message: Message): string {
 function hasCommittedClientId(key: string, id: string): boolean {
   const entry = getState().sessions[key]
   if (!entry) return false
-  return entry.session.messages.some((m) => m.role === 'user' && m.clientId === id)
+  return messageOrderFor(entry.session).messagePosition(userMessageId([id])) >= 0
 }
 
 function isTerminalWithoutSession(ev: NormalizedEvent): boolean {
@@ -552,26 +670,60 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
   if (events.length === 0) return
   setState((state) => {
     let sessions = state.sessions
-    for (const event of events) {
-      // Child partials never belong to the main composer; completed child blocks own their transcript.
+    for (let index = 0; index < events.length;) {
+      const event = events[index++]
       if (event.parentToolRunId) continue
-      // 라우팅·턴 시작 판정은 receive 와 같은 술어를 쓴다(0149) — 두 경로가 갈라지지 않는다.
+      const fragments = [event.delta.text]
+      while (index < events.length) {
+        const next = events[index]
+        if (next.parentToolRunId) {
+          index++
+          continue
+        }
+        if (
+          next.sessionId !== event.sessionId ||
+          next.type !== event.type ||
+          next.messageKey !== event.messageKey
+        ) {
+          break
+        }
+        fragments.push(next.delta.text)
+        index++
+      }
       const { key } = resolveSessionKey(sessions, state.pendingNewChatKey, event.sessionId)
       if (!key) continue
       const entry = sessions[key]
       if (!entry) continue
 
-      const session = shouldBeginTurn(event, entry.session)
+      const text = fragments.join('')
+      let session = shouldBeginTurn(event, entry.session)
         ? chatReducer(entry.session, { type: 'BEGIN_TURN' })
         : entry.session
-      const live =
-        event.type === 'message.delta'
-          ? { ...entry.live, text: entry.live.text + event.delta.text }
-          : {
-              ...entry.live,
-              reasoning: entry.live.reasoning + event.delta.text,
-              reasoningVisible: entry.live.reasoningVisible || hasSegmentReasoning(event.delta.text)
-            }
+      const previous = entry.live
+      let live: LiveTurnState
+      if (event.type === 'message.delta') {
+        const sameMessage = event.messageKey === previous.textKey
+        if (!sameMessage && previous.text !== '') {
+          session = chatReducer(session, {
+            type: 'COMMIT_PENDING_TEXT',
+            text: previous.text,
+            messageKey: previous.textKey
+          })
+        }
+        live = {
+          ...previous,
+          text: sameMessage ? previous.text + text : text,
+          textKey: event.messageKey
+        }
+      } else {
+        const sameMessage = event.messageKey === previous.reasoningKey
+        live = {
+          ...previous,
+          reasoning: sameMessage ? previous.reasoning + text : text,
+          reasoningKey: event.messageKey,
+          reasoningVisible: (sameMessage && previous.reasoningVisible) || hasSegmentReasoning(text)
+        }
+      }
 
       if (sessions === state.sessions) sessions = { ...sessions }
       sessions[key] = { ...entry, session, live }
@@ -655,7 +807,19 @@ function promotePendingNewChat(
         after: chatReducer(entry.session, { type: 'RECV_EVENT', event })
       })
     return {
-      sessions: { ...rest, [sessionId]: entry },
+      sessions: {
+        ...rest,
+        [sessionId]: entry.history?.sourceSessionId
+          ? {
+              ...entry,
+              history: {
+                ...entry.history,
+                beforeState: undefined,
+                openGeneration: ++historyOpenGeneration
+              }
+            }
+          : entry
+      },
       pendingNewChatKey: next?.key ?? null,
       newChatQueue: restQueue,
       recentsEpoch: s.recentsEpoch + 1,
@@ -670,10 +834,14 @@ function promotePendingNewChat(
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
 function dropSession(sessionId: string, fallbackProjectId: string | null = null): void {
+  forgetSearchPositions(sessionId)
+  if (resolvingSearch?.session === sessionId || resolvingSearch?.origin === sessionId)
+    cancelSearchRequest()
   sessionLoads.delete(sessionId)
   forgetBackgroundState(sessionId)
   permissionUpdates.delete(sessionId)
   forgetArtifacts(sessionId)
+  clearDisclosures(sessionId)
   setState((s) => {
     if (!s.sessions[sessionId]) return s
     const rest = { ...s.sessions }
@@ -786,8 +954,10 @@ function receive(ev: NormalizedEvent): void {
       patchEntry(key, (entry) => {
         const session = chatReducer(entry.session, { type: 'RECV_EVENT', event: ev })
         const live =
-          ev.parentToolRunId === undefined && entry.live.text !== ''
-            ? { ...entry.live, text: '' }
+          ev.parentToolRunId === undefined &&
+          (entry.live.text !== '' || entry.live.textKey !== undefined) &&
+          ev.messageKey === entry.live.textKey
+            ? { ...entry.live, text: '', textKey: undefined }
             : entry.live
         return session === entry.session && live === entry.live
           ? entry
@@ -798,7 +968,11 @@ function receive(ev: NormalizedEvent): void {
     case 'message.reasoning':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       patchLive(key, (live) =>
-        live.reasoning !== '' ? { ...live, reasoning: '', reasoningVisible: false } : live
+        ev.parentToolRunId === undefined &&
+        (live.reasoning !== '' || live.reasoningKey !== undefined) &&
+        ev.messageKey === live.reasoningKey
+          ? { ...live, reasoning: '', reasoningKey: undefined, reasoningVisible: false }
+          : live
       )
       return
 
@@ -860,20 +1034,25 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'message.committed':
-      // 소비 확정(echo 관측) — pending 항목(steer 등)은 일반 커밋 사용자 메시지로 승격하고,
-      // 턴-시작 낙관 커밋 분(0068)은 clientId 멱등(reducer 가드 + ids 스킵)으로 화해만 한다.
-      // echo 없이 남은 pending 은 큐(held/CLI 큐)에 살아있는 진행 상태 그대로다 — 자동 연속
-      // 턴이나 respawn 재전달로 커밋된다.
-      patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
-      if (ev.ids.some((id) => hasCommittedClientId(key, id))) return
-      dispatchTo(key, {
-        type: 'APPEND_COMMITTED_USER_MESSAGE',
-        text: ev.text,
-        createdAt: ev.createdAt,
-        clientId: ev.ids[0],
-        requirements: ev.requirements,
-        ...(ev.origin ? { origin: ev.origin } : {}),
-        ...(ev.attachmentViews ? { attachmentViews: ev.attachmentViews } : {})
+      patchEntry(key, (entry) => {
+        const session = chatReducer(entry.session, {
+          type: 'APPEND_COMMITTED_USER_MESSAGE',
+          messageKey: ev.messageKey,
+          ids: ev.ids,
+          text: ev.text,
+          createdAt: ev.createdAt,
+          clientId: ev.ids[0],
+          requirements: ev.requirements,
+          origin: ev.origin,
+          attachmentViews: ev.attachmentViews
+        })
+        const pending = entry.pendingSteer ?? EMPTY_PENDING_STEER
+        const pendingSteer = pending.some((item) => ev.ids.includes(item.id))
+          ? pending.filter((item) => !ev.ids.includes(item.id))
+          : pending
+        return session === entry.session && pendingSteer === pending
+          ? entry
+          : { ...entry, session, pendingSteer }
       })
       return
 
@@ -905,13 +1084,20 @@ function receive(ev: NormalizedEvent): void {
       const entry = getState().sessions[key]
       const present = (entry?.pendingSteer ?? []).filter((item) => ev.ids.includes(item.id))
       const presentIds = new Set(present.map((item) => item.id))
-      const bubbles = (entry?.session.messages ?? []).filter(
-        (m) =>
-          m.role === 'user' &&
-          m.clientId !== undefined &&
-          ev.ids.includes(m.clientId) &&
-          !presentIds.has(m.clientId)
-      )
+      const bubbles: Message[] = []
+      if (entry) {
+        const order = messageOrderFor(entry.session)
+        const positions = new Set<number>()
+        for (const id of ev.ids) {
+          if (presentIds.has(id)) continue
+          const position = order.messagePosition(userMessageId([id]))
+          if (position >= 0) positions.add(position)
+        }
+        for (const position of [...positions].sort((a, b) => a - b)) {
+          const message = entry.session.messages[position]
+          if (message.role === 'user' && message.clientId !== undefined) bubbles.push(message)
+        }
+      }
       patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
       for (const bubble of bubbles) {
         dispatchTo(key, { type: 'DROP_UNCOMMITTED_USER', clientId: bubble.clientId! })
@@ -934,10 +1120,20 @@ function receive(ev: NormalizedEvent): void {
       patchEntry(key, (entry) => {
         const committed =
           entry.live.text !== ''
-            ? chatReducer(entry.session, { type: 'COMMIT_PENDING_TEXT', text: entry.live.text })
+            ? chatReducer(entry.session, {
+                type: 'COMMIT_PENDING_TEXT',
+                text: entry.live.text,
+                messageKey: entry.live.textKey
+              })
             : entry.session
         const session = chatReducer(committed, { type: 'RECV_EVENT', event: ev })
-        const live = entry.live.text !== '' || entry.live.reasoning !== '' ? EMPTY_LIVE : entry.live
+        const live =
+          entry.live.text !== '' ||
+          entry.live.reasoning !== '' ||
+          entry.live.textKey !== undefined ||
+          entry.live.reasoningKey !== undefined
+            ? EMPTY_LIVE
+            : entry.live
         return session === entry.session && live === entry.live
           ? entry
           : { ...entry, session, live }
@@ -1492,6 +1688,7 @@ function setAgentKind(kind: AgentKind): void {
 }
 
 function newChat(projectId: string | null = null, cwd?: string | null): void {
+  cancelSearchRequest()
   setState((s) => ({
     sessions: { ...s.sessions, [NEW_CHAT_KEY]: freshEntry(projectId, cwd) },
     activeKey: NEW_CHAT_KEY
@@ -1573,6 +1770,7 @@ function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatS
   const lang = continuityLangFor(languageCache ?? undefined)
   return {
     ...initialChatState,
+    transcriptChanges: newTranscriptChanges(),
     agentKind: src.agentKind,
     agentKindLocked: true,
     title: continuityTitle(kind, lang, src.title?.trim() || src.sessionId!.slice(0, 8)),
@@ -1604,9 +1802,21 @@ function startForkDraft(): boolean {
     return false
   pruneUnsentContinuityDrafts(src.sessionId)
   const draftKey = `draft:${crypto.randomUUID()}`
+  const parentPage = s.sessions[s.activeKey].history
   const draft: SessionEntry = {
+    ...(parentPage
+      ? {
+          history: {
+            ...parentPage,
+            sourceSessionId: src.sessionId,
+            openGeneration: ++historyOpenGeneration,
+            beforeState: undefined
+          }
+        }
+      : {}),
     session: {
       ...continuityDraftSession(src, 'fork'),
+      historyComplete: src.historyComplete,
       // fork 는 원본 컨텍스트를 그대로 갖고 시작하므로 도넛(lastTelemetry)도 승계한다.
       // 사용량 기준 provider(0186)도 같은 이유로 함께 승계한다 — 안 하면 fork 직후 주/월 바가
       // 사라졌다가 첫 턴이 끝나야 돌아온다.
@@ -1620,6 +1830,7 @@ function startForkDraft(): boolean {
         ...(src.messages.length > 0
           ? [
               {
+                id: rendererMessageId(crypto.randomUUID()),
                 role: 'assistant' as const,
                 createdAt: Date.now(),
                 parts: [{ type: 'fork_boundary' as const }]
@@ -1734,7 +1945,7 @@ function startHandoff(): boolean {
     !HARNESS_CAPABILITIES[src.backend ?? 'claude'].continuity
   )
     return false
-  if (src.messages.filter((m) => m.role === 'user').length < 2) return false
+  if (!hasHandoffHistory(src)) return false
   // 다른 새-채팅 전송이 pending 이면 조용한 큐 대기 대신 거부 — silent stuck 방지(r2).
   if (s.pendingNewChatKey != null) return false
   pruneUnsentContinuityDrafts(src.sessionId)
@@ -1789,7 +2000,12 @@ async function loadSession(
   title: string | null = null,
   options: { revalidate?: boolean } = {}
 ): Promise<void> {
+  cancelSearchRequest()
   let s = getState()
+  if (s.activeKey !== sessionId && s.sessions[s.activeKey]?.search) {
+    leaveSearch(s.activeKey)
+    s = getState()
+  }
   const existing = s.sessions[sessionId]
   if (
     !options.revalidate &&
@@ -1799,14 +2015,24 @@ async function loadSession(
   )
     return
   coalescer.flush()
+  if (s.activeKey !== sessionId && s.sessions[s.activeKey]?.history) {
+    sessionApi.cancelLoad(s.sessions[s.activeKey]?.history?.sourceSessionId ?? s.activeKey)
+    patchEntry(s.activeKey, (entry) =>
+      entry.history ? { ...entry, history: { ...entry.history, beforeState: undefined } } : entry
+    )
+  }
   s = getState()
+  const switchingActive = !options.revalidate && s.activeKey !== sessionId
+  const nextIntent: EntryIntent | null = switchingActive
+    ? { sessionKey: sessionId, cause: 'open', seq: (s.entryIntent?.seq ?? 0) + 1 }
+    : s.entryIntent
   const cached = s.sessions[sessionId]
   const hasCachedHistory = cached && !cached.session.loadingSession
   if (hasCachedHistory) {
-    setState({ activeKey: sessionId })
+    setState({ activeKey: sessionId, ...(switchingActive ? { entryIntent: nextIntent } : {}) })
     void settingsApi.set({ lastSessionId: sessionId })
   } else if (cached) {
-    setState({ activeKey: sessionId })
+    setState({ activeKey: sessionId, ...(switchingActive ? { entryIntent: nextIntent } : {}) })
   } else {
     const loadingSession = chatReducer(
       { ...initialChatState, cwd: cwdCache },
@@ -1821,7 +2047,8 @@ async function loadSession(
           subagentMeta: EMPTY_SUBAGENT_META
         }
       },
-      activeKey: sessionId
+      activeKey: sessionId,
+      ...(switchingActive ? { entryIntent: nextIntent } : {})
     }))
   }
   // 다른 세션의 첫 본문 로드가 아직 진행 중이면 취소한다(0324 AC17) — 데이터 호스트가 남은 조각을
@@ -1856,7 +2083,13 @@ async function loadSession(
     }
     // Cached live state is authoritative even when its next event has not arrived yet.
     if (hasCachedHistory && sessionBusy(request.entry.session)) return
-    dispatchTo(sessionId, { type: 'LOAD_SESSION', session, preserveLocalState: !!hasCachedHistory })
+    dispatchTo(sessionId, {
+      type: 'LOAD_SESSION',
+      session,
+      complete: session.complete ?? true,
+      preserveLocalState: !!hasCachedHistory,
+      diagnostic: transcriptDiagnostic
+    })
     request.entry = getState().sessions[sessionId]
     refreshScheduled = true
     // Two frame callbacks give React a paint opportunity before native I/O starts.
@@ -1900,6 +2133,8 @@ async function loadSession(
         dispatchTo(sessionId, {
           type: 'LOAD_SESSION',
           session: result.session,
+          complete: result.session.complete ?? true,
+          diagnostic: transcriptDiagnostic,
           preserveLocalState: true
         })
       }
@@ -2171,7 +2406,489 @@ function denyTool(approvalId: string): void {
 
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
+const transcriptDiagnostic: TranscriptDiagnostic = (event, count) => {
+  console.warn('[chat transcript]', event, count)
+}
+
+function prependHistory(
+  sessionKey: string,
+  messages: readonly LoadedMessage[],
+  options: { reachedStart: boolean }
+): void {
+  dispatchTo(sessionKey, {
+    type: 'PREPEND_HISTORY',
+    messages,
+    reachedStart: options.reachedStart,
+    diagnostic: transcriptDiagnostic
+  })
+}
+
+let searchSequence = 0
+let resolvingSearch: { origin: string; session: string; seq: number } | undefined
+
+function cancelSearchRequest(): void {
+  if (resolvingSearch) sessionApi.cancelLoad(resolvingSearch.session, resolvingSearch.seq)
+  resolvingSearch = undefined
+}
+
+async function openSearchHit(
+  locator:
+    | HistoryLocator
+    | {
+        kind: 'visit'
+        session: string
+        generation: string
+        messageKey: string
+        anchor: NonNullable<HistorySelection['anchor']>
+      },
+  keyboard: boolean,
+  restore = false,
+  visit?: number
+): Promise<boolean> {
+  cancelSearchRequest()
+  const origin = getState().activeKey
+  const id = locator.session
+  const originEntry = getState().sessions[origin]
+  if (!restore && !originEntry?.search?.locator)
+    rememberSearchOrigin(
+      origin,
+      originEntry?.search?.view?.generation ?? originEntry?.history?.generation
+    )
+  const seq = ++searchSequence
+  const flight = { origin, session: id, seq }
+  resolvingSearch = flight
+  const current = (): boolean => resolvingSearch === flight && getState().activeKey === origin
+  const cached = getState().sessions[id]
+  const position = visit === undefined ? undefined : searchPosition(visit, id)
+  const resume = position?.anchor.messageId
+    ? { generation: position.generation, messageKey: position.anchor.messageId }
+    : undefined
+  const projected =
+    'kind' in locator ? locator.messageKey : (resume?.messageKey ?? locator.projectedKey)
+  const candidate =
+    projected && cached?.history && messageOrderFor(cached.session).messagePosition(projected) >= 0
+      ? { generation: cached.history.generation, messageKey: projected }
+      : undefined
+  try {
+    const reply = await sessionApi.page({
+      ...('kind' in locator
+        ? { kind: 'visit' as const, generation: locator.generation, messageKey: locator.messageKey }
+        : { kind: 'target' as const, locator }),
+      sessionId: id,
+      openGeneration: seq,
+      ...(candidate ? { cached: candidate } : {}),
+      ...(resume ? { resume } : {})
+    })
+    if (!current()) return false
+    if (reply.status !== 'ok' && reply.status !== 'useCached') return false
+    const target = reply.status === 'ok' ? reply.targetMessage : reply.messageKey
+    if (!target) return false
+    const entry = getState().sessions[id]
+    if (
+      reply.status === 'useCached' &&
+      (!entry ||
+        entry.history?.generation !== reply.generation ||
+        messageOrderFor(entry.session).messagePosition(target) < 0)
+    )
+      return false
+    if (reply.status === 'ok' && !reply.session.messages.some((m) => m.id === target)) return false
+    const history = reply.status === 'ok' ? reply.session.history : entry!.history!
+    const gap =
+      reply.status === 'ok'
+        ? {
+            messages: reply.session.messages.map(fromLoadedMessage),
+            ...history,
+            changes: newTranscriptChanges()
+          }
+        : undefined
+    let next = entry ?? freshEntry()
+    if ((!next.session.sessionId || next.session.loadingSession) && reply.status === 'ok') {
+      next = {
+        ...next,
+        session: chatReducer(next.session, {
+          type: 'LOAD_SESSION',
+          session: { ...reply.session, messages: [] },
+          complete: false,
+          diagnostic: transcriptDiagnostic
+        })
+      }
+    }
+    sessionLoads.delete(id)
+    if (id !== origin) {
+      const previous = getState().sessions[origin]
+      sessionApi.cancelLoad(previous?.history?.sourceSessionId ?? origin)
+      if (previous?.history?.beforeState || previous?.search)
+        patchEntry(origin, (e) => ({
+          ...e,
+          search: undefined,
+          history: e.history && { ...e.history, beforeState: undefined }
+        }))
+    }
+    const selection: HistorySelection = {
+      seq,
+      ...('kind' in locator ? { anchor: locator.anchor } : { locator }),
+      target,
+      keyboard,
+      restore,
+      view: gap,
+      visit: visit ?? seq,
+      sessionId: id,
+      generation: history.generation,
+      ...(resume &&
+      position &&
+      resume.generation === history.generation &&
+      resume.messageKey === target
+        ? { anchor: position.anchor }
+        : {})
+    }
+    next = joinSearchAtLatest({ ...next, search: selection })
+    resolvingSearch = undefined
+    setState((st) => ({
+      activeKey: id,
+      entryIntent: null,
+      sessions: { ...st.sessions, [id]: next }
+    }))
+    if (reply.status === 'ok' && reply.session.metadataRef)
+      scheduleHistoryMetadata(id, reply.session.metadataRef)
+    void settingsApi.set({ lastSessionId: id })
+    return true
+  } catch {
+    return false
+  } finally {
+    if (resolvingSearch === flight) resolvingSearch = undefined
+  }
+}
+
+function joinSearchAtLatest(entry: SessionEntry): SessionEntry {
+  const selection = entry.search
+  const view = selection?.view
+  if (
+    !selection ||
+    !view ||
+    view.after ||
+    (entry.history && entry.history.generation !== view.generation)
+  )
+    return entry
+  let rejected = false
+  const session = chatReducer(entry.session, {
+    type: 'PREPEND_HISTORY',
+    messages: view.messages,
+    reachedStart: !view.before,
+    diagnostic: (event, n) => {
+      if (event === 'prependRejected') rejected = true
+      transcriptDiagnostic(event, n)
+    }
+  })
+  if (rejected) return entry
+  return {
+    ...entry,
+    session,
+    history: {
+      generation: view.generation,
+      before: view.before,
+      openGeneration: ++historyOpenGeneration
+    },
+    search: { ...selection, view: undefined }
+  }
+}
+
+// A navigation from the search modal already resolved its locator. Back/forward
+// can refer to a different visit of the same session and must resolve it again.
+function restoreOriginVisit(
+  origin: {
+    session: string
+    generation?: string
+    anchor?: HistorySelection['anchor']
+    pinned: boolean
+  },
+  routeKey: string
+): void {
+  if (origin.pinned || !origin.anchor?.messageId || !origin.generation) {
+    if (getState().activeKey === origin.session && getState().sessions[origin.session]?.search)
+      leaveSearch(origin.session, true)
+    else void loadSession(origin.session)
+    return
+  }
+  void openSearchHit(
+    {
+      kind: 'visit',
+      session: origin.session,
+      generation: origin.generation,
+      messageKey: origin.anchor.messageId,
+      anchor: origin.anchor
+    },
+    false,
+    true
+  ).then((opened) => {
+    if (!opened && (globalThis.window?.history?.state?.key ?? 'default') === routeKey)
+      void loadSession(origin.session)
+  })
+}
+
+function restoreSearchVisit(locator: HistoryLocator, visitSequence: number): void {
+  const state = getState()
+  if (
+    state.activeKey === locator.session &&
+    (state.sessions[locator.session]?.search?.visit ??
+      state.sessions[locator.session]?.search?.seq) === visitSequence
+  )
+    return
+  void openSearchHit(locator, false, true, visitSequence)
+}
+
+function currentSearchSequence(): number | undefined {
+  const state = getState()
+  return state.sessions[state.activeKey]?.search?.seq
+}
+
+const readingBodies = new WeakMap<HistoryBodyRef, Promise<boolean>>()
+
+function openHistoryBody(ref: HistoryBodyRef): Promise<boolean> {
+  const prior = readingBodies.get(ref)
+  if (prior) return prior
+  const key = getState().activeKey
+  const initial = getState().sessions[key]
+  const seq = initial?.search?.seq
+  const generation = initial?.search?.view ? seq : initial?.history?.openGeneration
+  const current = (): boolean => {
+    const state = getState()
+    const entry = state.sessions[key]
+    const view = entry?.search?.view
+    return (
+      state.activeKey === key &&
+      !!entry &&
+      entry.search?.seq === seq &&
+      (view?.generation ?? entry.history?.generation) === ref.generation &&
+      (view?.messages ?? entry.session.messages).some((message) => message.deferredBody === ref)
+    )
+  }
+  if (generation === undefined || !current()) return Promise.resolve(false)
+  const result = readDeferredParts(ref, generation, sessionApi.page, current)
+    .then((parts) => {
+      if (!current()) return false
+      patchEntry(key, (entry) => {
+        const selection = entry.search
+        const view = selection?.view
+        if (selection && view) {
+          const messages = view.messages.map((message) =>
+            message.deferredBody === ref
+              ? fromLoadedMessage({ ...message, deferredBody: undefined, parts })
+              : message
+          )
+          return {
+            ...entry,
+            search: {
+              ...selection,
+              view: {
+                ...view,
+                messages,
+                changes: recordChange(view.changes, { kind: 'reset', complete: false })
+              }
+            }
+          }
+        }
+        return {
+          ...entry,
+          session: chatReducer(entry.session, {
+            type: 'RESOLVE_HISTORY_BODY',
+            ref,
+            parts,
+            diagnostic: transcriptDiagnostic
+          })
+        }
+      })
+      return true
+    })
+    .catch(() => false)
+    .finally(() => readingBodies.delete(ref))
+  readingBodies.set(ref, result)
+  return result
+}
+
+function leaveSearch(key: string, latest = false): void {
+  const entry = getState().sessions[key]
+  if (!entry?.search) return
+  const sequence = entry.search.seq
+  const leave = (): void => {
+    patchEntry(key, (e) => ({ ...e, search: undefined }))
+    if (latest)
+      setState((s) => ({
+        entryIntent: { cause: 'open', sessionKey: key, seq: (s.entryIntent?.seq ?? 0) + 1 }
+      }))
+  }
+  if (!latest || entry.history || entry.session.historyComplete) {
+    sessionApi.cancelLoad(key)
+    leave()
+    return
+  }
+  if (entry.search.returning) return
+  patchEntry(key, (e) => ({ ...e, search: e.search && { ...e.search, returning: true } }))
+  const current = (): boolean =>
+    getState().activeKey === key && getState().sessions[key]?.search?.seq === sequence
+  void sessionApi
+    .page({ kind: 'latest', sessionId: key, openGeneration: sequence })
+    .then((reply) => {
+      if (!current()) return
+      if (reply.status !== 'ok') throw Error(reply.status)
+      patchEntry(key, (e) => {
+        let rejected = false
+        const session = chatReducer(e.session, {
+          type: 'PREPEND_HISTORY',
+          messages: reply.session.messages,
+          reachedStart: !reply.session.history.before,
+          diagnostic: (event, count) => {
+            if (event === 'prependRejected') rejected = true
+            transcriptDiagnostic(event, count)
+          }
+        })
+        return rejected
+          ? e
+          : {
+              ...e,
+              session,
+              history: { ...reply.session.history, openGeneration: ++historyOpenGeneration }
+            }
+      })
+      if (!getState().sessions[key]?.history) throw Error('History overlap rejected')
+      leave()
+    })
+    .catch(() => {
+      if (current())
+        patchEntry(key, (e) => ({
+          ...e,
+          search: e.search && { ...e.search, returning: false, returnFailed: true }
+        }))
+    })
+}
+
+function readSearchEdge(key: string, direction: 'before' | 'after', automatic = false): boolean {
+  const entry = getState().sessions[key]
+  const search = entry?.search
+  const view = search?.view
+  const edge = view?.[direction]
+  const stateKey = direction === 'before' ? 'beforeState' : 'afterState'
+  if (
+    !search ||
+    !view ||
+    !edge ||
+    getState().activeKey !== key ||
+    view[stateKey] === 'loading' ||
+    (automatic && idleSearchDirection(view) !== direction)
+  )
+    return false
+  const seq = search.seq
+  const patch = (
+    update: (s: HistorySelection, v: SearchWindow, e: SessionEntry) => SessionEntry
+  ): void =>
+    patchEntry(key, (e) => {
+      const s = e.search
+      return s?.seq === seq &&
+        s.view &&
+        s.view[direction]?.cursor === edge.cursor &&
+        getState().activeKey === key
+        ? update(s, s.view, e)
+        : e
+    })
+  patch((s, v, e) => ({ ...e, search: { ...s, view: { ...v, [stateKey]: 'loading' } } }))
+  const query = edge.kind === 'withinTurn' ? { kind: edge.kind, direction } : { kind: edge.kind }
+  const failed = (): void =>
+    patch((s, v, e) => ({ ...e, search: { ...s, view: { ...v, [stateKey]: 'error' } } }))
+  void sessionApi
+    .page({ ...query, sessionId: key, openGeneration: seq, cursor: edge.cursor })
+    .then((reply) => {
+      if (reply.status !== 'ok' || reply.session.history.generation !== view.generation) {
+        failed()
+        return
+      }
+      patch((s, v, e) => {
+        const part = reply.session.messages.map(fromLoadedMessage)
+        const messages =
+          direction === 'before' ? [...part, ...v.messages] : [...v.messages, ...part]
+        const next = {
+          ...v,
+          messages,
+          [direction]: reply.session.history[direction],
+          [stateKey]: undefined,
+          changes: recordChange(v.changes, { kind: 'reset', complete: false })
+        }
+        const updated = { ...e, search: { ...s, view: next } }
+        return direction === 'after' ? joinSearchAtLatest(updated) : updated
+      })
+    }, failed)
+  return true
+}
+
+function readPrevious(key: string, automatic = false): boolean {
+  const state = getState()
+  const history = state.sessions[key]?.history
+  const edge = history?.before
+  if (
+    !history ||
+    !edge ||
+    key !== state.activeKey ||
+    history.beforeState === 'loading' ||
+    (automatic && (edge.kind !== 'withinTurn' || history.beforeState === 'error'))
+  )
+    return false
+  const beforeState = 'loading' as const
+  const loading = { ...history, beforeState }
+  patchEntry(key, (entry) => ({ ...entry, history: loading }))
+  const query =
+    edge.kind === 'withinTurn'
+      ? { kind: 'withinTurn' as const, direction: 'before' as const }
+      : { kind: 'earlierTurn' as const }
+  void sessionApi
+    .page({
+      ...query,
+      sessionId: history.sourceSessionId ?? key,
+      openGeneration: history.openGeneration,
+      cursor: edge.cursor
+    })
+    .then((reply: HistoryPageReply) => {
+      patchEntry(key, (entry) => {
+        if (entry.history !== loading || getState().activeKey !== key) return entry
+        if (reply.status !== 'ok' || reply.session.history.generation !== history.generation)
+          return { ...entry, history: { ...history, beforeState: 'error' } }
+        let rejected = false
+        const session = chatReducer(entry.session, {
+          type: 'PREPEND_HISTORY',
+          messages: reply.session.messages,
+          reachedStart: !reply.session.history.before,
+          diagnostic: (event, count) => {
+            if (event === 'prependRejected') rejected = true
+            transcriptDiagnostic(event, count)
+          }
+        })
+        return rejected
+          ? { ...entry, history: { ...history, beforeState: 'error' } }
+          : {
+              ...entry,
+              session,
+              history: { ...history, before: reply.session.history.before, beforeState: undefined }
+            }
+      })
+    })
+    .catch(() =>
+      patchEntry(key, (entry) =>
+        entry.history === loading
+          ? { ...entry, history: { ...history, beforeState: 'error' } }
+          : entry
+      )
+    )
+  return true
+}
+
 export const chatActions = {
+  openHistoryBody,
+  openSearchHit,
+  cancelSearchRequest,
+  leaveSearch,
+  readSearchEdge,
+  restoreSearchVisit,
+  restoreOriginVisit,
+  currentSearchSequence,
+  readPrevious,
+  prependHistory,
   setOpenCodeTodoCollapsed: (collapsed: boolean): void =>
     dispatchActive({ type: 'SET_OPENCODE_TODO_COLLAPSED', collapsed }),
   setAgentKind,
@@ -2582,6 +3299,133 @@ export function useNewChatPending(key?: string): boolean {
   })
 }
 
+function usePanelScope(): PanelScope | undefined {
+  const sessionId = useChatStore(
+    (s) => s.sessions[s.activeKey].history?.sourceSessionId ?? s.activeKey
+  )
+  const generation = useChatStore(
+    (s) =>
+      s.sessions[s.activeKey].search?.view?.generation ??
+      s.sessions[s.activeKey].history?.generation
+  )
+  const openGeneration = useChatStore((s) => {
+    const entry = s.sessions[s.activeKey]
+    return entry.search?.view ? entry.search.seq : entry.history?.openGeneration
+  })
+  return useMemo(
+    () =>
+      generation && openGeneration !== undefined
+        ? { sessionId, generation, openGeneration }
+        : undefined,
+    [sessionId, generation, openGeneration]
+  )
+}
+
+export function useTileHistoryPages(kinds: PanelKind[]): ReturnType<typeof usePanelPages> {
+  return usePanelPages(usePanelScope(), kinds)
+}
+
+export function useSelectedPanelDetail(kind: PanelKind, key: string | null | undefined): void {
+  usePanelPages(usePanelScope(), [kind], key ? { kind, key } : undefined)
+}
+
+const noPanelMessages: readonly Message[] = []
+const noPanelPatches = new Map() as ChatState['heldPatches']
+export function useTranscriptView(
+  domain: 'taskBoard'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['taskBoard']>
+export function useTranscriptView(
+  domain: 'taskContextSources'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['taskContextSources']>
+export function useTranscriptView(
+  domain: 'subagentTasks',
+  includeNested?: boolean
+): ReturnType<ReturnType<typeof transcriptIndexFor>['subagentTasks']>
+export function useTranscriptView(
+  domain: 'subagentTaskDescription',
+  toolUseId: string
+): ReturnType<ReturnType<typeof transcriptIndexFor>['taskDescription']>
+export function useTranscriptView(
+  domain: 'childMessage',
+  parentToolRunId: string | null | undefined
+): ReturnType<ReturnType<typeof transcriptIndexFor>['childMessage']>
+export function useTranscriptView(
+  domain: 'transcriptResults'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['transcriptResults']>
+export function useTranscriptView(
+  domain: 'persistedBackgroundModels'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['backgroundModels']>
+export function useTranscriptView(
+  domain: 'sessionPanelModel',
+  background?: BackgroundSessionState
+): ReturnType<ReturnType<typeof transcriptIndexFor>['openCodePanelModel']>
+export function useTranscriptView(domain: string, arg?: unknown): unknown {
+  const scope = usePanelScope()
+  const selected = useChatStore((state) => {
+    if (!scope) return null
+    const session = state.sessions[state.activeKey].session
+    if (domain === 'taskBoard') return session.selectedTaskKey
+    if (domain === 'childMessage') return typeof arg === 'string' ? arg : null
+    if (domain === 'subagentTasks') return session.selectedSubagentTaskId
+    return null
+  })
+  const kinds = domainPanels(domain)
+  const { pages } = usePanelPages(
+    scope,
+    kinds,
+    selected ? { kind: kinds[0], key: selected } : undefined
+  )
+  const messages = useChatStore((state) =>
+    scope ? state.sessions[state.activeKey].session.messages : noPanelMessages
+  )
+  const patches = useChatStore((s) =>
+    scope ? s.sessions[s.activeKey].session.heldPatches : noPanelPatches
+  )
+  const live = useMemo(() => {
+    const index = new TranscriptPanelProjection()
+    const recent = messages.filter((m) => !isPublishedMessage(m))
+    const held = [...patches.values()].flat().sort((a, b) => a.sequence - b.sequence)
+    if (held.length)
+      recent.push({
+        id: 'panel:held',
+        role: 'assistant',
+        createdAt: 0,
+        parts: held.map((entry) => entry.part)
+      })
+    if (recent.length) index.reset(recent)
+    return { index, recent }
+  }, [messages, patches])
+  const overlay = useMemo(
+    () => scope && mergePanelView(domain, arg, pages, live.index, live.recent),
+    [scope, domain, arg, pages, live]
+  )
+  return useChatStore((state) => {
+    if (scope) return overlay
+    const session = state.sessions[state.activeKey].session
+    const index = transcriptIndexFor(session)
+    switch (domain) {
+      case 'taskBoard':
+        return index.taskBoard()
+      case 'taskContextSources':
+        return index.taskContextSources()
+      case 'subagentTasks':
+        return index.subagentTasks(Boolean(arg))
+      case 'subagentTaskDescription':
+        return typeof arg === 'string' ? index.taskDescription(arg) : undefined
+      case 'childMessage':
+        return typeof arg === 'string' ? index.childMessage(arg) : null
+      case 'transcriptResults':
+        return index.transcriptResults()
+      case 'persistedBackgroundModels':
+        return index.backgroundModels()
+      case 'sessionPanelModel':
+        return index.openCodePanelModel(arg as BackgroundSessionState | undefined)
+      default:
+        return undefined
+    }
+  })
+}
+
 export function useChatRecentsEpoch(): number {
   return useChatStore((s) => s.recentsEpoch)
 }
@@ -2617,4 +3461,23 @@ export function otherProjectTurnCount(state: ChatStoreState, projectId: string |
 
 export function useOtherProjectTurnCount(projectId: string | null): number {
   return useChatStore((state) => otherProjectTurnCount(state, projectId))
+}
+
+export function consumeEntryIntent(sessionKey: string): EntryIntent | null {
+  const intent = getState().entryIntent
+  if (!intent || intent.sessionKey !== sessionKey) return null
+  setState({ entryIntent: null })
+  return intent
+}
+
+export function useTranscriptChanges(): TranscriptChanges {
+  return useChatStore((s) => s.sessions[s.activeKey].session.transcriptChanges)
+}
+
+export function useLiveTextKey(): string | undefined {
+  return useChatStore((s) => s.sessions[s.activeKey].live.textKey)
+}
+
+export function useActiveSessionKey(): string {
+  return useChatStore((s) => s.activeKey)
 }

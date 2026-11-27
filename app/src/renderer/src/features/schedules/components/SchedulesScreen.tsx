@@ -12,6 +12,11 @@ import type {
 } from '../../../../../shared/scheduled-tasks'
 import type { ScheduleProject } from '../lib/scheduleForm'
 import { DetailSidePane } from '../../../shared/ui/DetailSidePane'
+import { CATALOG_VIRTUALIZE_AFTER } from '../../../shared/ui/virtual/limits'
+import {
+  VirtualCatalogList,
+  type CatalogRowPosition
+} from '../../../shared/ui/virtual/VirtualCatalogList'
 import { ScheduleDetail } from './ScheduleDetail'
 import { ScheduleRow } from './ScheduleRow'
 import { ScheduleTaskModal, type SchedulePickers } from './ScheduleTaskModal'
@@ -36,6 +41,10 @@ const TAB_KEYS = { all: 'schedules.tabAll', enabled: 'schedules.tabEnabled' } as
 
 function commandOf(task: ScheduledTask): string {
   return task.action.kind === 'prompt' ? task.action.text : task.action.command
+}
+
+function taskRowKey(task: ScheduledTask): string {
+  return task.id
 }
 
 // 예약 작업 카탈로그 — 프로젝트 카탈로그(`ProjectsScreen`)와 같은 골격이다:
@@ -67,6 +76,8 @@ export function SchedulesScreen({
   const search = useCatalogSearch(() => setQuery(''))
   const createRef = useRef<HTMLButtonElement>(null)
   const id = useId()
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
+  const listScroller = useMemo(() => ({ current: scroller }), [scroller])
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const visible = useMemo(
     () =>
@@ -98,6 +109,24 @@ export function SchedulesScreen({
     // 모달을 연 자리로 초점을 돌려준다.
     createRef.current?.focus({ preventScroll: true })
   }
+  const renderRow = (task: ScheduledTask, position?: CatalogRowPosition): React.JSX.Element => (
+    <ScheduleRow
+      key={task.id}
+      position={position}
+      task={task}
+      projectName={projectNameOf(task)}
+      selected={selectedId === task.id}
+      onSelect={() => (selectedId === task.id ? closeDetail() : select(task.id))}
+      onSetEnabled={(enabled) => onSetEnabled(task.id, enabled)}
+      onRunNow={() => {
+        // 방금 시작한 실행이 보이도록 그 작업의 패널을 연다.
+        select(task.id)
+        onRunNow(task.id)
+      }}
+      onEdit={() => setEditing(task)}
+      onDelete={() => onDelete(task)}
+    />
+  )
 
   return (
     <section
@@ -107,6 +136,7 @@ export function SchedulesScreen({
       className="relative flex min-h-0 min-w-0 flex-1 pb-2 pr-2"
     >
       <div
+        ref={setScroller}
         inert={!!selected && expanded}
         className="@container/catalog min-h-0 min-w-0 flex-1 overflow-y-auto"
       >
@@ -178,25 +208,17 @@ export function SchedulesScreen({
                   </Button>
                 )}
               </div>
+            ) : visible.length > CATALOG_VIRTUALIZE_AFTER ? (
+              <VirtualCatalogList
+                items={visible}
+                owner={listScroller}
+                documentKey={JSON.stringify([tab, normalizedQuery])}
+                keyOf={taskRowKey}
+                renderRow={renderRow}
+              />
             ) : (
               <ul className="m-0 list-none divide-y divide-border p-0">
-                {visible.map((task) => (
-                  <ScheduleRow
-                    key={task.id}
-                    task={task}
-                    projectName={projectNameOf(task)}
-                    selected={selectedId === task.id}
-                    onSelect={() => (selectedId === task.id ? closeDetail() : select(task.id))}
-                    onSetEnabled={(enabled) => onSetEnabled(task.id, enabled)}
-                    onRunNow={() => {
-                      // 방금 시작한 실행이 보이도록 그 작업의 패널을 연다.
-                      select(task.id)
-                      onRunNow(task.id)
-                    }}
-                    onEdit={() => setEditing(task)}
-                    onDelete={() => onDelete(task)}
-                  />
-                ))}
+                {visible.map((task) => renderRow(task))}
               </ul>
             )}
           </div>

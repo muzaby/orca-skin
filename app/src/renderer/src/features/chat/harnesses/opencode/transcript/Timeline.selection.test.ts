@@ -35,6 +35,8 @@ describe('OpenCode selected row renderer continuity', () => {
     const row: TimelineRow = {
       key: 'text',
       kind: 'segment',
+      messageId: 'a:1',
+      partKeys: ['a:1:text:0'],
       segment: { kind: 'text', text: '[link][reference]' },
       gap: 0,
       streaming: true
@@ -63,6 +65,8 @@ describe('OpenCode selected row renderer continuity', () => {
     const base: TimelineRow = {
       key: 'user:1:0:text',
       kind: 'segment',
+      messageId: 'a:1',
+      partKeys: ['a:1:text:0'],
       segment: { kind: 'text', text: '확정 ' },
       gap: 0,
       streaming: true,
@@ -77,6 +81,8 @@ describe('OpenCode selected row renderer continuity', () => {
     const committed: TimelineRow = {
       key: base.key,
       kind: 'segment',
+      messageId: 'a:1',
+      partKeys: ['a:1:text:0'],
       segment: { kind: 'text', text: '확정 스트리밍' },
       gap: 0,
       streaming: false

@@ -16,12 +16,14 @@ import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation
 
 // 한 어시스턴트 턴의 toolCalls 를 묶는다. 도구가 1개면 그룹 헤더 없이 카드만, 2+ 일 때만
 // disclosure 그룹 헤더(진행 중엔 현재 도구 서술, 완료되면 동사별 카운트 요약).
-// memo(shallow): reconcileSegments 가 변하지 않은 세그먼트의 calls 배열 identity 를
+// memo(shallow): segmentCache 가 변하지 않은 세그먼트의 calls 배열 identity 를
 // 보존하므로 다른 세그먼트가 갱신돼도 이 그룹은 재렌더되지 않는다 (0008).
 export const ClaudeToolGroup = memo(function ClaudeToolGroup({
   calls,
-  transcriptPolicy
+  transcriptPolicy,
+  partKeys
 }: {
+  partKeys?: readonly string[]
   calls: ToolCall[]
   transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element | null {
@@ -29,7 +31,9 @@ export const ClaudeToolGroup = memo(function ClaudeToolGroup({
   const [open, setOpen] = useState(true)
   // 단일 도구: 그룹 헤더 없이 카드만(카드 자체가 border/bg 보유).
   if (calls.length <= 1)
-    return calls[0] ? <ToolCard call={calls[0]} transcriptPolicy={transcriptPolicy} /> : null
+    return calls[0] ? (
+      <ToolCard call={calls[0]} transcriptPolicy={transcriptPolicy} partKey={partKeys?.[0]} />
+    ) : null
   // 마지막 pending call (진행 중 헤더 텍스트의 출처)
   let pending: ToolCall | null = null
   for (const c of calls) if (c.result == null) pending = c
@@ -89,8 +93,14 @@ export const ClaudeToolGroup = memo(function ClaudeToolGroup({
       >
         <div className="min-h-0 overflow-hidden">
           <div className="mt-g2 flex flex-col gap-[var(--chat-item-gap)] rounded-r6 border border-t5 bg-bg p-p7">
-            {calls.map((c) => (
-              <ToolCard key={c.toolUseId} call={c} inGroup transcriptPolicy={transcriptPolicy} />
+            {calls.map((c, index) => (
+              <ToolCard
+                key={c.toolUseId}
+                call={c}
+                partKey={partKeys?.[index]}
+                inGroup
+                transcriptPolicy={transcriptPolicy}
+              />
             ))}
           </div>
         </div>

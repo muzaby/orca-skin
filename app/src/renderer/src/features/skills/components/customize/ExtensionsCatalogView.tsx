@@ -146,6 +146,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               </div>
             ) : (
               <CustomizeList
+                owner={listRef}
                 tab={selection.tab}
                 skills={skills.list}
                 mcpServers={mcp.list}

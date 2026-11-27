@@ -14,7 +14,7 @@
 | `docs/arch/execution-model.md` | **실행 모델** — 셸·에이전트 호스트·데이터 호스트·창이 무슨 일을 하고 서로 어떤 경로로 부탁하는가. `app/**` 에 새 코드를 두기 전에 읽는다. 프로세스 경계는 `app/scripts/check-ui-thread.mjs` 가 강제 | [`docs/arch/execution-model.md`](docs/arch/execution-model.md) |
 | `app/src/renderer/` | **Renderer** 레이어·제작 가이드 — [디자인 시스템](docs/arch/frontend/design-system.md)·[컴포넌트 카탈로그](docs/arch/frontend/design-components.md) 필수 참조·준수, 4-layer · 시맨틱 토큰 · 그룹 격리. | `app/src/renderer/AGENTS.md` |
 | `docs/guides/` | 운영 절차서 — 릴리스 · 폐쇄망 확장 · workspace 권한 구성. *구조 서술은 `docs/arch/`, 실행 절차는 여기* | `docs/guides/AGENTS.md` |
-| `docs/handoff/` | Claude Code ↔ Codex 협업 hand-off (plan/verify 문서 + 디스패치 보드) | `docs/handoff/AGENTS.md` |
+| `docs/handoff/` | Claude Code ↔ 구현 에이전트(Codex·Gemini) 협업 hand-off (plan/verify 문서 + 디스패치 보드) | `docs/handoff/AGENTS.md` |
 
 ## 새 세션 진입 시 읽는 순서
 
@@ -48,14 +48,14 @@
 7. **`AGENTS.md` 는 아무 데나 만들지 않는다.** *부모 규칙만으로 그 subtree 를 안전하게 수정할 수 없을 때*만 추가한다 — 독자적 의존 규칙·보안 경계·빌드/테스트 명령·반복되는 위험한 invariant 가 있을 때. 단순 인벤토리·설명 목적이면 만들지 않는다. 만들면 `@AGENTS.md` 를 import 하는 `CLAUDE.md` stub 을 함께 두고 본 표를 갱신한다.
 8. **언어**: 모든 `AGENTS.md`, PRD, TRD, 전략 문서, 트랜스크립트는 **한국어**. 코드 식별자·로그·외부 라이브러리 인터페이스는 영어. UI 라벨은 한국어 (`src/shared/i18n/ko.ts`).
 
-## 협업 워크플로우 (Claude Code ↔ Codex)
+## 협업 워크플로우 (Claude Code ↔ 구현 에이전트)
 
-이 저장소는 두 CLI 에이전트가 분업한다 — **Claude Code = 설계(plan)·검증(verify) 문서**, **Codex = 구현**. 두 에이전트는 *분리된 환경* 에서 **git 공유 브랜치를 메시지 버스 삼아** 통신한다 (라이브 채널 없음).
+이 저장소는 CLI 에이전트가 분업한다 — **Claude Code = 설계(plan)·검증(verify) 문서**, **구현 에이전트 = 구현** — 구현 에이전트는 Codex 또는 Gemini(Gemini CLI·Antigravity)이고 어느 쪽이든 같은 `handoff-impl` 계약을 따른다. 에이전트들은 *분리된 환경* 에서 **git 공유 브랜치를 메시지 버스 삼아** 통신한다 (라이브 채널 없음).
 
-- **구현 주체 분담**: *기능 구현* 은 Codex, **리팩토링·버그수정 등 비기능 작업은 Claude 가 핸드오프 문서(`<NNNN-slug>/plan.md`)를 만들어 직접 구현까지 수행**한다. 이때도 핸드오프 절차(plan → impl → verify)와 구현 커밋 trailer 형식은 동일하게 따른다.
+- **구현 주체 분담**: *기능 구현* 은 구현 에이전트(Codex·Gemini), **리팩토링·버그수정 등 비기능 작업은 Claude 가 핸드오프 문서(`<NNNN-slug>/plan.md`)를 만들어 직접 구현까지 수행**한다. 이때도 핸드오프 절차(plan → impl → verify)와 구현 커밋 trailer 형식은 동일하게 따른다.
 - **진입 트리거 (구현 요청 시 find-or-create)**: 사용자 요청이 *자료조사/질문/요약* 이 아니라 **구현·작업 요청**("구현해줘"·"고쳐줘"·"추가해줘"·리팩토링·버그수정 등)이면, `INDEX.md` 에서 해당 핸드오프를 **찾고, 없으면 `max(번호)+1` 로 새로 생성(`<NNNN-slug>/plan.md`, 설계 턴부터)**한다 — 구현 요청이라도 plan(설계)을 건너뛰지 않는다. 자료조사/질문은 핸드오프 없이 바로 답한다. **예외(핸드오프 생략, `Handoff: none` 직접 커밋 허용)**: 트리비얼(오타·주석·한두 줄) 및 *핸드오프 인프라 자체* 메타 수정. **애매하면 핸드오프 생성**(설계-우선 기본값). handoff 인프라의 normative 지침/SKILL/template/AGENTS를 바꾸면 `handoff-review`의 **Tier 1(full: instruction-delta + historical regression + cross-document consistency)** 검증을 수행한다. 실행 의미·owner·gate·policy가 불변인 단순 오탈자·상대경로·링크 정정은 **Tier 2(affected instruction-delta + cross-document consistency)** 로 줄일 수 있다. **tier가 애매하면 Tier 1**이다. (분류·절차 상세는 `docs/handoff/AGENTS.md`.)
 - **착수 전 항상 [`docs/handoff/INDEX.md`](docs/handoff/INDEX.md) 를 먼저 읽는다** — "지금 누구 차례인가" 의 단일 진실원(디스패치 보드).
-- 흐름: Claude `plan.md`(READY, Baseline V 또는 기존 V의 Delta V 확정) → Codex 구현 + 게이트 통과(`impl/IMPL_DONE`) → Claude `verify.md`(`PASS`/`FAIL`/`RETURN_TO_PLAN`). `FAIL`은 명시 pair 또는 이번 변경 산출물의 필수 gate 위반이라 구현자가 고치고, `RETURN_TO_PLAN`은 필요한 Decision·AC·V 노드/pair·§10이 누락·모순된 `PLAN_GAP`이라 Claude가 규범 행을 먼저 정정한다. 공통 V 추적 규약과 상태 정본은 [`docs/handoff/AGENTS.md`](docs/handoff/AGENTS.md). 발견은 이행 결함·현재 결함·확장 후보로 가르고, plan에 열거되지 않은 확장 후보는 verify 1·2회째에만 판정을 막는다(§판정 범위와 운영 gate).
+- 흐름: Claude `plan.md`(READY, Baseline V 또는 기존 V의 Delta V 확정) → 구현 에이전트 구현 + 게이트 통과(`impl/IMPL_DONE`) → Claude `verify.md`(`PASS`/`FAIL`/`RETURN_TO_PLAN`). `FAIL`은 명시 pair 또는 이번 변경 산출물의 필수 gate 위반이라 구현자가 고치고, `RETURN_TO_PLAN`은 필요한 Decision·AC·V 노드/pair·§10이 누락·모순된 `PLAN_GAP`이라 Claude가 규범 행을 먼저 정정한다. 공통 V 추적 규약과 상태 정본은 [`docs/handoff/AGENTS.md`](docs/handoff/AGENTS.md). 발견은 이행 결함·현재 결함·확장 후보로 가르고, plan에 열거되지 않은 확장 후보는 verify 1·2회째에만 판정을 막는다(§판정 범위와 운영 gate).
 - 규칙·상태 머신·템플릿 정본은 [`docs/handoff/AGENTS.md`](docs/handoff/AGENTS.md).
 - **단계별 스킬 = 절차의 정본**: `plan.md`는 [`.agents/skills/handoff-plan/`](.agents/skills/handoff-plan/), **구현 턴은 [`.agents/skills/handoff-impl/`](.agents/skills/handoff-impl/)**, `verify.md`는 [`.agents/skills/handoff-verify/`](.agents/skills/handoff-verify/), handoff 지침 자체의 개선은 [`.agents/skills/handoff-review/`](.agents/skills/handoff-review/)를 쓴다 (`.claude/skills` 는 `.agents/skills` 를 가리키는 심링크). `plan`/`impl`/`verify`는 정상 작업 중 과거 실패 사례를 읽어 즉석에서 자기 규칙을 만들거나 corpus를 직접 갱신하지 않는다. **역사적 실패 사례는 `handoff-review/references/failure-patterns.md` 진입점을 통해 review가 지침 변경 후 회귀 검증에만 사용**하며, 사례 추가/일반화 여부도 review가 결정한다. `docs/handoff/AGENTS.md` 는 협업 규칙·상태 머신·**게이트 정본**과 skill 을 읽지 못하는 환경을 위한 **구현 턴 최소 계약**을 갖는다.
 
@@ -71,22 +71,22 @@
 
 | Key | 허용값 | 작성 주체 |
 |---|---|---|
-| `Agent` | `codex` \| `claude` | 둘 다 |
+| `Agent` | `codex` \| `gemini` \| `claude` | 둘 다 |
 | `Handoff` | `docs/handoff/<NNNN-slug>/` \| `none` | 둘 다 |
 | `Status` | `designed` \| `implemented` \| `partial` \| `blocked` \| `verified` | 둘 다 |
-| `Criteria-Met` / `Criteria-Pending` | `3/5` / 미충족 목록 | **구현 커밋(Codex)만** |
+| `Criteria-Met` / `Criteria-Pending` | `3/5` / 미충족 목록 | **구현 커밋(구현 에이전트)만** |
 | `Verified-By` | `pending` \| `claude:pass` \| `claude:fail` | 구현=`pending`, 검증=결과 |
-| `Next-Action` | `codex` \| `claude` \| `none` | **검증 커밋(Claude)만** |
+| `Next-Action` | `codex` \| `gemini` \| `claude` \| `none` | **검증 커밋(Claude)만** |
 | `Refs` | `#<이슈번호>` | 둘 다(선택) |
 
 - **설계 커밋(Claude)**: `Agent: claude` + `Status: designed`. `Criteria-*`·`Next-Action` 은 넣지 않는다 — `plan/DRAFT`·`plan/READY` 와 `RETURN_TO_PLAN` 후 **규범 행 정정**(Decision·AC·V node/pair·§10)이 여기다. **구현 산출과 같은 커밋에 담지 않는다** (정본 `.agents/skills/handoff-plan/SKILL.md` 마무리).
-- **구현 커밋(Codex)**: `Agent: codex` + `Status: implemented|partial|blocked` + `Criteria-*` + `Verified-By: pending`.
+- **구현 커밋(구현 에이전트)**: `Agent: codex|gemini`(비기능이면 `claude`) + `Status: implemented|partial|blocked` + `Criteria-*` + `Verified-By: pending`.
 - **검증 커밋(Claude)**: `Agent: claude` + `Status: verified` + `Verified-By: claude:pass|claude:fail` + `Next-Action`. `RETURN_TO_PLAN`은 미검증 통과이므로 `claude:fail` + `Next-Action: claude`로 인코딩하고 INDEX/verify 상태가 원인을 구분한다.
 - 필드 의미·예시·파싱 명령 상세는 [`docs/git-template.md`](docs/git-template.md).
 
 ## AGENTS.md / CLAUDE.md 규약
 
-- **정본은 `AGENTS.md`.** Codex 등 표준 에이전트가 네이티브로 읽는다. 내용 편집은 항상 `AGENTS.md` 에서 한다.
+- **정본은 `AGENTS.md`.** Codex 등 표준 에이전트가 네이티브로 읽는다. 기본 컨텍스트 파일이 다른 도구(Gemini CLI·Antigravity)는 도구 설정에서 `AGENTS.md` 를 읽게 한다 — 도구별 stub 은 두지 않는다. 내용 편집은 항상 `AGENTS.md` 에서 한다.
 - 같은 디렉토리의 **`CLAUDE.md` 는 `@AGENTS.md` 한 줄을 import 하는 stub** — Claude Code 호환용. 직접 편집하지 않는다.
 - **위생 규칙**: `AGENTS.md` 에는 *프로젝트 구조·역할 매핑·코딩/테스트/빌드 규칙·수정 주의사항* 만 둔다. *비밀(키/토큰/PW)·개인정보·일회성 업무·자주 바뀌는 운영정보(버전/배포일정/담당자)·장문 코드설명서·모순 규칙* 은 넣지 않는다. 변동성 이력은 `git log` 와 `docs/archive/`, 라이브 작업 상태는 `docs/handoff/INDEX.md` 로 분리한다.
 - *런타임* AGENTS.md(앱이 띄우는 에이전트 세션에 주입하는 instructions, `docs/arch/backend/standardization.md §5.4`, 코드 미도입)는 **본 dev-time AGENTS.md 와 별개 스코프** 다 — 혼동 금지.

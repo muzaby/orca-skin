@@ -20,6 +20,12 @@ void connectMainErrorReports()
 // 메인 스레드의 50ms 이상 작업을 `perf.stall` 로 남긴다 (0324 AC7).
 startLongTaskReporter()
 
+if (import.meta.env.VITE_OO_DIAGNOSTIC === '1') {
+  void import('./features/chat/dev/transcriptFixtures').then(({ installTranscriptDevTools }) =>
+    installTranscriptDevTools()
+  )
+}
+
 createRoot(document.getElementById('root')!).render(
   rootElement(
     install,

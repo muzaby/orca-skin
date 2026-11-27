@@ -1,3 +1,4 @@
+import { userMessageId } from '../../../../../shared/message-id'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { chatReducer, initialChatState } from '../reducer/chatReducer'
 import { ingestChatEvent, sessionBusy, sessionResponding, useChatStore } from './chatStore'
@@ -18,6 +19,7 @@ describe('session scheduling receive path', () => {
       for (const [index, format] of formats.entries()) {
         const event = {
           type: 'message.committed' as const,
+          messageKey: userMessageId([`received-${index}`]),
           sessionId: 's',
           ids: [`received-${index}`],
           messageId: index + 1,
@@ -43,7 +45,10 @@ describe('session scheduling receive path', () => {
         backend,
         agentKind: 'code' as const,
         title: null,
-        messages: structuredClone(live.messages)
+        messages: structuredClone(live.messages).map((message, index) => ({
+          ...message,
+          id: message.id ?? String(index)
+        }))
       }
       const loaded = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
       const other = chatReducer(loaded, {
@@ -52,7 +57,12 @@ describe('session scheduling receive path', () => {
       })
       expect(other.messages).toEqual([])
       const returned = chatReducer(other, { type: 'LOAD_SESSION', session })
-      const stored = live.messages.map(({ role, parts, createdAt }) => ({ role, parts, createdAt }))
+      const stored = live.messages.map(({ id, role, parts, createdAt }) => ({
+        id,
+        role,
+        parts,
+        createdAt
+      }))
       expect(loaded.messages).toEqual(stored)
       expect(returned.messages).toEqual(stored)
     }
@@ -225,6 +235,7 @@ describe('session scheduling receive path', () => {
   it('preserves incoming prompt origin in the committed message and deduplicates its receipt', () => {
     const event = {
       type: 'message.committed' as const,
+      messageKey: userMessageId(['scheduled-delivery-1']),
       sessionId: 's',
       ids: ['scheduled-delivery-1'],
       text: '정기 점검을 진행하세요.',

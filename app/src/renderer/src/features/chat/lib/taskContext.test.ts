@@ -1,9 +1,11 @@
+import { createTaskContextSourceSelector } from './transcriptIndex.legacy.testfixture'
 import { describe, expect, it } from 'vitest'
 import type { AppMessagePart } from '../../../../../shared/ipc'
-import { createTaskContextSourceSelector, taskContextDirectories } from './taskContext'
+import { taskContextDirectories } from './taskContext'
 import type { Message } from '../reducer/chatReducer'
 
 const message = (...parts: AppMessagePart[]): Message => ({
+  id: 'm-6',
   role: 'assistant',
   createdAt: 1,
   parts
@@ -108,9 +110,12 @@ describe('observed Work context', () => {
     expect(select([message(call('read', 'Read', { file_path: 'C:/Other/input.md' }))])).toEqual([])
   })
 
-  it('does not re-read completed parts when the current message changes', () => {
+  it('does not re-read completed parts when the current message changes', async () => {
+    const { transcriptIndexFor } = await import('./transcriptIndex')
+    const { newTranscriptChanges, recordChange } = await import('./transcript/changeLog')
     let reads = 0
     const previous: Message = {
+      id: 'm-113',
       role: 'assistant',
       createdAt: 1,
       get parts() {
@@ -118,10 +123,25 @@ describe('observed Work context', () => {
         return [call('known', 'WebFetch', { url: 'https://example.com' }), result('known')]
       }
     }
-    const select = createTaskContextSourceSelector()
-    select([previous])
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    transcriptIndexFor({
+      messages: [previous],
+      transcriptChanges: changes
+    } as never).taskContextSources()
     const initialReads = reads
-    for (let i = 0; i < 5; i++) select([previous, message({ type: 'text', text: String(i) })])
+    for (let i = 0; i < 5; i++) {
+      const next: Message = {
+        id: `m-next-${i}`,
+        role: 'assistant',
+        createdAt: 2 + i,
+        parts: [{ type: 'text', text: String(i) }]
+      }
+      changes = recordChange(changes, { kind: 'append', ids: [next.id] })
+      transcriptIndexFor({
+        messages: [previous, next],
+        transcriptChanges: changes
+      } as never).taskContextSources()
+    }
     expect(reads).toBe(initialReads)
   })
 
@@ -146,7 +166,7 @@ describe('observed Work context', () => {
         { id: 'legacy', name: '과거 첨부.xlsx', kind: 'file', mimeType: 'application/octet-stream' }
       ]
     }
-    const user: Message = { role: 'user', createdAt: 1, parts: [attachments] }
+    const user: Message = { id: 'm-149', role: 'user', createdAt: 1, parts: [attachments] }
     const select = createTaskContextSourceSelector()
     expect(
       select([
@@ -182,6 +202,7 @@ describe('observed Work context', () => {
     expect(
       select([
         {
+          id: 'm-186',
           role: 'user',
           createdAt: 1,
           parts: [

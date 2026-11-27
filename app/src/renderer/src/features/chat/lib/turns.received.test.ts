@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { groupExchanges, groupTurns, turnCopyText, turnEquals } from './turns'
+import { groupTurns, turnCopyText, turnEquals } from './turns'
 import type { Message } from '../reducer/chatReducer'
 import type { ReceivedMessageOrigin } from '../../../../../shared/session-schedules'
 
 const literal = '<task-notification>사용자가 직접 입력한 본문</task-notification>'
+let recvSeq = 0
 const message = (role: Message['role'], text: string, origin?: ReceivedMessageOrigin): Message => ({
+  id: `recv-${++recvSeq}`,
   role,
   createdAt: 1,
   parts: [{ type: 'text', text, ...(origin ? { origin } : {}) }]
@@ -16,7 +18,7 @@ describe('received input transcript projection', () => {
       kind: 'automatic'
     })
     mixed.parts.push({ type: 'text', text: '  ' }, { type: 'attachment', attachments: [] })
-    expect(groupExchanges([mixed])).toEqual([])
+    expect(groupTurns([mixed])).toEqual([])
     expect(mixed.parts).toHaveLength(3)
   })
   it.each([false, true])(
@@ -38,6 +40,7 @@ describe('received input transcript projection', () => {
         origin: { kind: 'task' as const, format: 'tagged' as const }
       }
       const mixed: Message = {
+        id: 'm-40',
         role: 'user',
         createdAt: 2,
         parts: [...hidden.parts, human, automatic, attachment]
@@ -66,9 +69,9 @@ describe('received input transcript projection', () => {
           : human.text
       )
       expect(input).toEqual(original)
-      const reminderExchanges = groupExchanges([hidden], { showAutomaticFeeds })
-      expect(reminderExchanges).toHaveLength(showAutomaticFeeds ? 1 : 0)
-      if (showAutomaticFeeds) expect(reminderExchanges[0].turns[0].messages[0]).toBe(hidden)
+      const reminderTurns = groupTurns([hidden], { showAutomaticFeeds })
+      expect(reminderTurns).toHaveLength(showAutomaticFeeds ? 1 : 0)
+      if (showAutomaticFeeds) expect(reminderTurns[0].messages[0]).toBe(hidden)
     }
   )
 
@@ -114,7 +117,7 @@ describe('received input transcript projection', () => {
       expect(turns[0].messages).toEqual([human])
       expect(turns[1].messages[0]).toBe(reply)
       expect(turnCopyText(turns[0])).toBe(literal)
-      expect(groupExchanges(input).map((exchange) => exchange.startIndex)).toEqual([1, 3])
+      expect(groupTurns(input).map((turn) => turn.startIndex)).toEqual([1, 2, 3])
       expect(groupTurns(input, { showAutomaticFeeds: true })[0].messages).toEqual([
         automatic,
         human
@@ -128,7 +131,7 @@ describe('received input transcript projection', () => {
     const before = groupTurns(input)
     const automatic = message('user', '자동 이벤트', { kind: 'task' })
     const after = groupTurns([...input, automatic])
-    expect(groupExchanges([automatic])).toEqual([])
+    expect(groupTurns([automatic])).toEqual([])
     expect(after).toHaveLength(2)
     expect(turnEquals(before[1], after[1])).toBe(true)
     const reply = message('assistant', '후속 결과')

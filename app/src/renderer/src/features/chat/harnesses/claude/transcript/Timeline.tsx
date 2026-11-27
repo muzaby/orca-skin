@@ -1,22 +1,41 @@
+import { DeferredBody } from '../../common/transcript/DeferredBody'
 import { surfaces } from '../surfaces'
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo } from 'react'
 import { ReadingColumn } from '../../../../../shared/ui/ReadingColumn'
 import { useI18n } from '../../../../../shared/i18n'
-import { Exchange } from './Exchange'
+import { UserTurn } from '../../common/transcript/UserTurn'
+import { MessageMeta } from '../../common/transcript/MessageMeta'
+import { ArtifactCards } from '../../common/transcript/ArtifactCards'
 import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
 import { PendingAssistant } from './PendingAssistant'
+import { PendingAssistantStatus } from '../../../components/transcript/PendingAssistantStatus'
 import { PendingSteerTurn } from '../../common/transcript/PendingSteerTurn'
-import { createExchangeGrouper } from '../../../lib/turns'
-import { useTranscriptVirtualizer } from '../../../hooks/useTranscriptVirtualizer'
-import { createWorkToolResultSelector } from '../../../lib/workToolResults'
+import { ClaudeAssistantSegment } from './AssistantSegment'
+import { ActivityDisclosure } from './WorkActivity'
+import { turnCopyText } from '../../../lib/turns'
+import { TranscriptViewport } from '../../../components/transcript/TranscriptViewport'
 import { agentPresentation } from '../presentation'
+import {
+  useActiveSessionKey,
+  useHasLiveReasoning,
+  useHasLiveText,
+  useTranscriptChanges
+} from '../../../store/chatStore'
+import { usePruneDisclosures } from '../../common/transcript/usePruneDisclosures'
+import { createClaudeBlockModel, type ClaudeBlock } from './claudeBlocks'
 
 // 0256 D-009: both harness viewports accept the global scale at this shared boundary.
 
 import type { TranscriptTimelineProps } from '../../contracts'
+
+const gaps = { 0: '', 8: 'pt-[8px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
+
 export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   agentKind,
   backend = 'claude',
+  history,
+  search,
+  sessionId,
   messages,
   pendingSteer,
   onRestoreSteerDraft,
@@ -27,51 +46,82 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   scrollRef,
   contentRef,
   onScroll,
+  isPinned,
   textScaleClassName,
   showAutomaticFeeds
 }: TranscriptTimelineProps): React.JSX.Element {
   const { tr } = useI18n()
-  // 델타 프레임(messages 참조 불변)에서 Exchange/Turn 객체 identity 를 고정 — memo 된
-  // 컴포넌트가 props 비교만으로 재렌더를 건너뛴다 (0007-transcript-render-memo 계승). 확정 메시지가
-  // 바뀌면 grouper 가 바뀐 지점부터만 다시 묶고 무관한 과거 exchange 는 같은 객체로 둔다(0325 D-030).
-  const [groupIncrementally] = useState(createExchangeGrouper)
-  const exchanges = useMemo(
-    () => groupIncrementally(messages, { showAutomaticFeeds }),
-    [groupIncrementally, messages, showAutomaticFeeds]
-  )
+  const sessionKey = useActiveSessionKey()
+  const liveChanges = useTranscriptChanges()
+  const transcriptChanges = search?.view?.changes ?? liveChanges
+  const hasLiveText = useHasLiveText()
+  const hasLiveReasoning = useHasLiveReasoning()
   const transcriptPolicy = agentPresentation[agentKind].transcript
-  const [selectWorkResults] = useState(createWorkToolResultSelector)
-  const workResults = useMemo(
+  const mode = transcriptPolicy.turnProjection === 'work-activity' ? 'work' : 'code'
+
+  const model = useMemo(() => createClaudeBlockModel({ mode, sessionKey }), [mode, sessionKey])
+
+  const snapshot = useMemo(
     () =>
-      transcriptPolicy.turnProjection === 'work-activity'
-        ? selectWorkResults(exchanges)
-        : undefined,
-    [exchanges, selectWorkResults, transcriptPolicy]
+      model.advance(
+        { messages, transcriptChanges },
+        {
+          showAutomaticFeeds,
+          inflight,
+          hasLive: inflight && (hasLiveText || hasLiveReasoning),
+          reserve: anchored,
+          forkable: true
+        }
+      ),
+    [
+      model,
+      messages,
+      transcriptChanges,
+      showAutomaticFeeds,
+      inflight,
+      hasLiveText,
+      hasLiveReasoning,
+      anchored
+    ]
   )
-  // "virtualized head + unvirtualized tail" (0102) — 마지막(스트리밍) 교환은 비가상 tail 로
-  // 렌더해 0008 예약공간 앵커(min-h-[50cqh]) + useScrollAnchor 계약을 보존하고, 과거 확정
-  // 교환들(head)만 가상화해 화면 밖 shiki/DOM 상주 비용을 시야로 제한한다.
-  const head = useMemo(() => exchanges.slice(0, -1), [exchanges])
-  const tail = exchanges.at(-1)
-  const virtualizer = useTranscriptVirtualizer(head, scrollRef)
-  const virtualItems = virtualizer.getVirtualItems()
-  const totalSize = virtualizer.getTotalSize()
+
+  usePruneDisclosures(sessionKey, transcriptChanges, snapshot)
 
   const hasPending = (pendingSteer?.length ?? 0) > 0
-  const isEmpty = exchanges.length === 0 && !loadingSession && !inflight && !hasPending
+  const isEmpty = snapshot.count === 0 && !loadingSession && !inflight && !hasPending
+
+  const footer = (
+    <>
+      {hasPending && (
+        <div className="pt-[24px]">
+          <PendingSteerTurn items={pendingSteer!} onRestoreDraft={onRestoreSteerDraft} />
+        </div>
+      )}
+      {inflight && (
+        <div className="pt-[16px]">
+          {snapshot.count === 0 ? <PendingAssistant /> : <PendingAssistantStatus />}
+        </div>
+      )}
+      {error && (
+        <div className="pt-[16px]">
+          <TurnErrorBanner error={error} />
+        </div>
+      )}
+    </>
+  )
 
   return (
     <div
       ref={scrollRef}
+      data-history-reading={search?.view ? '' : undefined}
       onScroll={onScroll}
       // 대화 내용 텍스트 크기(0256 D-009) — 전역 설정값을 이 루트만 범위 변수로 받아들인다.
       // 컴포저·우측 패널·포털 팝오버는 선언 밖이라 배율 1이다.
       className={`app-frame-transcript flex-1 overflow-auto py-5 [container-type:size] [overflow-anchor:none] ${textScaleClassName} ${surfaces.transcriptRoot}`}
       data-harness={backend ?? 'claude'}
       data-behavior="virtualizable"
+      data-transcript-session={sessionId ?? undefined}
     >
-      {/* gap 은 flex 가 아니라 각 항목의 pb-[--chat-turn-gap] 로 준다 — 가상 head 아이템은
-          absolute 배치라 flex gap 이 적용되지 않기 때문. tail·엣지 상태도 동일 pb 로 균일. */}
       <ReadingColumn ref={contentRef} className="flex min-h-full flex-col">
         {loadingSession && (
           <div className="m-auto text-center text-[calc(13px*var(--transcript-text-scale,1))] text-ink3">
@@ -83,63 +133,84 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
             {tr('chat.transcript.emptyPrompt')}
           </div>
         )}
-        {/* 가상화된 head — 확정 과거 교환. 스페이서(totalSize) 안에 보이는 항목만 absolute 배치. */}
-        {head.length > 0 && (
-          <div className="relative w-full" style={{ height: totalSize }}>
-            {virtualItems.map((vi) => {
-              const exchange = head[vi.index]
-              if (!exchange) return null
-              return (
-                <div
-                  key={exchange.startIndex}
-                  data-index={vi.index}
-                  ref={virtualizer.measureElement}
-                  className="absolute top-0 left-0 w-full"
-                  style={{ transform: `translateY(${vi.start}px)` }}
-                >
-                  {/* pb = 다음 교환까지의 간격. 측정 높이에 포함돼 스페이서/스크롤과 정합. */}
-                  <div className="pb-[var(--chat-turn-gap)]">
-                    <Exchange
-                      transcriptPolicy={transcriptPolicy}
-                      toolResults={workResults?.get(exchange.startIndex)}
-                      exchange={exchange}
-                      reserve={false}
-                      pending={false}
-                      forkable={false}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-        {/* 비가상 tail — 마지막(진행 중일 수 있는) 교환. 예약공간·pending·fork·에러·steer 를
-            여기에만 적용해 0008 스트리밍 앵커를 그대로 유지한다. */}
-        {tail && (
-          <Exchange
-            transcriptPolicy={transcriptPolicy}
-            toolResults={workResults?.get(tail.startIndex)}
-            key={tail.startIndex}
-            exchange={tail}
-            reserve={anchored}
-            pending={inflight}
-            // 분기(fork) 아이콘은 transcript 의 마지막 어시스턴트 턴에서만(r2 피드백).
-            forkable
-            error={error}
-            // pending-first(0067) — 유휴 중에도 미커밋(pending) 메시지는 계속 보인다.
-            pendingSteer={pendingSteer}
-            onRestoreSteerDraft={onRestoreSteerDraft}
-          />
-        )}
-        {/* 교환이 없는 첫 전송(0067 pending-first) — pending 버블을 직접 렌더한다. */}
-        {exchanges.length === 0 && hasPending && (
-          <PendingSteerTurn items={pendingSteer!} onRestoreDraft={onRestoreSteerDraft} />
-        )}
-        {/* 교환이 없는데 턴이 진행 중(핸드오프 직후 init 대기 등, r2) — 라이브 인디케이터로
-            빈 화면을 막는다. 교환이 생기면 마지막 Exchange 내부 PendingAssistant 로 넘어간다. */}
-        {inflight && exchanges.length === 0 && <PendingAssistant />}
-        {/* 교환이 없는데 에러만 있는 엣지(전송 실패 직후 등) — 최상위 fallback. */}
-        {error && exchanges.length === 0 && <TurnErrorBanner error={error} />}
+        <TranscriptViewport
+          snapshot={snapshot}
+          blockModel={model}
+          sessionKey={sessionKey}
+          scrollRef={scrollRef}
+          isPinned={isPinned}
+          overscan={6}
+          estimateSizePx={140}
+          enableReserveGap={anchored}
+          footer={footer}
+          history={history}
+          search={search}
+          hasPartMarkers={(block) =>
+            block.kind === 'user' ||
+            block.kind === 'activity' ||
+            (block.kind === 'segment' &&
+              (block.segment.kind === 'tools' || (block.sourceParts?.length ?? 0) > 1))
+          }
+          itemClassName={(block: ClaudeBlock) =>
+            `group/msg min-w-0 text-[calc(14px*var(--transcript-text-scale,1))] ${gaps[block.gap]}`
+          }
+          renderBlock={(block: ClaudeBlock) => {
+            switch (block.kind) {
+              case 'deferred':
+                return <DeferredBody body={block.ref} />
+              case 'user':
+                return <UserTurn turn={block.turn} />
+              case 'segment':
+                return (
+                  <ClaudeAssistantSegment
+                    partKeys={block.partKeys}
+                    sourceParts={block.sourceParts}
+                    segment={block.segment}
+                    transcriptPolicy={transcriptPolicy}
+                  />
+                )
+              case 'activity':
+                return (
+                  <ActivityDisclosure
+                    node={{
+                      kind: 'activity',
+                      key: block.key,
+                      items: block.items.map((item) => ({
+                        kind: 'segment' as const,
+                        key: item.key,
+                        messageId: item.messageId,
+                        segment: item.segment,
+                        sourceParts: item.sourceParts
+                      })),
+                      toolCount: block.toolCount,
+                      noteCount: block.noteCount
+                    }}
+                    transcriptPolicy={transcriptPolicy}
+                  />
+                )
+              case 'status':
+                if (block.outcome === 'ended' || block.outcome === 'unknown') return null
+                return (
+                  <span className="text-caption text-ink3" data-response-outcome={block.outcome}>
+                    {tr(`chat.agent.${block.outcome}`)}
+                  </span>
+                )
+              case 'artifacts':
+                return <ArtifactCards artifacts={block.artifacts} />
+              case 'meta':
+                return (
+                  <MessageMeta
+                    text={block.copyable ? () => turnCopyText(block.turn) : ''}
+                    createdAt={block.createdAt}
+                    align="left"
+                    forkable={block.forkable}
+                  />
+                )
+              case 'live':
+                return <PendingAssistant showStatus={false} />
+            }
+          }}
+        />
       </ReadingColumn>
     </div>
   )

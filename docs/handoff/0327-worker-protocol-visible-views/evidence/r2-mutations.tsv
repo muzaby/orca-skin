@@ -1,0 +1,22 @@
+mutation	runner	rejected_cases
+W1	vitest	rm2 overlap replacement, rm5 disjoint replacement
+W2	vitest	ps11 removal only keeps selection, rm3 removal only, rm8 comparison baseline advances on every commit
+baseline	vitest	rm3 removal only, rm4 same keys, rm7 reorder, rm8 comparison baseline advances on every commit
+W3	vitest	ps2 both ends inside, ps4 focus only inside, ps5 suppressed gesture clears restored range, ps6 ends suppression on pointerup, ps7 ends suppression on pointercancel, ps8 ends suppression on blur, ps9 new document resets suppression, ps10 secondary button preserves normal selection after cancellation, rm1 first mount, rm2 overlap replacement, rm5 disjoint replacement, rm8 comparison baseline advances on every commit, tn1 nested mount clears inside selection and decoration, tn4 nested mount suppresses active drag, po1 git owner on first mount (outside false, drag false), po3 git owner on first mount (outside false, drag true), po4 artifact owner on first mount (outside false, drag false), po5 artifact owner on first mount (outside false, drag true)
+transcript	vitest	tn1 nested mount clears inside selection and decoration, tn4 nested mount suppresses active drag
+git	vitest	po1 git owner on first mount (outside false, drag false), po3 git owner on first mount (outside false, drag true)
+artifact	vitest	po4 artifact owner on first mount (outside false, drag false), po5 artifact owner on first mount (outside false, drag true)
+outside	vitest	tn2 sibling selection survives
+focus	vitest	ps4 focus only inside
+clear	vitest	ps5 suppressed gesture clears restored range
+up	vitest	ps6 ends suppression on pointerup
+cancel	vitest	ps7 ends suppression on pointercancel
+blur	vitest	ps8 ends suppression on blur
+reset	vitest	ps9 new document resets suppression
+W3	Electron	git-inline/c2, git-split/c2, artifact-code/c2, artifact-markdown/c2, transcript-file/c2, transcript-diff/c2, transcript-work/c2
+transcript	Electron	transcript-file/c2, transcript-diff/c2, transcript-work/c2
+git	Electron	git-inline/c2, git-split/c2
+artifact	Electron	artifact-code/c2, artifact-markdown/c2
+key	node --test	vv4 no added key
+connected	node --test	vv5 disconnected endpoints
+missing	node --test	vv2 missing record, vv11 exit codes and launcher arguments

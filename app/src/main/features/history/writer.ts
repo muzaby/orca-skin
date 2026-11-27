@@ -3,16 +3,22 @@
 // telemetry(턴 종료)에서 reset 한다. 질문 도구의 답은 실행 쪽이 턴 상태를 고친 뒤 결과만 보내고
 // 여기서는 도구 결과 파트로 쓴다(`recordAskAnswers`).
 
+import { isDeepStrictEqual } from 'node:util'
 import type { ArtifactRef } from '../../../shared/artifacts'
 import type { AgentKind } from '../../../shared/agent-kind'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
+import type {
+  TurnAskAnswer,
+  UserCommitBatch,
+  UserCommitResult
+} from '../../../shared/peer-protocol'
 import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { subagentNoticePart } from '../../../shared/ipc'
 import { responseBoundaryPart } from '../../../shared/response-boundary'
 import { planReviewToolInput } from '../../../shared/plan-review-input'
 import type { DbQueries } from '../../infra/db'
-import type { LineageRelation } from '../../infra/db/types'
+import type { LineageRelation, MessagePartInsert } from '../../infra/db/types'
 import { previewOf } from '../../infra/ipc/dto'
 import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
@@ -45,6 +51,33 @@ interface ArtifactLinker {
     publicationId: string,
     parentToolRunId?: string
   ): ArtifactRef | null
+}
+
+function userMessageParts(
+  batch: Pick<UserCommitBatch, 'text' | 'attachmentViews' | 'requirements' | 'origin'>
+): Pick<MessagePartInsert, 'type' | 'payloadJson'>[] {
+  const parts: Pick<MessagePartInsert, 'type' | 'payloadJson'>[] = [
+    {
+      type: 'text',
+      payloadJson: JSON.stringify({
+        text: batch.text,
+        ...(batch.origin ? { origin: batch.origin } : {})
+      })
+    }
+  ]
+  if (batch.attachmentViews?.length) {
+    parts.push({
+      type: 'attachment',
+      payloadJson: JSON.stringify({ attachments: batch.attachmentViews })
+    })
+  }
+  if (batch.requirements?.length) {
+    parts.push({
+      type: 'diff_requirements',
+      payloadJson: JSON.stringify({ requirements: batch.requirements })
+    })
+  }
+  return parts
 }
 
 // 턴 영속(history) — 사용량 집계(UsageTracker)·제목 생성(TitleGenerator)은 별개 버스 구독자로
@@ -97,30 +130,18 @@ export class HistoryWriter {
     createdAt: number,
     attachmentViews?: AttachmentView[],
     requirements?: DiffRequirementAnchor[],
-    origin?: ReceivedMessageOrigin
+    origin?: ReceivedMessageOrigin,
+    messageKey?: string
   ): number {
-    const id = this.db.appendMessage({ sessionId, role: 'user', content: text, createdAt })
-    this.db.appendPart({
-      messageId: id,
-      type: 'text',
-      toolRunId: null,
-      payloadJson: JSON.stringify({ text, ...(origin ? { origin } : {}) })
+    const id = this.db.appendMessage({
+      sessionId,
+      role: 'user',
+      content: text,
+      createdAt,
+      messageKey
     })
-    if (attachmentViews && attachmentViews.length > 0) {
-      this.db.appendPart({
-        messageId: id,
-        type: 'attachment',
-        toolRunId: null,
-        payloadJson: JSON.stringify({ attachments: attachmentViews })
-      })
-    }
-    if (requirements && requirements.length > 0) {
-      this.db.appendPart({
-        messageId: id,
-        type: 'diff_requirements',
-        toolRunId: null,
-        payloadJson: JSON.stringify({ requirements })
-      })
+    for (const part of userMessageParts({ text, attachmentViews, requirements, origin })) {
+      this.db.appendPart({ messageId: id, toolRunId: null, ...part })
     }
     return id
   }
@@ -132,40 +153,68 @@ export class HistoryWriter {
   // 만든다 → 재로드 정렬 [응답-전][user][응답-후] = 라이브와 동일. preview/provider_key 갱신도
   // preview·메시지는 커밋 시점 소유. provider_key·last_model은 기존 세션 idle send에서
   // 먼저 기록하며 여기서는 같은 턴 값으로 갱신한다.
-  commitUserMessage(
-    turn: TurnContext,
-    batch: {
-      text: string
-      createdAt: number
-      nativeMessageId?: string
-      origin?: ReceivedMessageOrigin
-      attachmentViews?: AttachmentView[]
-      requirements?: DiffRequirementAnchor[]
-    }
-  ): number | null {
+  commitUserMessage(turn: TurnContext, batch: UserCommitBatch): UserCommitResult | null {
     const sessionId = turn.dbSessionId
     if (!sessionId) return null
-    this.finalizeTurn(turn)
-    const id = this.persistUserMessage(
-      sessionId,
-      batch.text,
-      batch.createdAt,
-      batch.attachmentViews,
-      batch.requirements,
-      batch.origin
-    )
-    if (batch.nativeMessageId) {
-      this.db.nativeHistory?.bind(id, batch.nativeMessageId)
-      this.db.nativeHistory?.acceptRecovery?.(sessionId, batch.nativeMessageId)
+    const existing =
+      batch.messageKey === undefined
+        ? undefined
+        : this.db.findMessageByKey(sessionId, batch.messageKey)
+    if (existing) {
+      if (existing.role !== 'user') throw new Error('User message key belongs to an assistant')
+      if (!this.userMessageMatches(existing.id, batch)) {
+        throw new Error('User message key was already committed with different content')
+      }
+      return { id: existing.id, created: false }
     }
-    this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
-    this.db.updateSessionProviderKey(
-      sessionId,
-      turn.providerKey,
-      batch.createdAt,
-      turn.modelFamily ?? null
-    )
-    return id
+
+    const id = this.db.commitUserWrite(() => {
+      this.finalizeAssistantMessage(turn)
+      const id = this.persistUserMessage(
+        sessionId,
+        batch.text,
+        batch.createdAt,
+        batch.attachmentViews,
+        batch.requirements,
+        batch.origin,
+        batch.messageKey
+      )
+      if (batch.nativeMessageId) {
+        this.db.nativeHistory?.bind(id, batch.nativeMessageId)
+        this.db.nativeHistory?.acceptRecovery?.(sessionId, batch.nativeMessageId)
+      }
+      this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
+      this.db.updateSessionProviderKey(
+        sessionId,
+        turn.providerKey,
+        batch.createdAt,
+        turn.modelFamily ?? null
+      )
+      return id
+    })
+    this.clearAssistantMessage(turn)
+    return { id, created: true }
+  }
+
+  private userMessageMatches(id: number, batch: UserCommitBatch): boolean {
+    const expected = userMessageParts(batch)
+    const actual = this.db.committedUserParts(id)
+    if (
+      actual.length !== expected.length ||
+      !actual.every(
+        (part, index) =>
+          part.type === expected[index].type &&
+          isDeepStrictEqual(JSON.parse(part.payload_json), JSON.parse(expected[index].payloadJson))
+      )
+    ) {
+      return false
+    }
+    if (batch.nativeMessageId) {
+      const bindings = this.db.nativeHistory?.messageBindings(id) ?? []
+      if (bindings.length === 0) this.db.nativeHistory?.bind(id, batch.nativeMessageId)
+      else if (bindings.some((binding) => binding !== batch.nativeMessageId)) return false
+    }
+    return true
   }
 
   // assistant 메시지 마감 — content(FTS5 캐시)를 파트 누적분으로 이 시점 1회만 동기화한다.
@@ -182,21 +231,37 @@ export class HistoryWriter {
   // 버스 밖 턴 종료 경계(chatCancel 등)와 내부 경계(user 커밋·telemetry)가 공유한다.
   finalizeTurn(turn: TurnContext): void {
     this.finalizeAssistantMessage(turn)
+    this.clearAssistantMessage(turn)
+  }
+
+  private clearAssistantMessage(turn: TurnContext): void {
     turn.currentAssistantMessageId = null
+    delete turn.currentAssistantMessageKey
     turn.assistantText = ''
   }
 
   // 현재 assistant 메시지를 보장(없으면 빈 메시지 생성 + text 캐시 리셋)하고 id 를 반환한다.
   // 한 턴의 reasoning/text/tool_*/error 파트를 같은 메시지에 순서대로 묶기 위한 진입점.
-  private ensureAssistantMessage(turn: TurnContext, sessionId: string): number {
+  private ensureAssistantMessage(turn: TurnContext, sessionId: string, key?: string): number {
+    if (key !== undefined && key !== turn.currentAssistantMessageKey) {
+      const existing = this.db.findMessageByKey(sessionId, key)
+      if (existing) {
+        if (existing.role !== 'assistant')
+          throw new Error('Assistant message key belongs to a user')
+        return existing.id
+      }
+      this.finalizeTurn(turn)
+    }
     if (turn.currentAssistantMessageId == null) {
       turn.currentAssistantMessageId = this.db.appendMessage({
         sessionId,
         role: 'assistant',
         content: '',
         createdAt: Date.now(),
-        complete: 0
+        complete: 0,
+        messageKey: key
       })
+      turn.currentAssistantMessageKey = key
       turn.assistantText = ''
     }
     if (turn.responseBoundary) {
@@ -207,14 +272,15 @@ export class HistoryWriter {
 
   // 질문 도구의 답을 현재 어시스턴트 메시지의 도구 결과 파트로 쓴다 — 저장이 다른 프로세스면(0324 EP-15)
   // 실행 쪽이 턴 상태를 고친 뒤 이 결과만 보낸다.
-  recordAskAnswers(
-    turn: TurnContext,
-    answers: ReadonlyArray<{ toolUseId: string; output: unknown; parentToolRunId?: string }>
-  ): void {
-    if (turn.currentAssistantMessageId == null) return
+  recordAskAnswers(turn: TurnContext, answers: readonly TurnAskAnswer[]): void {
+    const sessionId = turn.dbSessionId
+    if (!sessionId) return
     for (const answer of answers) {
-      this.db.upsertToolResultPart(
-        turn.currentAssistantMessageId,
+      if (answer.messageKey === undefined && turn.currentAssistantMessageId == null) continue
+      const messageId = this.ensureAssistantMessage(turn, sessionId, answer.messageKey)
+      this.db.upsertToolResultPartInSession(
+        sessionId,
+        messageId,
         answer.toolUseId,
         JSON.stringify({
           result: answer.output,
@@ -227,6 +293,7 @@ export class HistoryWriter {
 
   persist(turn: TurnContext, ev: NormalizedEvent): void {
     const now = Date.now()
+    let persistedMessageId: number | undefined
     switch (ev.type) {
       case 'response.boundary': {
         if (
@@ -239,10 +306,14 @@ export class HistoryWriter {
         let messageId: number
         if (boundary.phase === 'begin') {
           if (turn.responseBoundary) break
-          messageId = this.ensureAssistantMessage(turn, turn.dbSessionId)
+          messageId = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
         } else {
-          if (turn.responseBoundary?.id !== boundary.id) break
-          messageId = turn.responseBoundary.messageId
+          if (ev.messageKey !== undefined) {
+            messageId = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
+          } else {
+            if (turn.responseBoundary?.id !== boundary.id) break
+            messageId = turn.responseBoundary.messageId
+          }
         }
         const { type, ...payload } = responseBoundaryPart(boundary)
         this.db.appendPart({
@@ -252,7 +323,7 @@ export class HistoryWriter {
           payloadJson: JSON.stringify(payload)
         })
         if (boundary.phase === 'begin') turn.responseBoundary = { id: boundary.id, messageId }
-        else delete turn.responseBoundary
+        else if (turn.responseBoundary?.id === boundary.id) delete turn.responseBoundary
         break
       }
       case 'session.updated': {
@@ -320,7 +391,8 @@ export class HistoryWriter {
       }
       case 'message.reasoning': {
         if (!turn.dbSessionId) break
-        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
+        persistedMessageId = id
         this.db.appendPart({
           messageId: id,
           type: 'reasoning',
@@ -348,7 +420,8 @@ export class HistoryWriter {
           }
         }
         if (!turn.dbSessionId) break
-        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
+        persistedMessageId = id
         this.db.appendPart({
           messageId: id,
           type: 'tool_call',
@@ -380,7 +453,8 @@ export class HistoryWriter {
       }
       case 'message.completed': {
         if (!turn.dbSessionId) break
-        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
+        persistedMessageId = id
         this.db.appendPart({
           messageId: id,
           type: 'text',
@@ -395,8 +469,12 @@ export class HistoryWriter {
         // content(FTS 캐시) 기록은 메시지 마감 시 1회(finalizeAssistantMessage, 0107) —
         // 여기서는 누적과 사이드바 프리뷰 라이브 갱신만 한다.
         if (ev.parentToolRunId === undefined) {
-          turn.assistantText += ev.message.text
-          this.db.updateSessionPreview(turn.dbSessionId, previewOf(ev.message.text), now)
+          if (id === turn.currentAssistantMessageId) {
+            turn.assistantText += ev.message.text
+            this.db.updateSessionPreview(turn.dbSessionId, previewOf(ev.message.text), now)
+          } else {
+            this.db.appendMessageContent(id, ev.message.text)
+          }
         }
         break
       }
@@ -433,8 +511,10 @@ export class HistoryWriter {
             ...(resolved.response !== undefined ? { response: resolved.response } : {})
           }
         }
-        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
-        this.db.upsertToolResultPart(
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
+        persistedMessageId = id
+        this.db.upsertToolResultPartInSession(
+          turn.dbSessionId,
           id,
           ev.toolRunId,
           JSON.stringify({
@@ -468,7 +548,8 @@ export class HistoryWriter {
       }
       case 'error': {
         if (!turn.dbSessionId) break
-        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
+        persistedMessageId = id
         this.db.appendPart({
           messageId: id,
           type: 'error',
@@ -480,7 +561,8 @@ export class HistoryWriter {
       case 'session.compacted': {
         // SDK 네이티브 압축 완료 경계(0064) — 재로드 후에도 표시되도록 파트로 영속한다.
         if (!turn.dbSessionId) break
-        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
+        persistedMessageId = id
         this.db.appendPart({
           messageId: id,
           type: 'compact_boundary',
@@ -500,7 +582,8 @@ export class HistoryWriter {
         // 중복은 구조적으로 차단된다 — enrich 는 트래커 관측(settled 해제 전) 1회만 부여된다.
         if (!turn.dbSessionId) break
         if (ev.phase !== 'settled' || ev.background !== true) break
-        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId, ev.messageKey)
+        persistedMessageId = id
         // 파트 내용은 renderer 와 같은 빌더로 만든다(0149) — 라이브/재로드 동치의 전제.
         // payload 에서 type 은 뺀다(별도 컬럼이 들고 있고, loadParts 가 재조립한다).
         const { type, ...noticePayload } = subagentNoticePart(ev)
@@ -525,14 +608,15 @@ export class HistoryWriter {
       // 부모 Task tool_result 의 subagentMeta(위 tool.call.completed)가 담당한다. activity 투영은
       // sendChatEvent 직행이라 여기 도달하지 않는다(도달해도 case 부재 = no-op).
     }
+    const bindingMessageId = persistedMessageId ?? turn.currentAssistantMessageId
     if (
       'nativeMessageId' in ev &&
       ev.nativeMessageId &&
       ev.sessionId === turn.dbSessionId &&
-      turn.currentAssistantMessageId != null &&
+      bindingMessageId != null &&
       (!('parentToolRunId' in ev) || ev.parentToolRunId === undefined)
     ) {
-      this.db.nativeHistory?.bind(turn.currentAssistantMessageId, ev.nativeMessageId)
+      this.db.nativeHistory?.bind(bindingMessageId, ev.nativeMessageId)
     }
   }
 }

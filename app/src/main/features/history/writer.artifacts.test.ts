@@ -36,7 +36,7 @@ function harness(): {
   turn: TurnContext
   linkPublication: Mock<() => ArtifactRef | null>
 } {
-  const db = { upsertToolResultPart: vi.fn() } as unknown as DbQueries
+  const db = { upsertToolResultPartInSession: vi.fn() } as unknown as DbQueries
   const linkPublication = vi.fn((): ArtifactRef | null => artifact)
   const writer = new HistoryWriter(db, () => false, undefined, { linkPublication })
   const turn = {

@@ -24,6 +24,7 @@ const ELEMENT_TYPES = new Set([
 const FORWARD_REF = Symbol.for('react.forward_ref')
 const MEMO = Symbol.for('react.memo')
 const FRAGMENT = Symbol.for('react.fragment')
+const PORTAL = Symbol.for('react.portal')
 const CONTEXT = Symbol.for('react.context')
 const PROVIDER = Symbol.for('react.provider')
 /** 마우스·focus() 로 포커스를 받는 태그(tabIndex 가 있으면 태그와 무관). */
@@ -68,6 +69,30 @@ export class FakeNode {
   scrollTop = 0
   scrollLeft = 0
   style: Record<string, unknown> = {}
+
+  get nodeType(): number {
+    return this.tag === '#text' ? 3 : 1
+  }
+
+  get data(): string {
+    return this.text
+  }
+
+  get childNodes(): FakeNode[] {
+    return this.children
+  }
+
+  get parentNode(): FakeNode | null {
+    return this.parent
+  }
+
+  get parentElement(): FakeNode | null {
+    return this.parent
+  }
+
+  hasAttribute(name: string): boolean {
+    return this.getAttribute(name) !== null
+  }
 
   get ownerDocument(): Document {
     return document
@@ -362,6 +387,7 @@ export class FakeDom {
   readonly container: FakeNode
   readonly documentListeners = new Map<string, Set<(event: unknown) => void>>()
   private active: FakeNode | null = null
+  private portalChildren: FakeNode[] = []
   private element: unknown = null
   private dirty = false
   private readonly instances = new Map<string, Instance>()
@@ -506,6 +532,12 @@ export class FakeDom {
     const visitedInstances = new Set<string>()
     const visitedNodes = new Set<string>()
     const committed: Instance[] = []
+    for (const child of this.portalChildren) {
+      const siblings = child.parent?.children
+      const index = siblings?.indexOf(child) ?? -1
+      if (siblings && index >= 0) siblings.splice(index, 1)
+    }
+    this.portalChildren = []
     this.container.children = []
     this.renderChild(this.element, 'r', this.container, {
       visitedInstances,
@@ -558,6 +590,17 @@ export class FakeDom {
           pass
         )
       )
+      return
+    }
+    if (typeof value === 'object' && '$$typeof' in value && value.$$typeof === PORTAL) {
+      const { containerInfo, children } = value as {
+        containerInfo: FakeNode
+        children: unknown
+        $$typeof: symbol
+      }
+      const start = containerInfo.children.length
+      this.renderChild(children, `${path}.portal`, containerInfo, pass)
+      this.portalChildren.push(...containerInfo.children.slice(start))
       return
     }
     if (!isElement(value)) throw new Error(`unsupported child: ${String(value)}`)

@@ -1,3 +1,4 @@
+import type { TranscriptHistoryControls } from '../lib/transcript/historyGesture'
 import type { ComponentType, ForwardRefExoticComponent, ReactNode, RefAttributes } from 'react'
 import type { AgentKind } from '../../../../../shared/agent-kind'
 import type { AgentEnvironment, Backend, ClassifiedError } from '../../../../../shared/ipc'
@@ -32,6 +33,15 @@ export interface AgentPresentation {
 }
 
 export interface TranscriptViewProps {
+  sessionId?: string | null
+  search?: {
+    seq: number
+    target: string
+    keyboard: boolean
+    restore: boolean
+    view?: { changes: import('../lib/transcript/changeLog').TranscriptChanges }
+  }
+  history?: TranscriptHistoryControls
   backend?: Backend | null
   agentKind: AgentKind
   messages: Message[]
@@ -42,6 +52,7 @@ export interface TranscriptViewProps {
   error?: ClassifiedError
   // 마지막 교환에 예약공간(min-h-[50cqh])을 적용할지 — useScrollAnchor 가 결정.
   anchored: boolean
+  isPinned?: () => boolean
   scrollRef: React.RefObject<HTMLDivElement | null>
   contentRef: React.RefObject<HTMLDivElement | null>
   onScroll: () => void

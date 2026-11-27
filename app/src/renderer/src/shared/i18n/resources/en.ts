@@ -136,6 +136,8 @@ export const en: typeof ko = {
     capturesBreadcrumb: 'Capture History'
   },
   search: {
+    locationMissing: 'The message could not be located. Select a search result to try again.',
+    locationFound: 'Moved to the selected message.',
     placeholder: 'Search conversations…',
     inputAria: 'Search conversations',
     typeToSearch: 'Type to search',
@@ -408,6 +410,7 @@ export const en: typeof ko = {
       statusSkipped: 'Skipped',
       exitCode: 'Exit code {{code}}',
       openSession: 'Open conversation',
+      output: 'Run output',
       truncated: 'Output was long; only the end is shown.',
       errors: {
         project_missing: 'Project not found',
@@ -693,6 +696,12 @@ export const en: typeof ko = {
     completeBody: 'The response is complete.'
   },
   chat: {
+    historyPanel: {
+      loading: 'Loading session history…',
+      failed: 'Could not load session history.',
+      retry: 'Try again',
+      more: 'Show more'
+    },
     nativeResources: {
       claudeCloseTitle: 'Close Claude sessions',
       claudeCloseBody_one:
@@ -890,6 +899,16 @@ export const en: typeof ko = {
       roleUser: 'User'
     },
     transcript: {
+      historyEnd: 'End of conversation',
+      historyStart: 'Start of conversation',
+      historyPull: 'Loading previous messages',
+      historyBody: 'Load message',
+      historyBodyLoading: 'Loading message…',
+      historyRetry: 'Retry',
+      historyBefore: 'Show previous messages',
+      historyAfter: 'Show next messages',
+      historyRetryLatest: 'Retry opening latest',
+      historyLatest: 'Back to latest',
       reasoning: 'Reasoning',
       incompleteResponse: 'The response was not completed',
       showMore: 'Show more',

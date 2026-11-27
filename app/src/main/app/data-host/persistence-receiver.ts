@@ -11,11 +11,17 @@
 // 받는 분기의 동기 구간은 피어 링크가 `perf.stall`(`source:'peer'`)로 잰다(EP-2′).
 
 import type { NormalizedEvent } from '../../../shared/ipc'
-import type { PeerMethod, TurnBegin } from '../../../shared/peer-protocol'
+import type {
+  PeerMethod,
+  TurnAskAnswer,
+  TurnBegin,
+  UserCommitBatch
+} from '../../../shared/peer-protocol'
 import type { TurnContext } from '../../contracts/turn'
 import { resolveAgentProfile } from '../../features/agents/profiles'
 import { recoverSessionHistory } from '../../features/chat/recovery'
 import { HistoryWriter } from '../../features/history/writer'
+import { copyForkDisplay } from '../../features/history/fork-display'
 import { materializeContinuityArrival } from '../../features/orchestration/fork'
 import type { UsageTracker } from '../../features/usage/tracker'
 import type { DbQueries } from '../../infra/db'
@@ -43,6 +49,7 @@ function storageTurn(begin: TurnBegin): TurnContext {
     ...begin.fields,
     titleAdapter: { id: begin.backend },
     currentAssistantMessageId: null,
+    currentAssistantMessageKey: undefined,
     assistantText: '',
     openToolRuns: new Map(),
     askPendingIds: [],
@@ -59,7 +66,7 @@ export function createPersistenceReceiver(deps: PersistenceReceiverDeps): Persis
     new HistoryWriter(
       deps.db,
       (kind) => resolveAgentProfile(kind).persistResponseBoundaries,
-      (arrival) => materializeContinuityArrival(deps.db, arrival),
+      (arrival) => materializeContinuityArrival(deps.db, arrival, copyForkDisplay),
       deps.db.artifacts
     )
   const turns = new Map<string, TurnContext>()
@@ -104,7 +111,7 @@ export function createPersistenceReceiver(deps: PersistenceReceiverDeps): Persis
           const input = payload as {
             turnKey: string
             fields?: Record<string, unknown>
-            batch: Parameters<HistoryWriter['commitUserMessage']>[1]
+            batch: UserCommitBatch
           }
           const turn = turnOf(input)
           if (!turn) return null
@@ -159,7 +166,7 @@ export function createPersistenceReceiver(deps: PersistenceReceiverDeps): Persis
           const input = payload as {
             turnKey: string
             fields?: Record<string, unknown>
-            answers: Array<{ toolUseId: string; output: unknown; parentToolRunId?: string }>
+            answers: TurnAskAnswer[]
           }
           const turn = turnOf(input)
           if (!turn) return

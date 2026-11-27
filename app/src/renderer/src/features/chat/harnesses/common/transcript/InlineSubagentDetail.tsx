@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../../../../../shared/ui/Button'
 import { useI18n } from '../../../../../shared/i18n'
-import { childMessageForParentToolRunId, subagentTasksFromMessages } from '../../../lib/parts'
-import { useChatSession, useSubagentMeta } from '../../../store/chatStore'
+import { useSubagentMeta, useTranscriptView } from '../../../store/chatStore'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 
 type DetailComponent = typeof import('../rightpanel/SubAgentTaskDetail').SubAgentTaskDetail
@@ -22,12 +21,12 @@ export function InlineSubagentDetail({
   const [Detail, setDetail] = useState<DetailComponent | null>(null)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
-  const messages = useChatSession((s) => s.messages)
+  const subagentTasks = useTranscriptView('subagentTasks', true)
   const task = useMemo(
-    () => subagentTasksFromMessages(messages, true).find((item) => item.toolUseId === toolRunId),
-    [messages, toolRunId]
+    () => subagentTasks.find((item) => item.toolUseId === toolRunId),
+    [subagentTasks, toolRunId]
   )
-  const childMessage = childMessageForParentToolRunId(messages, toolRunId)
+  const childMessage = useTranscriptView('childMessage', toolRunId)
   const meta = useSubagentMeta(toolRunId)
   useEffect(() => {
     let current = true

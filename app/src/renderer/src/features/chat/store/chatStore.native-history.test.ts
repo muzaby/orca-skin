@@ -27,7 +27,7 @@ function snapshot(
     backend: 'opencode',
     agentKind: 'code',
     title: 'native title',
-    messages: [{ role: 'assistant', createdAt: 2, parts: [{ type: 'text', text }] }],
+    messages: [{ id: 'a:2', role: 'assistant', createdAt: 2, parts: [{ type: 'text', text }] }],
     ...(nativeSync ? { nativeSync } : {})
   }
 }
@@ -47,7 +47,9 @@ beforeEach(() => {
     agentKind: 'code',
     inflight: false,
     title: 'cached title',
-    messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'cached body' }] }],
+    messages: [
+      { id: 'm-50', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'cached body' }] }
+    ],
     permissionMode: 'accept_edits',
     modelFamily: 'selected-model',
     agentPanelInitialized: true,
@@ -295,12 +297,19 @@ it('paints the DB body first, then lazily applies native additions without sendi
   await frames()
   expect(refresh).toHaveBeenCalledExactlyOnceWith('s')
   expect(harness.chatSend).not.toHaveBeenCalled()
-  pending.resolve({ status: 'updated', session: snapshot('external addition') })
+  expect(useChatStore.getState().sessions.s.session.historyComplete).toBe(true)
+  pending.resolve({
+    status: 'updated',
+    session: { ...snapshot('external addition'), complete: false }
+  })
   await Promise.resolve()
   await Promise.resolve()
   expect(useChatStore.getState().sessions.s.session.messages).toEqual(
     snapshot('external addition').messages
   )
+  const partial = useChatStore.getState().sessions.s.session
+  expect(partial.historyComplete).toBe(false)
+  expect(partial.transcriptChanges.log.at(-1)).toEqual({ kind: 'reset', complete: false })
   expect(harness.chatSend).not.toHaveBeenCalled()
 })
 

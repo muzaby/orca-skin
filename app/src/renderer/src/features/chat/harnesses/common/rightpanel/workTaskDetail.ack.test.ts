@@ -17,13 +17,28 @@ vi.mock('react', async (original) => ({
   useEffect: (effect: EffectCallback) => harness.effects.push(effect)
 }))
 vi.mock('../../../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
-vi.mock('../../../store/chatStore', () => ({
-  useChatSession: (select: (state: ChatState) => unknown) => select(harness.state!),
-  useChatStore: (select: (state: { activeKey: string }) => unknown) =>
-    select({ activeKey: 'work' }),
-  useUnseenSettledTaskCount: () => harness.unseen,
-  chatActions: { acknowledgeSettledTasks: harness.acknowledge, selectTask: vi.fn() }
-}))
+vi.mock('../../../store/chatStore', async () => {
+  const { transcriptIndexFor } = await import('../../../lib/transcriptIndex')
+  return {
+    useChatSession: (select: (state: ChatState) => unknown) => select(harness.state!),
+    useChatStore: (select: (state: { activeKey: string }) => unknown) =>
+      select({ activeKey: 'work' }),
+    useTranscriptView: (domain: string, arg?: string) => {
+      const s = harness.state!
+      const idx = transcriptIndexFor({
+        ...s,
+        transcriptChanges: s.transcriptChanges ?? { lineage: s, revision: 0, log: [] }
+      })
+      if (domain === 'taskBoard') return idx.taskBoard()
+      if (domain === 'subagentTasks') return idx.subagentTasks()
+      if (domain === 'taskContextSources') return idx.taskContextSources()
+      if (domain === 'childMessage') return idx.childMessage(arg!)
+      return []
+    },
+    useUnseenSettledTaskCount: () => harness.unseen,
+    chatActions: { acknowledgeSettledTasks: harness.acknowledge, selectTask: vi.fn() }
+  }
+})
 // 이 검사는 Work/Code 실제 wrapper가 공유하는 shell effect를 실행한다. 외부 구독/OS 포트 수명은 native에서 관측한다.
 vi.mock('./TaskOutputContent', () => ({ TaskOutputContent: () => null }))
 vi.mock('./TaskContextContent', () => ({ TaskContextContent: () => null }))
@@ -42,6 +57,7 @@ beforeEach(() => {
     selectedTaskKey: 'agent:1',
     messages: [
       {
+        id: 'm-44',
         role: 'assistant',
         createdAt: 0,
         parts: [

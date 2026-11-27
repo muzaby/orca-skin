@@ -3,17 +3,20 @@ import type { Project } from '../../../../../shared/ipc'
 import { useI18n } from '../../../shared/i18n'
 import { Button } from '../../../shared/ui/Button'
 import { CatalogListRow } from '../../../shared/ui/CatalogListRow'
+import type { CatalogRowPosition } from '../../../shared/ui/virtual/VirtualCatalogList'
 import { Icon } from '../../../shared/ui/Icon'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 
 interface ProjectCatalogRowProps {
+  position?: CatalogRowPosition
   project: Project
   onOpen: () => void
   onTogglePin: (id: string, pinned: boolean) => void
 }
 
 export function ProjectCatalogRow({
+  position,
   project,
   onOpen,
   onTogglePin
@@ -36,6 +39,7 @@ export function ProjectCatalogRow({
   }
   return (
     <CatalogListRow
+      {...position}
       data-project-catalog-row={project.id}
       openProps={{ onClick: onOpen }}
       icon={<Icon name="folder" size={20} className="shrink-0 text-ink3" />}

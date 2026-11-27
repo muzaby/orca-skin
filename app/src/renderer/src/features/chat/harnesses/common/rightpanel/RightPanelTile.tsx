@@ -1,3 +1,4 @@
+import { HistoryPanelBoundary } from './HistoryPanelBoundary'
 import type { RightPanelHostConfiguration } from '../../contracts'
 import { useCallback, type ReactNode } from 'react'
 import { PanelCloseButton, PanelExpandButton } from '../../../../../shared/ui/PanelControls'
@@ -82,7 +83,15 @@ export function RightPanelTile({
           </div>
         </div>
       )}
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {id === 'diff' ? (
+          children
+        ) : (
+          <HistoryPanelBoundary id={id} backend={backend}>
+            {children}
+          </HistoryPanelBoundary>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { userMessageId } from '../../../../../../shared/message-id'
 import { createElement } from 'react'
 import { renderWithTranscript as renderToStaticMarkup } from '../../harnesses/registries/transcript.testfixture'
 import { describe, expect, it, vi } from 'vitest'
@@ -7,10 +8,11 @@ import { ingestChatEvent } from '../../store/chatStore'
 import { harnessSession, installChatStoreHarness } from '../../store/chatStore.testHarness'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
 
-vi.mock('../../hooks/useTranscriptVirtualizer', () => ({
-  useTranscriptVirtualizer: () => ({
-    getVirtualItems: () => [{ index: 0, start: 0 }],
-    getTotalSize: () => 100,
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: (options: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: options.count }, (_, index) => ({ index, start: index * 40 })),
+    getTotalSize: () => options.count * 40,
     measureElement: vi.fn()
   })
 }))
@@ -45,6 +47,7 @@ describe.each(['work', 'code'] as const)('%s received input visibility', (agentK
     const human = '<task-notification>직접 입력 보존</task-notification>'
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['auto']),
       sessionId: 's',
       ids: ['auto'],
       messageId: 1,
@@ -54,6 +57,7 @@ describe.each(['work', 'code'] as const)('%s received input visibility', (agentK
     })
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['human']),
       sessionId: 's',
       ids: ['human'],
       messageId: 2,
@@ -76,7 +80,7 @@ describe.each(['work', 'code'] as const)('%s received input visibility', (agentK
         backend: 'claude',
         agentKind,
         title: null,
-        messages: live.messages.map((message, id) => ({ ...message, id }))
+        messages: live.messages.map((message, id) => ({ ...message, id: message.id ?? String(id) }))
       }
     })
     expect(loaded.messages[0].parts).toEqual(live.messages[0].parts)
@@ -88,13 +92,14 @@ describe.each(['work', 'code'] as const)('%s received input visibility', (agentK
       expect(html).toContain('&lt;task-notification&gt;직접 입력 보존&lt;/task-notification&gt;')
       expect(html).toContain('정상 어시스턴트 결과')
       expect(html.match(/data-meta-align="right"/g)).toHaveLength(1)
-      expect(html.match(/data-app-exchange/g)).toHaveLength(1)
+      expect(html.match(/data-block-key="[^"]*:user"/g)).toHaveLength(1)
     }
   })
 
   it('renders an empty transcript without an exchange when only automatic input is stored', () => {
     const html = render(agentKind, [
       {
+        id: 'm-100',
         role: 'user',
         createdAt: 11,
         parts: [{ type: 'text', text: '자동', origin: { kind: 'automatic' } }]

@@ -33,7 +33,8 @@ function seedLanding(): void {
       newChatQueue: [],
       recentsEpoch: 0,
       concurrencyByProjectId: {},
-      draftRestore: null
+      draftRestore: null,
+      entryIntent: null
     },
     true
   )
@@ -162,8 +163,8 @@ describe('chatStore — 격리는 신규 일반 세션 전용이다 (AC7 · D-00
       worktreeIsolation: true,
       title: '원본 세션',
       messages: [
-        { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] },
-        { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a' }] }
+        { id: 'm-165', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] },
+        { id: 'm-166', role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a' }] }
       ]
     })
 
@@ -177,9 +178,9 @@ describe('chatStore — 격리는 신규 일반 세션 전용이다 (AC7 · D-00
     patchActiveSession({
       worktreeIsolation: true,
       messages: [
-        { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q1' }] },
-        { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a1' }] },
-        { role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'q2' }] }
+        { id: 'm-180', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q1' }] },
+        { id: 'm-181', role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a1' }] },
+        { id: 'm-182', role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'q2' }] }
       ]
     })
 

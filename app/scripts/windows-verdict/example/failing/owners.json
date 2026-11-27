@@ -1,0 +1,20 @@
+{
+  "rows": [
+    {
+      "task": "T17",
+      "owner": "0326",
+      "machine": "PASS",
+      "machineRef": "fixture/machine",
+      "windows": "FAIL",
+      "windowsRef": "fixture/windows"
+    },
+    {
+      "task": "T09",
+      "owner": "0329",
+      "machine": "PASS",
+      "machineRef": "fixture/machine",
+      "windows": "PASS",
+      "windowsRef": "fixture/windows"
+    }
+  ]
+}

@@ -11,10 +11,12 @@ vi.mock('../../i18n', () => {
   return { useI18n: () => ({ tr }) }
 })
 import { createElement } from 'react'
+import { CachedHighlightOnly } from '../../compute/useHighlightedHtml'
 import { setComputeClient } from '../../compute/client'
 import { fakeComputeClient, type FakeCompute } from '../../compute/fakeClient.testfixture'
 import { HIGHLIGHT_MAX_CHARS } from '../../compute/limits'
 import { installFakeDom, type FakeDom, type FakeNode } from '../renderHarness.testfixture'
+import * as themeStore from './themeStore'
 import { CodeBlock } from './CodeBlock'
 import { MarkdownStreamingContext } from './streamingContext'
 
@@ -49,6 +51,34 @@ const innerHtml = (): string | undefined =>
   (injected()?.props.dangerouslySetInnerHTML as { __html: string } | undefined)?.__html
 
 describe('CodeBlock — 계산 워커 강조', () => {
+  it('cb1: 같은 코드로 열 번 다시 그려도 줄 번호는 한 번만 계산한다', () => {
+    const code = 'first\nsecond\n'
+    const theme = vi.spyOn(themeStore, 'getThemeSnapshot')
+    const split = vi.spyOn(String.prototype, 'split')
+    try {
+      for (let pass = 0; pass <= 10; pass++) {
+        theme.mockReturnValue(pass % 2 ? 'github-dark' : 'github-light')
+        dom.render(
+          createElement(CodeBlock, {
+            code,
+            showLineNumbers: true,
+            embedded: pass % 2 === 0,
+            showHeader: false
+          })
+        )
+        expect(pre()?.textContent).toBe('1\n2\n3' + code)
+      }
+      expect(split.mock.contexts.filter((value) => String(value) === code)).toHaveLength(1)
+      dom.render(
+        createElement(CodeBlock, { code: 'new', showLineNumbers: true, showHeader: false })
+      )
+      expect(pre()?.textContent).toBe('1new')
+    } finally {
+      split.mockRestore()
+      theme.mockRestore()
+    }
+  })
+
   it('상한은 32,000자다', () => expect(HIGHLIGHT_MAX_CHARS).toBe(32_000))
 
   it('응답 전에는 <pre> 원문, 응답 후에는 응답 HTML 이다', async () => {
@@ -85,6 +115,26 @@ describe('CodeBlock — 계산 워커 강조', () => {
     expect(compute.requests).toEqual([])
   })
 
+  it('복사용 마운트는 캐시된 강조만 읽고 새 계산을 예약하지 않는다', async () => {
+    render('cached')
+    compute.resolveNext({ html: '<pre>cached highlight</pre>' })
+    await settle()
+    dom.unmount()
+    const copy = (code: string): void =>
+      dom.render(
+        createElement(
+          CachedHighlightOnly.Provider,
+          { value: true },
+          createElement(CodeBlock, { code, lang: 'typescript', showHeader: false })
+        )
+      )
+    copy('cached')
+    expect(innerHtml()).toBe('<pre>cached highlight</pre>')
+    copy('uncached')
+    expect(pre()?.textContent).toBe('uncached')
+    expect(compute.requests).toHaveLength(1)
+  })
+
   it('내용이 바뀌면 앞 요청을 취소하고, 늦은 응답은 새 내용에 반영되지 않는다', async () => {
     render('const a = 1')
     render('const b = 2')
@@ -119,4 +169,17 @@ describe('CodeBlock — 계산 워커 강조', () => {
     render('const a = 1')
     expect(innerHtml()).toBe('<pre>cached</pre>')
   })
+})
+
+it('keeps the CSS line counter on highlighted code only when line numbers are requested', async () => {
+  const code = 'const x = 1'
+  const show = (showLineNumbers: boolean): void =>
+    dom.render(createElement(CodeBlock, { code, lang: 'typescript', showLineNumbers }))
+  show(true)
+  compute.resolveNext({ html: '<pre class="shiki">colored</pre>' })
+  await settle()
+  expect(injected()?.props.className).toContain('counter-reset:line')
+  show(false)
+  expect(injected()).toBeDefined()
+  expect(injected()?.props.className).toBeUndefined()
 })

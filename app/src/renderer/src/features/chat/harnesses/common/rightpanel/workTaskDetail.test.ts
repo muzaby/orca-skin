@@ -12,17 +12,32 @@ const harness = vi.hoisted(() => ({
   selectTask: vi.fn(),
   restoreComposerDraft: vi.fn()
 }))
-vi.mock('../../../store/chatStore', () => ({
-  useChatSession: (select: (state: ChatState) => unknown) => select(harness.session!),
-  useChatStore: (select: (state: { activeKey: string }) => unknown) =>
-    select({ activeKey: 'work' }),
-  useChatBusy: () => false,
-  useUnseenSettledTaskCount: () => 0,
-  chatActions: {
-    selectTask: harness.selectTask,
-    restoreComposerDraft: harness.restoreComposerDraft
+vi.mock('../../../store/chatStore', async () => {
+  const { transcriptIndexFor } = await import('../../../lib/transcriptIndex')
+  return {
+    useChatSession: (select: (state: ChatState) => unknown) => select(harness.session!),
+    useChatStore: (select: (state: { activeKey: string }) => unknown) =>
+      select({ activeKey: 'work' }),
+    useTranscriptView: (domain: string, arg?: string) => {
+      const s = harness.session!
+      const idx = transcriptIndexFor({
+        ...s,
+        transcriptChanges: s.transcriptChanges ?? { lineage: s, revision: 0, log: [] }
+      })
+      if (domain === 'taskBoard') return idx.taskBoard()
+      if (domain === 'subagentTasks') return idx.subagentTasks()
+      if (domain === 'taskContextSources') return idx.taskContextSources()
+      if (domain === 'childMessage') return idx.childMessage(arg!)
+      return []
+    },
+    useChatBusy: () => false,
+    useUnseenSettledTaskCount: () => 0,
+    chatActions: {
+      selectTask: harness.selectTask,
+      restoreComposerDraft: harness.restoreComposerDraft
+    }
   }
-}))
+})
 vi.mock('../../../../../shared/ui/Button', async (original) => {
   const { Button } = await original<typeof import('../../../../../shared/ui/Button')>()
   return {
@@ -51,6 +66,7 @@ beforeEach(() => {
     extraDirs: ['C:/Downloads'],
     messages: [
       {
+        id: 'm-53',
         role: 'assistant',
         createdAt: 0,
         parts: [

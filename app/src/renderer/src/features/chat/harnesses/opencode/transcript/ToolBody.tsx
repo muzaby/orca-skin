@@ -1,14 +1,14 @@
-import { useMemo } from 'react'
+import { diffViewPath } from '../../../../../shared/compute/diffViewPath'
+import { useMemo, useState } from 'react'
 import { useI18n } from '../../../../../shared/i18n'
 import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
-import { DiffTable } from '../../common/transcript/DiffTable'
+import { DiffTable, PairDiffTable, PatchDiffTable } from '../../common/transcript/DiffTable'
 import { stringify } from '../../../format'
 import type { OpenCodeFileView, OpenCodeToolView } from '../toolPresentation'
 import { OpenCodeIcon } from '../Icon'
 import { useToolDisclosure } from './viewState'
 import { fileDiffSource, fileName } from './filePresentation'
-import { useDiffLines } from '../../../hooks/useDiffLines'
-import { DiffLinesStatus } from '../../common/transcript/DiffLinesStatus'
+import { diffLinesWithinCap } from '../../../../../shared/compute/inline'
 
 export function OutputPanel({
   text,
@@ -69,16 +69,49 @@ function FilePanel({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [open, setOpen] = useToolDisclosure(disclosureKey, true)
-  const source = useMemo(() => fileDiffSource(file), [file])
-  // 훅 순서가 분기하지 않도록 무조건 부른다 — patch 원천이면 빈 쌍이라 비용이 없다.
-  const pair = useDiffLines(
-    source.kind === 'pair' ? source.before : '',
-    source.kind === 'pair' ? source.after : ''
+  const source = useMemo(() => {
+    if (!open || write) return null
+    const patch = file.patch ?? ''
+    if (file.before == null && file.after == null && diffViewPath(patch) === 'worker')
+      return { kind: 'patch' as const, patch }
+    return fileDiffSource(file)
+  }, [file, open, write])
+  const lines = useMemo(
+    () =>
+      source?.kind === 'lines'
+        ? source.lines
+        : source?.kind === 'pair'
+          ? diffLinesWithinCap(source.before, source.after)
+          : null,
+    [source]
   )
-  const loading = source.kind === 'pair' && pair.status === 'loading'
-  const lines = source.kind === 'lines' ? source.lines : pair.status === 'ready' ? pair.lines : []
-  const added = lines.filter((line) => line.type === 'added').length
-  const removed = lines.filter((line) => line.type === 'removed').length
+  const [stats, setStats] = useState<{
+    source: typeof source
+    added: number
+    removed: number
+  } | null>(null)
+  const onSummary = useMemo(
+    () => (summary: { added: number; removed: number }) => setStats({ source, ...summary }),
+    [source]
+  )
+  const counts = useMemo(
+    () =>
+      lines
+        ? {
+            added: lines.filter((line) => line.type === 'added').length,
+            removed: lines.filter((line) => line.type === 'removed').length
+          }
+        : stats?.source === source
+          ? stats
+          : null,
+    [lines, source, stats]
+  )
+  const [savedCounts, setSavedCounts] = useState<{
+    file: OpenCodeFileView
+    counts: typeof counts
+  } | null>(null)
+  const headerCounts = counts ?? (savedCounts?.file === file ? savedCounts.counts : null)
+  const fallback = <OutputPanel text={file.patch ?? file.after ?? ''} label={file.path} />
   return (
     <details
       open={open}
@@ -88,6 +121,7 @@ function FilePanel({
       <summary
         onClick={(event) => {
           event.preventDefault()
+          if (open) setSavedCounts({ file, counts })
           setOpen((value) => !value)
         }}
         className="sticky top-[var(--oc-sticky-top)] z-10 flex min-h-[36px] cursor-pointer list-none items-center gap-[8px] rounded-[8px] bg-oc-surface px-[12px] py-[8px] text-[calc(13px*var(--transcript-text-scale,1))] leading-[20px] text-oc-ink outline-none ring-focus"
@@ -96,25 +130,47 @@ function FilePanel({
         <span className="min-w-0 flex-1 truncate" title={file.path}>
           {fileName(file.path)}
         </span>
-        {!write && lines.length > 0 && (
-          <span className="shrink-0 font-mono">
-            <span className="text-oc-good">+{added}</span>{' '}
-            <span className="text-oc-bad">−{removed}</span>
-          </span>
-        )}
+        {!write &&
+          headerCounts &&
+          (headerCounts.added + headerCounts.removed > 0 || !!lines?.length) && (
+            <span className="shrink-0 font-mono">
+              <span className="text-oc-good">+{headerCounts.added}</span>{' '}
+              <span className="text-oc-bad">−{headerCounts.removed}</span>
+            </span>
+          )}
         <OpenCodeIcon
           name="chevron-down"
           size={14}
           className="-rotate-90 text-oc-faint group-open/oc-file:rotate-0"
         />
       </summary>
-      {write ? (
+      {!open ? null : write ? (
         <OutputPanel text={file.after ?? file.patch ?? ''} label={file.path} />
-      ) : loading ? (
-        <div className="border-t border-oc-border">
-          <DiffLinesStatus />
-        </div>
-      ) : lines.length > 0 ? (
+      ) : !lines && source?.kind === 'pair' ? (
+        <PairDiffTable
+          before={source.before}
+          after={source.after}
+          filePath={file.path}
+          appearance={diffAppearance}
+          onSummary={onSummary}
+          fallback={fallback}
+        />
+      ) : source?.kind === 'patch' ? (
+        <PatchDiffTable
+          patch={source.patch}
+          filePath={file.path}
+          appearance={diffAppearance}
+          onSummary={onSummary}
+          fallback={fallback}
+        />
+      ) : lines && lines.length > 400 ? (
+        <DiffTable
+          lines={lines}
+          patchSource={source?.kind === 'lines' ? file.patch : undefined}
+          filePath={file.path}
+          appearance={diffAppearance}
+        />
+      ) : lines && lines.length > 0 ? (
         <div
           className="max-h-[384px] overflow-auto border-t border-oc-border"
           tabIndex={0}

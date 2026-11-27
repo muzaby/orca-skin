@@ -80,11 +80,14 @@ export async function handleChatSend(
     return
   }
   const payload = admission.data
-  const boundId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom
+  const forkSource = payload.sessionId == null ? payload.forkFrom : undefined
+  const boundId = payload.sessionId ?? forkSource ?? payload.handoffFrom
   const boundSession = boundId ? await ctx.data.query.getSessionById(boundId) : undefined
   const selectedBackend = boundSession?.backend ?? payload.backend ?? adapter?.id
+  const backendMismatch =
+    boundSession && payload.backend && payload.backend !== boundSession.backend
   if (
-    (boundSession && payload.backend && payload.backend !== boundSession.backend) ||
+    backendMismatch ||
     (selectedBackend &&
       payload.providerKey &&
       parseProviderKey(payload.providerKey, [selectedBackend])?.adapter !== selectedBackend)
@@ -290,6 +293,9 @@ export async function handleChatSend(
       effectiveText,
       native
     } = resolution.value
+    const forkNativeId = continuitySource
+      ? ((await ctx.data.query.nativeRecovery(continuitySource))?.native_id ?? continuitySource)
+      : undefined
     const modelRecord = sessionModelRecordFor({ sessionId: payload.sessionId, resolved })
     if (modelRecord) {
       await ctx.data.write.updateSessionProviderKey(
@@ -530,7 +536,10 @@ export async function handleChatSend(
       runtime,
       bus,
       persist: persistence,
-      forward: { forward: (owner, ev) => sendChatEvent(owner, ev) },
+      forward: {
+        forward: (owner, ev) => sendChatEvent(owner, ev),
+        relay: (turn, ev) => persistence.relay(turn, ev)
+      },
       registry: supervisor,
       classifyError: (err, phase) => activeAdapter.classifyError(err, phase),
       activeTurns: supervisor.activeTurns,
@@ -611,7 +620,7 @@ export async function handleChatSend(
         ...(payload.harnessAgent ? { harnessAgent: payload.harnessAgent } : {}),
         ...(payload.modelVariant ? { modelVariant: payload.modelVariant } : {}),
         // 0064 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.
-        ...(continuitySource ? { forkFrom: continuitySource } : {}),
+        ...(forkNativeId ? { forkFrom: forkNativeId } : {}),
         // 0127 — 핸드오프 도착 턴 표식: 매퍼가 압축 경계 전의 승계 컨텍스트 usage 를 무효화한다.
         ...(payload.handoffFrom ? { handoff: true } : {}),
         // 본 프롬프트 = 큐에서 방금 flush 한 아이템 배치(0067 AC5). promptUuid=item id 가 echo

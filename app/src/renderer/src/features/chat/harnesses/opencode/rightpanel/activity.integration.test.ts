@@ -1,3 +1,7 @@
+import {
+  childMessageForParentToolRunId,
+  sessionPanelModel
+} from '../../../lib/transcriptIndex.legacy.testfixture'
 import { describe, expect, it } from 'vitest'
 import { OpenCodeActivityMapper } from '../../../../../../../main/adapters/opencode/v1/activity'
 import {
@@ -11,8 +15,7 @@ import {
   emptyBackgroundState
 } from '../../../../../../../shared/background-task'
 import { chatReducer, initialChatState } from '../../../reducer/chatReducer'
-import { childMessageForParentToolRunId, partsText } from '../../../lib/parts'
-import { sessionPanelModel } from './model'
+import { partsText } from '../../../lib/parts'
 
 describe('OpenCode activity to panel projection', () => {
   it('consumes normalized child parts and journal progress through the production reducers', () => {

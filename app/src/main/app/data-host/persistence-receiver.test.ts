@@ -1,3 +1,4 @@
+import { copyForkDisplay } from '../../features/history/fork-display'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -39,7 +40,15 @@ function dump(raw: Database.Database): Record<string, unknown[]> {
     )
     .all() as Array<{ name: string }>
   return Object.fromEntries(
-    tables.map(({ name }) => [name, raw.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all()])
+    tables.map(({ name }) => {
+      const primary = raw.pragma(`table_info("${name}")`) as Array<{ name: string; pk: number }>
+      const columns = primary
+        .filter((column) => column.pk)
+        .sort((a, b) => a.pk - b.pk)
+        .map((column) => '"' + column.name.replaceAll('"', '""') + '"')
+      const order = columns.length ? columns.join(',') : 'rowid'
+      return [name, raw.prepare(`SELECT * FROM "${name}" ORDER BY ${order}`).all()]
+    })
   )
 }
 
@@ -47,7 +56,7 @@ function writerFor(db: DbQueries): HistoryWriter {
   return new HistoryWriter(
     db,
     (kind) => resolveAgentProfile(kind).persistResponseBoundaries,
-    (arrival) => materializeContinuityArrival(db, arrival),
+    (arrival) => materializeContinuityArrival(db, arrival, copyForkDisplay),
     db.artifacts
   )
 }
@@ -87,6 +96,12 @@ interface Driver {
 
 const tick = (): Promise<void> => new Promise((resolve) => setImmediate(resolve))
 
+function withoutMessageKeys(snapshot: Record<string, unknown[]>): Record<string, unknown[]> {
+  // The legacy direct writer did not have an agent-side key allocator.
+  const messages = snapshot.messages as Array<Record<string, unknown>>
+  return { ...snapshot, messages: messages.map((message) => ({ ...message, message_key: null })) }
+}
+
 // 지금의 한 프로세스 경로 — 저장기를 직접 부른다.
 function direct(db: DbQueries, usage: Usage, turn = agentTurn()): Driver {
   const writer = writerFor(db)
@@ -113,7 +128,8 @@ function direct(db: DbQueries, usage: Usage, turn = agentTurn()): Driver {
       })
       writer.recordAskAnswers(turn, answers)
     },
-    commit: async (text) => writer.commitUserMessage(turn, { text, createdAt: Date.now() }),
+    commit: async (text) =>
+      writer.commitUserMessage(turn, { text, createdAt: Date.now() })?.id ?? null,
     end: () => writer.finalizeTurn(turn),
     provider: (event, committed) => writer.persistProviderEvent(event, committed),
     forget: (sessionId) => writer.forgetProviderSession(sessionId),
@@ -154,7 +170,9 @@ function stream(
   data.onClosed(() => receiver.peerClosed())
   data.attach(loop.data)
   agent.attach(loop.agent)
+  let nextId = 0
   const sender = createPersistenceSender({
+    newId: () => String(++nextId),
     link: agent,
     send: (owner, ev) => void sent.push([owner, ev]),
     failTurn
@@ -303,6 +321,127 @@ afterEach(() => {
 })
 
 describe('턴 저장 스트림의 받는 끝', () => {
+  it('수신기가 재커밋 결과와 서로 다른 응답에 속한 질문 답의 번호를 보존한다', () => {
+    const { db, raw } = openDb()
+    db.insertSession({
+      id: S,
+      backend: 'claude',
+      title: '',
+      projectId: null,
+      createdAt: 1,
+      agentKind: 'code'
+    })
+    const failures = vi.fn()
+    const receiver = createPersistenceReceiver({
+      db,
+      notifyAgent: failures,
+      usage: () => undefined
+    })
+    const turnKey = 'turn-1'
+    receiver.notify('turn.begin', {
+      turnKey,
+      backend: 'claude',
+      fields: { dbSessionId: S, agentKind: 'code' }
+    })
+    const event = (messageKey: string): void =>
+      receiver.notify('turn.event', { turnKey, ev: { ...text(messageKey), messageKey } })
+    event('a:first')
+    expect(db.findMessageByKey(S, 'a:first')?.role).toBe('assistant')
+    const commit = { turnKey, batch: { text: 'steer', messageKey: 'u:steer', createdAt: 2 } }
+    const first = receiver.request('turn.commitUser', commit)
+    const row = db.findMessageByKey(S, 'u:steer')
+    expect(row).toBeDefined()
+    expect(first).toEqual({ id: row!.id, created: true })
+    event('a:second')
+    expect(db.findMessageByKey(S, 'a:second')?.role).toBe('assistant')
+    expect(receiver.request('turn.commitUser', commit)).toEqual({ id: row!.id, created: false })
+    receiver.notify('turn.askAnswers', {
+      turnKey,
+      answers: [
+        { toolUseId: 'q1', output: 'one', messageKey: 'a:first' },
+        { toolUseId: 'q2', output: 'two', messageKey: 'a:second' }
+      ]
+    })
+    receiver.notify('turn.end', { turnKey })
+    expect(failures).not.toHaveBeenCalled()
+    expect(
+      raw
+        .prepare(
+          `
+      SELECT m.message_key, p.tool_run_id, json_extract(p.payload_json, '$.result') AS answer
+      FROM messages m JOIN message_parts p ON p.message_id = m.id
+      WHERE p.type = 'tool_result' ORDER BY p.tool_run_id
+    `
+        )
+        .all()
+    ).toEqual([
+      { message_key: 'a:first', tool_run_id: 'q1', answer: 'one' },
+      { message_key: 'a:second', tool_run_id: 'q2', answer: 'two' }
+    ])
+    expect(
+      raw
+        .prepare('SELECT complete FROM messages WHERE session_id = ? AND message_key = ?')
+        .get(S, 'a:second')
+    ).toEqual({ complete: 1 })
+  })
+
+  it('산출물 확인 응답이 원래 메시지 번호로 창에 도착하고 다음 이벤트가 그 뒤에 온다', async () => {
+    const { db } = openDb()
+    const connection = stream(db, noUsage)
+    try {
+      const driver = connection.drive()
+      driver.event(session())
+      await driver.settle()
+      db.artifacts.createPublication({
+        publicationId: 'pub-1',
+        artifactFileId: 'file-1',
+        sessionId: S,
+        relativePath: 'file-1/report.md',
+        filename: 'report.md',
+        title: 'report',
+        kind: 'markdown',
+        sizeBytes: 8,
+        hash: 'hash',
+        inputSource: 'report.md',
+        publishedAt: 1
+      })
+      driver.event(started('publisher', 'mcp__orcinus_orca_artifacts__publish_artifact'))
+      const original = connection.sent.at(-1)?.[1]
+      expect(original).toMatchObject({ type: 'tool.call.started', messageKey: expect.any(String) })
+      const key = original?.type === 'tool.call.started' ? original.messageKey : undefined
+      await driver.commit('steer')
+      driver.event(text('next'))
+      const receipt = JSON.stringify({
+        type: 'orcinus-orca.artifact.published',
+        version: 1,
+        publicationId: 'pub-1'
+      })
+      driver.event(completed('publisher', receipt))
+      driver.event(text('after receipt'))
+      await driver.settle()
+      expect(connection.failTurn).not.toHaveBeenCalled()
+      expect(connection.sent.slice(-2).map(([, ev]) => ev)).toEqual([
+        expect.objectContaining({
+          type: 'tool.call.completed',
+          messageKey: key,
+          messageKeySource: 'owner',
+          artifact: expect.objectContaining({ publicationId: 'pub-1', filename: 'report.md' })
+        }),
+        expect.objectContaining({ type: 'message.completed', message: { text: 'after receipt' } })
+      ])
+      const owner = db.findMessageByKey(S, key!)
+      expect(owner).toBeDefined()
+      expect(
+        db
+          .loadParts(S)
+          .filter((p) => p.type === 'artifact')
+          .map((p) => p.message_id)
+      ).toEqual([owner!.id])
+    } finally {
+      connection.close()
+    }
+  })
+
   it.each(Object.keys(COLUMNS))(
     'AC39 — %s 열을 스트림으로 저장한 DB 는 한 프로세스 경로로 저장한 DB 와 같다',
     async (name) => {
@@ -316,7 +455,7 @@ describe('턴 저장 스트림의 받는 끝', () => {
       await viaStream.settle()
       const expected = dump(a.raw)
       expect(expected.sessions).toHaveLength(1)
-      expect(dump(b.raw)).toEqual(expected)
+      expect(withoutMessageKeys(dump(b.raw))).toEqual(expected)
     }
   )
 
@@ -414,7 +553,7 @@ describe('턴 저장 스트림의 받는 끝', () => {
     await first.settle()
     const after = dump(b.raw)
     expect(after).not.toEqual(before)
-    expect(after).toEqual(dump(a.raw))
+    expect(withoutMessageKeys(after)).toEqual(dump(a.raw))
     // 끊긴 도구 호출마다 결과 파트가 생겼다.
     expect(
       b.raw.prepare("SELECT count(*) AS n FROM message_parts WHERE type = 'tool_result'").get()

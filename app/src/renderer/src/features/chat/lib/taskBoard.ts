@@ -17,51 +17,16 @@
 // 다른 세션의 Task 가 섞일 수 없다.
 
 import type { MessageKey } from '../../../shared/i18n'
-import {
-  isTaskToolName,
-  readTaskToolObservation,
-  type AgentTaskPatch,
-  type AgentTaskStatus
-} from '../../../../../shared/task-tool'
-import type { Message } from '../reducer/chatReducer'
-import { resultMap, type SubagentTaskSummary } from './parts'
+import type { SubagentTaskSummary } from './parts'
 
 // 목록에 렌더되는 상태. `stopping` 은 사용자가 중단을 요청했고 SDK 확정을 기다리는 중이다
 // (0204 D-005) — 별도 그룹을 만들지 않고 '진행 중' 그룹 안에서 라벨만 달라진다.
 // `paused` 는 SDK `task_updated` 로만 관측되는 **살아 있는 일시정지**다(0212 D-014) — 정착이
 // 아니므로 완료 그룹으로 내려가지 않고, SDK 에 resume API 가 없어 여기서 나갈 사용자 경로는
 // 중단뿐이다(D-022 — 그래서 중단 버튼을 유지한다).
-export type TaskBoardStatus =
-  | 'in_progress'
-  | 'stopping'
-  | 'paused'
-  | 'pending'
-  | 'completed'
-  | 'aborted'
-  | 'failed'
-  | 'rejected'
-  | 'cancelled'
-  | 'not_executed'
-
-export interface TaskBoardItem {
-  // 목록/선택 키. `agent:` 접두사를 유지한다 — `taskStopErrors` 등 다른 상태가 여전히
-  // `bg:<toolUseId>` 를 쓰므로 두 네임스페이스는 계속 공존한다(0215 이후에도 키는 갈린다).
-  key: string
-  id: string
-  // **표시** 제목. `in_progress` 인 동안은 `activeForm`(현재진행형)으로 교체된다(0212 D-006).
-  title: string
-  // **안정** 이름 — 상태와 무관하게 같은 값이다. `aria-label` 과 상세 화면이 이것을 쓴다:
-  // 접근성 라벨이 상태에 따라 흔들리면 스크린리더 사용자가 같은 항목을 다른 항목으로 읽는다
-  // (0212 D-007 · §10 EP-05). 두 필드를 맞바꾸면 그 계약이 깨진다.
-  subject: string
-  description: string | null
-  status: TaskBoardStatus
-  blockedBy: string[]
-}
-
-export function agentTaskKey(id: string): string {
-  return `agent:${id}`
-}
+export { agentTaskKey } from '../../../../../shared/history-panels/types'
+export type { TaskBoardItem, TaskBoardStatus } from '../../../../../shared/history-panels/types'
+import type { TaskBoardItem, TaskBoardStatus } from '../../../../../shared/history-panels/types'
 
 export function backgroundTaskKey(toolUseId: string): string {
   return `bg:${toolUseId}`
@@ -92,142 +57,8 @@ export function taskBoardItemByKey(
   return key ? items.find((item) => item.key === key) : undefined
 }
 
-// 한 타일이 컴포넌트 둘(헤더·본문)로 서고 **둘 다 같은 messages 를 접는다** — 그대로 두면
-// 렌더 패스마다 전체 transcript fold 가 두 번 돈다. 입력 참조가 같으면 결과도 같으므로
-// 1-entry 캐시로 두 번째 호출을 없앤다. 무효화 축은 `messages` 참조 하나 — part 가 하나라도
-// 붙으면 새 배열이 오고 캐시는 그때 버려진다. 소비자는 결과를 변형하지 않는다
-// (`taskBoardOrdered` 는 `[...items]` 로 복사하고 `taskBoardItemByKey` 는 읽기만 한다).
-let cachedMessages: Message[] | null = null
-let cachedBoard: TaskBoardItem[] | null = null
-
-export function taskBoardForMessages(messages: Message[]): TaskBoardItem[] {
-  if (cachedMessages === messages && cachedBoard !== null) return cachedBoard
-  const board = taskBoardFromMessages(messages)
-  cachedMessages = messages
-  cachedBoard = board
-  return board
-}
-
-const AGENT_STATUS_FALLBACK: AgentTaskStatus = 'pending'
-
 // 기본 인자용 불변 빈 집합 — 매 호출마다 `new Set()` 을 만들면 memo 의존성이 매번 바뀐다.
 const EMPTY_IDS: ReadonlySet<string> = new Set()
-
-interface AgentEntry {
-  id: string
-  subject?: string
-  description?: string
-  status: AgentTaskStatus
-  blockedBy: string[]
-  activeForm?: string
-}
-
-function applyPatch(entry: AgentEntry, patch: AgentTaskPatch): void {
-  if (patch.subject !== undefined) entry.subject = patch.subject
-  if (patch.description !== undefined) entry.description = patch.description
-  if (patch.status !== undefined) entry.status = patch.status
-  // 의존 간선의 두 의미를 각각 구현한다(0204 §10 EP-19). 하나만 알면 나머지가 조용히 무시된다.
-  if (patch.blockedBy !== undefined) entry.blockedBy = patch.blockedBy
-  if (patch.addBlockedBy !== undefined) {
-    entry.blockedBy = [...new Set([...entry.blockedBy, ...patch.addBlockedBy])]
-  }
-  // 현재진행형은 마지막 관측값을 유지한다 — `completed` 로 바뀌어도 지우지 않는다. 제목이
-  // `subject` 로 돌아가는 것은 **상태 조건**이 하는 일이고(`agentItem`), 값 삭제가 하는 일이
-  // 아니다: 다시 `in_progress` 가 되면 같은 문구가 돌아와야 한다.
-  if (patch.activeForm !== undefined) entry.activeForm = patch.activeForm
-}
-
-// `addBlocks`(내가 막는 것)를 **역방향 간선으로 가산**한다(0212 D-009 · §10 EP-04).
-// `TaskUpdate(A, addBlocks:[B])` → `B.blockedBy += A`. `blocks` 를 저장하지 않는다는 0204 D-028
-// 을 지키면서 간선을 잃지 않는 유일한 방법이 방향을 뒤집는 것이다 — 방향만 바뀌므로 정보 손실 0.
-//
-// 두 조건이 붙는다. **대상이 이미 있을 때만** 가산한다(D-010 — 없는 id 로 stub 을 만들면 제목이
-// `2` 인 유령 행이 뜨고, `TaskList` 스냅샷이 나중에 보정한다). 그리고 **자기 자신은 제외**한다:
-// 자기를 막는 간선은 화면에서 영원히 풀리지 않는 차단으로 보인다.
-function applyReverseBlocks(
-  entries: Map<string, AgentEntry>,
-  sourceId: string,
-  addBlocks: string[] | undefined
-): void {
-  if (!addBlocks) return
-  for (const targetId of addBlocks) {
-    if (targetId === sourceId) continue
-    const target = entries.get(targetId)
-    if (!target) continue
-    target.blockedBy = [...new Set([...target.blockedBy, sourceId])]
-  }
-}
-
-function ensure(entries: Map<string, AgentEntry>, id: string): AgentEntry {
-  let entry = entries.get(id)
-  if (!entry) {
-    entry = { id, status: AGENT_STATUS_FALLBACK, blockedBy: [] }
-    entries.set(id, entry)
-  }
-  return entry
-}
-
-// 최상위 Task 도구 호출을 **관측 순서대로** 접는다. Map 은 삽입 순서를 보존하므로 목록 순서가
-// 곧 최초 관측 순서다 — 별도 order 필드를 들지 않는다.
-function agentEntriesFromMessages(messages: Message[]): Map<string, AgentEntry> {
-  const entries = new Map<string, AgentEntry>()
-  // 파트 페어링 규칙은 `parts.ts` 하나가 갖는다 — 여기서 사본을 만들면 tool_result 에 필드가
-  // 늘 때 조용히 갈라진다(그 comment 가 말하는 네 번째 사본이 된다).
-  const resultByRun = resultMap(messages.flatMap((message) => message.parts))
-
-  for (const message of messages) {
-    for (const part of message.parts) {
-      // 서브에이전트 child 의 Task 도구 호출은 그 서브에이전트의 목록이지 이 세션의 것이 아니다.
-      if (part.type !== 'tool_call' || part.parentToolRunId !== undefined) continue
-      if (!isTaskToolName(part.toolName)) continue
-      const paired = resultByRun.get(part.toolRunId)
-      // 결과 미도착 = 아직 아무것도 확정되지 않았다(명세 §2: tool_use 만으로는 등록하지 않는다).
-      if (!paired) continue
-      const observation = readTaskToolObservation({
-        toolName: part.toolName,
-        args: part.args,
-        structuredOutput: paired.structuredOutput,
-        isError: paired.isError
-      })
-      if (!observation) continue
-      switch (observation.kind) {
-        case 'created':
-        case 'upserted':
-          applyPatch(ensure(entries, observation.id), observation.patch)
-          // 역방향 간선은 **다른 엔트리**를 건드리므로 `applyPatch`(엔트리 하나) 안에 둘 수 없다.
-          applyReverseBlocks(entries, observation.id, observation.patch.addBlocks)
-          break
-        case 'removed':
-          entries.delete(observation.id)
-          break
-        case 'snapshot': {
-          // TaskList 는 전체 스냅샷이다(0204 D-008) — 스냅샷에 없는 로컬 항목은 Claude 측에서
-          // 사라진 것이므로 지운다. 그러지 않으면 삭제된 Task 가 패널에 영구 잔류한다.
-          const seen = new Set(observation.tasks.map((task) => task.id))
-          for (const id of [...entries.keys()]) if (!seen.has(id)) entries.delete(id)
-          for (const task of observation.tasks) applyPatch(ensure(entries, task.id), task.patch)
-          break
-        }
-      }
-    }
-  }
-  return entries
-}
-
-function agentItem(entry: AgentEntry): TaskBoardItem {
-  const subject = entry.subject ?? entry.id
-  return {
-    key: agentTaskKey(entry.id),
-    id: entry.id,
-    // 진행 중일 때만 현재진행형으로 교체한다(0212 D-006 — SDK 주석이 용도를 못박는다:
-    // "shown in spinner when in_progress"). 완료되면 `subject` 로 돌아온다.
-    title: entry.status === 'in_progress' && entry.activeForm ? entry.activeForm : subject,
-    subject,
-    description: entry.description ?? null,
-    status: entry.status,
-    blockedBy: entry.blockedBy
-  }
-}
 
 /**
  * background 실행 상태 + 중단 대기 집합 → 화면 상태. **두 타일이 공유하는 단일 규칙**이다
@@ -246,14 +77,6 @@ export function backgroundBoardStatus(
   // 사실이다. `paused` 인 태스크도 중단할 수 있으므로(D-022) 두 상태가 겹칠 수 있다.
   if (stopping.has(toolUseId)) return 'stopping'
   return paused.has(toolUseId) ? 'paused' : 'in_progress'
-}
-
-/**
- * 세션 messages → 할 일 목록(0215 D-013·D-014). **제외는 여기서 한다** — 컴포넌트가 거르면
- * 같은 규칙이 두 곳에 살고 한쪽만 고쳐진다.
- */
-export function taskBoardFromMessages(messages: Message[]): TaskBoardItem[] {
-  return [...agentEntriesFromMessages(messages).values()].map(agentItem)
 }
 
 // 상세 화면 행 — 항목이 **실제로 가진 정보만** 낸다(0204 §10 EP-10). 경과·토큰 행은 서브에이전트

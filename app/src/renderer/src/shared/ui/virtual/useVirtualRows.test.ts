@@ -1,0 +1,113 @@
+import { createElement, type RefObject } from 'react'
+import { expect, it, vi } from 'vitest'
+import { Virtualizer, type VirtualizerOptions } from '@tanstack/virtual-core'
+import { dom } from './virtualView.testfixture'
+import { useVirtualRows } from './useVirtualRows'
+import { VirtualRowMountContext } from './rowMount'
+
+const state = vi.hoisted(() => ({ offset: 0 }))
+vi.mock('react', async (original) => ({
+  ...(await original<typeof import('react')>()),
+  ...(await import('../renderHarness.testfixture')).fakeHooks
+}))
+vi.mock('@tanstack/react-virtual', async (original) => ({
+  ...(await original<typeof import('@tanstack/react-virtual')>()),
+  useVirtualizer: (options: VirtualizerOptions<HTMLDivElement, Element>) =>
+    new Virtualizer({
+      ...options,
+      initialRect: { width: 600, height: 100 },
+      initialOffset: state.offset
+    })
+}))
+
+it.each([
+  ['u1 first virtual window', 50000, 0, undefined],
+  ['u2 last virtual window', 50000, 999900, undefined],
+  ['u4 full small file', 400, 0, 'all'],
+  ['u5 distant file', 50000, 0, 'hidden'],
+  ['u6 empty list', 0, 0, undefined]
+] as const)('%s uses the supplied scroll owner and bounded rows', (_, count, offset, mode) => {
+  state.offset = offset
+  const owner: RefObject<HTMLDivElement | null> = { current: null }
+  let rows: number[] = []
+  let getOwner: () => HTMLDivElement | null = () => null
+  function Probe(): React.JSX.Element {
+    const list = useVirtualRows(count, owner, owner, mode)
+    rows = list.getVirtualItems().map((item) => item.index)
+    getOwner = list.options.getScrollElement
+    return createElement('div', { ref: owner })
+  }
+  dom.render(createElement(Probe))
+  expect(owner.current).toBeTruthy()
+  expect(getOwner()).toBe(owner.current)
+  if (mode === 'all') expect(rows).toEqual(Array.from({ length: count }, (_, index) => index))
+  else if (mode === 'hidden' || !count) expect(rows).toEqual([])
+  else {
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.length).toBeLessThan(150)
+    if (offset) expect(rows.at(-1)).toBe(count - 1)
+    else expect(rows[0]).toBe(0)
+  }
+})
+
+it('measures the list origin in its scroll owner before and after resize', () => {
+  let top = 120
+  let notify = (): void => {}
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        notify = callback
+      }
+      observe = vi.fn()
+      disconnect = vi.fn()
+    }
+  )
+  const owner = {
+    current: {
+      getBoundingClientRect: () => ({ top: 30 }),
+      scrollTop: 60,
+      clientTop: 2,
+      children: []
+    } as unknown as HTMLDivElement
+  }
+  const root = { current: { getBoundingClientRect: () => ({ top }) } as unknown as HTMLDivElement }
+  let margin = 0
+  function Probe(): null {
+    margin = useVirtualRows(10, root, owner).options.scrollMargin
+    return null
+  }
+  dom.render(createElement(Probe))
+  expect(margin).toBe(148)
+  top += 17
+  dom.act(notify)
+  expect(margin).toBe(165)
+})
+
+it('uses stable row IDs after insertion, deletion and same-length replacement', () => {
+  state.offset = 0
+  const owner: RefObject<HTMLDivElement | null> = { current: null }
+  let ids = ['second', 'third', 'fourth']
+  let keys: (string | number | bigint)[] = []
+  function Probe(): React.JSX.Element {
+    const list = useVirtualRows(ids.length, owner, owner, 'all', (index) => ids[index])
+    keys = list.getVirtualItems().map((item) => item.key)
+    return createElement('div', { ref: owner })
+  }
+  const notify = vi.fn()
+  const render = (): void => {
+    dom.render(
+      createElement(VirtualRowMountContext.Provider, { value: notify }, createElement(Probe))
+    )
+  }
+  render()
+  expect(keys).toEqual(ids)
+  notify.mockClear()
+  ids = ['first', 'second', 'third']
+  render()
+  expect(keys).toEqual(['first', 'second', 'third'])
+  expect(notify).toHaveBeenCalledOnce()
+  ids = ['second', 'third']
+  dom.render(createElement(Probe))
+  expect(keys).toEqual(['second', 'third'])
+})

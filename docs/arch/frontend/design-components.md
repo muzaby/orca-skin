@@ -62,6 +62,8 @@ Orcinus orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아�
 | [shared/ui/Button.tsx](../../../app/src/renderer/src/shared/ui/Button.tsx) — `Button` | variant·size·busy·pressed·dropdown props 사용. primary=중립 반전, danger=rust; 배경 span·isolate 유지. |
 | [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. heading은 MenuTitle로 렌더하며 키보드 탐색에서 건너뛴다. disabled submenu는 회색이며 확장하지 않는다. 선택적 status 공은 제목 왼쪽의 수동 상태 표시다. 오른쪽 secondary는 주 액션과 독립된 클릭/Enter/Space 스위치이며 처리 중에는 원형 손잡이 내부 spinner와 해당 제어의 중복 입력 방지를 적용한다. 다른 항목은 계속 사용한다. |
 | [shared/ui/CatalogListRow.tsx](../../../app/src/renderer/src/shared/ui/CatalogListRow.tsx) — `CatalogListRow` | 아이콘→제목·메타→행 동작 위계. 선택/hover를 구별하고 제목과 동작 버튼을 중첩하지 않는다. |
+| [shared/ui/virtual/VirtualCatalogList.tsx](../../../app/src/renderer/src/shared/ui/virtual/VirtualCatalogList.tsx) — `VirtualCatalogList` | 큰 프로젝트·산출물·예약 목록의 가시 행을 표시한다. 스크롤 위치와 가시 행의 측정값은 항목 ID를 기준으로 연결한다. |
+| [features/sessions/components/SidebarRows.tsx](../../../app/src/renderer/src/features/sessions/components/SidebarRows.tsx) — `SidebarRows` | 큰 사이드바 목록은 사이드바의 공용 스크롤 위치를 기준으로 가시 행을 그린다. 행 ID로 위치를 연결하고 같은 목록의 선택을 관리한다. |
 | [shared/ui/CatalogSearch.tsx](../../../app/src/renderer/src/shared/ui/CatalogSearch.tsx) — `CatalogSearch` | 검색 열기·입력·닫기·초점 복귀를 공통 형태로 유지한다. |
 | [shared/ui/CatalogTabs.tsx](../../../app/src/renderer/src/shared/ui/CatalogTabs.tsx) — `CatalogTabs` | 선택 탭 표면·방향키·Home/End·ARIA 연결을 유지한다. |
 | [shared/ui/ConfirmDialogHost.tsx](../../../app/src/renderer/src/shared/ui/ConfirmDialogHost.tsx) — `ConfirmDialogHost` | 전역 확인 요청을 Modal·ModalActions로 표시한다. feature별 확인창 복제를 피한다. 취소 버튼·Esc·배경 클릭과 다른 요청에 의한 교체는 요청의 선택 `onCancel`로 알린다. |
@@ -120,13 +122,14 @@ Orcinus orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아�
 | [features/chat/components/UsagePanel.tsx](../../../app/src/renderer/src/features/chat/components/UsagePanel.tsx) — `UsagePanel` | 기간·비용·컨텍스트·설정 진입을 같은 공통 meter·숫자 표기로 표시한다. |
 | [features/chat/components/composer/GitRow.tsx](../../../app/src/renderer/src/features/chat/components/composer/GitRow.tsx) — `GitRowView`, `GitRow` | composer 상단 Git 문맥. branch·변경량·worktree 조작을 같은 작은 행에 정렬한다. |
 | [features/chat/components/composer/ModelMenu.tsx](../../../app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx) — `ModelMenu` | 모델·provider 선택은 하네스 정책과 MenuItem 위계를 따르고 긴 이름을 처리한다. Claude/OpenCode 그룹 제목 왼쪽에 명시 브랜드 색의 HarnessLogo를 표시한다. 플러그인 런타임 행을 포함해 Claude → OpenCode → 그 밖 순서(`app/src/shared/harness.ts`의 `orderAgentEnvironments`)이며 같은 하네스 안 입력 순서를 유지한다. |
-| [features/chat/components/markdown/StreamingMarkdown.tsx](../../../app/src/renderer/src/features/chat/components/markdown/StreamingMarkdown.tsx) — `StreamingMarkdown` | 완료 Markdown과 같은 폭·활자·코드 스타일. 토큰 도착 때 전체 본문을 불필요하게 재배치하지 않는다. |
+| [features/chat/components/markdown/StreamingMarkdown.tsx](../../../app/src/renderer/src/features/chat/components/markdown/StreamingMarkdown.tsx) — `StreamingMarkdown` | 완료 Markdown과 같은 폭·활자·코드 스타일. 긴 미확정 문단은 워커 결과가 올 때까지 원문을 표시하고, 결과가 현재 문단의 접두와 일치하면 뒤에 새로 받은 원문을 이어 표시한다. 열린 코드 펜스는 전용 뷰가 그린다. |
 | [features/chat/components/rightpanel/RightPanel.tsx](../../../app/src/renderer/src/features/chat/components/rightpanel/RightPanel.tsx) — `RightPanel` | 하네스별 패널 진입 조립. 상세·확대·숨김 상태에서 수명과 초점을 유지하며 주입된 프로젝트 이름을 타일 헤더로 전달한다. |
 | [features/chat/components/transcript/AssistantMessage.tsx](../../../app/src/renderer/src/features/chat/components/transcript/AssistantMessage.tsx) — `AssistantMessage`, `AssistantSegment` | 응답의 본문·메타·액션과 하네스별 renderer 선택을 유지한다. |
 | [features/chat/components/transcript/HarnessScrollController.tsx](../../../app/src/renderer/src/features/chat/components/transcript/HarnessScrollController.tsx) — `HarnessScrollController` | 하네스의 스크롤 controller만 선택한다. 공통 선택·읽기 정책을 임의로 강제하지 않는다. |
 | [features/chat/components/transcript/LineageBanner.tsx](../../../app/src/renderer/src/features/chat/components/transcript/LineageBanner.tsx) — `LineageBanner` | 세션 계보·이동 동작을 낮은 강조 행으로 표시하고 원문과 구별한다. |
 | [features/chat/components/transcript/PendingAssistantStatus.tsx](../../../app/src/renderer/src/features/chat/components/transcript/PendingAssistantStatus.tsx) — `PendingAssistantStatus` | 응답 대기 상태의 하네스 표시를 선택한다. 별도 spinner·문구를 중복 표시하지 않는다. |
-| [features/chat/components/transcript/TranscriptView.tsx](../../../app/src/renderer/src/features/chat/components/transcript/TranscriptView.tsx) — `TranscriptView` | 하네스 viewport·본문 배율·가상화 경계 유지. 읽는 위치와 선택 영역을 보존한다. |
+| [features/chat/components/transcript/TranscriptView.tsx](../../../app/src/renderer/src/features/chat/components/transcript/TranscriptView.tsx) — `TranscriptView` | 하네스 viewport·본문 배율·가상화 경계 유지. 읽는 위치를 보존한다(선택은 브라우저 기본 — 복원하지 않는다). |
+| [features/chat/components/transcript/TranscriptViewport.tsx](../../../app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx) — `TranscriptViewport` | 세 화면의 가상화된 행을 측정하고 배치한다. 스크롤 제어기가 적용할 위치는 같은 모듈의 쓰기 함수로 전달한다. 선택·복사는 브라우저 기본이고 선택 중 새 행이 마운트되면 선택을 취소한다. |
 
 ## 공유 composer
 
@@ -330,6 +333,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 |---|---|
 | [features/backend/harnesses/claude/components/AuthExpiredModal.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/AuthExpiredModal.tsx) — `AuthExpiredModal` | 인증 만료 안내·재로그인 다음 동작을 전역 modal 슬롯 규약에 맞춘다. |
 | [features/backend/harnesses/claude/components/InstallerDialog.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/InstallerDialog.tsx) — `InstallerDialog` | 설치 진행·로그·명령 복사·실패 복구를 같은 dialog 안에 배치한다. |
+| [features/backend/harnesses/claude/components/InstallLog.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/InstallLog.tsx) — `InstallLog` | 설치 출력은 읽는 위치 주변에 표시한다. 로그의 끝에서 읽을 때 새 출력을 따른다. |
 | [features/engine/common/components/AgentEnvironmentView.tsx](../../../app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx) — `AgentEnvironmentView` | 엔진/모델 목록·추가·설정 진입을 카탈로그/상세 위계로 표시한다. 카드는 Claude → OpenCode → 그 밖 순서(`app/src/shared/harness.ts`의 `orderAgentEnvironments`, 같은 하네스 안은 입력 순서)다. 추가 메뉴의 Claude/OpenCode 라벨 왼쪽에는 각 공식 컬러 마크를 정렬한다. |
 | [features/engine/common/components/EngineCard.tsx](../../../app/src/renderer/src/features/engine/common/components/EngineCard.tsx) — `EngineCard` | 제목 왼쪽에 지원 하네스의 공식 컬러 로고를 배치하며 엔진명·하네스·연결 상태·모델·동작의 위계를 유지한다. |
 | [features/engine/common/components/EngineFormModal.tsx](../../../app/src/renderer/src/features/engine/common/components/EngineFormModal.tsx) — `EngineFormModal` | 단일 화면 엔진 폼. Modal 입력·label·인증/불러오기·저장 상태를 재사용한다. |

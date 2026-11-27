@@ -22,6 +22,7 @@ const requirement: DiffRequirementAnchor = {
 describe('sent diff requirement attachments', () => {
   it('shows the submitted file, line and full comment alongside a real file attachment', () => {
     const message: Message = {
+      id: 'm-24',
       role: 'user',
       createdAt: 1,
       parts: [
@@ -63,7 +64,12 @@ describe('sent diff requirement attachments', () => {
   it('does not add an attachment surface to ordinary messages', () => {
     const html = renderToStaticMarkup(
       createElement(UserMessage, {
-        message: { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'ordinary' }] }
+        message: {
+          id: 'm-66',
+          role: 'user',
+          createdAt: 1,
+          parts: [{ type: 'text', text: 'ordinary' }]
+        }
       })
     )
     expect(html).toContain('ordinary')

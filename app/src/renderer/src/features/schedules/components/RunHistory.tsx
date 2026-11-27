@@ -19,6 +19,25 @@ const STATUS_TONE: Record<ScheduledRunStatus, string> = {
   skipped: 'text-ink3'
 }
 
+// Large stored tails are laid out only when their run is opened.
+const INLINE_OUTPUT_LIMIT = 4_096
+const OUTPUT_CLASS =
+  'mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-r3 bg-fill-uncontained-hover p-2 font-mono text-caption text-ink2'
+
+function RunOutput({ output }: { output: string }): React.JSX.Element {
+  const { tr } = useI18n()
+  const [open, setOpen] = useState(false)
+  if (output.length <= INLINE_OUTPUT_LIMIT) return <pre className={OUTPUT_CLASS}>{output}</pre>
+  return (
+    <details className="mt-1.5" onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="cursor-pointer text-caption text-ink2">
+        {tr('schedules.history.output')}
+      </summary>
+      {open && <pre className={OUTPUT_CLASS}>{output}</pre>}
+    </details>
+  )
+}
+
 interface RunHistoryProps {
   // null = 불러오는 중.
   runs: readonly ScheduledRun[] | null
@@ -95,9 +114,7 @@ export function RunHistory({ runs, onOpenSession }: RunHistoryProps): React.JSX.
                     {tr('schedules.history.truncated')}
                   </p>
                 )}
-                <pre className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-r3 bg-fill-uncontained-hover p-2 font-mono text-caption text-ink2">
-                  {run.output}
-                </pre>
+                <RunOutput output={run.output} />
               </>
             ) : null}
           </li>
@@ -121,21 +138,26 @@ export function RunHistoryPanel({
   loadRuns,
   onOpenSession
 }: RunHistoryPanelProps): React.JSX.Element {
-  const [runs, setRuns] = useState<ScheduledRun[] | null>(null)
+  const [loaded, setLoaded] = useState<{ taskId: string; runs: ScheduledRun[] } | null>(null)
   useEffect(() => {
     let stale = false
     void loadRuns(taskId).then(
       (next) => {
         // 늦게 도착한 이전 조회가 최신 목록을 덮지 않게 한다.
-        if (!stale) setRuns(next)
+        if (!stale) setLoaded({ taskId, runs: next })
       },
       () => {
-        if (!stale) setRuns([])
+        if (!stale) setLoaded({ taskId, runs: [] })
       }
     )
     return () => {
       stale = true
     }
   }, [taskId, revision, loadRuns])
-  return <RunHistory runs={runs} onOpenSession={onOpenSession} />
+  return (
+    <RunHistory
+      runs={loaded?.taskId === taskId ? loaded.runs : null}
+      onOpenSession={onOpenSession}
+    />
+  )
 }

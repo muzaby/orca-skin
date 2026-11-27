@@ -91,6 +91,7 @@
 | `0032_native_session_recovery.sql` | 원본 보관 만료 시 replacement native ID·보관 경계·첫 입력 영수증을 영속한다. |
 | `0033_session_last_model.sql` | 세션의 마지막 사용 모델(`last_model`)을 nullable로 보존한다. provider와 같은 UPDATE로 저장하고 앱 재시작의 Composer 복원에 사용한다. |
 | `0035_scheduled_tasks.sql` | 사용자 예약 작업 정의(`scheduled_tasks`)와 실행 이력(`scheduled_task_runs`). 프로젝트 삭제는 `project_id`만 비우고 작업 삭제는 이력을 함께 지운다. |
+| `0036_message_key.sql` | `messages.message_key`를 추가한다. 번호가 있는 행은 세션 안에서 유일하며 기존 행은 NULL을 유지한다. |
 
 **마이그레이션 규칙**:
 - `src/main/infra/db/migrations/NNNN_<name>.sql` (NNNN = 0으로 패딩된 일련번호)
@@ -111,7 +112,7 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 | `managed_worktrees` | Orcinus orca 가 만든 Git worktree — 저장소·경로·branch·base OID·nullable 세션 연결 (0209~0211). 표시명 정본 |
 | `artifact_files` / `session_artifacts` | 게시 원본 파일 메타(profile 상대 경로·hash·휴지통 이력) / 세션별 게시 참조 — §1.4 |
 | `background_task_events` | 백그라운드 작업 원본 journal — [background-tasks.md](./background-tasks.md) |
-| `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, metadata(JSON) |
+| `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, `message_key`, metadata(JSON) |
 | `message_parts` | messageId FK, 순서 보존 parts (text/tool/reasoning …, provider-runtime.md §7) |
 | `projects` | id, name, instructions, cwd, cwd_key, pinned_at, createdAt, updatedAt |
 | `turn_usage` / `turn_model_usage` | per-turn 사용량 원장 + 모델별 분해 (토큰·cost_usd·context_window) |
@@ -180,16 +181,17 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 #### 어댑터 외부 저장과의 관계
 
 - 하네스의 native 저장소가 세션·실행 컨텍스트의 원본이다. Claude는 `CLAUDE_CONFIG_DIR` 또는 기본 루트, OpenCode는 native 환경의 DB·리소스를 사용한다. Orcinus orca 엔진 설정은 실행 오버라이드다.
-- `session.load`는 DB 본문과 backend를 즉시 반환한다. renderer는 첫 paint 기회를 준 후 `session.refresh`를 호출하며 조회 token과 본문/live 상태로 지각 응답을 거른다. 모델 선택·패널 변경은 로딩 응답을 무효화하지 않는다.
+- 일반 대화 열기는 `session.load`에서 `oo:session:history-page`의 `latest`를 요청한다. 데이터 호스트는 SQLite에 출판한 세대에서 최신 턴 한 묶음과 backend를 반환한다. renderer는 첫 paint 기회를 준 뒤 `session.refresh`를 호출하고, 요청 번호와 세대로 늦은 응답을 거른다. 미준비 세션은 색인을 우선 준비한다. 복구와 분기에는 전체 보관 이력을 사용한다.
+- 작업·에이전트·프로세스·컨텍스트 소스 목록은 같은 세대에 저장한다. 패널을 열면 해당 목록을 커서로 읽고, 항목을 선택하면 필요한 상세를 64 KiB씩 읽는다.
 - `native_history_snapshots.cursor_json`은 마지막 성공한 source/revision/checkpoint를 영속한다. null은 아직 커서를 확정하지 않은 자료다. Claude는 UTF-8 byte offset·파일 identity·prefix digest, OpenCode 1.x는 session별 sequence·projection digest를 사용한다. 실패/경합에서는 커서를 앞당기지 않는다.
 
-보관 표시용 `payload_json`은 메시지·커서 기준 정보만 담고 어댑터 원본은 같은 행의 `raw_json`에 보존한다. `session:load`는 표시를 읽기 전에 legacy 행의 내장 raw를 원자적으로 분리하며, 분리가 끝난 행에는 다시 쓰지 않는다. Claude의 검증된 이어붙이기 경로만 `previous.raw()`로 원본 열을 읽고, 표시·원본 누락 복구는 메시지 사본을 사용한다.
+보관 표시용 `payload_json`은 메시지·커서 기준 정보만 담고 어댑터 원본은 같은 행의 `raw_json`에 보존한다. 전체 보관 이력을 읽는 경로는 legacy 행의 내장 raw를 원자적으로 분리하며, 분리가 끝난 행에는 다시 쓰지 않는다. Claude의 검증된 이어붙이기 경로만 `previous.raw()`로 원본 열을 읽고, 표시·원본 누락 복구는 메시지 사본을 사용한다.
 
 - Claude 표시 투영은 완전한 command-message/name/args 래퍼를 slash 입력으로 복원하며 native 원본·UUID·인수는 보존한다. cursor의 adapter 소유 `projectionVersion`이 다르면 원본 식별자를 유지한 채 표시 사본을 다시 만들며, 일반·인용·불완전 XML과 자동 입력 origin은 유지한다.
 - `SessionAdapter.readHistory`는 모델 호출 없이 원본을 읽고, `app/native-history.ts`가 실행과 같은 backend/env/settings를 전달한다. 살아 있는 runtime은 유휴 상태여도 화면 재진입으로 폐기하지 않는다. 해당 세션의 조회는 busy로 반환해 실시간 상태와 보관 화면을 유지한다. runtime이 없는 세션에서 `features/history/native-sync.ts`는 유휴 상태와 변경 토큰을 읽기 전후 확인한 뒤 snapshot·frontier·검색 인덱스·읽기 커서를 원자 교체한다. native 형식은 하네스 모듈만 해석한다.
 - `features/history/native-projection.ts`가 native 본문에 실제 message/tool ID로 Orcinus orca 첨부·도구 메타데이터를 결합하고 frontier 이후 live 행을 붙인다. 매핑이 없는 과거 부가 기록은 말미에 보존하며 안내한다. 원래 messages/parts·사용량·artifact·background journal은 삭제하거나 재발행하지 않는다.
 - 원본 미완료·접근 실패·부재·이관 미완료는 마지막 정상 사본을 유지하고 `nativeSync`로 반환한다. renderer의 보조 조회 실패는 기존 transcript를 유지하며 세션 열기 오류를 띄우지 않는다.
-- 명시 전송에서 원본 부재가 확인되면 하네스별 `recoverSession`으로 복구한다. Claude는 기존 UUID를 fresh `sessionId`로 사용하고 OpenCode는 서버가 발급한 새 native ID를 사용한다. Orcinus orca DB key와 관계는 유지하며 이후 원본 조회·실행의 native ID만 교체한다. 접근·인증 실패는 원본 부재로 간주하지 않는다.
+- 명시 전송에서 원본 부재가 확인되면 하네스별 `recoverSession`으로 복구한다. Claude는 Orcinus orca가 발급한 새 UUID를 SDK의 `sessionId`로 전달하고 OpenCode는 서버가 발급한 새 native ID를 사용한다. 이후 원본 조회·재개·분기는 새 native ID를 사용하며, 화면과 DB의 대화 ID 및 분기 계보는 기존 Orcinus orca 세션에 연결한다. 접근·인증 실패는 원본 부재로 간주하지 않는다.
 - 복구는 native 생성과 DB binding 변경 전에 입력 예산을 검사한다. 전체 보관 문맥·새 입력·정규화 첨부·추가 지시의 UTF-8 바이트 상한이 컨텍스트 창의 80%를 넘으면 전송을 중단하고 보관 대화를 유지한다. OpenCode는 선택된 설정 모델의 `limit.context`, Claude는 명시 1m 표시를 사용하며 모르는 창은 200k로 보수적으로 처리한다. 미수신 replacement 재시도도 같은 검사를 거친다. 임의 생략·요약은 하지 않는다.
 - `native_session_recovery`는 이전 표시 대화와 local frontier, native ID, 첫 입력의 native message ID·사용자 표시 텍스트·수신 여부를 저장한다. 복구 첫 prompt에만 보관 대화와 새 입력을 함께 전달하고, echo와 원본 재조회는 새 입력만 사용자 버블에 표시한다. 이전 대화는 보관 prefix로 유지하며 기존 native cursor는 폐기한다. 재만료하면 전체 표시 대화를 다시 보관한다.
 - native 생성과 Orcinus orca DB 저장은 분산 transaction이 아니다. 생성 후 DB 경합이 발생하면 빈 native 세션이 남을 수 있으나 보관 대화는 보존한다. 첫 prompt 수신 여부는 원본 message ID로 확인하여 재시작 후 동일 문맥을 반복 전송하지 않는다.

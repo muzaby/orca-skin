@@ -5,6 +5,7 @@ import type { LoadedPartRow, SessionListRow } from '../db/types'
 
 const row = (over: Partial<LoadedPartRow>): LoadedPartRow => ({
   message_id: 1,
+  message_key: null,
   role: 'user',
   created_at: 0,
   complete: 1,

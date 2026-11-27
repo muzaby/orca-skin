@@ -65,6 +65,8 @@ import {
   type EngineUserSettingsResult,
   type EngineWriteResult,
   type FileEntry,
+  type FileFolderChanged,
+  type FileFolderObservation,
   type GitBranchList,
   type GitCheckoutRequest,
   type GitCheckoutResult,
@@ -186,6 +188,7 @@ export function createOo({ bridge, hosts, onHostLifecycle }: OoTransport) {
     subscribe: (channel, handler) => subscribe(channel, handler),
     channels: {
       load: CHANNELS.sessionLoad,
+      page: CHANNELS.sessionHistoryPage,
       refresh: CHANNELS.sessionRefresh,
       chunk: CHANNELS.sessionLoadChunk,
       cancel: CHANNELS.sessionLoadCancel
@@ -296,8 +299,14 @@ export function createOo({ bridge, hosts, onHostLifecycle }: OoTransport) {
         invoke(CHANNELS.artifactTrash, req)
     },
     files: {
-      list: (cwd: string, relDir: string): Promise<FileEntry[]> =>
-        invoke(CHANNELS.filesList, { cwd, relDir }),
+      list: (
+        cwd: string,
+        relDir: string,
+        observation?: FileFolderObservation
+      ): Promise<FileEntry[]> =>
+        invoke(CHANNELS.filesList, { cwd, relDir, ...(observation && { observation }) }),
+      onFolderChanged: (handler: (change: FileFolderChanged) => void): (() => void) =>
+        subscribe(CHANNELS.filesFolderChanged, handler),
       pickAttachments: (): Promise<PickedAttachment[]> => invoke(CHANNELS.filesPickAttachments),
       pickDirectory: (): Promise<string | null> => invoke(CHANNELS.filesPickDirectory),
       openPath: (req: OpenPathRequest): Promise<void> => invoke(CHANNELS.filesOpenPath, req),
@@ -354,8 +363,10 @@ export function createOo({ bridge, hosts, onHostLifecycle }: OoTransport) {
       // 본문은 데이터 호스트가 조각으로 보내고 여기서 한 벌로 조립한다(0324 EP-4′).
       refresh: (sessionId: string): Promise<RefreshSessionResult> =>
         sessionLoads.refresh(sessionId),
-      load: (sessionId: string): Promise<LoadedSession | null> => sessionLoads.load(sessionId),
-      cancelLoad: (sessionId: string): void => sessionLoads.cancelLoad(sessionId),
+      load: (sessionId: string): Promise<LoadedSession | null> =>
+        sessionLoads.loadLatest(sessionId),
+      cancelLoad: sessionLoads.cancelLoad,
+      page: sessionLoads.page,
       delete: (sessionId: string): Promise<DeleteSessionResult> =>
         invoke(CHANNELS.sessionDelete, { sessionId }),
       rename: (sessionId: string, title: string): Promise<void> =>

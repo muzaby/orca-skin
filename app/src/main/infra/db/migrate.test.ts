@@ -56,7 +56,11 @@ const EXPECTED_MIGRATIONS = [
   '0032_native_session_recovery',
   '0033_session_last_model',
   '0034_native_snapshot_raw',
-  '0035_scheduled_tasks'
+  '0035_scheduled_tasks',
+  '0036_message_key',
+  '0037_turn_history_index',
+  '0038_history_panels',
+  '0039_history_fork_prefix'
 ]
 
 const APPLIED_SQL = [
@@ -567,4 +571,54 @@ describe('0023_session_agent_kind_code migration', () => {
       rmSync(directory, { recursive: true, force: true })
     }
   })
+})
+
+it('w8 upgrades a 0035 database and enforces only non-null keys within each session', () => {
+  const db = new Database(':memory:')
+  try {
+    const migrationsDir = join(process.cwd(), 'src', 'main', 'infra', 'db', 'migrations')
+    db.exec('CREATE TABLE _migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)')
+    const record = db.prepare('INSERT INTO _migrations VALUES (?, 1)')
+    for (const name of readdirSync(migrationsDir)
+      .filter((name) => /^00[0-3][0-9]_.*\.sql$/.test(name))
+      .sort()) {
+      if (name.startsWith('0036_')) break
+      db.exec(readFileSync(join(migrationsDir, name), 'utf8'))
+      record.run(name.slice(0, -4))
+    }
+    db.exec(`INSERT INTO sessions (id, backend, created_at, updated_at)
+      VALUES ('a', 'claude', 1, 1), ('b', 'claude', 1, 1);
+      INSERT INTO messages (session_id, role, content, created_at, idx)
+      VALUES ('a', 'assistant', 'legacy', 1, 0)`)
+
+    applyMigrations(db)
+    const append =
+      db.prepare(`INSERT INTO messages (session_id, role, content, created_at, idx, message_key)
+      VALUES (?, 'assistant', '', 1, ?, ?)`)
+    expect(db.prepare('SELECT content, message_key FROM messages').get()).toEqual({
+      content: 'legacy',
+      message_key: null
+    })
+    append.run('a', 1, null)
+    append.run('a', 2, 'a:shared')
+    append.run('b', 0, 'a:shared')
+    expect(() => append.run('a', 3, 'a:shared')).toThrow(/UNIQUE/)
+    append.run('a', 3, '')
+    expect(() => append.run('a', 4, '')).toThrow(/UNIQUE/)
+    append.run('a', 4, 'A:shared')
+    const indexes = db.prepare("PRAGMA index_list('messages')").all()
+    expect(indexes).toContainEqual(
+      expect.objectContaining({
+        name: 'idx_messages_session_key',
+        unique: 1,
+        partial: 1
+      })
+    )
+    expect(db.prepare("PRAGMA index_info('idx_messages_session_key')").all()).toEqual([
+      expect.objectContaining({ seqno: 0, name: 'session_id' }),
+      expect.objectContaining({ seqno: 1, name: 'message_key' })
+    ])
+  } finally {
+    db.close()
+  }
 })

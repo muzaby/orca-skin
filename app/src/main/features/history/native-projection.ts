@@ -1,7 +1,8 @@
 import type { AppMessagePart, LoadedMessage } from '../../../shared/ipc'
+import { localRowMessageId, nativeOnlyMessageId, orphanMessageId } from '../../../shared/message-id'
 import type { NativeHistorySnapshot } from '../../adapters/common/native-history'
 import type { NativeMessageBinding } from '../../infra/db/native-history-queries'
-import type { LoadedPartRow } from '../../infra/db/types'
+import type { HistoryMessageHeader, LoadedPartRow } from '../../infra/db/types'
 import { partFromRow } from '../../infra/ipc/dto'
 
 function toolKey(part: AppMessagePart): string | undefined {
@@ -9,17 +10,26 @@ function toolKey(part: AppMessagePart): string | undefined {
   return `${'parentToolRunId' in part ? (part.parentToolRunId ?? '') : ''}\0${part.toolRunId}`
 }
 
-export function localMessages(rows: readonly LoadedPartRow[]): LoadedMessage[] {
+function localHeader(row: HistoryMessageHeader): LoadedMessage {
+  return {
+    id: row.message_key ?? localRowMessageId(row.message_id),
+    role: row.role,
+    createdAt: row.created_at,
+    parts: [],
+    ...(row.role === 'assistant' && row.complete === 0 ? { incomplete: true } : {})
+  }
+}
+
+export function localMessages(
+  rows: readonly LoadedPartRow[],
+  headers?: readonly HistoryMessageHeader[]
+): LoadedMessage[] {
   const messages = new Map<number, LoadedMessage>()
+  for (const header of headers ?? []) messages.set(header.message_id, localHeader(header))
   for (const row of rows) {
     let message = messages.get(row.message_id)
     if (!message) {
-      message = {
-        role: row.role,
-        createdAt: row.created_at,
-        parts: [],
-        ...(row.role === 'assistant' && row.complete === 0 ? { incomplete: true } : {})
-      }
+      message = localHeader(row)
       messages.set(row.message_id, message)
     }
     message.parts.push(partFromRow(row))
@@ -32,10 +42,12 @@ export function projectNativeHistory(
   snapshot: NativeHistorySnapshot,
   rows: readonly LoadedPartRow[],
   bindings: readonly NativeMessageBinding[],
-  frontier: number
+  frontier: number,
+  headers?: readonly HistoryMessageHeader[]
 ): { messages: LoadedMessage[]; orphaned: boolean } {
   const messages: LoadedMessage[] = snapshot.messages.map(
-    ({ role, createdAt, incomplete, parts }) => ({
+    ({ id, role, createdAt, incomplete, parts }) => ({
+      id: nativeOnlyMessageId(id),
       role,
       createdAt,
       ...(incomplete ? { incomplete } : {}),
@@ -57,6 +69,21 @@ export function projectNativeHistory(
       targets.sort((a, b) => a - b)
     )
   }
+  const identityOwners = new Map<number, { rowId: number; id: string }>()
+  for (const row of headers ?? rows) {
+    if (row.message_id > frontier) continue
+    const target = localTargets.get(row.message_id)?.at(-1)
+    if (target === undefined) continue
+    const owner = identityOwners.get(target)
+    if (!owner || row.message_id < owner.rowId) {
+      identityOwners.set(target, {
+        rowId: row.message_id,
+        id: row.message_key ?? localRowMessageId(row.message_id)
+      })
+    }
+  }
+  for (const [target, owner] of identityOwners) messages[target].id = owner.id
+
   const calls = new Map<
     string,
     { index: number; part: Extract<AppMessagePart, { type: 'tool_call' }> }
@@ -157,8 +184,14 @@ export function projectNativeHistory(
   return {
     messages: [
       ...messages,
-      ...localMessages(orphanRows),
-      ...localMessages(rows.filter((row) => row.message_id > frontier))
+      ...localMessages(orphanRows).map((message) => ({
+        ...message,
+        id: orphanMessageId(message.id)
+      })),
+      ...localMessages(
+        rows.filter((row) => row.message_id > frontier),
+        headers?.filter((row) => row.message_id > frontier)
+      )
     ],
     orphaned: orphanRows.length > 0
   }

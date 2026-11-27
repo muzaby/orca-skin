@@ -209,7 +209,8 @@ MCP의 session-native 목록은 선택적인 `managedSource: { kind: 'builtin' |
 
 | 채널                         | 방향         | 페이로드                                               | 응답                                                       | 설명                                                                         |
 | ---------------------------- | ------------ | ------------------------------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `oo:files:list`            | R→M (invoke) | `ListFilesRequest` = `{ cwd: string; relDir: string }` | `FileEntry[]` = `{ name: string; isDirectory: boolean }[]` | `@` 파일 경로 자동완성용. `cwd` 기준 `relDir` 의 직속 항목 한 단계만 리스팅. |
+| `oo:files:list` | R→data (invoke) | `{ cwd: string; relDir: string; observation?: { owner: string; active: boolean } }` | `FileEntry[]` | `@` 파일 자동완성의 직속 항목 목록. 창의 owner가 열려 있는 폴더를 감시하며 `active: false` 또는 포트 종료 때 해제한다. |
+| `oo:files:folder-changed` | data→R (통지) | `{ cwd: string; relDir: string; revision: number }` | — | 해당 폴더를 감시하는 창에 목록 무효화를 알린다. 창은 활성 질의를 다시 읽는다. |
 | `oo:files:pickAttachments` | R→M (invoke) | —                                                      | `PickedAttachment[]`                                      | 컴포저 첨부 다이얼로그. main 이 OS 파일 선택창을 열고 txt/md/image 경로 메타데이터를 반환한다. |
 | `oo:files:pickDirectory` | R→M (invoke) | —                                                      | `string \| null`                                      | 컴포저 cwd 버튼용 디렉토리 선택 다이얼로그. 기본 시작 위치는 OS Desktop이며, 취소/빈 선택은 `null`. |
 | `oo:files:openPath` | R→M (invoke) | `OpenPathRequest` = `{ path: string; mode: 'directory' \| 'reveal'; sessionId?: string }` | `Promise<void>` | `directory`는 탐색기로 폴더를 열고, `reveal`은 파일을 선택해 보여준다. sessionId가 있는 요청은 해당 Claude Work 또는 OpenCode Code 세션의 cwd·저장 extraDirs를 허용 범위로 사용한다. directory는 기록된 폴더와 정확히 일치해야 하며 파일시스템 루트는 허용하지 않는다. reveal은 절대 경로와 실제 파일 경로가 모두 허용 폴더 안에 있는 파일 또는 해당 세션의 user attachment에 등록된 정확한 파일만 허용한다. 첨부 경로의 리디렉션과 허용 폴더 밖으로 벗어나는 연결 경로를 거부한다. 비동기 검사 후 세션의 허용 범위를 재확인하고 일반 cwd 규칙으로 폴백하지 않는다. sessionId 없는 directory는 projects/ 하위 또는 실재 세션 cwd만 허용하며, reveal은 파일 부모부터 조상까지 같은 cwd 허용 술어를 사용한다. mode는 필수이고 실체가 모드와 다르면 reject한다. OS 열기 실패도 reject하여 UI가 재시도를 제공한다. |
@@ -263,6 +264,7 @@ MCP의 session-native 목록은 선택적인 `managedSource: { kind: 'builtin' |
 | `oo:session:list` | R→M (invoke) | — | `SessionListItem[]` | Orcinus orca에서 숨기지 않은 대화 메타 목록(`cwd` 포함), `updatedAt` 내림차순. |
 | `oo:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string; requestId: number }`(번호는 renderer 전송층이 붙인다) | `Promise<LoadedSession \| null>` | Orcinus orca DB의 본문·저장 backend·cwd·사용량·activity를 먼저 반환한다. 유효한 빈 세션도 정체성을 반환하고 없는/숨긴 세션만 null이다. native 조회나 모델 호출을 기다리지 않는다. |
 | `oo:session:refresh` | R→M (invoke) | `LoadSessionRequest` | `Promise<RefreshSessionResult>` | 첫 DB 표시 후 lazy native 조회. `updated + session` / `unchanged` / `busy` / `missing\|unavailable\|migration-required + message`. snapshot·검색·커서를 함께 확정한 결과만 반환하며 raw/sourceKey/cursor는 main에 보관한다. live/삭제/새 조회보다 늦은 응답은 화면에 적용하지 않는다. |
+| `oo:session:history-page` | R→data (invoke) | `HistoryPageRequest`는 세션, 창별 요청 번호, 열기 세대와 조회 종류를 받는다. | `HistoryPageReply` | `latest`·`earlierTurn`·`laterTurn`·방향별 `withinTurn`은 출판된 세대의 턴 한 묶음을 준다. `target`은 FTS 출처와 캐시 후보를 검증한다. `visit`은 일반 대화의 저장된 읽기 위치를 같은 세션·출판 세대에서 다시 찾는다. `body`는 지연 본문에서 최대 64 KiB를 읽는다. 요청 번호·열기 세대를 응답에 돌려준다. 일반 열기는 `latest`로 시작한다. `panelSummary`는 종류별 목록과 출판 기준점, 다음 커서를 반환하고 `panelDetail`과 `metadata`는 요청한 상세 또는 축약한 세션 메타 원문을 64 KiB씩 반환한다. 세대가 바뀌면 `stale`로 응답한다. |
 | `oo:session:load-chunk` | M→R (send) | — | `SessionLoadChunk` = `{ requestId: number; seq: number; messages: AppMessage[] }` (`shared/data-host.ts`) | `load`·`refresh` 응답보다 먼저 오는 본문 조각. renderer 전송층(`renderer/src/shared/api/transport/session-load.ts`)이 요청 번호로 모아 응답과 합친다 — `window.oo.session.load`·`refresh` 의 반환 형상은 그대로이고 화면 코드는 조각을 보지 않는다. 조각 상한(메시지·part·직렬화 근사 문자)과 단독 조각 규칙의 정본은 `shared/data-host.ts` 다(0325). |
 | `oo:session:load-cancel` | R→M (send) | `{ requestId: number }` | — | 진행 중인 첫 본문 로드를 취소한다(`window.oo.session.cancelLoad(sessionId)`). 데이터 호스트는 남은 조각을 보내지 않고 그 호출은 거부로 끝난다. 갱신은 취소하지 않는다. |
 | `oo:session:delete` | R→M (invoke) | `DeleteSessionRequest` = `{ sessionId: string }` | `Promise<DeleteSessionResult>` | 실행·승인·대기 입력을 정리하고 Orcinus orca 목록에서만 숨긴다. native 세션·작업 폴더·보관 DB 행·게시 참조는 보존한다. 선택 중인 세션이면 lastSessionId를 해제한다. |
@@ -582,6 +584,8 @@ wire 체계의 정본은 `app/src/shared/ipc.ts`의 `ProviderAuthScheme`이고 m
 ### 제품 에이전트 종류와 표시 경계
 
 `SendChatMessage.agentKind?: 'code' | 'work'`는 backend·provider·권한과 독립적이다. 생략하면 신규 출생만 Code를 기본값으로 쓰며, 기존 세션·preparing lease·fork/handoff는 소유자의 종류를 계승한다. 다른 종류를 명시하면 큐·DB를 변경하기 전에 오류로 거부한다. 시스템 지침과 프로필 key는 클라이언트가 지정하지 못한다.
+
+에이전트 호스트는 본문·도구·응답 경계 이벤트에 세션 안의 메시지 번호 `messageKey`를 붙여 저장 포트와 창에 전달한다. 라이브 델타도 같은 번호를 사용한다. 호출이나 응답 경계의 원 소유를 찾은 이벤트는 `messageKeySource: 'owner'`를 싣는다. 사용자 커밋 통지 `message.committed`와 로드된 각 `LoadedMessage.id`도 메시지 번호를 전달한다.
 
 현재 `SessionListItem`·`LoadedSession`의 `agentKind`는 필수이며 Main은 DB 값을 엄격히 검증해 출력한다. Renderer의 `LOAD_SESSION` 읽기 경계에서만 구형 `coding` 또는 필드 누락을 `code`로 변환하며 그 외 값은 오류로 처리한다. `session.updated.patch.agentKind`의 생략은 기존 값 유지이고 Main은 확정 세션의 종류를 붙인다.
 

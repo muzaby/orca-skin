@@ -1,3 +1,4 @@
+import { subagentTasksFromMessages } from '../../../lib/transcriptIndex.legacy.testfixture'
 // 0319 W1 — 백그라운드 타일 카드 세 종(구 모델 카드 · 정본 작업 카드 · 정본 호출 카드)의 **틀 마크업**을
 // 변경 전 코드에서 고정한다(D-014). 틀을 공용 컴포넌트로 합친 뒤에도 이 파일은 바뀌지 않아야 한다 —
 // 속성 순서·접근성 이름·클래스·점·제목 행·첫 본문 행 시작이 바이트 단위로 같다는 것이 UI 회귀 0의 증거다.
@@ -13,7 +14,7 @@ import {
   BackgroundTaskCard,
   CanonicalBackgroundContent
 } from '../../claude/rightpanel/CanonicalBackgroundContent'
-import { subagentTasksFromMessages } from '../../../lib/parts'
+
 import { useChatStore } from '../../../store/chatStore'
 import { useBackgroundStore } from '../../../store/backgroundStore'
 import {
@@ -71,6 +72,7 @@ describe('0319 W1 — background card frame markup', () => {
   it('legacy subagent card keeps the frame', () => {
     const messages: Message[] = [
       {
+        id: 'm-73',
         role: 'assistant',
         createdAt: 1_700_000_000_000,
         parts: [

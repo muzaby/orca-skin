@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { FileEntry, ProviderInfo } from '../../../../../shared/ipc'
+import type { FileEntry, FileFolderChanged, ProviderInfo } from '../../../../../shared/ipc'
 
 // Drive the real hook's state, memo dependencies and effect cleanup. This is a deterministic
 // hook fixture, not a browser/React scheduler implementation.
@@ -13,6 +13,9 @@ const h = vi.hoisted(() => ({
   effectIndex: 0,
   dirty: false,
   list: vi.fn(),
+  folderChanged: null as ((change: FileFolderChanged) => void) | null,
+  onFolderChanged: vi.fn(),
+  onHostLifecycle: vi.fn(),
   providerState: vi.fn(),
   onState: vi.fn(),
   off: vi.fn(),
@@ -54,7 +57,8 @@ vi.mock('react', () => ({
   }
 }))
 vi.mock('../../../shared/api/ipc', () => ({
-  fileApi: { list: h.list },
+  fileApi: { list: h.list, onFolderChanged: h.onFolderChanged },
+  hostApi: { onLifecycle: h.onHostLifecycle },
   providerApi: { state: h.providerState, onState: h.onState }
 }))
 
@@ -146,6 +150,13 @@ beforeEach(() => {
   h.pending = []
   h.push = null
   h.list.mockReset()
+  h.onFolderChanged.mockImplementation((listener: (change: FileFolderChanged) => void) => {
+    h.folderChanged = listener
+    return () => {
+      h.folderChanged = null
+    }
+  })
+  h.onHostLifecycle.mockReturnValue(() => {})
   h.providerState.mockReset()
   h.onState.mockReset()
   h.off.mockReset()
@@ -158,13 +169,43 @@ beforeEach(() => {
 afterEach(unmount)
 
 describe('mention autocomplete path listing ownership', () => {
+  it('refreshes on focus and data reconnection and resets off-menu tokens when cwd changes', async () => {
+    const events = new EventTarget()
+    vi.stubGlobal('addEventListener', events.addEventListener.bind(events))
+    vi.stubGlobal('removeEventListener', events.removeEventListener.bind(events))
+    try {
+      h.list.mockResolvedValue(Array.from({ length: 10 }, (_, i) => file('file' + i)))
+      render('@file')
+      await flush()
+      const listing = render('@file')
+      expect(listing.validFilePaths.has('file9')).toBe(true)
+      expect(fileNames(listing)).toHaveLength(8)
+      h.list.mockResolvedValue([file('file-focused')])
+      events.dispatchEvent(new Event('focus'))
+      await flush()
+      expect(fileNames(render('@file'))).toEqual(['file-focused'])
+      h.list.mockResolvedValue([file('file-reconnected')])
+      h.onHostLifecycle.mock.calls.at(-1)![0]({ host: 'data' })
+      await flush()
+      expect(fileNames(render('@file'))).toEqual(['file-reconnected'])
+      h.list.mockReturnValue(deferred().promise)
+      expect(render('@file', '/other').validFilePaths.size).toBe(0)
+    } finally {
+      unmount()
+      vi.unstubAllGlobals()
+    }
+  })
   it('keeps one pending listing across prefix/caret changes and filters its result using the current token', async () => {
     const request = deferred()
     h.list.mockReturnValue(request.promise)
     expect(render('@a')).toMatchObject({ open: true, loading: true, suggestions: [] })
     render('@al')
     render('@alp trailing', '/repo', 4)
-    expect(h.list).toHaveBeenCalledExactlyOnceWith('/repo', '')
+    expect(h.list).toHaveBeenCalledExactlyOnceWith(
+      '/repo',
+      '',
+      expect.objectContaining({ active: true })
+    )
     request.resolve([file('alpha'), file('beta'), file('.hidden'), file('alpine')])
     await request.promise
     const current = render('@alp')
@@ -180,17 +221,26 @@ describe('mention autocomplete path listing ownership', () => {
     const root = deferred()
     const child = deferred()
     const other = deferred()
-    h.list
-      .mockReturnValueOnce(root.promise)
-      .mockReturnValueOnce(child.promise)
-      .mockReturnValueOnce(other.promise)
+    h.list.mockImplementation((cwd, dir, { active }) =>
+      !active
+        ? Promise.resolve([])
+        : cwd === '/other'
+          ? other.promise
+          : dir
+            ? child.promise
+            : root.promise
+    )
     render('@a')
     render('@sub/')
     render('@sub/', '/other')
-    expect(h.list.mock.calls).toEqual([
-      ['/repo', ''],
-      ['/repo', 'sub'],
-      ['/other', 'sub']
+    expect(
+      h.list.mock.calls.map(([cwd, dir, observation]) => [cwd, dir, observation.active])
+    ).toEqual([
+      ['/repo', '', true],
+      ['/repo', '', false],
+      ['/repo', 'sub', true],
+      ['/repo', 'sub', false],
+      ['/other', 'sub', true]
     ])
     other.resolve([file('current')])
     await other.promise
@@ -203,14 +253,14 @@ describe('mention autocomplete path listing ownership', () => {
     expect(current.loading).toBe(false)
   })
 
-  it('cancels a removed token/unmounted owner and keeps empty results cached when reopened', async () => {
+  it('cancels a removed token/unmounted owner and rechecks empty results when reopened', async () => {
     const stale = deferred()
     const empty = deferred()
     const unmounted = deferred()
-    h.list
-      .mockReturnValueOnce(stale.promise)
-      .mockReturnValueOnce(empty.promise)
-      .mockReturnValueOnce(unmounted.promise)
+    const openings = [stale.promise, empty.promise, unmounted.promise]
+    h.list.mockImplementation((_cwd, _dir, { active }) =>
+      active ? (openings.shift() ?? Promise.resolve([])) : Promise.resolve([])
+    )
     render('@')
     expect(render('plain')).toMatchObject({ open: false, loading: false })
     stale.resolve([file('stale')])
@@ -223,13 +273,35 @@ describe('mention autocomplete path listing ownership', () => {
     expect(render('@')).toMatchObject({ open: true, loading: false, suggestions: [], groups: [] })
     render('plain')
     render('@')
-    expect(h.list).toHaveBeenCalledTimes(2)
-    render('@new/')
+    expect(h.list.mock.calls.filter(([, , observation]) => observation.active)).toHaveLength(3)
     unmount()
     const before = h.states.map((slot) => slot.value)
     unmounted.resolve([file('discarded')])
     await unmounted.promise
     expect(h.states.map((slot) => slot.value)).toEqual(before)
+  })
+
+  it('coalesces invalidations during a read and keeps the selected file after an insertion', async () => {
+    const first = deferred()
+    const second = deferred()
+    h.list.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    h.list.mockResolvedValue([file('aardvark'), file('alpha'), file('beta'), file('gamma')])
+    render('@')
+    first.resolve([file('alpha'), file('beta'), file('gamma')])
+    await flush()
+    render('@').setActiveIndex(1)
+    h.folderChanged?.({ cwd: '/elsewhere', relDir: '', revision: 1 })
+    expect(h.list).toHaveBeenCalledTimes(1)
+    h.folderChanged?.({ cwd: '/repo', relDir: 'other', revision: 1 })
+    expect(h.list).toHaveBeenCalledTimes(1)
+    for (const revision of [1, 2, 3]) h.folderChanged?.({ cwd: '/repo', relDir: '', revision })
+    expect(h.list).toHaveBeenCalledTimes(2)
+    second.resolve([file('alpha'), file('beta'), file('gamma')])
+    await flush()
+    expect(h.list).toHaveBeenCalledTimes(3)
+    const result = render('@')
+    expect(fileNames(result)).toEqual(['aardvark', 'alpha', 'beta', 'gamma'])
+    expect(fileNames(result)[result.activeIndex]).toBe('beta')
   })
 
   it('preserves quoted paths, the eight-item limit, and Escape dismissal/reopening', async () => {
@@ -238,7 +310,11 @@ describe('mention autocomplete path listing ownership', () => {
     render(text, '/repo', text.length - 1)
     await flush()
     const current = render(text, '/repo', text.length - 1)
-    expect(h.list).toHaveBeenCalledExactlyOnceWith('/repo', 'some dir')
+    expect(h.list).toHaveBeenCalledExactlyOnceWith(
+      '/repo',
+      'some dir',
+      expect.objectContaining({ active: true })
+    )
     expect(current).toMatchObject({
       quoted: true,
       hasClosingQuote: true,

@@ -5,6 +5,11 @@ import { CatalogTabs } from '../../../shared/ui/CatalogTabs'
 import { CatalogSearch } from '../../../shared/ui/CatalogSearch'
 import { useCatalogSearch } from '../../../shared/hooks/useCatalogSearch'
 import { CreateProjectModal } from './CreateProjectModal'
+import { CATALOG_VIRTUALIZE_AFTER } from '../../../shared/ui/virtual/limits'
+import {
+  VirtualCatalogList,
+  type CatalogRowPosition
+} from '../../../shared/ui/virtual/VirtualCatalogList'
 import { ProjectCatalogRow } from './ProjectCatalogRow'
 import { useI18n } from '../../../shared/i18n'
 import type { Project } from '../../../../../shared/ipc'
@@ -32,6 +37,8 @@ export function ProjectsScreen({
   const activeTabRef = useRef<HTMLButtonElement>(null)
   const unpinningId = useRef<string | null>(null)
   const id = useId()
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
+  const listScroller = useMemo(() => ({ current: scroller }), [scroller])
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const visible = useMemo(
     () =>
@@ -54,9 +61,21 @@ export function ProjectsScreen({
       activeTabRef.current?.focus({ preventScroll: true })
   }, [visible])
 
+  const renderRow = (project: Project, position?: CatalogRowPosition): React.JSX.Element => (
+    <ProjectCatalogRow
+      key={project.id}
+      position={position}
+      project={project}
+      onOpen={() => onOpenProject(project.id)}
+      onTogglePin={(id, pinned) => {
+        if (tab === 'pinned' && !pinned) unpinningId.current = id
+        onTogglePin(id, pinned)
+      }}
+    />
+  )
   return (
     <section data-project-catalog="" className="flex min-h-0 min-w-0 flex-1 pb-2 pr-2">
-      <div className="@container/catalog min-h-0 min-w-0 flex-1 overflow-y-auto">
+      <div ref={setScroller} className="@container/catalog min-h-0 min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[960px] px-8 pb-10 pt-10">
           <div className="flex items-center gap-3">
             <h1 className="m-0 font-serif text-[30px] font-medium tracking-[-0.02em] text-ink">
@@ -127,19 +146,17 @@ export function ProjectsScreen({
                   </Button>
                 )}
               </div>
+            ) : visible.length > CATALOG_VIRTUALIZE_AFTER ? (
+              <VirtualCatalogList
+                items={visible}
+                owner={listScroller}
+                documentKey={JSON.stringify([tab, normalizedQuery])}
+                keyOf={projectRowKey}
+                renderRow={renderRow}
+              />
             ) : (
               <ul className="m-0 list-none divide-y divide-border p-0">
-                {visible.map((project) => (
-                  <ProjectCatalogRow
-                    key={project.id}
-                    project={project}
-                    onOpen={() => onOpenProject(project.id)}
-                    onTogglePin={(id, pinned) => {
-                      if (tab === 'pinned' && !pinned) unpinningId.current = id
-                      onTogglePin(id, pinned)
-                    }}
-                  />
-                ))}
+                {visible.map((project) => renderRow(project))}
               </ul>
             )}
           </div>
@@ -156,4 +173,8 @@ export function ProjectsScreen({
       />
     </section>
   )
+}
+
+function projectRowKey(project: Project): string {
+  return project.id
 }

@@ -41,8 +41,8 @@ describe('remembered harness and request routing', () => {
         loadingSession: false,
         inflight: false,
         messages: [
-          { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'one' }] },
-          { role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'two' }] }
+          { id: 'm-44', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'one' }] },
+          { id: 'm-45', role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'two' }] }
         ]
       })
       const before = getActiveChatSession()

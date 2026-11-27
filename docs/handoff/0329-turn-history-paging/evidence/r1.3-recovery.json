@@ -1,0 +1,58 @@
+{
+  "baseline": "851788f9",
+  "native": {
+    "hits": [
+      [
+        {
+          "row": -3,
+          "snippet": "<mark>archiveterm</mark>"
+        }
+      ],
+      [
+        {
+          "row": -5,
+          "snippet": "<mark>currentterm</mark>"
+        }
+      ]
+    ],
+    "messages": [
+      {
+        "id": "n:8ab5ea0b-7ad2-424a-875c-e218a9e4d419",
+        "text": {
+          "type": "text",
+          "text": "archiveterm"
+        }
+      },
+      {
+        "id": "n:e914fc58-b3be-4c9c-96e6-7cf5ebd0cb70",
+        "text": {
+          "type": "text",
+          "text": "answer"
+        }
+      },
+      {
+        "id": "n:8ab5ea0b-7ad2-424a-875c-e218a9e4d419",
+        "text": {
+          "type": "text",
+          "text": "currentterm"
+        }
+      },
+      {
+        "id": "n:e914fc58-b3be-4c9c-96e6-7cf5ebd0cb70",
+        "text": {
+          "type": "text",
+          "text": "answer"
+        }
+      }
+    ]
+  },
+  "reducer": {
+    "inputHeaders": 4,
+    "visibleHeaders": 2,
+    "firstText": {
+      "type": "text",
+      "text": "currentterm"
+    },
+    "complete": true
+  }
+}

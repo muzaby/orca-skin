@@ -20,6 +20,59 @@ function insertSession(db: Database.Database, id = 's1'): void {
   ).run(id)
 }
 
+it('returns the selected local message ID and its surrounding snippet for each query', () => {
+  const db = dbWithMigrations()
+  try {
+    insertSession(db)
+    const queries = new DbQueries(db)
+    for (const term of ['orchard', 'tide']) {
+      const id = queries.appendMessage({
+        sessionId: 's1',
+        role: 'user',
+        content: 'before ' + term + ' after',
+        createdAt: 1
+      })
+      expect(queries.searchMessages(term)).toMatchObject([
+        { message_id: id, session_id: 's1', snippet: 'before <mark>' + term + '</mark> after' }
+      ])
+    }
+    expect(queries.searchMessages('absent')).toEqual([])
+  } finally {
+    db.close()
+  }
+})
+
+it('keeps non-null message keys unique within each session and loads each stored key', () => {
+  const db = dbWithMigrations()
+  try {
+    insertSession(db, 'a')
+    insertSession(db, 'b')
+    const q = new DbQueries(db)
+    const insert = (sessionId: string, messageKey?: string): number =>
+      q.appendMessage({ sessionId, messageKey, role: 'user', content: 'text', createdAt: 1 })
+    const first = insert('a', 'u:1')
+    expect(() => insert('a', 'u:1')).toThrow(/UNIQUE constraint/)
+    const second = insert('b', 'u:1')
+    expect(q.findMessageByKey('a', 'u:1')?.id).toBe(first)
+    expect(q.findMessageByKey('b', 'u:1')?.id).toBe(second)
+    const assistant = q.appendMessage({
+      sessionId: 'a',
+      messageKey: 'a:reply',
+      role: 'assistant',
+      content: 'reply',
+      createdAt: 2
+    })
+    expect(q.findMessageByKey('a', 'a:reply')).toEqual({ id: assistant, role: 'assistant' })
+    expect(q.findMessageByKey('b', 'a:reply')).toBeUndefined()
+    expect(insert('a')).not.toBe(insert('a'))
+    expect(db.prepare("PRAGMA index_list('messages')").all()).toContainEqual(
+      expect.objectContaining({ name: 'idx_messages_session_key', unique: 1, partial: 1 })
+    )
+  } finally {
+    db.close()
+  }
+})
+
 describe('DbQueries turn usage', () => {
   it('insertTurnUsage id 반환과 insertTurnModelUsage 연결을 제공한다', () => {
     const db = dbWithMigrations()

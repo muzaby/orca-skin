@@ -1,0 +1,24 @@
+# verify 3 독립 축(하한 ⑥) — verify 2 변형 11건 재실행 + W-039·W-040 문장에서 유도한 변형 12건 · 실행: `node verify3-axes.mjs`
+wsRefFail exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=소유 판정 근거 없음
+numRefPass exit=1 :: 판정 보류 | typing:미기록/PASS scroll:미기록/PASS prepend:미기록/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss=T17/0326 ownF= holds=소유 판정 없음/필수 결측
+nullRefFail exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=소유 판정 근거 없음
+windowsFailNoRef exit=1 :: 불합격 | typing:PASS/PASS scroll:PASS/PASS prepend:PASS/PASS reply:PASS/FAIL function:PASS/FAIL search:PASS/FAIL | miss= ownF=T09/0329 holds=소유 판정 근거 없음
+keyedCellFailNoRef exit=1 :: 불합격 | typing:PASS/PASS scroll:FAIL/PASS prepend:PASS/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=소유 판정 근거 없음
+keyedUnknownCellFailNoRef exit=2 :: 소유 행 대상 없음: T17/0326/nope
+bothOwnersFailNoRef exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:FAIL/PASS function:FAIL/PASS search:FAIL/PASS | miss= ownF=T17/0326,T09/0329 holds=소유 판정 근거 없음
+failNoRefPlusOwnerMissing exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:미기록/미기록 function:미기록/미기록 search:미기록/미기록 | miss=T09/0329 ownF=T17/0326 holds=소유 판정 근거 없음/소유 판정 없음/필수 결측
+failWithRefAndSiblingFailNoRef exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=소유 판정 근거 없음
+unknownTaskFailNoRef exit=2 :: 소유 행 대상 없음: T99/0326
+trailingSpaceValue exit=2 :: 소유 판정 값 오류: T17/0326 machine=FAIL
+emptyStringValue exit=2 :: 소유 판정 값 오류: T17/0326 windows=
+arrayValue exit=2 :: 소유 판정 값 오류: T17/0326 machine=FAIL
+lowercaseMiwanOk exit=1 :: 판정 보류 | typing:미완/PASS scroll:미완/PASS prepend:미완/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss=T17/0326 ownF= holds=소유 판정 없음/필수 결측
+numericKey exit=2 :: 소유 행 대상 없음: T17/0326/0
+whitespaceKey exit=2 :: 소유 행 대상 없음: T17/0326/
+missingTaskField exit=2 :: 소유 행 대상 없음: undefined/0326
+ownerOfOtherTask exit=2 :: 소유 행 대상 없음: T09/0326
+crossTaskKey exit=2 :: 소유 행 대상 없음: T17/0326/reply
+nullKeyFailNoRef exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=소유 판정 근거 없음
+duplicatePassFail exit=1 :: 불합격 | typing:FAIL/PASS scroll:PASS/PASS prepend:PASS/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=
+rowsNotArray exit=2 :: owners.rows is not iterable
+failNoRefUnconfirmed exit=1 :: 불합격 | typing:FAIL/PASS scroll:FAIL/PASS prepend:FAIL/PASS reply:PASS/PASS function:PASS/PASS search:PASS/PASS | miss= ownF=T17/0326 holds=사용자 확정 대기/소유 판정 근거 없음

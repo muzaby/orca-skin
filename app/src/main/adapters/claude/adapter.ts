@@ -22,6 +22,7 @@ import type {
   SDKMessage
 } from '@anthropic-ai/claude-agent-sdk'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
+import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
@@ -46,7 +47,7 @@ import { formatAttachmentPromptBlock } from '../common/attachment-prompt'
 import { formatDiffRequirementsPrompt } from '../common/diff-requirements'
 import type { AdapterSpawnEnvPatch } from '../common/harness-config'
 import type { NativeHistoryRequest, NativeHistoryResult } from '../common/native-history'
-import { recoveredPrompt } from '../common/recovery'
+import { recoveredPrompt, routeNativeSession } from '../common/recovery'
 import { isRiskyTool } from '../common/risky-tools'
 import { runtimeApprovalToolNames } from '../common/runtime-tool-policy'
 import type {
@@ -370,10 +371,12 @@ export class ClaudeAdapter implements SessionAdapter {
     private readonly pluginSnapshots?: import('../common/plugin-snapshots').PluginSnapshotPort,
     private readonly preferences?: () => ClaudePreferences | undefined
   ) {}
-  async recoverSession(
-    req: NativeHistoryRequest
-  ): Promise<{ sessionId: string; freshStart: boolean }> {
-    return { sessionId: req.sessionId, freshStart: true }
+  async recoverSession({
+    sessionId
+  }: NativeHistoryRequest): Promise<{ sessionId: string; freshStart: boolean }> {
+    let replacement = randomUUID()
+    while (replacement === sessionId) replacement = randomUUID()
+    return { sessionId: replacement, freshStart: true }
   }
 
   readHistory(req: NativeHistoryRequest): Promise<NativeHistoryResult> {
@@ -513,7 +516,7 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     }
     try {
-      return this.openChannel(
+      const live = this.openChannel(
         {
           ...req,
           extensions: { ...req.extensions, skills: owned.skills, pluginRoots: owned.pluginRoots }
@@ -521,6 +524,9 @@ export class ClaudeAdapter implements SessionAdapter {
         release,
         prepared
       )
+      return req.nativeSessionId && req.sessionId
+        ? routeNativeSession(live, req.nativeSessionId, req.sessionId)
+        : live
     } catch (error) {
       release()
       throw error
@@ -546,6 +552,9 @@ export class ClaudeAdapter implements SessionAdapter {
       effort,
       isSubagentBlocked
     } = req
+
+    const nativeId = req.nativeSessionId ?? sessionId
+    const routeSessionId = (id: string): string => (sessionId && id === nativeId ? sessionId : id)
 
     let appliedOutputStyle = this.preferences?.()?.outputStyle ?? DEFAULT_CLAUDE_OUTPUT_STYLE
     const settings: Record<string, unknown> = {
@@ -668,8 +677,8 @@ export class ClaudeAdapter implements SessionAdapter {
           // fork/handoff(0064) — forkFrom 세션의 이력 복사본으로 시작하되 SDK 가 새 session_id
           // 를 발급한다(원본 불변). 새 id 는 init(session.updated)에서 ctx 로 흡수된다.
           ...(req.recovery?.freshStart
-            ? { sessionId: sessionId ?? undefined }
-            : { resume: req.forkFrom ?? sessionId ?? undefined }),
+            ? { sessionId: nativeId ?? undefined }
+            : { resume: req.forkFrom ?? nativeId ?? undefined }),
           ...(req.forkFrom !== undefined ? { forkSession: true } : {}),
           includePartialMessages: true,
           agentProgressSummaries: true,
@@ -726,7 +735,7 @@ export class ClaudeAdapter implements SessionAdapter {
           // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
           ...withPostCompactHook(
             mergeHooks(
-              adaptHooks(extensions.hooks),
+              adaptHooks(extensions.hooks, routeSessionId),
               makePlanFileHook(planFileCell, plansDir),
               makeOutputFilesHook(
                 extensions.outputFiles,
@@ -936,7 +945,7 @@ export class ClaudeAdapter implements SessionAdapter {
             if (mode && typeof msg.session_id === 'string' && msg.session_id.trim() !== '') {
               // init 은 session.updated 소비 전이므로 composition 이 세션을 확정할 때까지 보류한다.
               // status 는 표시/controller 에만 전달하고 세션 생성 이벤트로 바꾸지 않는다.
-              req.onPermissionModeChanged?.(msg.session_id, mode)
+              req.onPermissionModeChanged?.(routeSessionId(msg.session_id), mode)
             }
           }
           for (const event of events) {

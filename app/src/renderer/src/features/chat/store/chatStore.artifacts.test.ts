@@ -1,3 +1,4 @@
+import { userMessageId } from '../../../../../shared/message-id'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { chatActions, ingestChatEvent, useChatStore } from './chatStore'
 import { installChatStoreHarness } from './chatStore.testHarness'
@@ -72,6 +73,7 @@ it('nested late completion retains the main live preview and attaches only to it
   })
   ingestChatEvent({
     type: 'message.committed',
+    messageKey: userMessageId(['next']),
     messageId: 2,
     sessionId: 's',
     text: 'next',
@@ -96,6 +98,7 @@ it('a captured output updates the original background session without starting a
   installChatStoreHarness({
     messages: [
       {
+        id: 'm-100',
         role: 'assistant',
         createdAt: 1,
         parts: [{ type: 'tool_call', toolRunId: 'write', toolName: 'Write', args: {} }]
@@ -127,6 +130,7 @@ it('a capture for an unknown session cannot fall back to a pending draft with th
   installChatStoreHarness({
     messages: [
       {
+        id: 'm-131',
         role: 'assistant',
         createdAt: 1,
         parts: [{ type: 'tool_call', toolRunId: 'write', toolName: 'Write', args: {} }]

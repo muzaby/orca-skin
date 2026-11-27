@@ -2,12 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { AppMessagePart, LoadedSession, NormalizedEvent } from '../../../../../shared/ipc'
 import type { NonExecution } from '../../../../../shared/tool-outcome'
 import { chatReducer, initialChatState, type ToolCall } from '../reducer/chatReducer'
-import {
-  deriveSubagentTaskStatus,
-  messageSegments,
-  partsToolCalls,
-  reconcileSegments
-} from './parts'
+import { deriveSubagentTaskStatus, partsToolCalls } from './parts'
+import { createSegmentCache } from './segmentCache'
 import { createWorkProjector } from './workActivity'
 
 const rejected: NonExecution = { source: 'sdk', kind: 'user-rejected' }
@@ -110,10 +106,11 @@ describe('0239 nonExecution renderer contract', () => {
     })
     state = chatReducer(state, { type: 'RECV_EVENT', event: completed(before) })
     const parts = state.messages.at(-1)!.parts
-    const prev = messageSegments(parts)
+    const cache = createSegmentCache()
+    cache.segmentsFor(state.messages.at(-1)!)
     state = chatReducer(state, { type: 'RECV_EVENT', event: completed(after) })
     const updatedParts = state.messages.at(-1)!.parts
-    const next = reconcileSegments(prev, messageSegments(updatedParts))
+    const next = cache.segmentsFor(state.messages.at(-1)!)
     if (next[0].kind !== 'tools') throw new Error('tools')
     expect(next[0].calls[0].result?.nonExecution).toEqual(after)
     const project = createWorkProjector()
@@ -121,9 +118,9 @@ describe('0239 nonExecution renderer contract', () => {
       type: 'response_boundary',
       boundary: { phase: 'begin', id: 'r' }
     }
-    project([{ role: 'assistant', createdAt: 1, parts: [boundary, ...parts] }])
+    project([{ id: 'm-121', role: 'assistant', createdAt: 1, parts: [boundary, ...parts] }])
     const nodes = project([
-      { role: 'assistant', createdAt: 1, parts: [boundary, ...updatedParts] }
+      { id: 'm-123', role: 'assistant', createdAt: 1, parts: [boundary, ...updatedParts] }
     ])!
     const activity = nodes.find((node) => node.kind === 'activity')!
     const segment = activity.items[0].segment
@@ -131,24 +128,33 @@ describe('0239 nonExecution renderer contract', () => {
     if (segment.kind !== 'tools') throw new Error('expected tool segment')
     expect(segment.calls[0].result?.nonExecution).toEqual(after)
   })
+  function assistant(parts: AppMessagePart[]): {
+    id: string
+    role: 'assistant'
+    createdAt: number
+    parts: AppMessagePart[]
+  } {
+    return { id: 'a:1', role: 'assistant', createdAt: 1, parts }
+  }
+
   it('reuses equal values and unchanged siblings but replaces changed feedback', () => {
     const sibling = { ...call, toolRunId: 'sibling' }
-    const prev = messageSegments([call, sibling, receipt(rejected)])
-    expect(
-      reconcileSegments(prev, messageSegments([call, sibling, receipt({ ...rejected })]))
-    ).toBe(prev)
-    const next = reconcileSegments(
-      prev,
-      messageSegments([call, sibling, receipt({ ...rejected, userFeedback: 'later' })])
+    const cache = createSegmentCache()
+    const prev = cache.segmentsFor(assistant([call, sibling, receipt(rejected)]))
+    expect(cache.segmentsFor(assistant([call, sibling, receipt({ ...rejected })]))).toBe(prev)
+    const next = cache.segmentsFor(
+      assistant([call, sibling, receipt({ ...rejected, userFeedback: 'later' })])
     )
     if (prev[0].kind !== 'tools' || next[0].kind !== 'tools') throw new Error('tools')
     expect(next[0].calls[0]).not.toBe(prev[0].calls[0])
     expect(next[0].calls[1]).toBe(prev[0].calls[1])
   })
-  it('reconciles the ask segment through the same result equality', () => {
+
+  it('updates an ask segment through the same result equality', () => {
     const ask = { ...call, toolName: 'AskUserQuestion' }
-    const prev = messageSegments([ask, receipt(rejected)])
-    const next = reconcileSegments(prev, messageSegments([ask, receipt(cancelled)]))
+    const cache = createSegmentCache()
+    const prev = cache.segmentsFor(assistant([ask, receipt(rejected)]))
+    const next = cache.segmentsFor(assistant([ask, receipt(cancelled)]))
     expect(next[0]).not.toBe(prev[0])
     expect(next[0]).toMatchObject({ kind: 'ask', call: { result: { nonExecution: cancelled } } })
   })

@@ -23,6 +23,7 @@ import { addSessionDirectory } from './session-directory'
 // 실행 상태는 에이전트 호스트에 있다 — 데이터 호스트는 물어서 안다(0324 F4 · AC19′ · AC43). 에이전트
 // 호스트가 없으면 쉬는 상태로 답한다(그 판정은 주입하는 쪽이 한다).
 export interface SessionDisposeHooks {
+  historyIndex?: import('../../features/history/turn-index').HistoryIndex
   isSessionBusy?: (sessionId: string) => boolean | Promise<boolean>
   onSessionDisposed?: (sessionId: string) => void | Promise<void>
   getActivity?: (sessionId: string) => ChatActivitySnapshot | Promise<ChatActivitySnapshot>

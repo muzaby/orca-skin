@@ -1,3 +1,7 @@
+import {
+  subagentTasksFromMessages,
+  taskBoardFromMessages
+} from '../../../lib/transcriptIndex.legacy.testfixture'
 // 0212 — SDK 표면 결손 6건의 **화면 산출**을 잠근다. 파생 규칙은 `lib/taskBoard.test.ts` 가,
 // 정규화는 `main/adapters/claude/map.test.ts` 가 본다. 여기서는 그것들이 실제로 사용자에게
 // 도달하는지만 본다.
@@ -14,8 +18,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { SubAgentTaskList } from '../../claude/rightpanel/LegacySubAgentTile'
 import { TaskProgressList } from '../../claude/rightpanel/TaskTileContent'
-import { subagentTasksFromMessages } from '../../../lib/parts'
-import { taskBoardFromMessages, taskBoardOrdered } from '../../../lib/taskBoard'
+
+import { taskBoardOrdered } from '../../../lib/taskBoard'
 // 메타 라인의 구분자는 **U+00A0 두 개**다 — 리터럴 공백으로 적으면 단언이 통과하지 않는다.
 import { META_GAP } from '../../../lib/toolMeta'
 import { TaskToolBody } from '../../claude/transcript/tool-bodies/TaskToolBody'
@@ -26,7 +30,7 @@ let runSeq = 0
 const nextRun = (): string => `run${(runSeq += 1)}`
 
 const messages = (...parts: AppMessagePart[][]): Message[] => [
-  { role: 'assistant', createdAt: 1_700_000_000_000, parts: parts.flat() }
+  { id: 'm-29', role: 'assistant', createdAt: 1_700_000_000_000, parts: parts.flat() }
 ]
 
 // 할 일 항목 한 건 — 생성 후 (선택) 진행 중 전환. `activeForm` 은 **입력에만** 실린다.

@@ -3463,3 +3463,645 @@ DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0.
 
 - 자리 문장의 "항" 경계(괄호 목록 · `·` 항목)는 구현자가 읽어 나눈다 — 검증자 ⑦ 이 같은 방법으로 다시 세는 것이 방어다.
 - 실창(Electron) 검증은 이 환경에서 불가(E) — AC22·AC23·AC52 실창은 사람 실기.
+
+# review round 46 — 0326 (verify 3회째 RETURN_TO_PLAN): 수치 계약은 그 수치가 걸린 런타임에서 잰다
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0326 verify 3회째 `RETURN_TO_PLAN`(`f06d15ba`) 뒤 다음 재구현 전 의무 review. 사용자 `/handoff-review` 후 질의에서 "APPLY (Recommended)" 선택(2026-11-20).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | r1 D1 — 앵커 캡처 미배선 | 0326 r1 X01 | **F** — 구현 결함, verify 가 잡음. 지침 변경 없음 |
+| 2 | r1 D2 · r2 D7~D15 — 좌표 부재, 이어서 좌표가 production 경로 밖·상수·로컬 재구현 | 0326 r1·r2 · P54~P57 | **B** — impl §3 "실행 구간" · §5 "production 경로에 실제로 진입" · verify §2 가 이미 요구했고 verify 가 잡았다. 지침 변경 없음 |
+| 3 | r3 D16 — 복사 상한을 가짜 DOM 측정기(J9)로 정하고 실제 Chromium 보정을 기계 PASS 뒤 사람 S5 로 미뤄, 상한 2,000 의 task 가 J9 4.43ms · Chromium 579~698ms | 0326 r3 §2 · P22 · P37 | **A** — plan §5 "사람 실기는 시각·실제 외부환경에만"은 로직만 다루고, 에이전트가 띄울 수 있는 런타임의 수치 계약은 다루지 않았다. verify §7 "상한 재측정"도 같은 대리 측정기를 다시 돌리면 정상 수행으로 놓친다(r1·r2 가 그랬다). plan §5 에 수치 계약 bullet, verify §7 에 목표 런타임 재측정 문장을 더함(P22 개정) |
+
+**verify 분류 대조(§2)**: D16 은 ACTIVE D-094(task ≤ 50ms)를 실제 입력·실제 트리로 재현한 현재 결함이고, D-088 이 판정 측정기를 J9 로 고정해 계약 정정이 필요하므로 `PLAN_GAP` 이 맞다. D17(보드·trailer 운영) 비귀속 `NON_BLOCKING` 도 맞다. 거짓 PASS · FAIL inflation 방향 왜곡 0.
+
+## Tier
+
+**Tier 1.** plan 의 AC·사람 실기 정책과 verify §7 의 재측정 범위가 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `f06d15ba`. `instruction_delta.py --base f06d15ba --prose`(대상 3파일 — plan SKILL · `plan.template.md` · verify SKILL, pool `docs/handoff/AGENTS.md`) 후보 **0**. `--word-diff` 로 지운 단어 3개(`없다.`×2 · `이유`)는 모두 같은 문장을 늘린 것이다.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| plan SKILL §5 사람 실기 bullet | KEEP + 추가 | 원문 그대로 + 수치 계약 bullet |
+| plan SKILL · `plan.template.md` 체크리스트 "사람 실기로 미룬 순수 로직이 없다" | REPLACE(강화) | 원문 + 수치 계약 절 — 본문 bullet 에 매핑 |
+| `plan.template.md` §7 사람 실기 항목 이유 | REPLACE(강화) | 수치 항목의 이유 칸 추가 |
+| verify SKILL §7 | KEEP + 추가 | 원문 그대로 + 한 문단 |
+| 명령·gate·reference·script | 없음 | 이동·삭제 0 → inbound `N`/`M/M` 대상 없음 |
+
+DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0.
+
+## 6-B Historical Failure Regression
+
+- **68 P 전수**(`rg -c '^## P[0-9]+'` 68) · 변경 후 **COVERED 68** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0(6-A)이라 round 45 의 COVERED 68 이 그대로다.
+- 바뀐 P: **P22** 강화(사람 실기 하치장 → 수치 계약까지). 끝에 개정 메모. 새 causal class 아님 → 새 P 없음.
+- **P2**(측정 불가 AC) · **P18**(실기 불가 선언 전 핸들 탐색 — 검증자) · **P37**(structural proxy): 유지 — 새 bullet 은 P37 의 "proxy 가 목표를 대신하지 못한다"를 측정 환경에 적용하고, P18 의 검증자 방어를 §7 수치 재측정에도 건다.
+- P1 · P3~P17 · P19~P21 · P23~P36 · P38~P68: 방어 지점 불변(이번 변경이 닿지 않음).
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0326 r3 D16(J9 ↔ Chromium) | 검증자 ⑥ 실측이 발견 → 현재 결함 + `PLAN_GAP` | plan READY 전 목표 런타임 실측 bullet 이 발동 · 놓치면 verify §7 이 1회째에 같은 분류로 잡음 | 거짓 PASS 0 · 발견 시점 3회째 → 설계/1회째 |
+| 0162(P22 원 사례 — 로직을 사람 실기로) | 규칙 발동 | 같음 | 같음 |
+| 0324 AC22·AC23·AC52(실창 Electron) | 사람 실기 — 환경 제약(E) | 같음 — 에이전트가 띄울 수 없는 런타임은 새 bullet 의 발동 밖 | inflation 0 |
+| 0325 W 기준선(Windows 절대값) | 사람 실기 | 같음 — 기준 장비 절대값은 사람 몫으로 남음 | inflation 0 |
+
+- **시나리오 replay**: 대리 측정기 상한이 목표 런타임에서 통과 → 비만 기록, 판정 불변 / 목표 런타임에서 계약 위반 → verify 현재 결함(창 무관 `BLOCKING`, 계약 정정 필요 시 `PLAN_GAP`) — 다음 주체 있음 / 목표 런타임을 띄울 수 없는 환경 → 사람 실기 이유 칸에 적고 기존 E 경로 / 9회째 CLOSED · 후보 표 승격 경로 불변. 다음 주체 없는 상태 0 · 같은 축 무한 반복 0.
+
+## 6-C Cross-document Consistency
+
+- plan SKILL §5 bullet · 체크리스트 · `plan.template.md` §7 이유 칸·체크리스트 · verify SKILL §7 문단이 같은 범위("에이전트가 띄울 수 있는 목표 런타임에서 잴 수 있는 수치 계약")와 같은 경계("사람 실기 = 기준 장비 절대값")를 쓴다. verify §5(핸들 탐색) · §11 현재 결함 정의와 충돌 없음.
+- impl SKILL 에는 해당 규칙이 없고 원래도 없었다(설계·검증 책임). `docs/handoff/AGENTS.md` · root `AGENTS.md` · SKILL frontmatter description · `app/AGENTS.md`(Playwright·Chromium 사용은 `app/AGENTS.md` 의존성 정책과 무관 — 증거 스크립트) · CI 정본은 이번 변경이 닿지 않는다. 새 `AGENTS.md` 없음 · 위생 0.
+
+## 전환 (§8)
+
+판정 의미(발견 분류 · disposition · 확장 창 · 하한이 막는 범위)는 바뀌지 않았다 — 목표 런타임 계약 위반은 변경 전에도 현재 결함이었다. 0326 verify 3 판정(RETURN_TO_PLAN — D16 PLAN_GAP)은 새 규칙에서도 같아 정정 대상 없음.
+
+## 남은 한계
+
+- "에이전트가 띄울 수 있는가"는 환경마다 다르다(Chromium 은 이 컨테이너에 있으나 Electron 실창은 없다) — plan 이 이유 칸에 적고 verify 가 다시 시도하는 것이 방어다.
+- 목표 런타임 실측도 CPU 경합에 흔들린다(0326 구현자 100블록 150~400ms ↔ 검증자 경합 없이 27~31ms) — 측정 조건을 같이 적는 것까지만 지침이 요구한다.
+
+# review round 47 — 0326 (verify 6회째 FAIL) + 사용자 요구: 넓은 변이의 red는 그 안의 항을 잠그지 않는다 · `잡음`은 그 좌표의 실패여야 한다 · 구현 에이전트에 Gemini 추가
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0326 verify 6회째 `FAIL`(`5baf3f1`) 뒤 r7 착수 전 의무 review. 사용자 `/handoff-review` 후 질의에서 **APPLY** 선택(2026-11-22). 진행 중 사용자 추가 요구 "handoff-impl 을 수행하는 에이전트가 gemini/안티그래비티일 수 있다" — 후속 질의에서 trailer 값 `gemini` 하나 · 도구별 stub 없이 지침만 선택.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | §10 자리 `gestureRef.current = 'idle'`(rev 3 `:261`)과 S5 자리(rev 5 `:261-264` — "제스처 `idle` · 억제 해제")를 r5 구현·verify 5회째·r6 구현이 모두 블록 통째 제거 V20(`:258-263`)의 red로 닫았다. 그 줄만 지운 Y6는 IT 24/24 green(D28) | 0326 r5·r6 · P59 · P62 | **A** — P59 규칙 "변이의 red는 그 변이가 바꾼 항만 잠근다"를 글자대로 읽으면 두 항을 함께 지운 V20이 두 항을 잠근다. 정상 수행으로도 실패한다. "바꾼 항이 하나일 때만"으로 일반화하고 ⑦ 기본 변이를 "그 항목만 지우는 변이 — 넓은 등록 변이로 갈음하지 않음"으로 고정(P59 개정) |
+| 2 | r6 구현 sweep에 S5 항별 변이 0 — impl §3 diff 자리 규칙이 "이번 diff가 그 칸을 구현하며 만든" 자리라, r4.1에 쓴 S5 코드는 r6 diff 밖이었다 | 0326 r6 · P62(round 45) | **A** — 앞 턴 코드에 새로 열거한 항목이면 정상 수행으로도 빠진다. diff 자리 = 그 칸·항을 구현한 코드(이번 Delta V가 새로 열거하거나 바꿨으면 앞 턴 코드 포함). verify ⑦ "이후" 범위에도 그 항목을 명시(P62 개정) |
+| 3 | r5가 V2를 AT B1·C1·C2·C3 묶음으로 돌려 red로 보고 — C3 red는 B1이 남긴 `endsMounted: false` 오염, 단독은 green(verify 5회째 D18 재개) | 0326 r5 | **A** — red의 실패 이유를 읽으라는 지침이 없었다(구현자는 오염을 적고도 판정 영향 없음으로 분류). 새 causal class **P69** — `잡음`은 좌표가 그 변이 때문에 실패했을 때만, 상태를 공유하는 좌표는 하나씩 |
+| 4 | ΔV3가 판정 조건 `cancelMs ≥ 1`을 빼 V2의 유일한 AT 신호가 사라졌고, r4.2는 판정기 자기 변이(V10~V13·V17·V18)만 다시 돌렸다(verify 4회째 D18) | 0326 r4.2 · P50 | **B** — impl §3 "장치를 교체·삭제했다면 구 장치가 red로 만들던 변이를 새 장치도 red로" · "자기 spec만이 아니라"가 이미 요구. verify 4회째가 잡음. 지침 변경 없음 |
+| 5 | s10 좌표가 OpenCode 행이 아니라 일반 블록(D19) | 0326 r4 · P55·P57 | **B** — AGENTS §공통 V 실행 구간·production 조립 규칙. 지침 변경 없음 |
+| 6 | ΔV3 자리 술어 `launchFailure`가 해법 이름이라 `:173`을 뺐다(D27) | 0326 ΔV3 설계 · P58 | **B** — plan §5-A "검색 술어는 불변식의 주어로(해법 이름 금지)". verify 5회째가 잡음. 지침 변경 없음 |
+| 7 | D20~D22 · D25 · D26 — 창 안 확장 후보 채택 | 0326 verify 4·5회째 | 실패 아님 — 정상 경로. ΔV2·ΔV3 사용자 결정 변경은 **D** |
+| 8 | `src/main` Windows 경로 픽스처 9파일 22건(r1~r6) | 환경 | **E** — 기록만 |
+| 9 | 구현 에이전트가 Gemini(Gemini CLI·Antigravity)일 수 있다 — `Agent`·`Next-Action` 허용값 `codex|claude`, 역할 표·보드 범례·impl 진입 문장이 Codex 고정 | 사용자 요구 | 지침 변경 — trailer 값 `gemini` 추가(사용자 결정) · 역할·보드·상태 표를 "구현 에이전트(Codex·Gemini)"로 · skill 로더가 없는 도구는 `SKILL.md`를 파일로 직접 읽는다 · `python3`가 없는 환경의 하네스 실행 |
+
+**verify 분류 대조(§2)**: D28은 S5 자리 문장 "제스처 `idle`" 인용 + 입력 칸(s9-screens "속성 null")이 자리 문장보다 좁아 이행 `BLOCKING`이 맞다 — 새 규칙에서도 같다(구현 sweep이 먼저 찾는다는 차이뿐). verify 4·5회째 D18 이행 · D27 plan 내부(`PLAN_GAP`) · D20~D22·D25·D26 창 안 확장(`PLAN_GAP`) 모두 맞다. 거짓 PASS · FAIL inflation 방향 왜곡 0.
+
+## Tier
+
+**Tier 1.** 하한 ⑦의 실행 방법(기본 변이 범위 · diff 자리 범위 · verify 이후 범위) · `잡음` 판정 기준 · 구현 owner와 trailer 허용값이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `5baf3f1`. `instruction_delta.py --base HEAD --prose`(대상 8파일 — handoff AGENTS · root AGENTS · git-template · impl · verify · plan SKILL · 두 template) 후보 **1**, INDEX 포함 실행 후보 **2**.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `docs/git-template.md:84` `잃음` `Next-Action: codex|claude|none` | REPLACE(확장) | `codex|gemini|claude|none` + "다음 구현자가 정해져 있으면 그 에이전트" |
+| `docs/handoff/INDEX.md:25` `이동?` `handoff-review` | REPLACE(상태) | 0326 행 다음 주체 `handoff-review` → `구현 r7` — review 완료에 따른 보드 갱신 |
+
+word-diff 지운 단어 전수(10파일): `Codex` 계열 16 → "구현 에이전트(Codex·Gemini)" REPLACE · `항만`·`인자`·`운반`·`변이로`·`자리가 운반하는 인자 항을 닫았다고 세지 않는다(0262` → 일반화 문장 REPLACE(0262 사례 유지) · `1개(제거 — 계약이`·`더함)와`·`1개(제거)를` → "그 항목만 지우는 기본 변이 1개" REPLACE · `이번 diff가`·`구현하며 만든` → "그 칸을 구현한" + 범위 문장 REPLACE · `**skill을`(읽을 수 없는 환경) → "파일조차 읽을 수 없는 환경" REPLACE(강화 — 로더 없는 도구도 `SKILL.md`를 읽는다) · `두`·`에이전트의`·`두 에이전트는` → "에이전트들" REPLACE · `같다.`·`본다.`·`…`·`범위`·`자리마다`·`항)마다` → 같은 문장 연장.
+
+DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0. reference·script 이동 0 → inbound `N`/`M/M` 대상 없음. 바뀐 heading 4개(root `## 협업 워크플로우` · handoff AGENTS H1 · INDEX H1 · git-template `### 구현 커밋`)의 inbound anchor `rg` 0건(`docs/archive`·`chats`·`project` 제외 범위).
+
+## 6-B Historical Failure Regression
+
+- **69 P 전수**(`rg -c '^## P[0-9]+'` 69 — P69 신규) · 변경 후 **COVERED 69** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0(6-A)이라 round 46의 COVERED 68이 그대로다.
+- 바뀐 P: **P59** 강화(블록·여러 항 변이로 일반화 · ⑦ 기본 변이 범위) · **P62** 강화(diff 자리 = 앞 턴 코드 포함) · **P69** 신규. P59·P62 끝에 개정 메모.
+- **P48**(잔여물 red): 유지 — P69 규칙이 AGENTS §고장 내 보기에서 "잔여물 진단"을 전제 실패의 한 형태로 함께 적는다. **P50**(덮개 회귀): 유지 — ④ 재실행의 red도 P69 기준으로 읽힌다. **P60**(열린 분모): 유지 — 항별 기본 변이와 앞 턴 코드 diff 자리는 열거 원문(자리 문장·운반 항·규칙 칸 분기 — "계약이 적은 것만")에만 걸리고, 인용이 없으면 확장이라 일반 hunk가 분모가 되지 않는다. **P41 · P66 · P67**: 유지.
+- **P46**(보드 칸 두 주체) · **P47**(로컬 해시 좌표) · **P51 · P65**(독립 축 — 구현 주체 무관): 유지 — Gemini 구현자도 같은 칸·좌표·⑥ 규칙을 따른다. 범례 `Codex`·`Gemini`는 범례이고 다음 주체 칸은 여전히 하나다.
+- P1~P40 · P42~P45 · P49 · P52~P58 · P61 · P63 · P64 · P68: 방어 지점 불변(이번 변경이 닿지 않음).
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0326 r5·verify 5(V20 → §10 `:261`) | V20 red로 닫힘 — Y6 미시도 | ⑦ 기본 변이가 `:261`만 지움 → r5 sweep이 Y6 `못 잡음` → 입력 추가(구현 턴 안) | 거짓 PASS 0 · 발견 시점 verify 6 → r5 |
+| 0326 r6 D28(S5 두 항) | verify 6회째 ⑥이 발견 → 이행 `BLOCKING` | r6 sweep이 앞 턴 코드 diff 자리에 항별 변이 → 놓치면 같은 이행 | 같음(분류 불변) |
+| 0326 r5 D18(C3 묶음 오염) | 구현자 red 보고 → verify 5 단독 green → `PAIR_FAIL` | 구현자가 실패 이유를 읽고 단독 재실행 → IMPL_DONE 전 발견 | 거짓 PASS 0 · 라운드 1 절감 가능 |
+| 0262 r6(호출 변이 → 인자 항) | 인자 항 미잠금 | 같음(일반화 문장이 포함) | 같음 |
+| 0324 r3 EP-29 ③(자리 문장 항) | 이행 `BLOCKING` | 같음 | 같음 |
+| 0262 r4~r8(열린 분모) | 창 안 `PLAN_GAP` · 창 밖 후보 표 | 같음 — 블록 안 비열거 문장은 항이 아님 | inflation 0 |
+| 0198 r7→r8(잔여물 red) | 수렴까지 밀기 | 같음 + 전제 실패 일반 규칙 | 같음 |
+
+- **시나리오 replay**: 창 경계(verify 2 → 3) — 항별 `못 잡음`이 자리 문장·규칙 칸 인용이면 창과 무관하게 이행, 인용 없으면 창 안 `PLAN_GAP` · 창 밖 후보 표(inflation 0) / 창 안 사용자 요구 변경 ΔV — 새로 열거한 항목은 앞 턴 코드라도 구현자 sweep·verify ⑦ "이후" 범위에 든다(다음 주체 있음) / 묶음 실행 red의 이유가 전제 실패 → 단독 재실행 결과로 판정, 단독도 red면 `잡음`(거짓 PASS 0 · inflation 0) / Gemini 구현자 → `Agent: gemini` 커밋 · 검증 커밋 `Next-Action: gemini` · INDEX 다음 주체 `Gemini` — 다음 주체 없는 상태 0 / skill 로더 없는 도구 → `SKILL.md` 직접 읽기, 파일도 못 읽으면 AGENTS 최소 계약(이번 규칙 4개 모두 포함) / 9회째 CLOSED · 후보 표 승격 · §8 정정 경로 불변. 같은 축 무한 반복 0.
+
+## 6-C Cross-document Consistency
+
+- 일반화 문장(블록·여러 항 변이): AGENTS §공통 V · impl §2 · verify §6 · plan §5-A · `plan.template.md` 강제 지점 인용문 · `verify.template.md §5`가 같은 범위다. "항"의 정의(운반 항 · 자리 문장의 항 · 규칙 칸 분기 — 계약이 적은 것만)는 AGENTS 한 곳에 두고 나머지는 §공통 V를 가리킨다.
+- ⑦ 기본 변이 "그 항목만 지움 · 넓은 등록 변이로 갈음 없음": AGENTS ⑦ 행 · §단계별 절차 2 · impl §3 · verify ⑦ 행·bullet · 두 template — 같다. verify "이후" 범위(diff가 닿은 항목 · 이번 Delta V가 새로 열거하거나 바꾼 항목 · 직전 실패): AGENTS ⑦ 행 · §단계별 절차 3 · verify ⑦ 행 · `verify.template.md` — 같다. 구현자는 전수 그대로.
+- diff 자리 앞 턴 코드: AGENTS §고장 내 보기 · §단계별 절차 2 · impl §3 · verify ⑦ bullet · `plan.template.md` — 같다. `잡음` 실패 이유: AGENTS §고장 내 보기 · §단계별 절차 2 · impl §3 · verify §4 · 두 template — 같다.
+- 구현 에이전트·trailer: root AGENTS 표(`Agent`·`Next-Action`에 `gemini`) · 구현 커밋 줄 · `docs/git-template.md` 표·형식·작성 규칙 · handoff AGENTS 역할 표·상태 표·충돌 최소화 · INDEX 범례 · impl 진입·마무리 — 같은 값. verify·review SKILL은 trailer 값을 root·git-template에 위임한다(`rg` 확인).
+- skill 읽기: handoff AGENTS 머리말("로더 없는 도구는 `SKILL.md`를 파일로 · 파일도 못 읽으면 최소 계약") ↔ root AGENTS "skill 을 읽지 못하는 환경을 위한 구현 턴 최소 계약" ↔ impl 진입 문장 — 충돌 없음. impl frontmatter description을 본문과 맞췄다.
+- root `AGENTS.md` 위생: 비밀·일회성·변동성 정보 0(도구 이름은 역할 매핑). 새 `AGENTS.md` 0 · 도구별 stub 0(사용자 결정) → `CLAUDE.md` stub·root 표 갱신 대상 없음. `app/AGENTS.md`·`ci.yml` 명령 불변. `node scripts/check-doc-inventory.mjs --check` links·prose ok · `check-product-naming` OK.
+
+## 전환 (§8)
+
+판정 의미 중 하한 실행 방법과 `잡음` 기준이 바뀌었으나, 0326 verify 6회째의 판정과 다음 주체는 새 규칙에서도 같다 — D28은 이행 `BLOCKING`(Y6 green · Y7 red), V20은 등록 변이 자체로 `잡음`, V2 AT B1은 claude-code 0번 기록이 실제 신호(클립보드 = 복사 문자열)라 `잡음`, C3은 9기록 모두 `endsMounted: true`의 실제 실패라 `잡음`. 정정 대상 없음. INDEX 0326 행 다음 주체를 `handoff-review` → 구현 r7로 갱신했다. 새 sweep 규칙(항별 기본 변이)은 r7 구현 sweep부터 걸린다.
+
+## 남은 한계
+
+- "계약이 적은 항"의 경계(블록 안 어떤 문장이 자리 문장의 항을 구현하는가)는 구현자가 읽어 나눈다 — 검증자 ⑦이 같은 방법으로 다시 세는 것이 방어다.
+- 실패 이유의 판독은 oracle 출력에 이유가 남을 때만 된다 — 이유가 없는 oracle은 좌표 단독 실행으로 판정한다.
+- Gemini CLI·Antigravity의 skill 로더·기본 컨텍스트 파일 동작은 이 컨테이너에서 확인하지 않았다(E) — 지침은 도구 설정에서 `AGENTS.md`를 읽게 하고 `SKILL.md`를 직접 읽으라고만 요구한다.
+
+# review round 48 — 0327 (verify 3회째 FAIL): ⑦ 전수 잔여의 이월과 구현자 sweep의 `S/N`
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0327 verify 3회째 `FAIL`(`650cf73d`) 뒤 r4 착수 전 의무 review. 검증자가 "`handoff-review`를 바로 진행할까요?"라고 묻자 사용자가 `/handoff-review`를 실행 → **APPLY**(2026-11-24).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | verify 1이 V1 rev 3 §10 자리(EP-1~EP-25)를 plan 좌표 부재를 이유로 부분 sweep하고 "다음 verify가 잇는다"고 적었다. verify 2는 `SELF_BLOCKED`를 이유로 돌리지 않았고, ⑦ "이후" 범위(diff · Delta V 새 항목 · 직전 실패)에 그 잔여가 없었다. verify 3에서야 L2~L4(EP-6 ② · EP-7 ① 항 제거 green)가 나왔고 L1(EP-4 ① 크기 산식)도 같은 회차에 나왔다 | 0327 verify 1~3 · P66 · P12 | **A** — P66은 1회째 전수를 요구하지만 미완으로 끝난 회차의 잔여를 누가 언제 돌리는지 정하지 않았다. 글자대로 따르면 verify 2·3의 범위에서 빠진다. ⑦ 범위에 "앞 verify가 남긴 전수 잔여"를 더하고, 잔여가 남은 verify는 PASS하지 않으며(FAIL·RETURN_TO_PLAN만 넘길 수 있음) 좌표 부재는 미룰 이유가 아니라고 적었다. 새 causal class **P70** · P66 개정 메모 |
+| 2 | r3가 pair마다 `SELF_PASS`를 적었지만 V1 rev 3 원장은 pair당 1~6행이었다. 검산 `87 · 11 · 12 · 34 = 144`는 행 합계라 분모 대비가 드러나지 않았다 | 0327 r1~r3 · P40 · P41 | **A** — "sweep S는 열거 항목 수와 같아야 한다"는 2026-11-20 `plan.template.md`에만 있었고 impl SKILL·AGENTS 최소 계약에는 없었다(0327 plan은 그보다 먼저 써서 문장이 없다). impl §3·§9 · AGENTS ⑦ 행·§단계별 절차 2 · template에 `S/N`과 남긴 항목을 두고, 남긴 항목이 있는 pair는 `SELF_PASS`로 적지 않게 했다. verify §4 "다시 센다"에 `S/N`을 더했다 |
+| 3 | verify 3이 r3 `[구현자 기입]` 일곱 필드를 PASS로 적었다. 강제 지점 표는 EP 단위 테스트 목록이었고 pair마다 §10 자리 `N/M`과 `남긴 곳`이 없었다 | 0327 verify 3 · P52 | **B** — verify §9 "강제 지점 표는 그 pair의 §10 자리 전부와 `남긴 곳`을 담아야 한다(0262 r3)"가 이미 요구했다. 지침 변경 없음. 판정은 FAIL이라 결과가 같고, verify 4가 §9와 새 `S/N`으로 다시 센다 |
+| 4 | L1 — `requestSize`에 평균 줄 길이가 r1부터 없었다 | 0327 r1 | **F** — 계약(EP-4 ①)은 충분했다. 놓친 이유는 #1(규칙 칸 분기 입력을 1회째 전수로 보지 않음)이다 |
+| 5 | Y1~Y5 — 창 밖 확장 후보 | 0327 verify 3 | 실패 아님 — 정상 경로(후보 표) |
+| 6 | SQLite ABI 393 · `smoke-hosts` · AC30 Windows 실기 | 환경 | **E** — 기록만 |
+
+**verify 분류 대조(§2)**: L1은 EP-4 ① 산식 인용 + 코드 `lengthOf` 0건이라 이행 `BLOCKING`이 맞다. L2~L4는 자리 문장 항 인용("`highlightWords` 일 때" · "old 는 added 제외" · "증감 수")이 되는 `못 잡음`이라 이행이 맞다. Y1(⑫ else 분기)은 "이면 해제"의 반대를 읽으려면 해석이 필요해 확장이 맞고, Y2~Y5도 인용할 원문이 없다. E7-D3 동치(`newLine` 유일) · V3-M18 동치(fail-closed)도 맞다. 거짓 PASS 방향 왜곡 0 · FAIL inflation 0. #3은 verify 3이 놓친 이행 결함(필드 접힘)이지만 판정에 영향이 없다.
+
+## Tier
+
+**Tier 1.** 하한 ⑦의 실행 범위(검증자 이후 회차) · PASS 조건 · 구현자 `SELF_PASS` 조건 · CLOSED 이관 내용이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `867ab06b`. `instruction_delta.py --base HEAD --prose --pool docs/handoff/AGENTS.md`(대상 6파일 — handoff AGENTS · verify · impl · review SKILL · 두 template) 후보 **0**.
+
+word-diff 지운 단어 전수:
+
+| 파일 | 지운 단어 | 판정 |
+|---|---|---|
+| verify SKILL | `` `Criteria-Met`과 `` · `` `N/M`은 `` | REPLACE(확장) — "`Criteria-Met` · 강제 지점 `N/M` · sweep `S/N`은" |
+| verify SKILL | `PASS다.` | REPLACE(확장) — PASS 조건에 ⑥ 존재 · ⑦ 잔여 0을 더했다(⑥은 §4에 이미 있던 조건을 옮겨 적음) |
+| verify SKILL · AGENTS §라운드 | `행을` ×2 | REPLACE(확장) — CLOSED 이관에 "⑦ 전수 잔여"를 더한 문장 연장 |
+| verify template | `실패)` ×2 | REPLACE(확장) — 범위에 "앞 verify 전수 잔여" |
+| AGENTS ⑦ 행 · §단계별 절차 3 | `전수,` · `항목.` | REPLACE(확장) — `S/N` 괄호 · 잔여 문장 연장 |
+| impl SKILL | `남긴다.` · `적는다.` | REPLACE(확장) — sweep 결과 문장 · 검산 문장 연장 |
+| review SKILL | `` 잡음` `` · `§4` | REPLACE(확장) — 지표 행에 `S/N`·전수 잔여 · verify 메타 |
+| plan template | `sweep S는` · `수와` · `한다.` · `§9).` | REPLACE — "S는 N과 같아야 한다(IMPL_DONE 전 전수)"를 유지하고 `S/N` 표기 · 남긴 항목 · `SELF_PASS` 조건을 더했다 |
+
+상태 사본: INDEX 0327 행 다음 주체 `handoff-review → codex r4` → `Codex (구현 r4)` · 0327 plan 상태 줄 — REPLACE(상태, review 완료에 따른 보드 갱신).
+
+KEEP 외 DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0. reference·script 이동 0 → inbound `N`/`M/M` 대상 없음. heading 변경 0.
+
+## 6-B Historical Failure Regression
+
+- **70 P 전수**(`rg -c '^## P[0-9]+'` 70 — P70 신규) · 변경 후 **COVERED 70** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0(6-A)이라 round 47의 COVERED 69가 그대로다.
+- 바뀐 P: **P66** 강화(잔여 이월 · `S/N` — 개정 메모) · **P70** 신규.
+- **P12**(조사 가능한 것을 불가로 선언): 강화 — ⑦에서 "plan 좌표가 없다는 것은 미룰 이유가 아니다"가 같은 꼴을 막는다. **P39 · P40 · P41**(자기보고 재현 · 합계 · 도구가 정의한 전수): 유지·강화 — `S/N`은 합계가 아니라 분모 대비이고 남긴 항목은 차집합이다. **P52**(분모를 §10 항목으로 셈): 유지 — `N`은 "§10 자리 검색 · pair path · 규칙 칸에서 센 수"로 자리 단위다. **P60**(열린 분모): 유지 — 잔여는 ⑦ 범위(열거 원문)에서 남긴 항목만이라 일반 hunk가 분모가 되지 않는다. **P64 · P66**(창 · 전수): 잔여 sweep의 `못 잡음`도 같은 분류를 받는다 — 창 밖이면 확장은 후보 표, 인용이 되면 이행. **P65**(⑥ 구현 주체 무관): 유지 — PASS 조건에 ⑥ 존재를 함께 적었다. **P67 · P69**: 유지.
+- P1~P11 · P13~P38 · P42~P51 · P53~P59 · P61~P63 · P68: 방어 지점 불변(이번 변경이 닿지 않음).
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0327 verify 1(부분 sweep · RTP) | "다음 verify가 잇는다" — 규칙 밖 메모 | 남긴 항목을 메타에 목록으로 · RTP라 이월 허용 | 다음 주체 있음 |
+| 0327 verify 2(`SELF_BLOCKED` 이유로 미실행 · RTP) | 범위 밖이라 미실행 | 잔여가 ⑦ 범위 — 돌려야 함 → L2~L4가 verify 2(창 안)에서 나옴 | 발견 시점 verify 3 → 2 |
+| 0327 verify 3(부분 · FAIL) | 같은 부분 sweep | FAIL이라 이월 허용 · 잔여 목록 필요 | 판정 같음(FAIL) |
+| 0327 r3 `SELF_PASS`(pair당 1~6행) | 검산 행 합계만 | `S/N` < 1이면 `SELF_PASS` 불가 → `SELF_BLOCKED`·남긴 항목 | 거짓 자기 PASS 0 |
+| 0259 r1~r5(P66) | 1회째 전수 | 같음(전수를 마친 회차는 잔여 0) | 같음 |
+| 0262 r4~r8(P60) | 창 안 `PLAN_GAP` · 창 밖 후보 표 | 같음 — 잔여는 열거 원문 안 | inflation 0 |
+
+- **시나리오 replay**: 1회째 부분 sweep + 다른 막는 발견 0 → PASS 불가이고 넘길 수도 없음 → 같은 verify에서 마저 돌린다(상태 없는 판정 0) / 부분 sweep + FAIL·RTP → 잔여 목록과 함께 이월, 다음 verify가 범위로 읽음(다음 주체 있음) / 창 경계를 넘은 잔여 sweep의 `못 잡음` — 인용되면 이행 `BLOCKING`, 아니면 후보 표(inflation 0) / 9회째 CLOSED에 잔여 남음 → 종료 이관 목록으로 / 구현자가 `S/N` < 1로 IMPL_DONE → 해당 pair `SELF_BLOCKED`, verify가 같은 분모를 다시 셈 / 사용자 요구 변경 ΔV · 후보 표 승격 · §8 정정 경로 불변. 같은 축 무한 반복 0.
+
+## 6-C Cross-document Consistency
+
+- 검증자 ⑦ 이후 범위(직전 실패 + 앞 verify 전수 잔여) · 잔여 남은 verify PASS 불가: AGENTS ⑦ 행 · §단계별 절차 3 · verify ⑦ 행·bullet · verify §11 PASS · `verify.template.md` 메타 ⑦ 행·§4 — 같다.
+- 구현자 `S/N` · 남긴 항목이 있는 pair는 `SELF_PASS` 아님: AGENTS ⑦ 행 · §단계별 절차 2 · impl §3·§9 · `plan.template.md` 분모 검산 · verify §4 "다시 센다" — 같다. "S는 N과 같아야 한다(IMPL_DONE 전 전수)"는 AGENTS ⑦ 행 "구현자는 IMPL_DONE 전 전수"와 같다.
+- CLOSED 종료 이관에 ⑦ 전수 잔여: AGENTS §라운드 · verify §11 · `verify.template.md` — 같다. AGENTS §INDEX.md 운영(후보 표 1행)은 내용 목록을 적지 않아 충돌 없음.
+- root `AGENTS.md`·`docs/git-template.md`: ⑦·`SELF_PASS`를 다루지 않음(`rg` 0건) — 갱신 대상 없음. SKILL frontmatter description: verify("열거 항목 sweep") · impl("열거 항목 sweep으로 자기 잠금") — 본문과 충돌 없음. 새 `AGENTS.md` 0 · `app/AGENTS.md`·`ci.yml` 명령 불변. `node scripts/check-doc-inventory.mjs --check` ok · `check-product-naming` OK.
+
+## 전환 (§8)
+
+0327 verify 3회째의 판정과 다음 주체는 새 규칙에서도 같다 — L1~L4는 이행 `BLOCKING`, Y1~Y5는 창 밖 후보 표, ⑦ 잔여가 있지만 FAIL이라 이월할 수 있다. 정정 절은 쓰지 않았다. verify 3 메타는 잔여를 EP 단위로 적었다. verify 4는 V1 rev 3 §10 자리 전체에서 v3가 돌린 47건([`v3-mutations.spec.jsonl`](../../../../docs/handoff/0327-worker-protocol-visible-views/evidence/v3-mutations.spec.jsonl)의 `E*` 행)을 뺀 나머지를 잔여로 읽는다. INDEX 0327 행 다음 주체를 `handoff-review` → 구현 r4(Codex)로 갱신했다. r4 구현은 V1 rev 3 §10 자리 sweep을 `S/N`으로 적는다.
+
+## 남은 한계
+
+- 열거 항목 수 `N`은 구현자가 §10 자리 검색 · pair path · 규칙 칸에서 센다. 검증자가 같은 분모를 다시 세는 것이 방어다(P41).
+- 큰 V(자리 약 176)에서 한 verify 안에 전수를 마치는 비용은 지침으로 줄지 않는다. 잔여 이월은 비용을 회차로 나누되 PASS 전에는 0이어야 한다.
+
+# review round 49 — 0329 (verify 3회째 FAIL) + 사용자 요구: 운반 줄 분류의 도구화 · review 효과 측정 · 크기 예산
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0329 verify 3회째 `FAIL`(`c270a31f`) 뒤 r4 착수 전 의무 review. 사용자 지시 "제안관점으로 핸드오프 리뷰를 실행하라" + "더불어 핸드오프 리뷰 스킬 또한 개선하라" → **APPLY**(2026-11-25). 제안 관점 = 조항 덧붙이기 대신 통합·크기 예산·도구화, 결과 지표 측정.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | ΔV5 EP7 ⑥′이 검색 출력 9줄 중 운반 줄 `AboveInput.tsx:11·13·14`·`chatReducer.ts:560`을 "import·타입·주석"으로 뺐다 | 0329 ΔV5 · P52 · P60 | **B** — plan §10 bullet이 "운반 edge 전수"를 요구했다. 같은 지침의 B가 0262 r4~r8 이후 반복이라 문장 대신 도구로 옮겼다: `site_census.mjs`(AST 분류 · 미분류 0 · 제외 줄 사유). 새 P71 · P52 개정 메모 |
+| 2 | verify 3 §0이 같은 검색을 다시 돌리고 "운반 줄은 목록과 같다"고 적었다. EP6 ⑦′ 출력에도 목록 밖 운반 줄 4개가 있었다 | 0329 verify 3 · P51 | **B** — verify §0 규칙이 있었다. 쓰는 쪽·세는 쪽이 같은 모델이라 사각이 같다 → #1과 같은 도구로 impl §2·verify §0이 다시 센다 |
+| 3 | verify 3이 D19를 path edge 이행으로만 분류하고 목록 불일치(`PLAN_GAP`)를 놓쳤다 | 0329 verify 3 | 분류 왜곡 — 거짓 PASS 방향 아님(FAIL ↔ RETURN_TO_PLAN). §8 정정 |
+| 4 | 지침이 3개월 동안 140,003 → 186,116 bytes · 사례 인용 52 → 117로 늘고, 10/12 이후 지침 커밋 19개 중 17개가 +60~136/−3~31줄이었다. review가 자기 효과를 재는 절차가 없었다 | 사용자 질의(2026-11-25) · round 30~48 | **A** — review SKILL §1에 `review_metrics.py` 효과 지표 · §4 크기 예산 · §3 반복 B는 도구로 · §7 기록에 효과 지표 |
+| 5 | review SKILL "언제 하는가"가 AGENTS §handoff-review 트리거와 거의 같은 목록이었다 | review SKILL | 통합 — AGENTS를 정본으로, SKILL은 요약 한 문장. AGENTS 트리거에 script·root 규칙·skill 신설·정본 이동을 옮겼다 |
+| 6 | NX1(`aria-busy`) — 창 밖 확장 | 0329 verify 3 | 실패 아님 — 후보 표 |
+| 7 | AC10 Windows 실기 · 4코어 변이 비용(2시간 한도 1회 초과) | 환경 | **E** — 기록만 |
+
+**verify 분류 대조(§2)**: D19의 `못 잡음`은 §24-C path edge 인용이 되므로 이행이 맞다. 다만 같은 사실이 검색 출력 ↔ §10 목록 불일치(plan 내부 불일치)이기도 해 `PLAN_GAP`이 함께 있어야 했다 → RETURN_TO_PLAN. NX1은 인용에 해석이 필요해 확장이 맞다. 거짓 PASS 0 · FAIL inflation 0(판정 방향은 FAIL → RETURN_TO_PLAN, 둘 다 막음).
+
+## Tier
+
+**Tier 1.** §10 자리 목록의 고정·재계수 evidence(도구 미분류 0 · 제외 줄 사유) · review의 증거·기록 의무 · 크기 예산이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `c270a31f`. `instruction_delta.py --base c270a31f --prose --pool docs/handoff/AGENTS.md`(대상 5파일 — plan·impl·verify·review SKILL · `plan.template.md`) 후보 **11**(잃음 5 · 이동? 1 · 문장 4 · 문장 이동? 1).
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| plan:182 `main.tsx`·`window.oo` · impl:90 `0327 r3` 서사 · verify:129 `:258-263` · verify:138 `endsMounted` | MOVE | 사례 서사 괄호만 사례 ID로 줄였다. 괄호 밖 문장은 기계 대조로 차이 0(바뀐 15줄 전부). 서사의 백틱 식별자·수치는 corpus·이 문서에 모두 있다(스크립트로 확인, 없으면 줄이지 않음 — 0265 r2 · 0198 r6 두 괄호는 유지) |
+| verify:165 라벨 술어·인용 파일 범위 bullet(이동?) | REPLACE | verify §0 bullet로 합쳤다 — "라벨이면 표본이 참인지" · "지적이 인용한 파일로 좁지 않은지" · 미분류 = `PLAN_GAP`을 모두 담는다. 0209 r11·0262 r5는 plan·impl에 남는다 |
+| review:23~28 발동 조건 목록(문장·잃음·문장 이동?) | MOVE | `docs/handoff/AGENTS.md §handoff-review 트리거`가 정본 — 사용자 요청 · 메타 수정(script·root 규칙·skill 신설·정본 이동을 이번에 옮김) · 반복 · drift · 검증 한계 · verify 3·6회째와 9회째 CLOSED(§라운드의 1→2→3→review 순서 포함) · impl 턴 3 초과가 모두 있다. SKILL에는 요약 한 문장과 "정상 단일 PASS마다 하지 않는다"를 남겼다 |
+
+word-diff 지운 단어(사례 괄호 제외): "목록과의 차집합을"(impl·verify·AGENTS ×4·template) → "미분류(차집합)" REPLACE(같은 뜻 + 도구) · "차집합이"·"전체인지"(verify §0) → "미분류가"·"전체인지(지적이 인용한 파일로 좁지 않은지)" REPLACE · "고정한다(0262 r4~r8에서 … 됐다)"(verify §0 · AGENTS) → 이유를 문장으로 올리고 사례 ID만 괄호 REPLACE · "SKILL/template/AGENTS 변경."(AGENTS 트리거) → 확장 REPLACE · "교체·통합하고,"(review description) → 확장 REPLACE.
+
+DELETE 0 · 설명 없이 사라진 gate·command·reference 0. reference·script 이동 0(새 script 2개 · 새 test 1개 추가만) → inbound `N`/`M/M` 대상 없음. heading 변경 0.
+
+## 6-B Historical Failure Regression
+
+- **71 P 전수**(`rg -c '^## P[0-9]+'` 71 — P71 신규) · 변경 후 **COVERED 71** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0(6-A — 바뀐 줄은 괄호 밖 차이 0이거나 같은 뜻 확장)이라 round 48의 COVERED 70이 그대로다.
+- 바뀐 P: **P52**(분모 단위) · **P60**(열린 분모) 강화 — 목록을 고정할 때 운반 줄이 도구로 정해져 목록 밖 운반 줄이 READY 전에 나온다. **P71** 신규.
+- **P41**(도구가 정의한 전수): 유지 — `site_census.mjs`는 검색 출력 줄만 분류한다. 술어가 불변식의 주어인지 · 범위가 path 소스 전체인지는 여전히 사람이 보고(verify §0), value가 아닌 운반 줄 오분류 방향의 위험은 AST로 줄였고 비-TS 파일은 `unparsed`로 미분류에 넣는다. **P51**: 강화 — 같은 모델의 분류 사각을 도구가 대신한다. **P58 · 0209 r11**(범위 · 라벨 술어): 유지 — verify §0 bullet로 합쳤다. **P55 · P56 · P59**(좌표 범위 · 운반 값 · 호출 변이): 유지 — 해당 AGENTS bullet은 사례 괄호만 줄였다.
+- P1~P40 · P42~P50 · P53~P54 · P57 · P61~P70: 방어 지점 불변.
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0329 verify 3(D19) | FAIL — D19 이행만 | RETURN_TO_PLAN — EP7 ⑥′ 미분류 4 · EP6 ⑦′ 미분류 4(`PLAN_GAP`) + D19 이행 | 다음 주체: 구현자 → 설계자 |
+| 0329 ΔV5 설계 | 눈으로 "import·타입·주석" | 미분류 4·4로 READY 불가 → 그 턴에 목록 고정 | 발견 시점 verify 3 → 설계 턴 |
+| 0262 r4~r8(P60) | 창 안 `PLAN_GAP`으로 목록 고정 | 같음 + 고정 시 도구 미분류 0 | inflation 0 |
+| 0262 r5(P58) · 0209 r11 | 범위·라벨 수동 확인 | 같음(§0 bullet 하나로) | 같음 |
+
+- **시나리오 replay**: 설계자가 미분류 0으로 READY → 구현자·검증자 재계수 같음(다음 주체 있음) / verify가 미분류 > 0을 찾음 → `PLAN_GAP` → 설계자, 동결 뒤면 출처 "plan 내부 정합"으로 허용 / 도구가 운반하지 않는 줄을 value로 냄(초기값 등) → 사유 붙은 제외 줄 한 줄로 닫힘, 라운드 아님(inflation 0) / 크기 예산을 못 지키는 새 causal class → 이유 기록 뒤 진행(교착 0) / 반복 B에 도구가 불가능 → capability limitation 기록(기존 경로). 같은 축 무한 반복 0.
+
+## 6-C Cross-document Consistency
+
+- 운반 줄 분류·미분류 0·제외 줄 사유: plan §10 bullet · impl §2 · verify §0 · AGENTS §공통 V(강제 지점 `N`) · §단계별 절차 2(최소 계약)·3 · `plan.template.md` §10 표 열·불변식 문단·잠금 절 · `verify.template.md` §0 행 — 같다. 도구 경로는 AGENTS 디렉토리 구조에 적었다.
+- review 발동 조건: AGENTS §handoff-review 트리거(정본) = review SKILL 요약 = review frontmatter description — 같다. root `AGENTS.md`는 Tier 규칙과 3·6회째 review만 언급(충돌 없음).
+- review 효과 지표·크기 예산: review SKILL §1·§4·§7·완료 조건·종료 보고 — 완료 조건 항목은 본문 §1·§4·§7에 매핑된다.
+- 새 `AGENTS.md` 0 · `app/AGENTS.md`·`ci.yml` 명령 불변(도구는 `app/node_modules/typescript`를 읽기만 함). `node --test .agents/skills/handoff-verify/scripts/site_census.test.mjs` 3/3 · `check-doc-inventory --check` ok · `check-product-naming` OK.
+
+## 효과 지표 (`review_metrics.py`)
+
+| 구간(review round) | verify 커밋 | FAIL·RTP 비율 |
+|---|---|---|
+| 19~29 | 111 | 46% |
+| 30~37 | 31 | 61% |
+| 38 | 52 | 46% |
+| 39~43 | 26 | 69% |
+| 44 | 46 | 46% |
+| 45~48 | 30 | 83% |
+
+- 핵심 지침 bytes `c270a31f` 186,116 → 이번 라운드 185,054(−1,062, 새 규칙 포함) · 사례 인용 117 → 116. 2026-09-01 기준 140,003 · 52.
+- 이번 이슈 A 1 · B 2(둘 다 같은 지침의 반복 B → 도구화).
+- 해석: 구간마다 handoff 규모가 달라 지침 효과를 분리하지 못한다. round 50부터 같은 표를 이어 붙여, 이번 도구화 뒤 "기존 규칙의 적용 실패(B)"가 줄었는지와 구간 FAIL 비율을 본다.
+
+## 전환 (§8)
+
+0329 verify 3회째를 RETURN_TO_PLAN으로 정정한다 — `site_census.mjs`로 다시 가른 EP7 ⑥′ · EP6 ⑦′ 목록 불일치가 `PLAN_GAP`이다. 정정 절은 0329 `verify.md` 끝 `# verify 3 판정 정정 — review round 49`(별도 검증 커밋).
+
+## 남은 한계
+
+- 도구는 검색이 돌려준 줄만 가른다. 검색 술어·범위가 틀리면 미분류 0도 틀린다(P41) — 그 확인은 사람 몫이다.
+- 구간 지표는 handoff 규모·종류를 통제하지 않는다. "효과 있음"을 말하려면 여러 라운드의 추세가 필요하다.
+- `--emit-mutants` oracle을 `… | tail`로 끝내면 종료 코드가 늘 0이라 모든 변이가 green으로 나온다 — 이 라운드의 첫 실행 9개가 그랬고 재실행으로 바로잡았다. 도구 머리 주석에 적었다.
+
+# review round 50 — 사용자 피드백(PR #654): verify가 리뷰 필요 여부를 보고 · 발견 원장 F(N) · site_census 실패 구별
+
+**발동/모드**: 사용자가 붙여 준 피드백 "PR #654의 최신 HEAD를 기준으로 `handoff-review`와 `handoff-verify`의 역할을 보완하라"(2026-11-25) → **APPLY**. 기준 `4f5c1620`(PR #654 head와 같음).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | review 발동이 의무 트리거(3·6·9회째)에만 묶여, verify가 본 지침 신호(앞 기록이 `검사 완료`였던 범위의 누락)가 review 질문으로 넘어가지 않았다 | 0329 verify 3 · 피드백 | **A** — verify §Review Signals에 `리뷰 필요 여부(필수·권고·불필요) · 근거 · 검토할 질문`, 종료 보고 한 줄. verify는 review를 호출하지 않고 A~F를 가르지 않는다. 권고는 사용자가 열지 정한다(AGENTS 트리거) |
+| 2 | "실패 건수"의 정의가 없어 증감을 원인으로 읽었다 — 대화에서 F를 R+G+L+P+E로 나누고 "구현 결함 0"을 도출했다 | round 49 뒤 대화 · 피드백 | **A** — F(N) = 판정 시점 열린 `BLOCKING`·`PLAN_GAP` 고유 ID 수(verify §11 발견 원장). 출처는 겹칠 수 있어 분해를 강제하지 않는다. review의 효과 기준을 "더 일찍 잡혔는가 · 독립 축 · ⑦ 잔여"로 바꾸고 구간 FAIL 비율은 맥락으로 내렸다 |
+| 3 | `site_census.mjs`가 검색 실패(없는 경로)를 빈 출력으로 받아 `미분류 0`·종료 0을 냈다 | 피드백 · round 49 도구 | **A**(도구 결함) — 종료 코드 0 정상 · 1 불일치(미분류·목록만) · 2 검색 실패 · 3 0줄인데 예상 자리. 테스트 5/5 |
+
+**verify 분류 대조(§2)**: 판정 의미(분류·disposition·창·하한)는 바뀌지 않는다 — 리뷰 필요 여부는 판정과 별개 항목이다. 0329 verify 3 정정의 판정·다음 주체는 그대로다.
+
+## Tier
+
+**Tier 1.** verify의 기록·보고 의무(원장·리뷰 필요 여부)와 review의 증거·효과 기준이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `4f5c1620`. `instruction_delta.py --prose`(대상 plan·impl·verify·review SKILL · `verify.template.md` · AGENTS — 두 번 돌려 서로 pool) 후보 **23**.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| impl:159 `no-stray-auth-subscribe` · impl:163 `[test-pools]` 외 사례 괄호 11곳(plan 1 · impl 7 · verify 3) | MOVE | 60~89바이트 사례 서사 괄호를 ID로 줄였다. 괄호 밖 문장 차이 0(기계 대조), 서사의 표식은 corpus·이 문서에 있다. `[test-pools]`는 AGENTS §판정 범위에 남는다 |
+| verify:256 CLOSED 줄의 "같은 시점에 review" | REPLACE | 마무리 라운드 bullet "(CLOSED는 같은 시점에 그 handoff를 대상으로)"로 합침. "(사용자 요구 변경 턴 제외)"는 되돌려 유지 |
+| review:63 효과 지표 행 · review:308 종료 보고 | REPLACE | 세 행(리뷰 필요 여부 질문 · F(N) · 효과 기준)으로. "효과가 없으면 같은 축의 다음 변경은 도구·순서·필드로"는 유지 |
+| template:279 "(3·6회째 PASS가 아니면 … review)" | REPLACE | `리뷰 필요 여부` 줄로 |
+| AGENTS:166 0190 · AGENTS:339 0188 서사 | MOVE | 한 줄 요지만 남김 — 원문 수치(13,190자 · 33,510자 · 10회 · r10)는 이 문서에 있다 |
+| AGENTS:278 round 문서 정책 | MOVE | `handoff-review` §7이 정본(보존 사유 · 동시에 1개 · 실제 출처) — AGENTS는 참조 |
+| AGENTS:402~415 §단계별 절차 3의 14줄 | MOVE | verify SKILL에 같은 규칙: 기준선 §0 · diff §1 · Product/UX §3 · 좌표 §6 · gate §8 · 대상 커밋 §9 · 인용 변이·덮개 회귀·형제 순서·독립 축·⑦ 잔여·소거 잔여물 §4 · 9회째 §11 · Review Signals(15개 구절 `grep -c` 각 1 이상). 검증자는 skill을 읽으므로 최소 계약이 필요 없다(§단계별 절차 2 구현 최소 계약은 유지) |
+
+word-diff 지운 단어: 위 MOVE·REPLACE 범위 밖 0. DELETE 0 · 설명 없이 사라진 gate·command·reference 0. reference·script 이동 0(새 표·종료 코드만) → inbound `N`/`M/M` 대상 없음. `failure-patterns.md`에 "§단계별 절차 3 → verify SKILL 같은 규칙" 대응 한 줄.
+
+## 6-B Historical Failure Regression
+
+- **71 P 전수** · 변경 후 **COVERED 71** / PARTIAL 0 / GAP 0 / OBSOLETE 0. `현재 방어`에 §단계별 절차 3을 적은 P 14개(P47 · P52~P56 · P60 · P62 · P63 · P65 · P66 · P68 · P70 · P71)는 모두 verify SKILL 또는 AGENTS 본문 절을 함께 적어 방어가 남는다.
+- 강화: **P41**(도구가 정의한 전수) — 검색 실패·빈 검색·낡은 목록이 `미분류 0`으로 보이지 않는다. **P66 · P70**(⑦ 전수·잔여) — 원장 `직전 기록`이 `명시 이월`과 `검사 완료`를 갈라 늦은 발견의 출처가 기록된다. **P71** — 같은 이유.
+
+| replay | 리뷰 필요 여부(새 규칙) | 실제 review | 판정 |
+|---|---|---|---|
+| 0329 verify 1(FAIL · 첫 회차) | 불필요 | 없음 | 같음 |
+| 0329 verify 2(RTP · D10~D18 `명시 이월` · G1 `확인 불가`) | 불필요(이월 범위 · 검사 완료 기록 없음) | 없음 | 같음 — inflation 0 |
+| 0329 verify 3 정정(F 3 · G2·G3 `검사 완료`) | 필수(3회째 비PASS) + 권고 신호 2 | round 49 | 같음 |
+| 0327 verify 3(L2~L4 `명시 이월`) | 필수 | round 48 | 같음 |
+
+- 집계 재생: `review_metrics.py --handoff 0329` → `(0329, 1) F 9 · (0329, 2) F 11 · (0329, 3 정정 round 49) F 3` — 회차 3개, 정정이 원 판정(F 1)을 대체했다.
+- **시나리오 replay**: 창 안 FAIL 단독 → 불필요(review 남발 0) / `검사 완료` 범위의 늦은 발견 → 권고 → 사용자 결정, 판정·다음 주체는 그대로(교착 0) / verify 없는 impl 턴 > 3 → AGENTS 트리거로 필수(verify 없이 작동) / 9회째 CLOSED → 필수 / 판정 정정 → 정정 원장이 같은 회차를 대체, verify 횟수 불변. verify가 review를 호출하거나 A~F를 가르는 경로 0.
+
+## 6-C Cross-document Consistency
+
+- 리뷰 필요 여부: verify SKILL §Review Signals(정의) = `verify.template.md` 메타·§14·§15 = AGENTS §handoff-review 트리거(필수 = 의무 항목 · 권고 = 사용자 결정) = review SKILL §1(출발 질문) — 같다. verify description에 보고 의무를 적었다.
+- 발견 원장: verify SKILL §11 = template §13 원장 표 = review §1·§8(정정 원장) = `review_metrics.py` 파서(`### 발견 원장 — verify N[ 정정(round K)]`) — 같다.
+- `site_census.mjs` 종료 코드: 스크립트 머리 주석 = 테스트 5개. 지침은 "미분류"만 말하고 종료 코드를 재서술하지 않는다.
+- root `AGENTS.md` 충돌 없음 · `app/AGENTS.md`·`ci.yml` 불변 · `check-doc-inventory --check` ok · `check-product-naming` OK.
+
+## 효과 지표
+
+- 핵심 지침 bytes `4f5c1620` 185,054 → 184,291(−763, 새 의무 포함). 사례 인용 116 → 116.
+- 이번 이슈 A 3 · B 0.
+- 효과 확인 기준(다음 라운드): 리뷰 필요 여부가 `권고`로 올린 질문이 review에서 지침 변경으로 이어졌는지 · `검사 완료` 범위의 늦은 발견이 다음 적용 대상에서 줄었는지.
+
+## 전환 (§8)
+
+판정 의미 불변 — 정정 대상 없음. 0329 verify.md에 회차별 발견 원장을 재구성해 붙였다(별도 검증 커밋, 판정 불변).
+
+## 남은 한계
+
+- 원장의 `직전 기록`은 앞 기록의 문장을 사람이 읽어 고른다. 앞 회차가 범위를 모호하게 적으면 `확인 불가`가 늘고 권고 신호가 약해진다.
+- `권고`는 사용자 결정이라 응답이 없으면 review가 열리지 않는다 — 다음 verify의 리뷰 필요 여부가 같은 신호를 다시 낸다.
+
+# review round 51 — 사용자 피드백: review 판단 절차 정리 · review_metrics 집계 단위 · instruction_delta 입력 검증
+
+**발동/모드**: 사용자가 붙여 준 보완점 "핸드오프 리뷰 스킬 및 스크립트에 대한 보완점이다"(2026-11-25) → **APPLY**. 기준 `73928c67`.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | review가 F 증감을 원인으로 읽을 여지 — 증가·감소·등락별 대조 절차가 없었다 | round 49·50 뒤 대화 | **A** — §1 표에 추세별 대조(증가: 신규·계속·재개와 직전 기록 / 감소: 실제 종결·분류 이동과 검사 범위·⑦ 잔여 / 등락: 재개·다른 ID의 같은 위반·순차 이월). 증감은 발동·귀속 근거가 아님 |
+| 2 | "같은 지침의 B가 두 번째" 판단에 연결 근거 요구가 없었다 | round 49 §3 | **A** — 이전 사례 · 당시 지침 문장(커밋) · 해야 했던 행동 · 이번 증거를 잇고, 못 이으면 보류 |
+| 3 | 효과 판정에 적용 기회 확인이 없었다 · §8 정정의 증거 종류와 범위가 모호했다 · §0과 완료 조건이 모드를 구별하지 않았다 | round 50 §7·§8 | **A** — §7 `적용 기회 없음 / 앞 단계에서 검출 / 같은 단계에서 재발 / 증거 부족` · §8 발동 당시 사실 / 재분류 / 새 실행 구별, 같은 회차 정정 = 재분류+확인 실행, 소급 금지 · §0·완료 조건·종료 보고를 공통/APPLY 변경 시로 |
+| 4 | `review_metrics.py` — 날짜로 구간을 나눠 같은 날 round 49·50이 0회·5회 · 정정·원장 재구성 커밋을 verify로 셈 · `# Round N`·중복 round 24 미처리 · 판정 불명 미구별 · 원장 형식 오류를 0건으로 · 잘못된 `--size-at`을 0 bytes로 | 재현(`73928c67`) | **A**(도구 결함) — 커밋 순서 구간 · 회차 규칙(사이에 설계·구현 커밋이 있을 때만 새 회차) · ID 전이 · 오류 보고. 테스트 |
+| 5 | `instruction_delta.py` — 잘못된 `--base` → "신규 파일·후보 0" · 잘못된 `--head` → "잃음 122" · 없는 `--pool` → "후보 0", 모두 종료 0 · `--strict`가 `--strict-old` 안에서 보존으로 셈 | 재현 | **A**(도구 결함) — 입력 검증(종료 2) · 토큰 단위 대조 · `--pset` |
+
+## Tier
+
+**Tier 1.** review의 증거·판단·종료 조건과 두 도구의 판정 의미가 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `73928c67`. 고친 `instruction_delta.py --prose`(대상 plan·impl·review SKILL + AGENTS를 두 번) 후보 **22**(review SKILL만, 잃음 2 · 문장 19 · 문장 이동? 1). plan·impl·AGENTS 후보 0.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| review:3 description | REPLACE | 로드 신호(3·6·9회째 · 리뷰 필수·권고 · impl 턴 > 3 · 반복 · drift · 사용자 요청 · 메타 수정)는 유지, 절차 세부는 본문 |
+| review:23 발동 조건 요약 | MOVE | AGENTS §handoff-review 트리거가 정본(횟수·예외·권고) |
+| review:46 APPLY 행 | REPLACE | "실제로 바꾸면" 조건부. "git 동기화"는 "커밋·push"로 유지 |
+| review:64 `python3 …review_metrics.py` 경로 · review:65 효과 행 | REPLACE · MOVE | 경로는 F 증가 행에 유지. 효과 판정은 §7 적용 기회 분류로 이동(“같은 단계 재발이면 도구·순서·필드”도 이동) |
+| review:287~297 완료 조건 11줄 | REPLACE | 공통 5 + APPLY 변경 시 4로 통합. 압축 중 빠졌던 "Tier 2면 6-B 생략 근거" · "작은 수정은 지운 단어" · "INDEX·trailer 운영 규칙" · "plan/impl/verify가 corpus를 읽거나 고치게 하지 않음" · "push"를 되돌렸다. 나머지 세부(§4 문장 원칙 · 6-C 위생)는 본문 절에 있다 |
+| review:290 `과 semantic` | REPLACE | "`N`과 semantic `M/M`" → "`N`/`M/M`" — 백틱 경계 표기 |
+| review:305~311 종료 보고 7줄 | REPLACE | 모든 모드 / APPLY 변경 시 두 줄. 항목 유지 |
+
+사례 괄호 4곳(plan 2 · impl 1 · AGENTS 1, 50~59바이트)은 ID로 줄였다 — 괄호 밖 차이 0, 표식은 corpus·이 문서에 있다. DELETE 0 · 설명 없이 사라진 gate·command·reference 0.
+
+## 6-B Historical Failure Regression
+
+- `instruction_delta.py --base 73928c67 --pset …corpus.md` → P 변경 전 71 · 변경 후 71 · 삭제·추가·중복·번호 변경 없음.
+- **71 P 전수** · **COVERED 71** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0.
+- 강화: **P39 · P40**(자기보고·합계) — `review_metrics.py`가 회차·구간 배정 합계를 대조한다(`배정 합계 447 = 회차 447`). **P41**(도구가 정의한 전수) — 두 도구가 입력 오류를 정상 결과로 내지 않는다. **P51**(같은 에이전트의 재실행) — "두 번째 B"에 당시 문장·커밋 연결 요구.
+
+| replay(실데이터 `73928c67` + 이번 변경) | 수정 전 | 수정 후 |
+|---|---|---|
+| 0329 F | (0329, 1·2·3) 9 · 11 · 3 — 정정 전 F 1은 출력 없음 | 9 · 11 · 3, 3회째 이력 `원 F 1 → 정정 49 F 3`. 전이 1→2 실제 종결 9 · 2→3 실제 종결 11 · 계속 열림 0 |
+| 0329 verify 회차(커밋) | 구간 표에 verify 커밋 5개(정정·재구성 포함) | 3회 — `--list 48`: verify 3 `c270a31f` · 같은 회차 갱신 `4f5c1620`, `73928c67` |
+| round 49 · 50 구간 | 0 · 5(날짜 구간) | 0 · 0(커밋 순서). 0329 verify 1~3은 round 49 커밋보다 앞서 round 48 구간 |
+| `# Round 4~16` · round 24 둘 | 미처리 · 날짜 하나 | 4~16 각 구간 · `24`(`24585af6`)와 `24b`(`56609af7`) |
+| 전체 | — | verify 회차 447(handoff 276) · 판정 불명 4(FAIL% 분자·분모 제외) · 배정 합계 447 · verify.md 298 · 원장 보유 1 · 원장 없음 297 |
+
+- **시나리오 replay(테스트 16개)**: 빈 원장 뒤 신규(0 → 1) · 같은 F 수열 1→0→1에서 재개와 신규 구별 · 분류 이동 · 정정 이력 · 표 끝에서 읽기 멈춤 · 오타·충돌 중복·같은 정정 번호 상충·표 없는 원장 → 오류(0건 아님, 종료 1) · 회차 누락 보고 · 같은 날 review와 번호 중복 구간 · 판정 불명 제외 · 정정이 회차를 늘리지 않음 · `--size-at` 잘못된 ref(종료 2)와 그 시점에 없던 파일 구별 · `instruction_delta` 잘못된 base·head·pool·대상·map(종료 2) · 실제 신규 파일·후보 0 성공 · `--strict` ↔ `--strict-old` · 한글 조사 경계 · `--pset` 삭제·추가·중복·번호 변경. 같은 테스트를 `73928c67` 스크립트에 돌리면 14/16 실패(대조 사례 2개만 통과).
+
+## 6-C Cross-document Consistency
+
+- review §0 = 완료 조건 = 종료 보고(공통 / APPLY 변경 시) — 같다. 발동·횟수·예외·권고 = AGENTS §handoff-review 트리거(정본) ↔ review "언제 하는가"(참조) ↔ description(요약) — 충돌 없음.
+- §6-B 1단계 `--pset` ↔ `instruction_delta.py` 사용법 ↔ `failure-patterns.md` 진입점 — 같다. AGENTS 디렉터리 구조에 두 스크립트 역할과 테스트 파일.
+- verify SKILL·template의 원장 형식 ↔ `review_metrics.py` 검증 값(disposition·직전 상태 `— / 열림 / closed 보고 / 닫힘`·이번 결과·직전 기록·증거) — 같다. `닫힘` 직전 상태는 재개 행 표기용으로 파서가 받는다.
+- `check-doc-inventory --check` ok · `check-product-naming` OK · `site_census.test.mjs` 5/5 · `test_review_scripts.py` 16/16.
+
+## 효과 지표
+
+- 앞 라운드 변경의 적용 기회: round 49(`site_census`) · round 50(리뷰 필요 여부·원장) — 그 뒤 verify 회차 0 → **적용 기회 없음**(효과 판정 보류).
+- 핵심 지침 bytes `73928c67` 184,291 → 184,273(−18, 새 절차 포함). 사례 인용 116 → 116.
+- 이번 이슈 A 5 · B 0.
+
+## 전환 (§8)
+
+판정 의미(분류·disposition·창·하한) 불변 — 정정 대상 없음.
+
+## 남은 한계(과거 자료로 복원할 수 없는 범위)
+
+- F(N)과 ID 전이: 원장이 있는 verify.md 1개(0329)만. 나머지 297개는 원장 형식 전 기록이라 복원하지 않는다(재구성은 그 handoff의 기록을 사람이 읽어야 한다).
+- verify 회차: `Handoff`·`Status`·`Verified-By` trailer가 있는 커밋만 센다(첫 trailer 커밋 2026-06-09). trailer 없는 옛 verify와, 한 handoff의 설계·구현 커밋 없이 이어진 별개 verify(예: 외부 요청으로 같은 코드를 다시 검증)는 같은 회차로 합쳐진다.
+- 판정 불명 4회는 `Verified-By`가 비었거나 `pending`인 verify 커밋이다 — 판정을 복원하지 않고 비율에서 뺀다.
+- 구간: 절을 들인 커밋을 `git log -S`로 찾는다. 같은 접두가 지워졌다 다시 들어온 이력이 있으면 배정이 어긋날 수 있다(현재 이력에는 `구간 복원 불가` 0).
+
+# review round 52 — 사용자 피드백: 실패 회차가 집계에서 사라지거나 불완전한 원장이 개선으로 보이지 않게
+
+**발동/모드**: 사용자가 붙여 준 피드백 "다음은 보완점에 대한 피드백이다"(2026-11-25) → **APPLY**. 기준 `f4268eb1`.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | `Handoff:`가 여럿인 커밋을 첫 값만 읽어 0263 `RETURN_TO_PLAN → PASS`·0264 `FAIL → PASS`가 각각 1회 PASS로 축약됐다 | `ce7aa102` · `7be5d723`(0262~0265 공동 구현 커밋) | **A**(도구) — trailer마다 반영 |
+| 2 | 부모·트리가 같은 두 커밋(`7141791e` · `1e8e0486`, 0294 r5)을 두 회차로 세어 r7이 r8로 나왔다 | 0294 | **A**(도구) — (handoff, 부모, 트리, 종류)가 같으면 한 커밋. 트리만 같고 부모가 다르면 별개 재검증 |
+| 3 | 명시 기록과 커밋 추론의 충돌을 드러내지 않았다 · 판정 순서를 pass/fail로만 냈다 | 0263·0264·0294 | **A** — verify.md 명시 회차(H1 `# rN 검증`·`# 라운드 N`·`# verify N회째` 등의 최댓값)와 대조, 불일치는 `복원 불가`와 근거·구간 FAIL%에서 제외. 판정은 회차에서 판정을 밝힌 가장 최근 커밋 제목 |
+| 4 | 원장 — 빈 ID·`BLOCKING_typo` 통과 · 직전에 열린 ID가 사라져도 F를 냄 · 잘못된 최신 정정을 버리고 원 판정을 유효로 씀 · 확인 불가 전이를 0으로 | 피드백 재현 | **A**(도구) — 엄격 disposition 정규식, 누락·잘못된 정정은 `판정 불가`(종료 1), 직전 상태를 직전 원장과 대조, 확인 불가 전이는 `-` |
+| 5 | `instruction_delta` — 2글자 백틱 옵션(`-q`→`-v`) 미대조 · `--pset` 단독의 `--pool`·`--map` 무시 · Git 판본의 디렉터리를 텍스트로 읽음 | 피드백 재현 | **A**(도구) — TOKEN 2글자부터 · 조합 거부(종료 2) · blob 아닌 대상 거부 |
+| 6 | review frontmatter가 "권고를 보고했을 때" 로드 — 권고는 사용자 수락이 필요하다 · 직전 상태 `닫힘`이 SKILL·template에 없었다 | 지침 정합 | **A** — frontmatter "사용자가 권고를 수락했을 때(verify는 이 스킬을 부르지 않는다)" · `closed 보고`(구현자 보고) ↔ `닫힘`(verify 종결 확인) |
+
+**verify 분류 대조(§2)**: 판정 의미 불변 — 정정 대상 없음.
+
+## Tier
+
+**Tier 1.** 집계 도구의 판정 의미(회차·F·오류)와 verify 원장 값 정의가 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `f4268eb1`. `instruction_delta.py --prose`(review·verify SKILL · `verify.template.md`, pool AGENTS) 후보 **2**.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| review:177 word-diff 전체 명령 | MOVE | `instruction_delta.py` 머리말 "잡지 못하는 것"에 같은 명령. SKILL은 그 명령을 가리킨다 |
+| verify:248 `—`(이번에 처음) | REPLACE | `—`(직전에 안 열림) — 파서가 직전 원장과 대조할 수 있는 정의. `닫힘` 추가 |
+
+word-diff 지운 단어: review description의 절차 요약(본문 §0~§8에 있음) · verify `closed 보고` 설명의 표현. DELETE 0.
+
+## 6-B Historical Failure Regression
+
+- `--pset`(기준 `f4268eb1`): P 71 → 71, 삭제·추가·중복·번호 변경 없음. **COVERED 71**.
+- 강화: **P39 · P40**(합계·자기보고) — 회차 합계 검산에 더해 handoff별 회차·판정 순서와 명시 기록을 대조한다. **P41**(도구가 정의한 전수) — 불완전한 원장이 F로 나오지 않는다.
+
+| handoff | 원문 근거 | 수정 전(`f4268eb1`) | 수정 후 |
+|---|---|---|---|
+| 0263 | `c6d745c5` "r1 검증 RETURN_TO_PLAN" → 구현 `ce7aa102`·`7be5d723`(Handoff 4개) → `80fcaaa2` "r2 검증 PASS" · verify.md `# r2 검증` | 1회 `claude:pass` | 2회 `RETURN_TO_PLAN → PASS` · 명시 일치 |
+| 0264 | `c37553b3` "r1 검증 FAIL" → 같은 공동 구현 커밋 → `bec4cc2b` "r2 검증 PASS" · `# r2 검증` | 1회 `claude:pass` | 2회 `FAIL → PASS` · 명시 일치 |
+| 0294 | `7141791e`·`1e8e0486` 부모 `aac291f3`·트리 `f518cc71` 같음 · verify.md `# r2`~`# r7` | 8회 | 7회 `RTP → RTP → FAIL → RTP → RTP → FAIL → PASS` · 같은 변경 `1e8e0486` · 명시 일치 |
+| 0329 | 원장 4개(verify 1·2·3·3 정정 49) · `## 판정 — verify 3회째` | 3회 · F 9 → 11 → 3 | 3회 `FAIL → RTP → RTP` · F 9 → 11 → 3 · 이력 `원 F 1 → 정정 49 F 3` |
+| 전체 | — | verify 회차 447(handoff 276) | 450(handoff 278) · 판정 불명 4 · 복원 불가 handoff 7(회차 29) · 배정 합계 450 |
+| round 24 · 49·50 | 절을 들인 커밋 | 24·24b · 49·50 각 0 | 같음 — 24(`24585af6`)·24b(`56609af7`) · 49·50·51 각 0 |
+
+- **시나리오 replay(테스트 30개 = 기존 16 + 신규 14)**: 여러 Handoff 커밋 · 부모·트리 같은 중복(병합) · 트리만 같은 별개 재검증 · 명시 기록 충돌 → `복원 불가` · 빈 ID · `BLOCKING_typo` · `NEXT_HANDOFF(확장)` 허용 · 누락 ID → `판정 불가`(종료 1)와 다음 회차 전이 `-` · 잘못된 최신 정정 → 이력 보존·`판정 불가` · 근거 없는 `닫힘` · 유효한 빈 원장 F 0 · `--handoff` 범위 · `-q`→`-v` · `--pset`+`--pool`/`--map` 거부 · Git·작업 트리 디렉터리 거부 · 삭제 파일 정상 비교. 같은 테스트를 `f4268eb1` 스크립트에 돌리면 19개 실패(신규 재현 사례 전부 포함).
+
+## 6-C Cross-document Consistency
+
+- 직전 상태 값: verify SKILL §11 원장 표 = `verify.template.md` 원장 표 = `review_metrics.py` PREV·대조 규칙 = 테스트 — `—` · `열림` · `closed 보고` · `닫힘` 같다.
+- 리뷰 필요 여부: review frontmatter("필수 · 사용자가 수락한 권고 · verify는 부르지 않음") = AGENTS §handoff-review 트리거 = verify SKILL §Review Signals — 같다.
+- `check-doc-inventory --check` ok · `check-product-naming` OK · `site_census.test.mjs` 5/5 · `test_review_scripts.py` 30/30.
+
+## 효과 지표
+
+- 앞 라운드(49·50·51) 변경의 적용 기회: 그 뒤 verify 회차 0 → **적용 기회 없음**.
+- 핵심 지침 bytes `f4268eb1` 184,273 → 184,264(−9). 이번 이슈 A 6 · B 0.
+
+## 전환 (§8)
+
+판정 의미 불변 — 정정 대상 없음.
+
+## 남은 한계(과거 자료로 복원할 수 없는 범위)
+
+- 명시 기록과 충돌해 `복원 불가`인 handoff 7개: 0157(커밋 1 ↔ 명시 2) · 0198(8 ↔ 10) · 0209(8 ↔ 13) · 0223(1 ↔ 2) · 0237(4 ↔ 7) · 0238(3 ↔ 4) · 0249(4 ↔ 3). trailer 없던 verify 커밋, 명시 번호가 impl 라운드를 따른 기록, 재개 뒤 번호를 다시 쓴 기록 중 무엇인지는 각 verify.md를 사람이 읽어야 가른다.
+- 명시 회차가 없는 verify.md(H1 회차 표기 없음)는 커밋 추론만 쓴다(`명시 없음`) — 대조로 오류를 잡지 못한다.
+- fail 종류(FAIL·RETURN_TO_PLAN)는 제목에 판정어가 없고 `Next-Action`이 구현자가 아니면 `FAIL·RTP`로 남는다.
+- F(N)·전이는 원장 보유 1개(0329)만. 나머지 297개는 원장 형식 전 기록이다.
+
+# review round 53 — 사용자 요청: 회차별 판정 대조 · 미종결 ID 추적 · 원장 구분선 검증
+
+**발동/모드**: 사용자 요청 "PR #654의 최신 원격 HEAD를 기준으로 handoff-review의 review_metrics.py와 회귀 테스트를 보완하라"(2026-11-25) → **APPLY**. 기준 `300e4cbd`(PR #654 head와 같음). verify의 역할(리뷰 필요 여부·근거·질문 보고만)은 바꾸지 않았다.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 회차 수만 대조하고 회차별 판정은 대조하지 않아 같은 회차 정정·종료가 사라졌다 · 커밋 제목에 판정어가 없으면 fail 종류를 몰랐다 · 문서 안 판정이 엇갈려도 `일치` | 0262 9회째(`# r9 종료` `판정: **CLOSED**`) · 0327 1·2회째(`## 판정 (verify N회째)` `**RETURN_TO_PLAN**`) · 0322 1회째(메타 PASS ↔ 결론 RETURN_TO_PLAN) | **A**(도구) — verify.md 회차 절·정정 절을 읽어 원판정⇒유효 판정, 회차별 `일치 / 충돌 / 특정 불가`. 회차 수 패턴을 회차 절 패턴과 하나로. 충돌 handoff는 `복원 불가`로 구간 FAIL%에서 제외 |
+| 2 | 직전 회차가 판정 불가·누락이면 그 뒤 원장의 누락을 검사하지 못해 빈 원장이 F 0으로 나왔다 · 종결 뒤 재개한 ID의 직전 상태를 옛 종결로 대조했다 | 피드백 재현 | **A**(도구) — 마지막으로 확인된 미종결 ID를 들고 가 다시 나타날 때까지 F·이력을 `판정 불가`, ID별 최신 상태와 직전 상태 대조 |
+| 3 | 구분선을 `-`·`:`만 보고 칸 수를 보지 않았다 | 피드백 재현 | **A**(도구) — 구분선 6칸 `:?-{3,}:?`. 손상·부재는 형식 오류·판정 불가 |
+
+## Tier
+
+**Tier 1(도구 판정 의미).** 지침 문장 변경 0 — 핵심 지침 bytes 불변(184,264). 6-A 대상 지침 파일 없음.
+
+## 6-B Historical Failure Regression
+
+- `--pset`(기준 `300e4cbd`): P 71 → 71, 변화 없음. **COVERED 71**. 강화: **P39·P40**(회차·판정 순서를 문서와 회차별 대조) · **P41**(불완전한 원장이 수렴으로 보이지 않음).
+
+| handoff | 원문 근거 | 수정 전(`300e4cbd`) | 수정 후 |
+|---|---|---|---|
+| 0262 | `# r9 검증` `\| 상태 \| **FAIL**` · `# r9 종료` `판정: **CLOSED**` · 커밋 `108429de`·`88f76e97` | 9회, 9회째 `FAIL`, 대조 `일치` | 9회째 `FAIL⇒CLOSED` · 회차 수 일치 · 회차별 일치 |
+| 0327 | `## 판정 (verify 1회째)`·`(2회째)` 아래 `**RETURN_TO_PLAN**` · 커밋 "설계 반환"(판정어 없음) | `FAIL·RTP → FAIL·RTP → …` · `명시 없음` | `RETURN_TO_PLAN → RETURN_TO_PLAN → FAIL → FAIL → PASS` · 일치 · 일치 |
+| 0322 | 1회째 절 메타 `**PASS(기계 범위)**`(“r2 판정은 라운드 2절”) ↔ 결론 `**RETURN_TO_PLAN**` | `일치` | 1회째 `특정 불가(문서 안 판정 혼재)` |
+| 0263 · 0264 | round 52 근거 | `RTP → PASS` · `FAIL → PASS` | 같음 · 회차별 일치 |
+| 0294 | round 52 근거 + `# r3 판정 정정` | 7회 | 7회 · 3회째 `RETURN_TO_PLAN⇒FAIL` · 회차별 일치 · 같은 변경 `1e8e0486` |
+| 0329 | 원장 4개 · `## 판정 — verify 3회째` · `**정정 판정: RETURN_TO_PLAN.**` | 3회 · F 9→11→3 | `FAIL → RETURN_TO_PLAN → FAIL⇒RETURN_TO_PLAN` · F 9→11→3 · 이력 `원 F 1 → 정정 49 F 3` |
+| 전체 | — | 복원 불가 7 | 회차 450(handoff 278) · 판정 불명 4 · 회차 수 대조 일치 54 · 명시 없음 211 · 복원 불가 13 · 회차별 일치 301 · 특정 불가 40 · 충돌 0(실데이터) |
+| round 24 · 49~52 | 절을 들인 커밋 | 24·24b · 각 0 | 같음 |
+
+- 회차 수 복원 불가가 7 → 13인 것은 `## 라운드 N`·`## Verify 라운드 N`·`## 메타 (rN)` 절을 명시 회차로 읽게 된 결과다 — 0046(라운드 2·4·5 ↔ 커밋 1) · 0049 · 0073 · 0101 · 0201 · 0211(커밋 8 ↔ 문서 7). 모두 문서와 trailer 커밋이 실제로 어긋난다.
+- **시나리오 replay(테스트 38개 = 기존 30 + 신규 8)**: 종료 정정 `FAIL⇒CLOSED` · 판정어 없는 커밋 + 문서 `**RETURN_TO_PLAN**` · 커밋 fail ↔ 문서 PASS 충돌 · 문서 안 판정 혼재 · 판정 없는 회차 · 미종결 ID가 빠진 뒤 빈 원장 2개 `판정 불가` → 종결 확인 회차부터 재개 · 종결→재개→잘못된 `닫힘` · 구분선 `|---|---|`·구분선 없음. 같은 테스트를 `300e4cbd` 스크립트에 돌리면 11개 실패(신규 8개 전부).
+
+## 6-C Cross-document Consistency
+
+- `review_metrics.py` 머리말(회차 수·회차별 판정 대조, 미종결 추적, 구분선) = 동작 = 테스트. verify SKILL §11 원장 정의(직전 상태 값)와 충돌 없음 — 최신 상태 대조는 정의의 적용이다. 지침 문서 변경 0.
+- `test_review_scripts.py` 38/38 · `site_census.test.mjs` 5/5.
+
+## 효과 지표
+
+- 앞 라운드(49~52) 변경의 적용 기회: 그 뒤 verify 회차 0 → **적용 기회 없음**. 이번 이슈 A 3 · B 0.
+
+## 남은 한계
+
+- 판정 줄 형식은 표본에서 모은 7가지다. 그 밖의 표기는 `특정 불가`로 남는다(40회차) — 일치로 세지 않는다.
+- 회차 절 기준점이 없는 문서(명시 없음 211 handoff)는 커밋이 1회일 때만 첫 절과 대조한다.
+- `## rN-N. 이전 판정 정정`처럼 회차 번호가 다른 절 안의 정정은 읽지 않는다.
+- 원장 형식이 잘못된 회차에 적힌 ID는 상태 추적에 쓰지 않는다 — 그 회차에 새로 열린 ID가 뒤에서 사라지면 잡지 못한다.
+
+# review round 54 — 사용자 피드백: 잘못된 원장의 미종결 축소 · 템플릿 판정 읽기 · 회차 판정 단일 출처
+
+**발동/모드**: 사용자 피드백 "PR #654의 최신 HEAD에서 review_metrics.py와 회귀 테스트를 다음 세 항목에 맞춰 보완하라"(2026-11-25) → **APPLY**. 기준 `ac6614d9`(round 53 · PR #654 원격 head). verify(리뷰 필요 여부 보고)와 review(원인 판단)의 역할은 바꾸지 않았다.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 직전 상태가 어긋난 행(열린 D1을 `닫힘`으로 적어 닫음)이 D1의 마지막 확인 상태를 덮어써, 다음 빈 원장이 F 0·이력 `원 F 0`이 됐다 · 구분선 뒤 빈 줄로 떨어진 행을 빈 원장으로 읽었다 | 피드백 재현(1 → 판정 불가 → 0) | **A**(도구) — 어긋난 행은 상태를 갱신하지 않고 이력에도 같은 규칙. 떨어진 행은 형식 오류 |
+| 2 | 템플릿 그대로 쓴 판정(`\| 상태 \| FAIL \|`·`- 상태: FAIL`, 굵게 없음)과 `# Verify N회째`·`## Verify N회째 — PASS` 제목을 읽지 못했다 | 0326 7회 · 0328 2회 `명시 없음` | **A**(도구) — 판정 줄·회차 제목 패턴 추가. 같은 회차에 다른 판정이 적히면 `혼재`로 `특정 불가` |
+| 3 | `--list`는 커밋 판정만, 요약은 원판정⇒유효를 내 같은 회차가 달랐다 · 리베이스 사본 사슬이 회차를 하나 더 셌다 | 0262 9회째 `FAIL` ↔ `FAIL⇒CLOSED` · 0295 | **A**(도구) — `--list`가 요약과 같은 값·회차별 대조를 낸다. 같은 변경 = 제목·트리·부모 트리(내용 불변 커밋은 부모 SHA까지) |
+
+## Tier
+
+**Tier 1(도구 판정 의미).** 지침 문장 변경 0 — 핵심 지침 bytes 불변(184,264). 6-A 대상 지침 파일 없음.
+
+## 6-B Historical Failure Regression
+
+- `--pset`(기준 `ac6614d9`): P 71 → 71, 변화 없음. **COVERED 71**. 강화: **P39·P40**(템플릿·제목 판정을 회차별 대조) · **P41**(잘못된 원장이 미종결을 줄이지 못함).
+
+| handoff | 원문 근거 | 수정 전(`ac6614d9`) | 수정 후 |
+|---|---|---|---|
+| 0262 | `# r9 종료` `판정: **CLOSED**` · 커밋 `108429de`·`88f76e97` | 요약 `FAIL⇒CLOSED` ↔ `--list 37` `FAIL` | 둘 다 `FAIL⇒CLOSED · 일치` |
+| 0326 | `# Verify 2회째 (r2)`~`7회째 (r7)` · 각 메타 `\| 상태 \| **…** \|` | 7회 · `명시 없음` · 회차별 대조 안 함 | `FAIL → FAIL → RTP → RTP → RTP → FAIL → PASS` · 일치 · 일치 |
+| 0327 | round 53 근거 | `RTP → RTP → FAIL → FAIL → PASS` · 일치 | 같음 |
+| 0328 | `## Verify 2회째 — PASS (기계 범위)` · `## Verify 1회째 — RETURN_TO_PLAN` | 2회 · `명시 없음` | `RETURN_TO_PLAN → PASS` · 일치 · 일치 |
+| 0329 | 원장 4개 · `**정정 판정: RETURN_TO_PLAN.**` | F 9→11→3 | `FAIL → RTP → FAIL⇒RTP` · F 9→11→3 · 이력 `원 F 1 → 정정 49 F 3` |
+| 0263 · 0264 · 0294 | round 52·53 근거 | `RTP → PASS` · `FAIL → PASS` · 7회 | 같음 · 0294 같은 변경 `1e8e0486` |
+| 0295 | 설계 `12b500d9`→구현 `d43ca43f`→검증 `df435c3d`와 트리가 같은 사본 `91fb6713`→`1dd32572`→`63d698b0`(부모 SHA만 다름) | 2회 `PASS → PASS` | 1회 `PASS` · 같은 변경 `63d698b0` |
+| 전체 | — | 회차 450(handoff 278) · 회차 수 일치 54 · 명시 없음 211 · 복원 불가 13 · 회차별 일치 301 · 특정 불가 40 | 회차 **449**(handoff 278) · 판정 불명 4 · 회차 수 일치 56 · 명시 없음 209 · 복원 불가 13 · 회차별 일치 325 · 특정 불가 26 · 충돌 0 |
+| round 24 · 49~53 | 절을 들인 커밋 | 24 7 · 24b 2 · 각 0 | 같음 |
+
+- **450 → 449 재현**: `git checkout --detach ac6614d9 && python3 .agents/skills/handoff-review/scripts/review_metrics.py | head -1`(git 2.43.0 · Python 3) → `450(handoff 278)`. 차이 1회는 0295의 리베이스 사본 사슬이다. 피드백이 같은 SHA에서 얻은 **277 handoff는 이 환경에서 재현하지 못했다** — CRLF 체크아웃을 흉내 내도 같고, git 2.43과 2.50의 `trailer.c` 구분자 판정도 같다. 회차가 하나뿐이고 trailer 블록에 `Key: value`가 아닌 줄(끝의 세션 URL)이 섞인 handoff는 0023(`0ef2291a`) 하나라, 그 블록을 trailer로 읽지 않는 환경이면 정확히 회차 1·handoff 1이 빠진다. 두 환경의 `--rounds` 출력을 diff하면 어긋난 회차가 바로 나온다.
+- 메타 표의 `| 라운드 | N |`을 회차 수로 세면 복원 불가가 13 → 30이 된다. 늘어난 17개는 덮어쓴 문서의 낡은 값(0060: 메타 1 ↔ 커밋 4)·plan 라운드(0188: 메타 10 ↔ 커밋 1)라 회차 수로 쓰지 않는다. 회차 하나짜리 템플릿 문서는 `명시 없음 · 일치`로 대조된다.
+- **시나리오 replay(테스트 46개 = 기존 38 + 신규 8)**: 어긋난 `닫힘` 행 뒤 빈 원장이 F·이력 모두 `판정 불가`, 유효한 종결이 나온 회차부터 재개 · 빈 줄로 떨어진 행 ↔ 실제 빈 원장 · 템플릿 판정(굵게 없음) · 템플릿 메타와 결론의 판정 혼재 · 대문자 `Verify N회째` 제목과 제목 속 판정 · `--list`와 요약이 같은 판정 · 리베이스 사본 사슬 1회 · 낡은 메타 라운드는 회차 수가 아님 · `--rounds`. 같은 테스트를 `ac6614d9` 스크립트에 돌리면 10개 실패(바뀐 출력 형식 2 포함).
+
+## 6-C Cross-document Consistency
+
+- `review_metrics.py` 머리말(템플릿 판정 줄 · 메타 라운드 제외 · 어긋난 행 · 떨어진 행 · `--list`·`--rounds`) = 동작 = 테스트. verify SKILL §11 원장 정의·verify 템플릿 메타와 충돌 없음. 지침 문서 변경 0.
+- `test_review_scripts.py` 46/46 · `site_census.test.mjs` 5/5.
+
+## 효과 지표
+
+- 앞 라운드(49~53) 변경의 적용 기회: 그 뒤 verify 회차 0 → **적용 기회 없음**. 이번 이슈 A 3 · B 0.
+
+## 남은 한계
+
+- 277 handoff 환경 차이는 원인을 확정하지 못했다(위 재현 기록).
+- 회차 제목이 없는 여러 회차 문서(명시 없음 209 handoff)는 회차별 판정을 대조하지 않는다.
+- 특정 불가 26회차는 판정 줄이 알려진 형식이 아니거나 한 절에 다른 판정이 함께 적힌 경우다 — 일치로 세지 않는다.
+
+# review round 55 — site_census가 `-g` 앞 정규식을 잘못 골라 거짓 "미분류 0"
+
+**발동/모드**: 0329 ΔV6 설계 턴이 §22-E EP10 자리 검색을 `site_census.mjs`로 다시 세다 발견(2026-11-25) → **APPLY**(도구 결함, 지침 문장 변경 0). 기준 `69c068fa`.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 정규식을 `rg` 뒤 첫 따옴표 인자로 골라, `-g '!*.test.*'`를 정규식 앞에 둔 명령에서 glob을 정규식으로 썼다. 모든 검색 줄이 comment로 분류돼 "운반 0 · 미분류 0 · 정상"이 났다 | 0329 §22-E EP10(검색 41줄): 수정 전 운반 0 · 미분류 0 → 수정 후 운반 28 | **A**(도구) — 값을 받는 옵션의 값을 건너뛴 첫 위치 인자 또는 `-e` 값을 정규식으로 본다. `-i`·`-S`·`-F` 반영. 고른 정규식이 검색 줄 하나라도 못 맞추면 exit 2(fail-closed) |
+
+## Tier
+
+**Tier 1(도구 판정 의미).** 지침 문장 변경 0 — 핵심 지침 bytes 불변. 6-A 대상 지침 파일 없음.
+
+## 6-B Historical Failure Regression
+
+- `--pset`(기준 `69c068fa`): P 71 → 71. **COVERED 71**. 강화: **P71**(검색 출력에서 운반 줄을 고르는 일을 도구가 하되, 도구가 명령을 잘못 읽으면 눈에 띄게 실패).
+- 재측정(이 턴): 0329 줄 단위 목록 넷 — EP3 ⑤′ 운반 2(변화 없음) · EP6 ⑦′ 11(변화 없음) · EP7 ⑥′ 8(변화 없음) · **EP10 0 → 28**. 앞 셋은 정규식이 먼저 와서 영향이 없었다.
+
+## 6-C Cross-document Consistency
+
+- 도구 머리말(종료 코드 2의 새 사유) = 동작 = `site_census.test.mjs` 6/6(신규 1: `-g` 앞 정규식 · `-i` · 줄과 맞지 않는 정규식 → 2). 같은 테스트를 `69c068fa` 도구에 돌리면 신규 1개 실패.
+- verify SKILL §4·plan SKILL §5-A·`docs/handoff/AGENTS.md`의 도구 사용 문장은 명령 형태를 제한하지 않는다 — 변경 없음.
+
+## 효과 지표
+
+- 앞 라운드 변경(round 49 도구 도입)의 적용 기회 1(0329 verify 3 정정) — 그때 쓴 명령은 정규식이 앞이라 영향이 없었다. 이번 이슈 A 1 · B 0.

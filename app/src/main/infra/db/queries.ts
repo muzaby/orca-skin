@@ -1,3 +1,4 @@
+import { HistoryIndexQueries } from './history-index-queries'
 import type Database from 'better-sqlite3'
 import { DEFAULT_AGENT_KIND } from '../../../shared/agent-kind'
 import { isAbsolutePath } from '../../../shared/absolute-path'
@@ -31,6 +32,7 @@ import { isWithinDir } from '../config/paths'
 import { getLogger } from '../log/registry'
 
 export class DbQueries {
+  readonly historyIndex: HistoryIndexQueries
   readonly usage: UsageQueries
   readonly artifacts: ArtifactQueries
   readonly background: BackgroundTaskQueries
@@ -46,10 +48,13 @@ export class DbQueries {
   private readonly loadPartsStmt: Database.Statement
   private readonly listSessionAttachmentFilesStmt: Database.Statement
   private readonly appendMessageStmt: Database.Statement
+  private readonly findMessageByKeyStmt: Database.Statement
+  private readonly committedUserPartsStmt: Database.Statement
+  private readonly appendMessageContentStmt: Database.Statement
   private readonly updateMessageContentStmt: Database.Statement
   private readonly markMessageCompleteStmt: Database.Statement
   private readonly appendPartStmt: Database.Statement
-  private readonly updateToolResultPartStmt: Database.Statement
+  private readonly updateSessionToolResultStmt: Database.Statement
   private readonly updateToolResultPartScopedStmt: Database.Statement
   private readonly updateToolCallInputStmt: Database.Statement
   private readonly findDanglingToolCallsStmt: Database.Statement
@@ -100,6 +105,7 @@ export class DbQueries {
 
   constructor(db: Database.Database) {
     this.db = db
+    this.historyIndex = new HistoryIndexQueries(db)
     this.insertSessionStmt = db.prepare(`
       INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd, extra_dirs, baseline_oid, baseline_ref, agent_kind)
       VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs, @baselineOid, @baselineRef, @agentKind)
@@ -138,6 +144,7 @@ export class DbQueries {
     this.loadPartsStmt = db.prepare(`
       SELECT
         m.id AS message_id,
+        m.message_key,
         m.role AS role,
         m.created_at AS created_at,
         m.complete AS complete,
@@ -157,16 +164,26 @@ export class DbQueries {
       ORDER BY m.idx ASC, mp.idx ASC
     `)
     this.appendMessageStmt = db.prepare(`
-      INSERT INTO messages (session_id, role, content, created_at, complete, idx)
+      INSERT INTO messages (session_id, role, content, created_at, complete, idx, message_key)
       VALUES (
         @sessionId,
         @role,
         @content,
         @createdAt,
         @complete,
-        COALESCE((SELECT MAX(idx) + 1 FROM messages WHERE session_id = @sessionId), 0)
+        COALESCE((SELECT MAX(idx) + 1 FROM messages WHERE session_id = @sessionId), 0),
+        @messageKey
       )
     `)
+    this.findMessageByKeyStmt = db.prepare(
+      'SELECT id, role FROM messages WHERE session_id = @sessionId AND message_key = @messageKey'
+    )
+    this.committedUserPartsStmt = db.prepare(
+      'SELECT type, payload_json FROM message_parts WHERE message_id = ? ORDER BY idx'
+    )
+    this.appendMessageContentStmt = db.prepare(
+      'UPDATE messages SET content = content || @text WHERE id = @id'
+    )
     this.updateMessageContentStmt = db.prepare(`
       UPDATE messages SET content = @content WHERE id = @id
     `)
@@ -186,10 +203,11 @@ export class DbQueries {
     `)
     // tool_result 파트 갱신 — 같은 toolRunId 의 결과를 in-place 로 덮어쓴다(AskUserQuestion
     // 합성 후 실제 tool_result 가 늦게 와도 중복 행을 만들지 않게). 0행이면 호출자가 append.
-    this.updateToolResultPartStmt = db.prepare(`
+    this.updateSessionToolResultStmt = db.prepare(`
       UPDATE message_parts
       SET payload_json = @payloadJson
       WHERE tool_run_id = @toolRunId AND type = 'tool_result'
+        AND message_id IN (SELECT id FROM messages WHERE session_id = @sessionId)
     `)
     this.updateToolResultPartScopedStmt = db.prepare(`
       UPDATE message_parts
@@ -346,9 +364,11 @@ export class DbQueries {
       JOIN sessions s ON s.id = m.session_id
       WHERE messages_fts MATCH @query
         AND s.hidden_at IS NULL
-        AND m.id > MAX(COALESCE((SELECT local_frontier FROM native_history_snapshots
+        AND ((m.id <= (SELECT marker_id FROM history_fork_prefix WHERE session_id=s.id)
+           AND NOT EXISTS (SELECT 1 FROM native_session_recovery WHERE session_id=s.id))
+          OR m.id > MAX(COALESCE((SELECT local_frontier FROM native_history_snapshots
           WHERE session_id = s.id), 0), COALESCE((SELECT local_frontier FROM native_session_recovery
-          WHERE session_id = s.id), 0))
+          WHERE session_id = s.id), 0)))
       ORDER BY rank
       LIMIT @limit
     `)
@@ -501,8 +521,35 @@ export class DbQueries {
   }
 
   appendMessage(row: MessageInsert): number {
-    const info = this.appendMessageStmt.run({ ...row, complete: row.complete ?? 1 })
+    const info = this.appendMessageStmt.run({
+      ...row,
+      complete: row.complete ?? 1,
+      messageKey: row.messageKey ?? null
+    })
     return Number(info.lastInsertRowid)
+  }
+
+  findMessageByKey(
+    sessionId: string,
+    messageKey: string
+  ): { id: number; role: MessageInsert['role'] } | undefined {
+    return this.findMessageByKeyStmt.get({ sessionId, messageKey }) as
+      { id: number; role: MessageInsert['role'] } | undefined
+  }
+
+  committedUserParts(messageId: number): Pick<LoadedPartRow, 'type' | 'payload_json'>[] {
+    return this.committedUserPartsStmt.all(messageId) as Pick<
+      LoadedPartRow,
+      'type' | 'payload_json'
+    >[]
+  }
+
+  commitUserWrite<T>(write: () => T): T {
+    return this.db.transaction(write)()
+  }
+
+  appendMessageContent(id: number, text: string): void {
+    this.appendMessageContentStmt.run({ id, text })
   }
 
   // messages.content 는 text/reasoning parts 의 concat 캐시(FTS5 색인용). 파트 append 와
@@ -522,8 +569,13 @@ export class DbQueries {
 
   // tool_result 파트 upsert — 같은 toolRunId 가 있으면 갱신, 없으면 append. messageId 는
   // append 폴백에만 쓰인다(현재 assistant 메시지).
-  upsertToolResultPart(messageId: number, toolRunId: string, payloadJson: string): void {
-    const info = this.updateToolResultPartStmt.run({ toolRunId, payloadJson })
+  upsertToolResultPartInSession(
+    sessionId: string,
+    messageId: number,
+    toolRunId: string,
+    payloadJson: string
+  ): void {
+    const info = this.updateSessionToolResultStmt.run({ sessionId, toolRunId, payloadJson })
     if (info.changes === 0) {
       this.appendPart({ messageId, type: 'tool_result', toolRunId, payloadJson })
     }
@@ -765,13 +817,32 @@ export class DbQueries {
     return this.copyMessagesTx(srcSessionId, dstSessionId)
   }
 
+  forkPrefix(sessionId: string): number | undefined {
+    return this.db
+      .prepare('SELECT marker_id FROM history_fork_prefix WHERE session_id=?')
+      .pluck()
+      .get(sessionId) as number | undefined
+  }
+
+  recordForkPrefix(sessionId: string, marker: number): void {
+    this.db.prepare('INSERT INTO history_fork_prefix VALUES (?,?)').run(sessionId, marker)
+  }
+
   // 사용자 입력어를 FTS5 MATCH 표현식으로 안전하게 변환 후 검색.
   // 입력어가 비어 있거나 quote 처리 후 empty 면 빈 결과 반환.
   searchMessages(rawQuery: string, limit = 30): SearchHitRow[] {
     const fts = toFtsMatch(rawQuery)
     if (!fts) return []
     const local = this.searchMessagesStmt.all({ query: fts, limit }) as SearchHitRow[]
-    return [...this.nativeHistory.search(fts, limit), ...local].slice(0, limit)
+    return [...this.nativeHistory.search(fts, limit), ...local].slice(0, limit).map((row) => {
+      const recovery = row.native_id && /^orcinus-orca-recovery:(\d+)$/.exec(row.native_id)
+      const locator = this.historyIndex.locator(
+        row.session_id,
+        recovery ? 'archive' : row.native_id ? 'native' : 'local',
+        recovery ? recovery[1] : (row.native_id ?? String(row.message_id))
+      )
+      return { ...row, locator }
+    })
   }
 }
 

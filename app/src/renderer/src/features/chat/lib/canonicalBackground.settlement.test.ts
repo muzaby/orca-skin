@@ -1,3 +1,4 @@
+import { transcriptResultsByToolUseId } from './transcriptIndex.legacy.testfixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as canonicalBackground from './canonicalBackground'
 import {
@@ -12,8 +13,7 @@ import {
   backgroundTaskDisplay,
   backgroundCallToToolCall,
   backgroundElapsedSeconds,
-  projectBackgroundPanel,
-  transcriptResultsByToolUseId
+  projectBackgroundPanel
 } from './canonicalBackground'
 import { dismissCompletedBackgroundItems, useBackgroundStore } from '../store/backgroundStore'
 import type { Message } from '../reducer/chatReducer'
@@ -334,6 +334,7 @@ describe('0239 canonical display settlement', () => {
     }
     const messages: Message[] = [
       {
+        id: 'm-336',
         role: 'assistant',
         createdAt: 1,
         parts: [

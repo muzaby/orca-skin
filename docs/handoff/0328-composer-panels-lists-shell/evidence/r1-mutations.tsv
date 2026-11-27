@@ -1,0 +1,11 @@
+id	결과	exit	요약
+F6-notify	red (기대 일치)	1	vitest 1 failed | 2 skipped (3)
+EP2-send-delayed	red (기대 일치)	1	vitest 3 failed | 3 passed (6)
+EP2-pending-preview	red (기대 일치)	1	vitest 1 failed (1)
+EP2-decode-first	red (기대 일치)	1	vitest 1 failed | 1 passed (2)
+EP2-cancel	red (기대 일치)	1	vitest 1 failed | 1 passed (2)
+WL-lane	red (기대 일치)	1	vitest 2 failed | 4 passed (6)
+WL-priority	red (기대 일치)	1	vitest 1 failed | 1 passed (2)
+EP8-flush	red (기대 일치)	1	vitest 1 failed | 1 passed (2)
+VL-key	red (기대 일치)	1	vitest 1 failed | 6 passed (7)
+Q30-scope	red (기대 일치)	1	vitest 1 failed (1)

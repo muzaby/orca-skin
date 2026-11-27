@@ -4,6 +4,7 @@
 // `registerChatHandlers` 가 만드는 턴-공통 헬퍼와 listen 프레임 릴리즈 맵을 더한 것이다.
 // 두 층을 가른 이유는 send 경로가 후자만 알면 되고, 전자는 배선의 관심사이기 때문이다.
 
+import type { NormalizedEvent } from '../../../shared/ipc'
 import type { ClientRef } from '../../contracts/client'
 import type { TurnContext } from '../../contracts/turn'
 import type { MainBus } from '../../contracts/bus-events'
@@ -23,6 +24,7 @@ import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/back
 
 // 턴 코드가 쓰는 저장 입력 — 턴 싱크에 턴 끝과 백그라운드 기록을 더한 것.
 export interface TurnPersistence extends TurnPersistSink<ClientRef> {
+  relay(turn: TurnContext<ClientRef>, ev: NormalizedEvent): void
   finalizeTurn(turn: TurnContext<ClientRef>): void
   // 기록이 끝난 뒤에만 `committed` 를 부른다 — 그 뒤에 창에 공개한다.
   persistProviderEvent(event: BackgroundEvent | ProviderMessageEvent, committed: () => void): void

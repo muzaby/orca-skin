@@ -31,12 +31,16 @@ describe('materializeContinuityArrival', () => {
     seedParent(q)
     q.insertSession({ id: 'child', backend: 'claude', title: null, projectId: null, createdAt: 3 })
 
-    materializeContinuityArrival(q, {
-      childSessionId: 'child',
-      parentSessionId: 'parent',
-      relation: 'fork',
-      createdAt: 3
-    })
+    materializeContinuityArrival(
+      q,
+      {
+        childSessionId: 'child',
+        parentSessionId: 'parent',
+        relation: 'fork',
+        createdAt: 3
+      },
+      (db, parent, child) => db.copyMessagesToSession(parent, child)
+    )
 
     const parts = q.loadParts('child')
     // 복사 이력 + '분기된 지점' 마커(r5) — 마커는 복사분 바로 뒤(새 발화보다 앞).
@@ -68,12 +72,16 @@ describe('materializeContinuityArrival', () => {
     seedParent(q)
     q.insertSession({ id: 'child', backend: 'claude', title: null, projectId: null, createdAt: 3 })
 
-    materializeContinuityArrival(q, {
-      childSessionId: 'child',
-      parentSessionId: 'parent',
-      relation: 'handoff',
-      createdAt: 3
-    })
+    materializeContinuityArrival(
+      q,
+      {
+        childSessionId: 'child',
+        parentSessionId: 'parent',
+        relation: 'handoff',
+        createdAt: 3
+      },
+      (db, parent, child) => db.copyMessagesToSession(parent, child)
+    )
 
     expect(q.loadParts('child')).toHaveLength(0)
     expect(q.getLineage('child')).toMatchObject({ relation: 'handoff' })
@@ -104,12 +112,16 @@ describe('materializeContinuityArrival', () => {
     const { q } = makeDb()
     seedParent(q)
     q.insertSession({ id: 'child', backend: 'claude', title: null, projectId: null, createdAt: 3 })
-    materializeContinuityArrival(q, {
-      childSessionId: 'child',
-      parentSessionId: 'parent',
-      relation: 'fork',
-      createdAt: 3
-    })
+    materializeContinuityArrival(
+      q,
+      {
+        childSessionId: 'child',
+        parentSessionId: 'parent',
+        relation: 'fork',
+        createdAt: 3
+      },
+      (db, parent, child) => db.copyMessagesToSession(parent, child)
+    )
     q.deleteSession('parent')
     expect(q.getLineage('child')).toBeUndefined()
     // 자식 복사분(+분기 마커)은 독립 세션이라 살아남는다.

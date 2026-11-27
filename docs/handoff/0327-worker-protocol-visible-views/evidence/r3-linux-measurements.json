@@ -1,0 +1,435 @@
+{
+  "tree": "r3",
+  "command": "node scripts/measure-ui-inputs.mjs --visible .",
+  "concurrentGates": true,
+  "samples": [
+    {
+      "id": "K1",
+      "name": "5000 diff rows",
+      "attempts": 10,
+      "result": {
+        "median": 13.473806000000081,
+        "max": 17.475997000000007
+      }
+    },
+    {
+      "id": "K1",
+      "name": "5001 diff rows",
+      "attempts": 10,
+      "result": {
+        "median": 3.1940640000000258,
+        "max": 19.488473999999997
+      }
+    },
+    {
+      "id": "K1",
+      "name": "50000 diff rows",
+      "attempts": 10,
+      "result": {
+        "median": 33.902964999999995,
+        "max": 48.88025799999991
+      }
+    },
+    {
+      "id": "K2",
+      "name": "tokens 0",
+      "attempts": 10,
+      "result": {
+        "median": 17.702687999999853,
+        "max": 20.095266000000038
+      },
+      "jobs": 1,
+      "maxJobMs": 14.394442000000026
+    },
+    {
+      "id": "K2",
+      "name": "tokens 49800",
+      "attempts": 10,
+      "result": {
+        "median": 3197.6171620000023,
+        "max": 3583.3724279999988
+      },
+      "jobs": 61,
+      "maxJobMs": 50.39351700000043
+    },
+    {
+      "id": "K3",
+      "name": "1MB markdown, first 30 blocks",
+      "attempts": 10,
+      "result": {
+        "median": 47.34817599999951,
+        "max": 60.59936000000016
+      },
+      "blocks": {
+        "chunks": 30,
+        "raw": 0,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 7.530779000000621,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K4",
+      "name": "loose list 4000",
+      "attempts": 10,
+      "result": {
+        "median": 91.80682499999966,
+        "max": 99.87051600000268
+      }
+    },
+    {
+      "id": "K4",
+      "name": "loose list 20000",
+      "attempts": 10,
+      "result": {
+        "median": 298.77327199999854,
+        "max": 356.4782639999976
+      }
+    },
+    {
+      "id": "K4",
+      "name": "loose list 50000",
+      "attempts": 10,
+      "result": {
+        "median": 4188.163925000001,
+        "max": 8046.338196999997
+      }
+    },
+    {
+      "id": "K5",
+      "name": "5MiB code index and first 200 rows",
+      "attempts": 10,
+      "result": {
+        "median": 196.61865699999908,
+        "max": 248.42138699999487
+      }
+    },
+    {
+      "id": "K6",
+      "name": "200 file paths",
+      "attempts": 10,
+      "result": {
+        "median": 0.28983599999628495,
+        "max": 0.415355000004638
+      }
+    },
+    {
+      "id": "K7",
+      "name": "990044-char patch",
+      "attempts": 10,
+      "result": {
+        "median": 0.7858919999998761,
+        "max": 46.328982999999425
+      }
+    },
+    {
+      "id": "K8",
+      "name": "typescript",
+      "attempts": 10,
+      "result": {
+        "median": 459.21628399999463,
+        "max": 729.3524090000137
+      }
+    },
+    {
+      "id": "K8",
+      "name": "javascript",
+      "attempts": 10,
+      "result": {
+        "median": 0.036164999997708946,
+        "max": 0.06196300000010524
+      }
+    },
+    {
+      "id": "K9",
+      "name": "javascript 5000",
+      "attempts": 10,
+      "result": {
+        "median": 2506.7544659999985,
+        "max": 6456.400968000002
+      },
+      "jobs": 1,
+      "maxJobMs": 2162.7571869999956
+    },
+    {
+      "id": "K9",
+      "name": "javascript 20000",
+      "attempts": 10,
+      "result": {
+        "median": 0.007471999997505918,
+        "max": 0.012848999991547316
+      },
+      "jobs": 1,
+      "maxJobMs": 0.006368999995174818
+    },
+    {
+      "id": "K9",
+      "name": "javascript 1000000",
+      "attempts": 10,
+      "result": {
+        "median": 0.09707600000547245,
+        "max": 0.11617499998828862
+      },
+      "jobs": 1,
+      "maxJobMs": 0.0948929999867687
+    },
+    {
+      "id": "K9",
+      "name": "json 1000002",
+      "attempts": 10,
+      "result": {
+        "median": 0.09397100000933278,
+        "max": 0.11965999999665655
+      },
+      "jobs": 1,
+      "maxJobMs": 0.09194800000113901
+    },
+    {
+      "id": "K10",
+      "name": "boundary 0",
+      "attempts": 10,
+      "result": {
+        "median": 267.3617019999947,
+        "max": 1052.9802060000075
+      },
+      "blocks": {
+        "chunks": 8,
+        "raw": 0,
+        "nodes": 19368,
+        "wireBytes": 1912680,
+        "maxChunkMs": 159.60697100000107,
+        "renderMs": 265.1221530000039
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 1",
+      "attempts": 10,
+      "result": {
+        "median": 0.49055800000496674,
+        "max": 0.8499190000002272
+      },
+      "blocks": {
+        "chunks": 0,
+        "raw": 1,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 0,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 2",
+      "attempts": 10,
+      "result": {
+        "median": 0.0013020000042160973,
+        "max": 0.005327999999281019
+      },
+      "blocks": {
+        "chunks": 0,
+        "raw": 1,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 0,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 3",
+      "attempts": 10,
+      "result": {
+        "median": 148.59197999999742,
+        "max": 173.26363699999638
+      },
+      "blocks": {
+        "chunks": 13,
+        "raw": 0,
+        "nodes": 2673,
+        "wireBytes": 869579,
+        "maxChunkMs": 13.68091199999617,
+        "renderMs": 26.561772000044584
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 4",
+      "attempts": 10,
+      "result": {
+        "median": 632.0385959999985,
+        "max": 1350.0109100000118
+      },
+      "blocks": {
+        "chunks": 11,
+        "raw": 0,
+        "nodes": 32382,
+        "wireBytes": 3467803,
+        "maxChunkMs": 160.1975139999995,
+        "renderMs": 284.50542999999016
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 5",
+      "attempts": 10,
+      "result": {
+        "median": 0.024206999980378896,
+        "max": 0.0432849999924656
+      },
+      "blocks": {
+        "chunks": 0,
+        "raw": 1,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 0,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 6",
+      "attempts": 10,
+      "result": {
+        "median": 700.1217339999857,
+        "max": 1409.3335629999929
+      },
+      "blocks": {
+        "chunks": 0,
+        "raw": 1,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 567.6059900000109,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Read 1000000",
+      "attempts": 10,
+      "result": {
+        "median": 1.19604700000491,
+        "max": 1.6669950000068638
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Work string 1000000",
+      "attempts": 10,
+      "result": {
+        "median": 0.01272999998764135,
+        "max": 0.020281000004615635
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Work object 1000000",
+      "attempts": 10,
+      "result": {
+        "median": 2.4633709999907296,
+        "max": 2.809670999995433
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Read 5000000",
+      "attempts": 10,
+      "result": {
+        "median": 4.317888000019593,
+        "max": 6.239154000009876
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Work string 5000000",
+      "attempts": 10,
+      "result": {
+        "median": 0.00033000000985339284,
+        "max": 0.004127000021981075
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Work object 5000000",
+      "attempts": 10,
+      "result": {
+        "median": 28.470708000008017,
+        "max": 31.77023499997449
+      }
+    },
+    {
+      "id": "K11",
+      "name": "50000 patch lines",
+      "attempts": 10,
+      "result": {
+        "median": 3.6576960000093095,
+        "max": 26.254337999998825
+      }
+    },
+    {
+      "id": "K13",
+      "name": "50000 pair diff rows",
+      "attempts": 10,
+      "result": {
+        "median": 122.78817200000049,
+        "max": 293.7049770000158
+      }
+    },
+    {
+      "id": "K13",
+      "name": "pair 2000 + 2000",
+      "attempts": 10,
+      "result": {
+        "median": 1419.4794769999862,
+        "max": 1813.399063000019
+      }
+    },
+    {
+      "id": "K13",
+      "name": "pair 5000 + 5000",
+      "attempts": 10,
+      "result": {
+        "median": 10372.417420000012,
+        "max": 14212.665570000012
+      }
+    },
+    {
+      "id": "K13",
+      "name": "pair 50000 + 50000",
+      "attempts": 10,
+      "result": {
+        "median": 68.42893400002504,
+        "max": 116.52715599996736
+      }
+    },
+    {
+      "id": "K13",
+      "name": "50000 model only",
+      "attempts": 10,
+      "result": {
+        "median": 23.409470000013243,
+        "max": 25.463659000000916
+      }
+    },
+    {
+      "id": "K13",
+      "name": "5MiB codeView",
+      "attempts": 10,
+      "result": {
+        "median": 45.2371990000247,
+        "max": 75.6507579999743
+      }
+    },
+    {
+      "id": "K13",
+      "name": "32000-char highlight",
+      "attempts": 10,
+      "result": {
+        "median": 94.55349700001534,
+        "max": 159.7989130000351
+      }
+    }
+  ],
+  "baseline": "r2-linux-measurements.json#baseline"
+}

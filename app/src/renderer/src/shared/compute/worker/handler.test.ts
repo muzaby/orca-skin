@@ -1,16 +1,19 @@
 // 클라이언트 ↔ 워커 메시지 계약 (0324 VP-10) — 요청 3종을 실제 처리 함수에 넣고, 응답을
 // 클라이언트의 파서(`parseResponse`)로 읽는다. 워커 프로세스만 빼고 같은 경로다.
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { diffLinesWithinCap } from '../inline'
 import { parseResponse, resultSize, type ComputeRequest, type WireResponse } from '../protocol'
 import { handleMessage } from './handler'
 
-async function roundTrip(request: ComputeRequest, id = 7): Promise<WireResponse> {
+async function roundTrip(
+  request: ComputeRequest,
+  id = 7
+): Promise<Exclude<WireResponse, { ok: 'continue' }>> {
   // 워커 경계는 structured clone 이다 — JSON 왕복으로 "복제 가능한 값만 실린다"를 함께 본다.
   const wire = JSON.parse(JSON.stringify(await handleMessage({ ...request, id }))) as unknown
   const parsed = parseResponse(wire)
-  if (!parsed) throw new Error('응답 형식이 아니다')
+  if (!parsed || parsed.ok === 'continue') throw new Error('응답 형식이 아니다')
   return parsed
 }
 
@@ -99,4 +102,180 @@ describe('parseResponse', () => {
     { id: 1, ok: true },
     { id: 1, ok: false }
   ])('형식이 아닌 값 %j 은 null 이다', (raw) => expect(parseResponse(raw)).toBeNull())
+})
+
+it('h9 passes line length and time budgets to Shiki', async () => {
+  const { getHighlighter } = await import('./highlighter')
+  const highlighter = await getHighlighter(),
+    spy = vi.spyOn(highlighter, 'codeToHtml')
+  try {
+    await roundTrip({
+      kind: 'highlight',
+      code: 'x'.repeat(32000),
+      lang: 'javascript',
+      theme: 'github-light'
+    })
+    expect(spy).toHaveBeenCalledWith(
+      'x'.repeat(32000),
+      expect.objectContaining({ tokenizeMaxLineLength: 20000, tokenizeTimeLimit: 50 })
+    )
+  } finally {
+    spy.mockRestore()
+  }
+})
+it('h10 closing a source invalidates its raw and derived windows, tokens and diff model', async () => {
+  const { createWorkerState } = await import('./state')
+  const { getHighlighter } = await import('./highlighter')
+  const run = createWorkerState(() => 0)
+  const doc = { id: 'before', revision: 1 }
+  const other = { id: 'after', revision: 1 }
+  const source = { kind: 'pair' as const, old: doc, new: other }
+  const view = { doc, transform: 'stripGutter' as const }
+  const axis = { source, axis: 'old' as const, ignoreWhitespace: false }
+  const options = {
+    layout: 'inline' as const,
+    expansions: [],
+    highlightWords: false,
+    ignoreWhitespace: false
+  }
+  const window = { start: 201, end: 202 }
+  const tokens = {
+    kind: 'tokens' as const,
+    lang: 'typescript',
+    theme: 'github-dark' as const,
+    ...window
+  }
+  const text = Array.from({ length: 205 }, (_, i) => i + 1 + '\tconst n = 1').join('\n')
+  const requests: ComputeRequest[] = [
+    { ...tokens, doc },
+    { ...tokens, view },
+    { ...tokens, axis },
+    { kind: 'codeView', source: { doc }, ...window },
+    { kind: 'codeView', source: { view }, ...window },
+    { kind: 'diffView', source, options, start: 0, end: 2 },
+    { kind: 'diffLocate', source, options, anchors: [{ oldLine: 1, newLine: null }] },
+    { kind: 'diffContext', source, ignoreWhitespace: false, lineIndex: 0 }
+  ]
+  await run({ type: 'doc.open', ref: doc, text })
+  await run({ type: 'doc.open', ref: other, text: 'unchanged' })
+  for (const request of requests)
+    expect(await run({ ...request, id: 1 })).toMatchObject({ ok: true })
+  await run({ type: 'doc.close', ref: doc })
+  for (const request of requests) {
+    expect(await run({ ...request, id: 1 })).toMatchObject({ ok: false, error: 'unknown-doc' })
+  }
+  expect(
+    await run({ id: 1, kind: 'codeView', source: { doc: other }, start: 0, end: 1 })
+  ).toMatchObject({
+    result: { lines: ['unchanged'] }
+  })
+  await run({ type: 'doc.open', ref: doc, text: text.replaceAll('n = 1', 'm = 2') })
+  const calls = vi.spyOn(await getHighlighter(), 'codeToTokens')
+  try {
+    for (const tokenSource of [{ doc }, { view }, { axis }]) {
+      calls.mockClear()
+      expect(await run({ ...tokens, ...tokenSource, id: 2 })).toMatchObject({ ok: true })
+      expect(calls).toHaveBeenCalledTimes(window.end)
+      expect(calls.mock.calls.at(-1)?.[0]).toContain('m = 2')
+    }
+  } finally {
+    calls.mockRestore()
+  }
+  expect(await run({ ...requests[4], id: 1 })).toMatchObject({ result: { lines: ['const m = 2'] } })
+})
+
+it('h11 retains the two most recently used language and theme checkpoints per document', async () => {
+  const { createWorkerState } = await import('./state')
+  const { getHighlighter } = await import('./highlighter')
+  const run = createWorkerState(() => 0)
+  const doc = { id: 'theme-history', revision: 1 }
+  await run({ type: 'doc.open', ref: doc, text: Array(405).fill('const n = 1').join('\n') })
+  const calls = vi.spyOn(await getHighlighter(), 'codeToTokens')
+  const seek = async (lang: string, theme: 'github-light' | 'github-dark'): Promise<number> => {
+    calls.mockClear()
+    expect(
+      await run({ id: 1, kind: 'tokens', doc, lang, theme, start: 401, end: 402 })
+    ).toMatchObject({ ok: true })
+    return calls.mock.calls.length
+  }
+  try {
+    expect(await seek('typescript', 'github-dark')).toBe(402)
+    expect(await seek('typescript', 'github-light')).toBe(402)
+    expect(await seek('typescript', 'github-dark')).toBe(2)
+    expect(await seek('javascript', 'github-dark')).toBe(402)
+    expect(await seek('typescript', 'github-dark')).toBe(2)
+    expect(await seek('javascript', 'github-dark')).toBe(2)
+    expect(await seek('typescript', 'github-light')).toBe(402)
+  } finally {
+    calls.mockRestore()
+  }
+})
+it('h12 eight warm models survive reverse traversal and rebuild on eviction or replacement', async () => {
+  const { createWorkerState } = await import('./state'),
+    diff = await import('../diffView'),
+    spy = vi.spyOn(diff, 'buildDiffView')
+  let run = createWorkerState()
+  const doc = (i: number): { id: string; revision: number } => ({ id: 'fixture' + i, revision: 1 })
+  const open = (i: number): Promise<WireResponse | undefined> =>
+    run({
+      type: 'doc.open',
+      ref: doc(i),
+      text: '+row',
+      lines: { oldLine: Int32Array.of(-1), newLine: Int32Array.of(1) }
+    })
+  const query = (i: number): Promise<WireResponse | undefined> =>
+    run({
+      id: i,
+      kind: 'diffView',
+      source: { kind: 'lines', doc: doc(i) },
+      options: { layout: 'inline', expansions: [], highlightWords: false, ignoreWhitespace: false },
+      start: 0,
+      end: 1
+    })
+  try {
+    for (let i = 1; i <= 9; i++) {
+      await open(i)
+      await query(i)
+    }
+    expect(spy).toHaveBeenCalledTimes(9)
+    for (let i = 9; i >= 2; i--) await query(i)
+    expect(spy).toHaveBeenCalledTimes(9)
+    await query(1)
+    expect(spy).toHaveBeenCalledTimes(10)
+    run = createWorkerState()
+    expect(await query(1)).toMatchObject({ ok: false, error: 'unknown-doc' })
+    await open(1)
+    await query(1)
+    expect(spy).toHaveBeenCalledTimes(11)
+  } finally {
+    spy.mockRestore()
+  }
+})
+it('h13 stripped view supplies identical visible rows and Shiki colors and closes with source', async () => {
+  const { createWorkerState } = await import('./state'),
+    { getHighlighter } = await import('./highlighter'),
+    run = createWorkerState(),
+    doc = { id: 'read', revision: 1 },
+    view = { doc, transform: 'stripGutter' as const },
+    options = { lang: 'typescript', theme: 'github-dark' as const }
+  const code = 'const n = 1\nreturn n',
+    text = '1\tconst n = 1\n2\treturn n'
+  await run({ type: 'doc.open', ref: doc, text })
+  const req = { kind: 'codeView' as const, id: 1, source: { view }, start: 0, end: 2 }
+  expect(await run(req)).toMatchObject({ ok: true, result: { lines: code.split('\n') } })
+  const response = await run({ id: 2, kind: 'tokens', view, ...options, start: 0, end: 2 })
+  if (
+    !response ||
+    response.ok !== true ||
+    !('rows' in response.result) ||
+    'summary' in response.result
+  )
+    throw Error('missing token rows')
+  const colors = (rows: { content: string; color?: string }[][]): (string | undefined)[][][] =>
+    rows.map((row) => row.map(({ content, color }) => [content, color]))
+  expect(colors(response.result.rows)).toEqual(
+    colors((await getHighlighter()).codeToTokens(code, options).tokens)
+  )
+  await run({ type: 'doc.close', ref: doc })
+  expect(await run(req)).toMatchObject({ ok: false, error: 'unknown-doc' })
 })

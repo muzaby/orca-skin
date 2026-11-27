@@ -1,97 +1,34 @@
-import { readFileSync } from 'node:fs'
-import { expect, it, vi } from 'vitest'
+import { expect, it } from 'vitest'
 import type { Message } from '../../../reducer/chatReducer'
-import * as turns from '../../../lib/turns'
-import { hasSegmentReasoning } from '../../../lib/parts'
-import {
-  materializeTimelineRows,
-  projectTimeline,
-  projectTimelineHead,
-  projectTimelineTail,
-  timelineRowIndex,
-  timelineRows
-} from './projection'
-const cases = JSON.parse(
-  readFileSync(new URL('./projection.golden.json', import.meta.url), 'utf8')
-) as Array<{
-  messages: Message[]
-  live: { text: string; reasoning: string; pending: boolean }
-  rows: unknown[]
-}>
-it.each(cases)('matches original keys, gaps, tools, artifacts and incomplete rows %#', (input) => {
-  const rows = projectTimeline(input.messages, input.live).map((row) => {
-    if (row.kind !== 'meta') return row
-    const { turn, copyable, ...rest } = row
-    expect(copyable).toBe(turns.turnCopyText(turn) !== '')
-    return { ...rest, text: turns.turnCopyText(turn) }
-  })
-  expect(rows).toEqual(input.rows)
-})
-it('keeps head rows and indexed positions stable as only the live tail changes, without eager copy text', () => {
-  const copy = vi.spyOn(turns, 'turnCopyText')
-  const input = cases[2],
-    head = projectTimelineHead(input.messages)
-  // 유무가 같으면 tail 은 한 번 투영한 그대로다 — 본문만 바뀐다(0325 D-015).
-  const tail = projectTimelineTail(head, {
-    text: true,
-    reasoning: hasSegmentReasoning(input.live.reasoning),
-    pending: input.live.pending
-  })
-  const rows = timelineRows(head, tail)
-  for (const text of ['one', 'two', 'three', 'four', 'five']) {
-    const materialized = materializeTimelineRows(
-      Array.from({ length: rows.count }, (_, index) => rows.at(index)),
-      text
-    )
-    for (const [index, row] of materialized.entries())
-      expect(timelineRowIndex(head, tail, row.key)).toBe(index)
-    expect(timelineRowIndex(head, tail, 'missing')).toBe(-1)
-    expect(head.rows.every((row, index) => rows.at(index) === row)).toBe(true)
-    expect(materialized).toEqual(projectTimeline(input.messages, { ...input.live, text }))
-  }
-  expect(copy).not.toHaveBeenCalled()
-  copy.mockRestore()
-})
+import { createOpenCodeBlockModel } from './openCodeBlocks'
+import { newTranscriptChanges, recordChange } from '../../../lib/transcript/changeLog'
 
-it.each([
-  [{ type: 'text', text: '   ' }],
-  [{ type: 'text', text: 'child', parentToolRunId: 'child-run' }],
-  [{ type: 'text', text: 'empty child id is not main text', parentToolRunId: '' }],
-  [{ type: 'text', text: 'main text' }]
-] as const)('derives meta copyability from the same text semantics as turnCopyText: %j', (part) => {
-  const rows = projectTimeline([{ role: 'assistant', createdAt: 1, parts: [part] }], {
-    text: '',
-    reasoning: '',
-    pending: false
-  })
-  const meta = rows.find((row) => row.kind === 'meta')!
-  if (meta.kind !== 'meta') throw new Error('missing meta')
-  expect(meta.copyable).toBe(turns.turnCopyText(meta.turn) !== '')
-})
-
-it.each([
-  { order: 'tools then body', textAt: 1, expectedText: 'answer after tools' },
-  { order: 'body then tools', textAt: 0, expectedText: 'answer before tools' },
-  { order: 'tools only', textAt: -1, expectedText: '' }
-])(
-  'preserves copyability across multiple assistant messages: $order',
-  ({ textAt, expectedText }) => {
-    const messages: Message[] = [0, 1].map((index) => ({
+it('keeps earlier blocks stable by reference as only live presence changes', () => {
+  const messages: Message[] = [
+    { id: 'u:1', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'first' }] },
+    {
+      id: 'a:1',
       role: 'assistant',
-      createdAt: index + 1,
-      parts:
-        index === textAt
-          ? [{ type: 'text', text: expectedText }]
-          : [{ type: 'tool_call', toolRunId: `read-${index}`, toolName: 'Read', args: {} }]
-    }))
-    const rows = projectTimeline(messages, { text: '', reasoning: '', pending: false })
-    const metas = rows.filter((row) => row.kind === 'meta')
-    expect(metas).toHaveLength(1)
-    const meta = metas[0]
-    if (meta.kind !== 'meta') throw new Error('missing meta')
-    expect(meta.turn.messages).toEqual(messages)
-    expect(turns.turnCopyText(meta.turn)).toBe(expectedText)
-    expect(meta.copyable).toBe(expectedText !== '')
-    expect(meta.copyable).toBe(turns.turnCopyText(meta.turn) !== '')
+      createdAt: 2,
+      parts: [{ type: 'text', text: 'committed answer' }]
+    },
+    { id: 'u:2', role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'second' }] }
+  ]
+  const model = createOpenCodeBlockModel()
+  const changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+  const snap1 = model.advance(
+    { messages, transcriptChanges: changes },
+    { pending: true, liveText: false, liveReasoning: false, liveTextKey: undefined }
+  )
+  const snap2 = model.advance(
+    { messages, transcriptChanges: changes },
+    { pending: true, liveText: true, liveReasoning: false, liveTextKey: 'a:2' }
+  )
+  // All prior committed blocks keep the exact same object reference
+  for (let i = 0; i < snap1.count; i++) {
+    expect(snap2.blockAt(i)).toBe(snap1.blockAt(i))
   }
-)
+  expect(snap2.count).toBe(snap1.count + 1)
+  const last = snap2.blockAt(snap2.count - 1)
+  expect(last.kind === 'segment' && last.live).toBe(true)
+})

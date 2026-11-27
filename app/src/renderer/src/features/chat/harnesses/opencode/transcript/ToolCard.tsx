@@ -10,9 +10,11 @@ import { useToolDisclosure } from './viewState'
 import { fileChanges, fileName } from './filePresentation'
 
 export const OpenCodeToolCard = memo(function OpenCodeToolCard({
-  call
+  call,
+  partKey
 }: {
   call: ToolCall
+  partKey?: string
 }): React.JSX.Element {
   const { tr } = useI18n()
   const view = useMemo(() => describeTool(call), [call])
@@ -39,6 +41,7 @@ export const OpenCodeToolCard = memo(function OpenCodeToolCard({
   return (
     <div
       data-component="opencode-tool"
+      data-part-key={partKey}
       data-tool-kind={view.kind}
       data-outcome={view.outcome}
       className="min-w-0 text-[calc(13px*var(--transcript-text-scale,1))] font-[440] leading-[20px] tracking-[-0.04px] text-oc-muted"

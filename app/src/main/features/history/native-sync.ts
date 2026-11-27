@@ -1,4 +1,5 @@
 import type { LoadedSession } from '../../../shared/ipc'
+import { forkNativeSuffix } from './fork-native'
 import { isRecord } from '../../../shared/obj'
 import type {
   NativeHistoryCursor,
@@ -121,6 +122,17 @@ export async function refreshNativeHistory(
       }
     }
     const { raw, ...lean } = result.snapshot
+    const marker = deps.db.nativeHistory.recovery?.(sessionId)
+      ? undefined
+      : deps.db.forkPrefix?.(sessionId)
+    const searchable =
+      marker === undefined
+        ? result.snapshot.messages
+        : forkNativeSuffix(
+            result.snapshot.messages,
+            deps.db.nativeHistory.bindings(sessionId),
+            marker
+          )
     const saved = deps.db.nativeHistory.replace({
       sessionId,
       payloadJson: JSON.stringify(lean),
@@ -129,7 +141,7 @@ export async function refreshNativeHistory(
       frontier: before.frontier,
       expectedVersion: before.version,
       now: Date.now(),
-      messages: result.snapshot.messages.map((message) => ({
+      messages: searchable.map((message) => ({
         id: message.id,
         role: message.role,
         createdAt: message.createdAt,

@@ -15,15 +15,27 @@
 // 세션 id 는 하네스가 준다 — 저장이 정하던 `turn.dbSessionId` 를 실행 쪽도 같은 이벤트에서 정한다.
 
 import type { NormalizedEvent } from '../../../shared/ipc'
+import {
+  assistantMessageId,
+  PART_EVENT_TYPES,
+  type PartEventType
+} from '../../../shared/message-id'
 import type { ClientRef } from '../../contracts/client'
 import type { TurnContext } from '../../contracts/turn'
 import { artifactReceiptId } from '../../features/history/artifact-receipt'
 import type { HistoryWriter } from '../../features/history/writer'
 import type { TurnPersistSink } from '../../features/chat/turn-sinks'
 import type { PeerLink } from '../../infra/ipc/peer-link'
-import { TURN_BEGIN_FIELDS, TURN_LIVE_FIELDS, type TurnBegin } from '../../../shared/peer-protocol'
+import {
+  TURN_BEGIN_FIELDS,
+  TURN_LIVE_FIELDS,
+  type TurnAskAnswer,
+  type TurnBegin,
+  type UserCommitResult
+} from '../../../shared/peer-protocol'
 
 export interface PersistenceSenderDeps {
+  newId(): string
   link: Pick<PeerLink<'agent'>, 'notify' | 'request' | 'onClosed'>
   // 화면 중계 — 그 턴의 순서대로 부른다.
   send(owner: ClientRef, ev: NormalizedEvent): void
@@ -52,9 +64,12 @@ interface TurnState {
   turn: TurnContext<ClientRef>
   live: Record<string, unknown>
   // 확인을 기다리는 산출물 이벤트가 있으면 그 뒤 중계가 여기 줄을 선다.
-  pending: Promise<void> | null
+  pending: number
   queue: NormalizedEvent[]
   failed: boolean
+  messageKey?: string
+  callKeys: Map<string, string>
+  boundaryKeys: Map<string, string>
 }
 
 function pick(turn: object, keys: readonly string[]): Record<string, unknown> {
@@ -78,6 +93,22 @@ function needsConfirmation(ev: NormalizedEvent): boolean {
   return false
 }
 
+type PartEvent = Extract<NormalizedEvent, { type: PartEventType }>
+
+const partEventTypes = new Set<NormalizedEvent['type']>(PART_EVENT_TYPES)
+
+function isPartEvent(ev: NormalizedEvent): ev is PartEvent {
+  return partEventTypes.has(ev.type)
+}
+
+function ownerKeyOf(state: TurnState, ev: PartEvent): string | undefined {
+  if (ev.type === 'tool.call.completed') return state.callKeys.get(ev.toolRunId)
+  if (ev.type === 'response.boundary' && ev.boundary.phase !== 'begin') {
+    return state.boundaryKeys.get(ev.boundary.id)
+  }
+  return undefined
+}
+
 export function createPersistenceSender(deps: PersistenceSenderDeps): PersistenceSender {
   let seq = 0
   const states = new WeakMap<TurnContext<ClientRef>, TurnState>()
@@ -91,9 +122,11 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
       key: `turn_${++seq}`,
       turn,
       live: pick(turn, TURN_LIVE_FIELDS),
-      pending: null,
+      pending: 0,
       queue: [],
-      failed: false
+      failed: false,
+      callKeys: new Map(),
+      boundaryKeys: new Map()
     }
     states.set(turn, state)
     byKey.set(state.key, state)
@@ -129,6 +162,15 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
     }
   }
 
+  const relay = (turn: TurnContext<ClientRef>, ev: NormalizedEvent): void => {
+    const state = states.get(turn)
+    if (!state || (!state.pending && state.queue.length === 0)) {
+      deps.send(turn.owner, ev)
+    } else if (!state.failed) {
+      state.queue.push(ev)
+    }
+  }
+
   deps.link.onClosed(() => {
     for (const state of [...byKey.values()]) fail(state, PERSIST_PEER_LOST)
   })
@@ -150,13 +192,30 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
       }
       const state = stateOf(turn)
       if (state.failed) return
+      if (ev.type === 'message.delta' || ev.type === 'message.reasoning.delta') {
+        ev.messageKey ??= state.messageKey ??= assistantMessageId(deps.newId())
+      } else if (isPartEvent(ev)) {
+        if (ev.messageKey === undefined) {
+          const owner = ownerKeyOf(state, ev)
+          ev.messageKey = owner ?? (state.messageKey ??= assistantMessageId(deps.newId()))
+          if (owner !== undefined) ev.messageKeySource = 'owner'
+        }
+        if (ev.type === 'tool.call.started' && !state.callKeys.has(ev.toolRunId)) {
+          state.callKeys.set(ev.toolRunId, ev.messageKey)
+        }
+        if (ev.type === 'response.boundary' && ev.boundary.phase === 'begin') {
+          state.boundaryKeys.set(ev.boundary.id, ev.messageKey)
+        }
+      }
       if (!needsConfirmation(ev)) {
         if (ev.type === 'tool.call.completed') delete (ev as { artifact?: unknown }).artifact
         deps.link.notify('turn.event', { ...envelope(state), ev })
+        if (ev.type === 'telemetry') delete state.messageKey
         return
       }
       // 어댑터 입력의 산출물 참조는 권위가 없다 — DB 가 확인한 참조로 바꾼 뒤 중계한다.
-      const wait = deps.link
+      state.pending += 1
+      void deps.link
         .request('turn.artifactEvent', { ...envelope(state), ev })
         .then(
           (artifact) => {
@@ -168,27 +227,19 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
           }
         )
         .finally(() => {
-          if (state.pending === wait) state.pending = null
+          state.pending -= 1
           flush(state)
         })
-      state.pending = wait
     },
-    relay(turn, ev) {
-      const state = states.get(turn)
-      if (!state || (!state.pending && state.queue.length === 0)) {
-        deps.send(turn.owner, ev)
-        return
-      }
-      if (state.failed) return
-      state.queue.push(ev)
-    },
+    relay,
     persist(turn, ev) {
       // 계획 검토 도구 입력 — 턴 이벤트와 같은 순서 큐로 간다.
       const state = stateOf(turn)
       if (!state.failed) deps.link.notify('turn.event', { ...envelope(state), ev })
     },
-    flushAskAnswers(turn, owner) {
-      const answers: Array<{ toolUseId: string; output: unknown; parentToolRunId?: string }> = []
+    flushAskAnswers(turn) {
+      const state = states.get(turn)
+      const answers: TurnAskAnswer[] = []
       for (let answerIndex = 0; answerIndex < turn.pendingAskAnswers.length;) {
         const a = turn.pendingAskAnswers[answerIndex]!
         const pendingIndex = turn.askPendingIds.indexOf(a.toolUseId)
@@ -207,25 +258,40 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
         const parentToolRunId = turn.openToolRuns.get(toolUseId)?.parentToolRunId
         // 답변이 채워진 Ask 는 더 이상 열린 실행이 아니다 — 중단 시 abort 결과로 덮지 않는다.
         turn.openToolRuns.delete(toolUseId)
-        answers.push({ toolUseId, output, ...(parentToolRunId ? { parentToolRunId } : {}) })
-        deps.send(owner, {
+        const ownerKey = state?.callKeys.get(toolUseId)
+        const messageKey = ownerKey ?? state?.messageKey
+        answers.push({
+          toolUseId,
+          output,
+          ...(messageKey !== undefined ? { messageKey } : {}),
+          ...(parentToolRunId ? { parentToolRunId } : {})
+        })
+        relay(turn, {
           type: 'tool.call.completed',
           sessionId: turn.dbSessionId ?? '',
           toolRunId: toolUseId,
           result: output,
           isError: false,
+          ...(messageKey !== undefined ? { messageKey } : {}),
+          ...(ownerKey !== undefined ? { messageKeySource: 'owner' as const } : {}),
           ...(parentToolRunId ? { parentToolRunId } : {})
         })
       }
       if (answers.length === 0) return
-      const state = stateOf(turn)
-      if (!state.failed) deps.link.notify('turn.askAnswers', { ...envelope(state), answers })
+      const activeState = state ?? stateOf(turn)
+      if (!activeState.failed) {
+        deps.link.notify('turn.askAnswers', { ...envelope(activeState), answers })
+      }
     },
     async commitUserMessage(turn, batch) {
       const state = stateOf(turn)
       if (state.failed) return null
-      const id = await deps.link.request('turn.commitUser', { ...envelope(state), batch })
-      return typeof id === 'number' ? id : null
+      const result = (await deps.link.request('turn.commitUser', {
+        ...envelope(state),
+        batch
+      })) as UserCommitResult | null
+      if (result?.created) delete state.messageKey
+      return result?.id ?? null
     },
     finalizeTurn(turn) {
       const state = states.get(turn)

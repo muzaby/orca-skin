@@ -1,3 +1,4 @@
+import { markdownWorkerBuild } from './scripts/markdown-worker-build.mjs'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
@@ -43,7 +44,7 @@ export default defineConfig({
   renderer: {
     build: { minify: 'esbuild' },
     // 계산 워커(`shared/compute/worker`)는 동적 import 로 문법을 나눠 싣는다 — 모듈 워커로 낸다.
-    worker: { format: 'es' },
+    worker: { format: 'es', plugins: () => [markdownWorkerBuild()] },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion)
     },

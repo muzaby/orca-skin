@@ -1,0 +1,159 @@
+EP.slot	representative	mutation IDs	oracle suites
+1.1	key-highlight	key-highlight	client.test.ts client.queue.test.ts
+1.2	E1-C21	VP36-revision, E1-C21	protocol.keys.test.ts
+1.3	E1-C24	E1-C24	protocol.keys.test.ts
+1.4	E1-C22	E1-C22, E1-C23	protocol.keys.test.ts
+1.5	VP36-anchors	VP36-anchors	protocol.keys.test.ts
+1.6	key-context	key-context	protocol.keys.test.ts diffViewModel.test.ts
+1.7	key-markdown	key-markdown	protocol.keys.test.ts
+1.8	key-doc	key-doc	protocol.keys.test.ts
+1.9	key-axis	key-axis	protocol.keys.test.ts
+1.10	VP51-transform	VP51-transform	protocol.keys.test.ts
+2.1	E2-C26	E2-C26	client.documents.test.ts
+2.2	ep2.2	ep2.2, E2-C8	client.documents.test.ts / client.documents.test.ts -t 'd2/d7'
+2.3	E2-C1	E2-C1, E2-C2, E2-C3, VP10-held	client.documents.test.ts
+2.4	ep2.4	ep2.4, VP10-resend	client.documents.test.ts
+2.5	E2-C6	E2-C6	client.documents.test.ts -t 'd5 '
+2.6	ep2.6	ep2.6	worker/handler.test.ts client.documents.test.ts
+2.7	VP48-a	VP48-a	worker/handler.test.ts client.documents.test.ts
+2.8	ep2.8	ep2.8	worker/handler.test.ts client.documents.test.ts
+2.9	E2-C7	E2-C7	client.documents.test.ts
+2.10	E2-C4	E2-C4, E2-C5, VP10-listen	client.documents.test.ts
+3.1	ep3.1	ep3.1	worker/tokens.test.ts
+3.2	VP32-theme	VP32-theme	src/renderer/src/shared/compute/worker/tokens.test.ts
+3.3	VP32-budget	VP32-budget	worker/tokens.test.ts
+3.4	VP32-token-budget	VP32-token-budget	worker/tokens.test.ts
+3.5	E3-C14	E3-C14	worker/tokens.test.ts
+3.6	VP32-empty	VP32-empty	worker/tokens.test.ts
+3.7	ep3.7	ep3.7	worker/handler.test.ts client.test.ts
+4.1a	context-seven	formula, context-seven, span, anchors, markdown-span, code-length, samples, sample-chars, sample-lines, source-axis, ep4.1a-fraction, size-tokens, size-diffView, size-codeView, size-diffContext, pair-mean-of-means, strip-source	protocol.keys.test.ts client.queue.test.ts / protocol.keys.test.ts
+4.1b	newlines	cap, newlines, empty, sample-limit, ep4.1b-lease, ep4.1b-newline, short-sample	client.documents.test.ts
+4.1c	registered-sample	registered-sample, ep4.1c-resample	client.queue.test.ts client.documents.test.ts / client.documents.test.ts
+4.2	size-order	size-order, E4-C9, E4-C10	client.queue.test.ts
+4.3	E4-C11	VP11-yields, E4-C11, VP20-continue	client.queue.test.ts / client.documents.test.ts
+4.4	VP36-cancel	VP36-cancel	client.queue.test.ts
+4.5	rank-default	rank-default	client.queue.test.ts
+4.6	VP36-priority	VP36-priority	client.queue.test.ts
+4.7	E4-C25	VP36-range, E4-C25	client.queue.test.ts
+4.8	VP11-clock	VP11-clock	client.queue.test.ts
+5.1	ep5.1	ep5.1	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+5.2	ep5.2	ep5.2	DiffTable.virtual.test.ts longToolBody.render.test.ts
+5.3	ep5.3	ep5.3	DiffTable.virtual.test.ts longToolBody.render.test.ts
+5.4	ep5.4	ep5.4	DiffTable.virtual.test.ts longToolBody.render.test.ts
+5.5	VP21-axis-id	VP21-axis-id	useDiffRowTokens.test.ts
+5.6	VP21-stable-revision	VP21-stable-revision	VirtualCodeView.test.ts
+5.7	ep5.7	ep5.7	VirtualMarkdownView.test.ts
+5.8	ep5.9	ep5.9, work-request-source	workToolBody.virtual.test.ts cardSyncCaps.test.ts / workToolBody.virtual.test.ts
+5.9	VP15-revision	VP15-revision, ep5.9-response	workToolBody.virtual.test.ts
+5.10	ep5.10	ep5.10	WorkerMarkdownTail.test.ts
+5.11	ep5.11	ep5.11	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+5.12	ep5.12	ep5.12	DiffTable.virtual.test.ts longToolBody.render.test.ts cardSyncCaps.test.ts DiffBody.render.test.ts
+5.13	ep5.13	ep5.13	DiffTable.virtual.test.ts longToolBody.render.test.ts workToolBody.virtual.test.ts cardSyncCaps.test.ts
+5.14	ep5.14	ep5.14	VirtualCodeView.test.ts readBody.test.ts cardSyncCaps.test.ts
+5.15	ep5.15	ep5.15	VirtualCodeView.test.ts readBody.test.ts VirtualMarkdownView.test.ts
+6.1	E6-D1	E6-D1, VP30-span	diffView.test.ts
+6.2	old-span	E6-D10, old-span, new-span	diffView.test.ts
+7.1	new-axis	E7-D2, E7-D4, VP31-old, VP31-tab, new-axis, added-count, E7-D5, VP31-remote-width	diffView.test.ts / visibleViews.test.ts / diffView.test.ts fileDiffVirtual.render.test.ts / fileDiffVirtual.render.test.ts
+7.2	E7-D6	E7-D6, E7-D7, E7-D8, E7-D9, E7-D11, VP39-gap	diffView.test.ts / diffViewModel.test.ts diffView.test.ts / fileDiffVirtual.render.test.ts diffViewModel.test.ts diffView.test.ts / diffView.test.ts diffViewModel.test.ts
+7.3	locate	locate	diffView.test.ts
+7.4	context	context	diffView.test.ts
+7.5	VP48-c	VP48-c	src/renderer/src/shared/compute/worker src/renderer/src/shared/compute/client.documents.test.ts
+8.1	ep8.1	ep8.1	useVirtualRows.test.ts
+8.2	all-nearby-rows	all-nearby-rows	useVirtualRows.test.ts
+8.3	VP22-hidden	VP22-hidden, ep8.3	useVirtualRows.test.ts / fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+8.4	ep8.4	ep8.4	useVirtualRows.test.ts
+8.5	ep8.5	ep8.5	useVirtualRows.test.ts workToolBody.virtual.test.ts cardSyncCaps.test.ts
+8.6	ep8.6	ep8.6	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+8.7	ep8.7	ep8.7	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+8.8	ep8.8	ep8.8	fileDiffVirtual.render.test.ts -t 'v4 '
+8.9	ep8.9	ep8.9	DiffTable.virtual.test.ts longToolBody.render.test.ts
+8.10	ep8.10	ep8.10	VirtualCodeView.test.ts readBody.test.ts
+8.11	ep8.11	ep8.11	VirtualMarkdownView.test.ts
+8.12	VP15-owner	VP15-owner	workToolBody.virtual.test.ts
+9.1	ep9.1	ep9.1	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+9.2	ep9.2	ep9.2, VP12-locate	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts useDiffRowTokens.test.ts / fileDiffVirtual.render.test.ts
+9.3	VP22-pin	VP22-pin	fileDiffExpandAll.render.test.ts
+9.6	ep9.6	ep9.6, VP12-release	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts / fileDiffExpandAll.render.test.ts
+9.7	ep9.7	ep9.7, requirement-row	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts useDiffRowTokens.test.ts / fileDiffVirtual.render.test.ts
+9.8	VP12-context-origin	VP12-context-origin, VP39-context	fileDiffVirtual.render.test.ts
+11.1	ep11.1	ep11.1, VP02-boundary	DiffTable.virtual.test.ts longToolBody.render.test.ts / DiffTable.virtual.test.ts
+11.2	ep11.2	ep11.2	DiffTable.virtual.test.ts
+11.3	ep11.3	ep11.3	VirtualCodeView.test.ts readBody.test.ts DiffTable.virtual.test.ts longToolBody.render.test.ts
+11.4	ep11.4	ep11.4	workToolBody.virtual.test.ts cardSyncCaps.test.ts
+11.5	ep11.5	ep11.5	DiffTable.virtual.test.ts longToolBody.render.test.ts
+11.6	ep11.6	ep11.6	DiffTable.virtual.test.ts longToolBody.render.test.ts
+12.1	VP33-foot	VP33-foot, E12-K1	markdownDocumentBlocks.test.ts
+12.2	VP33-cells	VP33-cells, VP33-chars	markdownDocumentBlocks.test.ts
+12.3	ep12.3	ep12.3	worker/markdown.test.ts
+12.4	ep12.4	ep12.4	worker/markdown.test.ts MarkdownHast.fidelity.test.ts
+12.5	ep12.5	ep12.5	VirtualMarkdownView.test.ts MarkdownHast.fidelity.test.ts worker/markdown.test.ts
+12.6	VP23-raw	VP23-raw	MarkdownHast.fidelity.test.ts
+12.7	ep12.7	ep12.7	worker/markdown.test.ts MarkdownHast.fidelity.test.ts
+12.8	ep12.8	ep12.8	VirtualMarkdownView.test.ts MarkdownHast.fidelity.test.ts
+12.9	VP23-head	VP23-head	MarkdownHast.fidelity.test.ts
+12.10	ep12.10	ep12.10, VP04-pending	VirtualMarkdownView.test.ts MarkdownHast.fidelity.test.ts / VirtualMarkdownView.test.ts
+12.11	ep12.11	ep12.11, VP04-raw	VirtualMarkdownView.test.ts MarkdownHast.fidelity.test.ts / VirtualMarkdownView.test.ts
+12.12	ep12.12	ep12.12	VirtualMarkdownView.test.ts MarkdownHast.fidelity.test.ts
+12.13	ep12.13	ep12.13	worker/markdown.test.ts VirtualMarkdownView.test.ts MarkdownHast.fidelity.test.ts
+13.1	ep13.1	ep13.1	WorkerMarkdownTail.test.ts streamingSessions.test.ts
+13.2	ep13.2	ep13.2	WorkerMarkdownTail.test.ts
+13.3	VP05-queue	VP05-queue	WorkerMarkdownTail.test.ts
+13.4	ep13.4	ep13.4	WorkerMarkdownTail.test.ts
+13.5	ep13.5	ep13.5	WorkerMarkdownTail.test.ts
+13.6	ep13.6	ep13.6	WorkerMarkdownTail.test.ts
+13.7	ep13.7	ep13.7	WorkerMarkdownTail.test.ts
+14.1	ep14.1	ep14.1	node --test scripts/check-ui-thread.test.mjs
+14.2	ep14.2	ep14.2	node -e "require('node:assert/strict').equal(require('./package.json').dependencies.unified, '^11.0.5')"
+14.3	ep14.3	ep14.3	rg -Fq '워커의 unified·remark-parse·remark-rehype' ../docs/TRD.md
+14.4	ep14.4	ep14.4	rg -Fq 'Markdown 워커용 unified·remark-parse·remark-rehype' AGENTS.md
+14.5	ep14.5	ep14.5	rg -Fq 'Markdown 레인은 열린 문서의 블록 파싱' ../docs/arch/execution-model.md
+14.6	ep14.6	ep14.6	node --test scripts/check-ui-thread.test.mjs
+15.1	VP37-numbers	VP37-numbers	CodeBlock.compute.test.ts
+15.2	ep15.2	ep15.2	CodeBlock.compute.test.ts
+16.1	VP21-pin-window	VP21-pin-window, small-axis-line-bucket	useDiffRowTokens.test.ts / useWindowTokens.test.ts useDiffRowTokens.test.ts
+16.2	ep16.2	ep16.2	useWindowTokens.test.ts useDiffRowTokens.test.ts
+16.3	ep16.3	ep16.3	useWindowTokens.test.ts
+16.4	ep16.4	ep16.4	useDiffRowTokens.test.ts fileDiffVirtual.render.test.ts
+16.5	VP32-text	VP32-text, view-token-input	VirtualCodeView.test.ts / VirtualCodeView.test.ts readBody.test.ts
+16.6	ep16.6	ep16.6	useDiffRowTokens.test.ts useWindowTokens.test.ts
+16.7	ep16.7	ep16.7	useWindowTokens.test.ts
+17.1	VP25-lane	VP25-lane	client.lanes.test.ts
+17.2	ep17.2	ep17.2	client.lanes.test.ts
+17.3	ep17.3	ep17.3	client.lanes.test.ts -t 'l1 compute'
+17.4	ep17.4	ep17.4	client.lanes.test.ts
+17.5	ep17.5	ep17.5	client.lanes.test.ts
+17.6	ep17.6	ep17.6	client.lanes.test.ts
+18.1	E18-D13	VP31-edge, E18-D13	useDiffView.test.ts
+18.2	ep18.2	ep18.2	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+18.3	ep18.3	ep18.3	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+18.4	ep18.4-initial	ep18.4-initial, ep18.4-row, ep18.4-wait, ep18.4-error	fileDiffVirtual.render.test.ts
+19.1	VP22-near	VP22-near, VP01-gate	fileDiffExpandAll.render.test.ts
+19.2	ep19.2	ep19.2	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+19.3	ep19.3	ep19.3	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+19.4	VP12-retain	VP12-retain	fileDiffExpandAll.render.test.ts
+19.5	ep19.5	ep19.5	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts DiffReview.test.ts diffReviewNavigation.test.ts
+19.6	ep19.6	ep19.6	fileDiffExpandAll.render.test.ts
+21.1	VP49-memo	VP49-memo	cardSyncCaps.test.ts
+21.2	VP49-classify	VP49-classify, VP49-task, VP49-observe	cardSyncCaps.test.ts
+21.3	ep21.3	ep21.3	DiffTable.virtual.test.ts longToolBody.render.test.ts
+21.4	ep21.4	ep21.4	DiffTable.virtual.test.ts
+21.5	ep21.5	ep21.5	VirtualCodeView.test.ts readBody.test.ts
+21.6	ep21.6	ep21.6	DiffTable.virtual.test.ts longToolBody.render.test.ts workToolBody.virtual.test.ts cardSyncCaps.test.ts
+22.1	ep22.1	ep22.1	workToolBody.virtual.test.ts cardSyncCaps.test.ts
+22.2	ep22.2	ep22.2	workToolBody.virtual.test.ts cardSyncCaps.test.ts
+22.3	ep22.3	ep22.3	workToolBody.virtual.test.ts cardSyncCaps.test.ts
+22.4	ep22.4	ep22.4	workToolBody.virtual.test.ts
+23.1	VP48-theme	VP48-theme, E3-C16	worker/handler.test.ts
+23.2	VP48-b	VP48-b	worker/handler.test.ts client.documents.test.ts
+23.3	ep23.3	ep23.3	worker/handler.test.ts
+23.4	ep23.4	ep23.4, released-worker-doc	client.test.ts client.documents.test.ts / client.documents.test.ts
+23.5	VP48-cache	VP48-cache	client.documents.test.ts
+24.1	ep24.1	ep24.1	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts diffScrollCoordinator.test.ts
+24.2	ep24.2	ep24.2	fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts diffScrollCoordinator.test.ts
+24.3	ep24.3	ep24.3	diffScrollCoordinator.test.ts fileDiffVirtual.render.test.ts fileDiffExpandAll.render.test.ts
+24.4	VP38-size	VP38-size	fileDiffVirtual.render.test.ts
+25.1	ep25.1	ep25.1	readBody.test.ts worker/handler.test.ts
+25.2	E25-C19	E25-C19	worker/handler.test.ts
+25.3	ep25.3	ep25.3	worker/handler.test.ts
+25.4	ep25.4	ep25.4	worker/handler.test.ts client.documents.test.ts
+25.5	VP51-source	VP51-source	readBody.test.ts

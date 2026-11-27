@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { formatElapsed, useElapsed } from '../../../../../shared/ui/elapsed'
 import { useI18n, type MessageKey } from '../../../../../shared/i18n'
 import {
   modelDisplayLabel,
   deriveSubagentTaskStatus,
-  subagentTasksFromMessages,
   type SubagentTaskStatus
 } from '../../../lib/parts'
 import { formatDurationLabel, toolDescription } from '../../../lib/toolMeta'
-import { chatActions, useChatSession, useSubagentMeta } from '../../../store/chatStore'
+import { chatActions, useSubagentMeta, useTranscriptView } from '../../../store/chatStore'
+import { useDisclosure } from '../../../store/disclosureStore'
 import type { ToolCall } from '../../../reducer/chatReducer'
 import { TranscriptActionRow } from './TranscriptActionRow'
 import { InlineSubagentDetail } from './InlineSubagentDetail'
@@ -27,7 +27,7 @@ const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
 
 // 서브에이전트 Task 전용 행 — 일반 ToolCard 와 동일한 행 DOM/인터랙션(클릭 시 우측 패널)을
 // 갖되, 라벨을 참고 UI 양식으로 구성한다. child 메타(모델·현재 도구·도구수·경과시간)는
-// store 의 messages 에서 파생하므로 이 컴포넌트만 store 를 구독한다(일반 도구 카드는 비구독).
+// store 의 증분 패널 색인에서 파생한다.
 //
 // 포맷(진행 중):
 //  · 그룹 내: `에이전트 실행 중 {model} {title} {elapsed}`
@@ -36,18 +36,23 @@ const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
 export function AgentTaskRow({
   call,
   inGroup = false,
-  transcriptPolicy
+  transcriptPolicy,
+  blockKey,
+  partKey
 }: {
   call: ToolCall
   inGroup?: boolean
   transcriptPolicy: AgentTranscriptPresentation
+  blockKey?: string
+  partKey?: string
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const messages = useChatSession((s) => s.messages)
-  const [expanded, setExpanded] = useState(false)
+  const subagentTasks = useTranscriptView('subagentTasks')
+  const resolvedBlockKey = blockKey ?? `tool:${call.toolUseId}`
+  const [expanded, setExpanded] = useDisclosure(resolvedBlockKey, false)
   const summary = useMemo(
-    () => subagentTasksFromMessages(messages).find((t) => t.toolUseId === call.toolUseId),
-    [messages, call.toolUseId]
+    () => subagentTasks.find((t) => t.toolUseId === call.toolUseId),
+    [subagentTasks, call.toolUseId]
   )
   // 라이브 메타(진행 중 모델·시간·현재도구·도구수) — SDK task_*/child model 에서 누적.
   const live = useSubagentMeta(call.toolUseId)
@@ -82,11 +87,11 @@ export function AgentTaskRow({
   }
 
   const activate = (): void => {
-    if (transcriptPolicy.inlineSubagentDetail) setExpanded((value) => !value)
+    if (transcriptPolicy.inlineSubagentDetail) setExpanded(!expanded)
     else chatActions.openSubagentTask(call.toolUseId)
   }
 
-  return (
+  const row = (
     <>
       <TranscriptActionRow
         groupClassName="group/tool"
@@ -108,4 +113,5 @@ export function AgentTaskRow({
       )}
     </>
   )
+  return partKey ? <div data-part-key={partKey}>{row}</div> : row
 }

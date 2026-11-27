@@ -129,6 +129,7 @@ function install() {
     (sessionId) => peek(sessionId) ?? (sessionId === 's1' ? newRuntime() : undefined)
   )
   const pendingMessages = new PendingMessageQueue()
+  const relay = vi.fn()
   registerChatHandlers({
     ctx: withDataPort({
       mockAdapter: null,
@@ -171,6 +172,7 @@ function install() {
     approvals: { isSessionAllowed: vi.fn(), register: vi.fn() },
     persistence: {
       persist: vi.fn(),
+      relay,
       flushAskAnswers: vi.fn(),
       finalizeTurn: vi.fn(),
       commitUserMessage: vi.fn(() => 1)
@@ -192,7 +194,7 @@ function install() {
       recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' }))
     }
   } as never)
-  return { sendMessage, pendingMessages, supervisor }
+  return { sendMessage, pendingMessages, supervisor, relay }
 }
 
 async function send(payload: Record<string, unknown>): Promise<void> {
@@ -254,6 +256,11 @@ describe('chat:send returns an input that never left the start phase (0301 D-017
     f.sendMessage.mockImplementationOnce(() => liveTurn(() => answer('s1')))
     await send({ sessionId: 's1', text: '질문-라', clientRequestId: 'req-4' })
 
+    expect(f.relay).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ dbSessionId: 's1' }),
+      expect.objectContaining({ type: 'message.committed', messageKey: 'u:req-4' })
+    )
+    expect(harness.events.some((event) => event.type === 'message.committed')).toBe(false)
     expect(errors()).toEqual([])
     expect(cancelled()).toEqual([])
     expect(f.sendMessage).toHaveBeenCalledTimes(1)

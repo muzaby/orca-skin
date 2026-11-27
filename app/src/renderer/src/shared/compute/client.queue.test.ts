@@ -1,0 +1,398 @@
+import { expect, it, vi } from 'vitest'
+import {
+  ComputeCancelled,
+  createComputeClient,
+  type ComputeClient,
+  type ComputeJobTiming,
+  type DocumentLease,
+  type WorkerLike
+} from './client'
+import { portHarness } from './clientPort.testfixture'
+import * as protocol from './protocol'
+import { createWorkerState } from './worker/state'
+import type { TokensRequest, WireRequest, WireControl } from './protocol'
+const range = {
+  kind: 'tokens',
+  doc: { id: 'a', revision: 1 },
+  lang: 'typescript',
+  theme: 'github-light',
+  start: 0,
+  end: 101
+} satisfies TokensRequest
+function setup(
+  count = 101,
+  timing?: { now(): number; timings?(entry: ComputeJobTiming): void }
+): {
+  client: ComputeClient
+  lease: DocumentLease
+  messages: (WireRequest | WireControl)[]
+  advance(): Promise<void>
+} {
+  const messages: (WireRequest | WireControl)[] = []
+  let tick = 0
+  const receive = createWorkerState(() => tick++)
+  const port: WorkerLike = {
+    onerror: null,
+    onmessageerror: null,
+    onmessage: null,
+    terminate: vi.fn(),
+    postMessage(message) {
+      messages.push(message)
+    }
+  }
+  const client = createComputeClient({ createWorker: () => port, ...timing })
+  const lease = client.openDocument(
+    range.doc,
+    { text: Array(count).fill('let a=1').join('\n') },
+    'compute'
+  )
+  let index = 0
+  async function advance(): Promise<void> {
+    while (index < messages.length) {
+      const message = messages[index++]
+      const response = await receive(message)
+      if (response) {
+        port.onmessage?.({ data: response })
+        return
+      }
+    }
+    throw Error('no pending response')
+  }
+  return { client, lease, messages, advance }
+}
+it('q4 dispatches fresh visible work before a yielded range and resumes with a new id', async () => {
+  const { client, lease, messages, advance } = setup()
+  const pending = client.request(range)
+  const highlight = client.request({
+    kind: 'highlight',
+    lang: range.lang,
+    theme: range.theme,
+    code: 'const example = 1'.repeat(20)
+  })
+  const next = client.request({ ...range, start: 100, end: 101 })
+  for (let i = 0; i < 8; i++) {
+    await advance()
+    if (client.peek(range)) break
+  }
+  expect((await pending.promise).rows).toHaveLength(101)
+  expect((await next.promise).rows).toHaveLength(1)
+  expect((await highlight.promise).html).toContain('shiki')
+  const sent = messages.filter((message) => 'id' in message)
+  expect(sent.slice(0, 3).map((message) => [message.kind, message.resumeFrom])).toEqual([
+    ['tokens', undefined],
+    ['tokens', undefined],
+    ['highlight', undefined]
+  ])
+  expect(new Set(sent.map((message) => message.id)).size).toBe(sent.length)
+  lease.release()
+})
+it('q10 drops a cancelled token job when it yields', async () => {
+  const { client, lease, messages, advance } = setup()
+  const job = client.request(range)
+  job.cancel()
+  await expect(job.promise).rejects.toBeInstanceOf(ComputeCancelled)
+  await advance()
+  expect(messages).toHaveLength(2)
+  expect(client.peek(range)).toBeUndefined()
+  lease.release()
+})
+it.each([
+  [-1, 10, 'range-invalid'],
+  [10, 5, 'range-invalid'],
+  [1.5, 3, 'range-invalid'],
+  [0, 201, 'range-too-large']
+] as const)('q8 rejects [%i,%i) before transmission', async (start, end, error) => {
+  const { client, messages, lease } = setup()
+  await expect(client.request({ ...range, start, end }).promise).rejects.toThrow(error)
+  expect(messages).toHaveLength(0)
+  lease.release()
+})
+
+it.each(['highlight', 'tokens'] as const)(
+  'q4 serves a new %s at the next yield of a 50,000-line seek',
+  async (kind) => {
+    const { client, lease, advance, messages } = setup(50000)
+    const distant = client.request({ ...range, start: 49800, end: 50000 })
+    const fresh =
+      kind === 'tokens'
+        ? client.request({ ...range, start: 0, end: 1 })
+        : client.request({
+            kind: 'highlight',
+            lang: range.lang,
+            theme: range.theme,
+            code: 'const x = 1;'.repeat(100)
+          })
+    await advance()
+    const dispatched = messages.at(-1)
+    expect(dispatched).toMatchObject({ kind })
+    if (kind === 'tokens') expect(dispatched).toHaveProperty('start', 0)
+    distant.cancel()
+    await expect(distant.promise).rejects.toBeInstanceOf(ComputeCancelled)
+    await advance()
+    await fresh.promise
+    lease.release()
+  }
+)
+
+it.each(['promote', 'demote', 'cancel'] as const)(
+  'q9 reorders a shared queued request when its highest priority changes: %s',
+  async (mode) => {
+    const { client, advance, messages, lease } = setup()
+    const first = client.request({ ...range, end: 1 })
+    const short = client.request({ ...range, end: 2 }, { priority: 'background' })
+    const large = client.request({ ...range, end: 3 }, { priority: 'background' })
+    const shared = client.request(
+      { ...range, end: 3 },
+      { priority: mode === 'promote' ? 'background' : 'visible' }
+    )
+    if (mode === 'cancel') {
+      shared.cancel()
+      await expect(shared.promise).rejects.toBeInstanceOf(ComputeCancelled)
+    } else shared.setPriority(mode === 'promote' ? 'visible' : 'background')
+    await advance()
+    expect(messages.at(-1)).toMatchObject({ kind: 'tokens', end: mode === 'promote' ? 3 : 2 })
+    await advance()
+    await advance()
+    await Promise.all([first.promise, short.promise, large.promise])
+    lease.release()
+  }
+)
+
+it('q12 records waiting time separately from each token slice and preserves queue time on promotion', async () => {
+  let time = 0
+  const entries: ComputeJobTiming[] = []
+  const { client, lease, advance } = setup(101, {
+    now: () => time,
+    timings: (entry) => entries.push(entry)
+  })
+  const pending = client.request(range)
+  time = 10
+  const next = client.request({ ...range, end: 1 }, { priority: 'background' })
+  time = 20
+  next.setPriority('visible')
+  time = 50
+  await advance()
+  time = 57
+  await advance()
+  expect(entries[0]).toMatchObject({
+    kind: 'tokens',
+    lane: 'compute',
+    yields: 0,
+    enqueuedAt: 0,
+    startedAt: 0,
+    endedAt: 50
+  })
+  expect(entries[1]).toMatchObject({
+    priority: 'visible',
+    yields: 0,
+    enqueuedAt: 10,
+    startedAt: 50,
+    endedAt: 57
+  })
+  time = 107
+  await advance()
+  time = 108
+  await advance()
+  expect(entries.slice(2).map((e) => [e.yields, e.enqueuedAt, e.startedAt, e.endedAt])).toEqual([
+    [1, 50, 57, 107],
+    [2, 107, 107, 108]
+  ])
+  await Promise.all([pending.promise, next.promise])
+  lease.release()
+})
+it('q13 skips timing clock reads without a sink', async () => {
+  const now = vi.fn(() => 0)
+  const { client, lease, advance } = setup(101, { now })
+  const result = client.request({ ...range, end: 1 })
+  await advance()
+  await result.promise
+  expect(now).not.toHaveBeenCalled()
+  lease.release()
+})
+function highlight(code: string): {
+  kind: 'highlight'
+  lang: string
+  theme: 'github-light'
+  code: string
+} {
+  return { kind: 'highlight' as const, lang: 'typescript', theme: 'github-light' as const, code }
+}
+it.each([
+  ['q1 visible before background', 'visible', 'background', 'aaaa', 'b', 'aaaa'],
+  ['q2 smaller first', 'visible', 'visible', 'aaaa', 'b', 'b'],
+  ['q3 FIFO tie', 'visible', 'visible', 'a', 'b', 'a']
+] as const)('%s', async (_, firstRank, secondRank, a, b, expected) => {
+  const h = setup()
+  const head = h.client.request(highlight('head')),
+    first = h.client.request(highlight(a), { priority: firstRank }),
+    second = h.client.request(highlight(b), { priority: secondRank })
+  await h.advance()
+  expect(h.messages[1]).toMatchObject({ code: expected })
+  await h.advance()
+  await h.advance()
+  await Promise.all([head.promise, first.promise, second.promise])
+  h.lease.release()
+})
+it('q5 cancelling the last queued waiter skips transmission', async () => {
+  const h = setup(),
+    head = h.client.request(highlight('head')),
+    pending = h.client.request(highlight('queued'))
+  pending.cancel()
+  await expect(pending.promise).rejects.toBeInstanceOf(ComputeCancelled)
+  await h.advance()
+  await head.promise
+  expect(h.messages).toHaveLength(1)
+  h.lease.release()
+})
+it('q6 cancelled running highlight completes and caches before waiting work', async () => {
+  const h = setup(),
+    req = highlight('head'),
+    head = h.client.request(req),
+    pending = h.client.request(highlight('queued'))
+  head.cancel()
+  await expect(head.promise).rejects.toBeInstanceOf(ComputeCancelled)
+  expect(h.messages).toHaveLength(1)
+  await h.advance()
+  expect(h.client.peek(req)).toBeDefined()
+  await h.advance()
+  await pending.promise
+  h.lease.release()
+})
+it('q7 shared job preserves the remaining waiter', async () => {
+  const h = setup(),
+    req = highlight('head'),
+    a = h.client.request(req),
+    b = h.client.request(req)
+  a.cancel()
+  await expect(a.promise).rejects.toBeInstanceOf(ComputeCancelled)
+  await h.advance()
+  expect((await b.promise).html).toContain('shiki')
+  expect(h.messages).toHaveLength(1)
+  h.lease.release()
+})
+it.each([true, false])('q9 changes priority while queued (promoted %s)', async (promote) => {
+  const h = setup(),
+    head = h.client.request(highlight('head')),
+    a = h.client.request(highlight('longer'), { priority: promote ? 'background' : 'visible' }),
+    b = h.client.request(highlight('b'), { priority: 'background' })
+  a.setPriority(promote ? 'visible' : 'background')
+  await h.advance()
+  expect(h.messages[1]).toMatchObject({ code: promote ? 'longer' : 'b' })
+  await h.advance()
+  await h.advance()
+  await Promise.all([head.promise, a.promise, b.promise])
+  h.lease.release()
+})
+it('q11 waiting highlight starts exactly when the running pair returns', async () => {
+  let time = 0
+  const entries: ComputeJobTiming[] = []
+  const h = setup(3, { now: () => time, timings: (entry) => entries.push(entry) })
+  const next = h.client.openDocument({ id: 'b', revision: 1 }, { text: 'replacement' }, 'compute')
+  const pair = h.client.request({
+    kind: 'diffView',
+    source: { kind: 'pair', old: h.lease.ref, new: next.ref },
+    options: { layout: 'inline', highlightWords: false, ignoreWhitespace: false, expansions: [] },
+    start: 0,
+    end: 3
+  })
+  time = 10
+  const ui = h.client.request(highlight('example'))
+  expect(h.messages.filter((m) => 'kind' in m).map((m) => m.kind)).toEqual(['diffView'])
+  time = 90
+  await h.advance()
+  expect(h.messages.at(-1)).toMatchObject({ kind: 'highlight' })
+  time = 94
+  await h.advance()
+  await Promise.all([ui.promise, pair.promise])
+  expect(entries.map((e) => [e.kind, e.startedAt - e.enqueuedAt, e.endedAt - e.startedAt])).toEqual(
+    [
+      ['diffView', 0, 90],
+      ['highlight', 80, 4]
+    ]
+  )
+  next.release()
+  h.lease.release()
+})
+
+it('q14 dispatches the shorter average line first for identical token windows', async () => {
+  const { client, ports } = portHarness(2_000)
+  const long = client.openDocument(
+    { id: 'long', revision: 1 },
+    { text: 'x'.repeat(1_000) },
+    'compute'
+  )
+  const short = client.openDocument(
+    { id: 'short', revision: 1 },
+    { text: 'x'.repeat(10) },
+    'compute'
+  )
+  const head = client.request(highlight('head'))
+  const jobs = [long, short].map((lease) => client.request({ ...range, doc: lease.ref, end: 200 }))
+  const port = ports.get('compute')!
+  for (const lease of [short, long]) {
+    port.reply()
+    expect(port.messages.at(-1)).toMatchObject({ kind: 'tokens', doc: lease.ref })
+  }
+  port.reply()
+  await Promise.all([head.promise, ...jobs.map((job) => job.promise)])
+  short.release()
+  long.release()
+})
+
+it('q14b sizes mixed work in characters and dispatches each lane independently', async () => {
+  const { client, ports } = portHarness(60_000)
+  const long = client.openDocument(
+    { id: 'long', revision: 1 },
+    { text: 'x'.repeat(1_000) },
+    'compute'
+  )
+  const short = client.openDocument(
+    { id: 'short', revision: 1 },
+    { text: 'x'.repeat(10) },
+    'compute'
+  )
+  const markdown = client.openDocument(
+    { id: 'md', revision: 1 },
+    { text: 'm'.repeat(50_000) },
+    'markdown'
+  )
+  const head = client.request(highlight('head'))
+  const sizing = vi.spyOn(protocol, 'requestSize')
+  try {
+    const jobs = [
+      client.request({ ...range, doc: long.ref, end: 200 }),
+      client.request({ kind: 'markdown', doc: markdown.ref, start: 0, end: 50_000 }),
+      client.request(highlight('z'.repeat(5_000))),
+      client.request({ kind: 'codeView', source: { doc: short.ref }, start: 0, end: 300 })
+    ]
+    expect(sizing.mock.results.map((r) => r.value)).toEqual([200_000, 50_000, 5_000, 3_000])
+    const compute = ports.get('compute')!
+    expect(compute.messages.at(-1)).toMatchObject({ code: 'head' })
+    const md = ports.get('markdown')!
+    expect(md.messages.at(-1)).toMatchObject({ kind: 'markdown' })
+    md.reply()
+    for (const kind of ['codeView', 'highlight', 'tokens']) {
+      compute.reply()
+      expect(compute.messages.at(-1)).toMatchObject({ kind })
+    }
+    compute.reply()
+    await Promise.all([head.promise, ...jobs.map((job) => job.promise)])
+  } finally {
+    sizing.mockRestore()
+    for (const lease of [long, short, markdown]) lease.release()
+  }
+})
+
+it('q1 default priority outranks a shorter explicit background job', async () => {
+  const { client, ports } = portHarness()
+  const head = client.request(highlight('head'))
+  const background = client.request(highlight('b'), { priority: 'background' })
+  const visible = client.request(highlight('default visible'))
+  const port = ports.get('compute')!
+  port.reply()
+  expect(port.messages.at(-1)).toMatchObject({ code: 'default visible' })
+  port.reply()
+  expect(port.messages.at(-1)).toMatchObject({ code: 'b' })
+  port.reply()
+  await Promise.all([head.promise, background.promise, visible.promise])
+})

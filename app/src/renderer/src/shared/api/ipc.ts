@@ -42,6 +42,8 @@ import type {
   EngineUserSettingsResult,
   EngineWriteResult,
   FileEntry,
+  FileFolderChanged,
+  FileFolderObservation,
   GitBranchList,
   GitCheckoutRequest,
   GitCheckoutResult,
@@ -206,7 +208,10 @@ export const skillApi = {
 }
 
 export const fileApi = {
-  list: (cwd: string, relDir: string): Promise<FileEntry[]> => window.oo.files.list(cwd, relDir),
+  list: (cwd: string, relDir: string, observation?: FileFolderObservation): Promise<FileEntry[]> =>
+    window.oo.files.list(cwd, relDir, observation),
+  onFolderChanged: (handler: (change: FileFolderChanged) => void): (() => void) =>
+    window.oo.files.onFolderChanged(handler),
   pickAttachments: (): Promise<PickedAttachment[]> => window.oo.files.pickAttachments(),
   pickDirectory: (): Promise<string | null> => window.oo.files.pickDirectory(),
   openPath: (req: OpenPathRequest): Promise<void> => window.oo.files.openPath(req),
@@ -232,6 +237,8 @@ export const concurrencyApi = {
 }
 
 export const sessionApi = {
+  page: (query: import('../../../../shared/history-page').HistoryQuery) =>
+    window.oo.session.page(query),
   globalExtensions: (backend: Backend): Promise<NativeResources> =>
     window.oo.session.globalExtensions(backend),
   setGlobalExtension: (
@@ -270,7 +277,11 @@ export const sessionApi = {
     window.oo.session.refresh(sessionId),
   load: (sessionId: string): Promise<LoadedSession | null> => window.oo.session.load(sessionId),
   // 그 세션의 진행 중 본문 로드를 취소한다 — 데이터 호스트가 남은 조각을 보내지 않는다(0324 AC17).
-  cancelLoad: (sessionId: string): void => globalThis.window?.oo?.session?.cancelLoad?.(sessionId),
+  cancelLoad: (sessionId: string, targetSequence?: number): void =>
+    globalThis.window?.oo?.session?.cancelLoad?.(
+      sessionId,
+      ...(targetSequence === undefined ? [] : [targetSequence])
+    ),
   delete: (sessionId: string): Promise<DeleteSessionResult> => window.oo.session.delete(sessionId),
   rename: (sessionId: string, title: string): Promise<void> =>
     window.oo.session.rename(sessionId, title),

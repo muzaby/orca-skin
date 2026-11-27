@@ -1,0 +1,35 @@
+{
+  "env": true,
+  "environment": "linux-electron",
+  "electron": "39.8.10",
+  "catalogs": [
+    {
+      "id": "artifacts",
+      "inputRows": 10000,
+      "mountedRows": 26,
+      "renderCommitMs": 44.5,
+      "paintUpperBoundMs": 70.69999999995343,
+      "lastItemReachable": true,
+      "opensStoredOutput": null
+    },
+    {
+      "id": "projects",
+      "inputRows": 100,
+      "mountedRows": 28,
+      "renderCommitMs": 12.600000000093132,
+      "paintUpperBoundMs": 32.5,
+      "lastItemReachable": null,
+      "opensStoredOutput": null
+    },
+    {
+      "id": "schedule-history",
+      "inputRows": 20,
+      "mountedRows": 20,
+      "renderCommitMs": 3.300000000046566,
+      "paintUpperBoundMs": 32.300000000046566,
+      "lastItemReachable": null,
+      "opensStoredOutput": true
+    }
+  ],
+  "verdict": true
+}

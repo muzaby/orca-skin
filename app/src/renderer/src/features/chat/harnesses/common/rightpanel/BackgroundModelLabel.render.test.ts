@@ -1,10 +1,10 @@
+import { subagentTasksFromMessages } from '../../../lib/transcriptIndex.legacy.testfixture'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { BackgroundModelLabel } from './BackgroundModelLabel'
 import { SubAgentTaskList } from '../../claude/rightpanel/LegacySubAgentTile'
 import { useChatStore } from '../../../store/chatStore'
-import { subagentTasksFromMessages } from '../../../lib/parts'
 
 describe('observed background model labels', () => {
   it('prefers canonical actual model, then live actual model, then persisted actual model', () => {
@@ -29,6 +29,7 @@ describe('observed background model labels', () => {
   it('legacy cards use persisted execution model and never treat requested model or Explore as observed', () => {
     const tasks = subagentTasksFromMessages([
       {
+        id: 'm-33',
         role: 'assistant',
         createdAt: 1,
         parts: [

@@ -55,18 +55,32 @@ export function PlanCommentPopover({
   const canSave = body.trim() !== ''
 
   useLayoutEffect(() => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-    textarea.style.height = 'auto'
-    textarea.style.height = `${textarea.scrollHeight}px`
-  }, [body])
-
-  useLayoutEffect(() => {
     const panel = panelRef.current
     if (!panel) return
-    const rect = panel.getBoundingClientRect()
-    setPlaceAbove(rect.bottom > window.innerHeight - EDGE_MARGIN)
-  }, [anchor, body])
+    let frame: number | undefined
+    const place = (): void => {
+      frame = undefined
+      const origin = panel.offsetParent?.getBoundingClientRect()
+      if (!origin) return
+      const bottom = origin.top + anchor.bottom + GAP + panel.offsetHeight
+      const spaceAbove = origin.top + anchor.top - GAP
+      setPlaceAbove(bottom > window.innerHeight - EDGE_MARGIN && spaceAbove >= panel.offsetHeight)
+    }
+    const schedule = (): void => {
+      frame ??= requestAnimationFrame(place)
+    }
+    const observer = new ResizeObserver(schedule)
+    observer.observe(panel)
+    window.addEventListener('scroll', schedule, true)
+    window.addEventListener('resize', schedule)
+    schedule()
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('scroll', schedule, true)
+      window.removeEventListener('resize', schedule)
+      if (frame !== undefined) cancelAnimationFrame(frame)
+    }
+  }, [anchor])
 
   useEffect(() => {
     const focusId = requestAnimationFrame(() => textareaRef.current?.focus())
@@ -129,7 +143,7 @@ export function PlanCommentPopover({
         rows={1}
         placeholder={tr('chat.rightpanel.commentPlaceholder')}
         aria-label={tr('chat.rightpanel.commentInputAria')}
-        className="block max-h-48 min-h-12 w-full resize-none overflow-hidden border-0 bg-panel px-3 py-2.5 text-footnote text-t9 outline-none ring-0 placeholder:text-t6 focus:ring-0"
+        className="block max-h-48 min-h-12 w-full [field-sizing:content] resize-none overflow-y-auto border-0 bg-panel px-3 py-2.5 text-footnote text-t9 outline-none ring-0 placeholder:text-t6 focus:ring-0"
       />
       <div className="flex items-center justify-between border-t border-border px-3 py-2">
         {mode === 'edit' && onDelete ? (

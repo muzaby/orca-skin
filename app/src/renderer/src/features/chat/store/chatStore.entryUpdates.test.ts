@@ -1,8 +1,9 @@
+import { childMessageForParentToolRunId } from '../lib/transcriptIndex.legacy.testfixture'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { chatActions, ingestChatEvent, useChatStore } from './chatStore'
 import { flushRaf, installChatStoreHarness } from './chatStore.testHarness'
 import { initialChatState } from '../reducer/chatReducer'
-import { childMessageForParentToolRunId, partsText } from '../lib/parts'
+import { partsText } from '../lib/parts'
 
 beforeEach(() => installChatStoreHarness({ inflight: true, turnStartedAt: 1 }))
 

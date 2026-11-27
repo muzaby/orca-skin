@@ -35,8 +35,10 @@ export function DiffTileContent(): React.JSX.Element {
     ({
       lines,
       lineIndex,
+      before,
       comment
     }: {
+      before?: { old: number | null; new: number | null }
       lines: readonly DiffLine[]
       lineIndex: number
       comment: string
@@ -51,6 +53,7 @@ export function DiffTileContent(): React.JSX.Element {
           filePath: draft.filePath,
           lines,
           lineIndex,
+          before,
           comment,
           createdAt: Date.now()
         })

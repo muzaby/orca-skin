@@ -1,3 +1,4 @@
+import { userMessageId } from '../../../../../shared/message-id'
 // chatStore 의 이벤트 라우팅(델타 → live 슬라이스 / 커밋 → reducer / sessionId 키 라우팅)
 // 단위 테스트. IPC(window.oo)를 건드리지 않는 경로만 다룬다 — send/loadSession 등 액션과
 // session.updated 의 설정 영속화는 통합/시각 검증 영역.
@@ -497,7 +498,8 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
         newChatQueue: [],
         recentsEpoch: 0,
         concurrencyByProjectId: {},
-        draftRestore: null
+        draftRestore: null,
+        entryIntent: null
       },
       true
     )
@@ -765,6 +767,7 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
     expect(useChatStore.getState().sessions.s.pendingSteer?.[0].requirements).toEqual([anchor])
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['queued']),
       sessionId: 's',
       ids: ['queued'],
       text: 'fix',
@@ -780,6 +783,7 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
     const count = entry().session.messages.length
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['queued']),
       sessionId: 's',
       ids: ['queued'],
       text: 'fix',
@@ -927,6 +931,7 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     text: string,
     createdAt: number
   ): (typeof initialChatState)['messages'][number] => ({
+    id: 'm-932',
     role: 'user',
     createdAt,
     parts: [{ type: 'text', text }]
@@ -935,6 +940,7 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     text: string,
     createdAt: number
   ): (typeof initialChatState)['messages'][number] => ({
+    id: 'm-940',
     role: 'assistant',
     createdAt,
     parts: [{ type: 'text', text }]
@@ -979,6 +985,7 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     ingestChatEvent({ type: 'session.updated', sessionId: 'ho', patch: {} })
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['auto-1']),
       sessionId: 'ho',
       ids: ['auto-1'],
       text: '/compact [핸드오프] 자동 메시지',
@@ -1020,6 +1027,7 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     // sessionId 라 pending draft 로 폴백 라우팅되지만 [user → 요약] 순서는 보존된다.
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['auto-1']),
       sessionId: 'late',
       ids: ['auto-1'],
       text: '/compact 에코',
@@ -1050,8 +1058,13 @@ describe('chatStore — 0064 r4 continuity draft nav', () => {
             turnStartedAt: null,
             title: '원본 세션',
             messages: [
-              { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] },
-              { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a' }] }
+              { id: 'm-1059', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] },
+              {
+                id: 'm-1060',
+                role: 'assistant',
+                createdAt: 2,
+                parts: [{ type: 'text', text: 'a' }]
+              }
             ]
           }
         }
@@ -1064,17 +1077,29 @@ describe('chatStore — 0064 r4 continuity draft nav', () => {
     expect(chatActions.startForkDraft()).toBe(true)
     const firstKey = useChatStore.getState().activeKey
     expect(firstKey).toMatch(/^draft:/)
+    const first = useChatStore.getState().sessions[firstKey].session.transcriptChanges
+    expect(first.lineage).not.toBe(
+      useChatStore.getState().sessions.s.session.transcriptChanges.lineage
+    )
+    expect(first.revision).toBe(0)
+    expect(first.log).toEqual([])
+
     expect(useChatStore.getState().sessions[firstKey].session.title).toBe('[분기] 원본 세션')
     // 프리필 이력 끝에 '분기된 지점' 구분선 합성(r5) — 물질화 영속분(fork_boundary)과 위치 일치.
     const draftMsgs = useChatStore.getState().sessions[firstKey].session.messages
     expect(draftMsgs).toHaveLength(3)
     expect(draftMsgs[2].parts).toEqual([{ type: 'fork_boundary' }])
+    expect(draftMsgs[2].id).toMatch(/^r:/)
 
     // 부모로 돌아가 다시 fork — 이전 미전송 draft 는 교체 정리된다(중복 nav 행 방지).
     useChatStore.setState({ activeKey: 's' })
     expect(chatActions.startForkDraft()).toBe(true)
     const secondKey = useChatStore.getState().activeKey
     expect(secondKey).not.toBe(firstKey)
+    expect(useChatStore.getState().sessions[secondKey].session.transcriptChanges.lineage).not.toBe(
+      first.lineage
+    )
+
     expect(useChatStore.getState().sessions[firstKey]).toBeUndefined()
     expect(useChatStore.getState().sessions[secondKey]).toBeDefined()
   })
@@ -1177,6 +1202,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     })
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['q1']),
       sessionId: 's',
       ids: ['q1'],
       text: '추가 피드백',
@@ -1248,6 +1274,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     // main 의 병합 배치 커밋 — 적재 순서 그대로 한 버블로 승격되고 pending 은 비워진다.
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['a', 'b', sent.clientRequestId]),
       sessionId: 's',
       ids: ['a', 'b', sent.clientRequestId],
       text: 'first\n\nsecond\n\n새 메시지',
@@ -1283,6 +1310,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     // echo 커밋 — clientId 합류로 중복 append 없이 화해만 한다.
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId([clientId]),
       sessionId: 's',
       ids: [clientId],
       text: '낙관 메시지',
@@ -1373,7 +1401,13 @@ describe('chatStore — pending message lifecycle (0067)', () => {
               ...s.sessions.s.session,
               messages: [
                 ...s.sessions.s.session.messages,
-                { role: 'user', createdAt: 1, clientId, parts: [{ type: 'text', text }] }
+                {
+                  id: userMessageId([clientId]),
+                  role: 'user',
+                  createdAt: 1,
+                  clientId,
+                  parts: [{ type: 'text', text }]
+                }
               ]
             }
           }
@@ -1456,6 +1490,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
               ...s.sessions.s.session,
               messages: [
                 {
+                  id: 'm-1468',
                   role: 'assistant',
                   createdAt: 1,
                   clientId: 'req-1',
@@ -1489,6 +1524,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     })
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['q1']),
       sessionId: 's',
       ids: ['q1'],
       text: '추가 피드백',
@@ -1596,9 +1632,14 @@ describe('chatStore — continuityLang 스냅샷 (0127)', () => {
             turnStartedAt: null,
             title: '원본 세션',
             messages: [
-              { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q1' }] },
-              { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a1' }] },
-              { role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'q2' }] }
+              { id: 'm-1609', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q1' }] },
+              {
+                id: 'm-1610',
+                role: 'assistant',
+                createdAt: 2,
+                parts: [{ type: 'text', text: 'a1' }]
+              },
+              { id: 'm-1611', role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'q2' }] }
             ]
           }
         }
@@ -1647,4 +1688,45 @@ describe('chatStore — continuityLang 스냅샷 (0127)', () => {
       expect.objectContaining({ forkFrom: 's', continuityLang: 'ko' })
     )
   })
+})
+
+it('commits the previous numbered delta without clearing the next numbered buffer', () => {
+  installChatStoreHarness()
+  ingestChatEvent({
+    type: 'message.delta',
+    sessionId: 's',
+    messageKey: 'a:1',
+    delta: { text: 'old' }
+  })
+  ingestChatEvent({
+    type: 'message.delta',
+    sessionId: 's',
+    messageKey: 'a:2',
+    delta: { text: 'new' }
+  })
+  flushRaf()
+  const entry = (): ReturnType<typeof useChatStore.getState>['sessions']['s'] =>
+    useChatStore.getState().sessions.s
+  expect(entry().session.messages.map((message) => [message.id, partsText(message.parts)])).toEqual(
+    [['a:1', 'old']]
+  )
+  expect(entry().live).toMatchObject({ textKey: 'a:2', text: 'new' })
+
+  ingestChatEvent({
+    type: 'message.completed',
+    sessionId: 's',
+    messageKey: 'a:3',
+    message: { text: 'separate' }
+  })
+  expect(entry().live).toMatchObject({ textKey: 'a:2', text: 'new' })
+  ingestChatEvent({
+    type: 'message.completed',
+    sessionId: 's',
+    messageKey: 'a:2',
+    message: { text: 'new final' }
+  })
+  expect(entry().live.text).toBe('')
+  expect(entry().session.messages.find((message) => message.id === 'a:2')?.parts).toEqual([
+    { type: 'text', text: 'new final' }
+  ])
 })

@@ -60,8 +60,22 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
         />
         {searchOpen && (
           <SearchModal
-            onClose={onCloseSearch}
-            onChoose={(sessionId) => navigate(`/chat/${sessionId}`)}
+            onClose={() => {
+              chatActions.cancelSearchRequest()
+              onCloseSearch()
+            }}
+            onCancelChoice={chatActions.cancelSearchRequest}
+            onChoose={async (hit, keyboard) => {
+              if (!hit.locator || !(await chatActions.openSearchHit(hit.locator, keyboard)))
+                return false
+              navigate('/chat/' + hit.sessionId, {
+                state: {
+                  historyLocator: hit.locator,
+                  historyVisit: chatActions.currentSearchSequence()
+                }
+              })
+              return true
+            }}
           />
         )}
       </div>

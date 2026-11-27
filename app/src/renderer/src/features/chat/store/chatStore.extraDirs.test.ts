@@ -26,7 +26,8 @@ beforeEach(() => {
       newChatQueue: [],
       recentsEpoch: 0,
       concurrencyByProjectId: {},
-      draftRestore: null
+      draftRestore: null,
+      entryIntent: null
     },
     true
   )
