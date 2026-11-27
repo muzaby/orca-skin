@@ -87,6 +87,32 @@ describe('durable turn failures', () => {
     expect(recv(late, failure('u:next', 'next')).inflight).toBe(false)
   })
 
+  it('keeps the live turn boundary when previously unloaded receipts materialize in an older page', () => {
+    let state = chatReducer(load([user('u:loaded')]), { type: 'BEGIN_TURN' })
+    state = chatReducer(state, {
+      type: 'APPEND_COMMITTED_USER_MESSAGE',
+      text: 'next',
+      messageKey: 'u:next'
+    })
+    for (const owner of ['u:older-b', 'u:older-a']) state = recv(state, failure(owner, owner))
+    state = chatReducer(state, {
+      type: 'PREPEND_HISTORY',
+      messages: [user('u:older-a'), user('u:older-b')],
+      reachedStart: true
+    })
+    expect(state.messages.map((message) => message.id)).toEqual([
+      'u:older-a',
+      'a:u:older-a',
+      'u:older-b',
+      'a:u:older-b',
+      'u:loaded',
+      'u:next'
+    ])
+    expect(state.messages[state.openCodeTodoTurnStartIndex]?.id).toBe('u:next')
+    expect(state.inflight).toBe(true)
+    expect(recv(state, failure('u:next', 'next')).inflight).toBe(false)
+  })
+
   it('replays an ACK before prepend and after deferred part replacement once, in the correct session', () => {
     const event = failure('u:old', 'older')
     const state = recv(load([user('u:current')]), event)

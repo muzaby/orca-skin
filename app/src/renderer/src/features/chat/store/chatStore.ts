@@ -698,7 +698,7 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
 
       const text = fragments.join('')
       let session = shouldBeginTurn(event, entry.session)
-        ? chatReducer(entry.session, { type: 'BEGIN_TURN' })
+        ? chatReducer(entry.session, { type: 'BEGIN_TURN', fromActivity: true })
         : entry.session
       const previous = entry.live
       let live: LiveTurnState
@@ -908,12 +908,15 @@ export function subscribeGeneratingSessions(
 
 function receive(ev: NormalizedEvent): void {
   if (ev.type === 'error' && ev.failure) {
-    if (ev.sessionId && getState().sessions[ev.sessionId]) {
-      const key = ev.sessionId
-      const endsTurn = receiptEndsTurn(getState().sessions[key].session, ev)
-      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      if (endsTurn) resetLive(key)
-    }
+    if (ev.sessionId)
+      patchEntry(ev.sessionId, (entry) => {
+        const session = withoutDeletedProject(
+          chatReducer(entry.session, { type: 'RECV_EVENT', event: ev })
+        )
+        if (session === entry.session) return entry
+        const live = receiptEndsTurn(entry.session, ev) ? EMPTY_LIVE : entry.live
+        return { ...entry, session, live }
+      })
     return
   }
   if (ev.type === 'response.boundary' || ev.type === 'output.captured') {
@@ -966,7 +969,7 @@ function receive(ev: NormalizedEvent): void {
 
   const entrySession = getState().sessions[key]?.session
   if (entrySession && shouldBeginTurn(ev, entrySession)) {
-    dispatchTo(key, { type: 'BEGIN_TURN' })
+    dispatchTo(key, { type: 'BEGIN_TURN', fromActivity: true })
   }
 
   // 델타(message.delta·message.reasoning.delta)는 여기 오지 않는다 — 코얼레서가 전량

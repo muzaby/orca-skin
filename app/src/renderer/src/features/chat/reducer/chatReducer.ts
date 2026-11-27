@@ -268,6 +268,8 @@ function resetGitReview(
 
 export interface ChatState extends HeldParts {
   acknowledgedFailures: ReadonlyMap<string, SavedFailure>
+  // Input identities admitted since this response opened, including commits before auto activity.
+  turnInputKeys: readonly string[]
   agentKind: import('../../../../../shared/agent-kind').AgentKind
   agentKindLocked: boolean
   sessionId: string | null
@@ -513,6 +515,7 @@ function activityOf(snapshot: ChatActivityState): ChatActivityState {
 
 export const initialChatState: ChatState = {
   acknowledgedFailures: new Map(),
+  turnInputKeys: [],
   agentKind: DEFAULT_AGENT_KIND,
   agentKindLocked: false,
   sessionId: null,
@@ -599,9 +602,15 @@ export const initialChatState: ChatState = {
 // 추가되면 여기만 갱신한다 — 경로별 개별 나열은 스냅샷 초기화 누락(스티어 영구 차단)을 부른다.
 const TURN_END_RESET: Pick<
   ChatState,
-  'inflight' | 'turnProviderKey' | 'turnStartedAt' | 'retry' | 'worktreePrepareStep'
+  | 'inflight'
+  | 'turnProviderKey'
+  | 'turnStartedAt'
+  | 'retry'
+  | 'worktreePrepareStep'
+  | 'turnInputKeys'
 > = {
   inflight: false,
+  turnInputKeys: [],
   turnProviderKey: null,
   turnStartedAt: null,
   retry: undefined,
@@ -647,7 +656,7 @@ export interface TaskStopError {
 export type ChatAction =
   // 턴 시작 전이 — user 버블은 붙이지 않는다(버블은 낙관 커밋 또는 echo 커밋이 별도로).
   // 자동 연속 턴(send 없는 턴)도 store 가 활동 이벤트에서 같은 액션으로 전이시킨다.
-  | { type: 'BEGIN_TURN' }
+  | { type: 'BEGIN_TURN'; fromActivity?: boolean }
   | { type: 'SET_AGENT_KIND'; kind: import('../../../../../shared/agent-kind').AgentKind }
   // 사용자 메시지 커밋 버블. 턴-시작 send 는 낙관 커밋(clientId=clientRequestId, 0068)으로
   // 즉시 붙고, steer 예약·핸드오프 자동 메시지는 echo 커밋(message.committed)으로 붙는다 —
@@ -947,6 +956,13 @@ export function hasHandoffHistory(
   return false
 }
 
+// Failure replay can insert assistant rows before the OpenCode Todo window; its first row keeps its ID.
+function todoStartAfterFailureReplay(before: Message[], start: number, after: Message[]): number {
+  if (after.length === before.length) return start
+  const first = before[start]
+  return first ? after.findIndex((message) => message.id === first.id) : after.length
+}
+
 export function fromLoadedMessage(message: LoadedMessage): Message {
   const result: Message = {
     ...(message.deferredBody ? { deferredBody: message.deferredBody } : {}),
@@ -1000,12 +1016,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ),
         permissionModeError: false
       }
-    case 'BEGIN_TURN':
+    case 'BEGIN_TURN': {
+      const turnInputKeys = action.fromActivity ? state.turnInputKeys : []
+      const first = turnInputKeys.length
+        ? messageOrderFor(state).messagePosition(turnInputKeys[0])
+        : -1
       return {
         ...state,
+        turnInputKeys,
         agentKindLocked: true,
         sendCount: state.sendCount + 1,
-        openCodeTodoTurnStartIndex: state.messages.length,
+        openCodeTodoTurnStartIndex: first < 0 ? state.messages.length : first,
         inflight: true,
         // 0119: 이 턴이 쓰는 provider 고정 — 이후 SET_MODEL 이 providerKey 를 바꿔도
         // steer 게이트가 진행 턴의 provider 를 기억한다.
@@ -1017,6 +1038,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         error: undefined,
         retry: undefined
       }
+    }
 
     case 'APPEND_COMMITTED_USER_MESSAGE': {
       const id =
@@ -1049,6 +1071,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         const position = order.messagePosition(userMessageId([clientId]))
         if (position >= 0 && state.messages[position].role === 'user') optimistic.add(position)
       }
+      const retainedKeys = optimistic.size
+        ? state.turnInputKeys.filter((key) => !optimistic.has(order.messagePosition(key)))
+        : state.turnInputKeys
+      const turnInputKeys = [...retainedKeys, committedId]
       if (optimistic.size === 0) {
         const appended = [...state.messages, committed]
         const messages = restoreTurnFailures(
@@ -1058,6 +1084,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         )
         return {
           ...state,
+          turnInputKeys,
           ...writeMessages(
             state,
             messages,
@@ -1082,6 +1109,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         : { kind: 'append', ids: [committedId] }
       return {
         ...state,
+        turnInputKeys,
         ...writeMessages(
           state,
           restoreTurnFailures(messages, state.acknowledgedFailures.values(), committedId),
@@ -1100,7 +1128,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         id === undefined
           ? { kind: 'reset', complete: state.historyComplete }
           : { kind: 'remove', ids: [id] }
-      return { ...state, ...writeMessages(state, messages, change) }
+      return {
+        ...state,
+        turnInputKeys: state.turnInputKeys.filter((key) => key !== id),
+        ...writeMessages(state, messages, change)
+      }
     }
 
     case 'RECV_EVENT': {
@@ -1511,6 +1543,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             const messages = restoreTurnFailures(state.messages, [part])
             return {
               ...state,
+              openCodeTodoTurnStartIndex: todoStartAfterFailureReplay(
+                state.messages,
+                state.openCodeTodoTurnStartIndex,
+                messages
+              ),
               ...(receiptEndsTurn(state, ev)
                 ? { ...TURN_END_RESET, ...childApprovalState(state) }
                 : {}),
@@ -1755,7 +1792,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               ? change
               : { kind: 'reset', complete: state.historyComplete }
           ),
-          openCodeTodoTurnStartIndex: state.openCodeTodoTurnStartIndex + page.length
+          openCodeTodoTurnStartIndex: todoStartAfterFailureReplay(
+            merged.messages,
+            state.openCodeTodoTurnStartIndex + page.length,
+            messages
+          )
         }
       }
       if (overlappingFailures.length) {

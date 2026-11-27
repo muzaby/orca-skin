@@ -35,11 +35,13 @@ function hasFailure(message: Message, id: string): boolean {
 export function receiptEndsTurn(state: ChatState, event: FailureEvent): boolean {
   if (!validFailure(state, event)) return false
   const receipt = event.failure!
-  if (state.acknowledgedFailures.has(receipt.failureId)) return false
-  const owner = state.messages.findIndex(
-    (m) => m.id === receipt.ownerUserMessageKey && m.role === 'user'
+  if (
+    state.acknowledgedFailures.has(receipt.failureId) ||
+    !state.turnInputKeys.includes(receipt.ownerUserMessageKey)
   )
-  if (owner < 0 || (state.inflight && owner < state.openCodeTodoTurnStartIndex)) return false
+    return false
+  if (!state.messages.some((m) => m.id === receipt.ownerUserMessageKey && m.role === 'user'))
+    return false
   const assistant = state.messages.find((m) => m.id === receipt.assistantMessageKey)
   return !assistant || (assistant.role === 'assistant' && !hasFailure(assistant, receipt.failureId))
 }
