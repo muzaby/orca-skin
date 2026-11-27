@@ -90,7 +90,15 @@ async function checkDomOmissions(index) {
   return { missingParagraph, missingFormatting }
 }
 
-export async function measureMiddleSelection(wc, clipboard, js, find, definition, observed) {
+export async function measureMiddleSelection(
+  wc,
+  clipboard,
+  js,
+  find,
+  definition,
+  observed,
+  deadline
+) {
   const semantic = await js('window.verifyBody()')
   Object.assign(observed, semantic, {
     variant: 'middle-source-parts',
@@ -114,7 +122,13 @@ export async function measureMiddleSelection(wc, clipboard, js, find, definition
   observed.middleRange = actual
   assert.equal(actual.paragraphs, 2443)
   assert.equal(actual.range, needle)
-  const result = await findVisibleTarget(wc, find, needle, async () => (await locate(false)).rect)
+  const result = await findVisibleTarget(
+    wc,
+    find,
+    needle,
+    async () => (await locate(false)).rect,
+    deadline - performance.now()
+  )
   Object.assign(observed, result)
   assert.equal(result.nativeFind, true, JSON.stringify(result))
   wc.stopFindInPage('clearSelection')

@@ -15,13 +15,24 @@ function overlaps(a, b) {
   )
 }
 
-export async function findVisibleTarget(wc, find, needle, readTarget) {
+function distanceToViewport(rect, viewport) {
+  if (!rect || !rect.width || !rect.height) return Infinity
+  return Math.hypot(
+    Math.max(0, -rect.x - rect.width, rect.x - viewport.width),
+    Math.max(0, -rect.y - rect.height, rect.y - viewport.height)
+  )
+}
+
+export async function findVisibleTarget(wc, find, needle, readTarget, budgetMs = 15000) {
+  const deadline = performance.now() + budgetMs
   const [width, height] = await wc.executeJavaScript('[innerWidth, innerHeight]')
   const viewport = { x: 0, y: 0, width, height }
   const samples = []
   const observe = async (first) => {
     const before = await readTarget()
-    const result = await find(wc, needle, first)
+    const remaining = deadline - performance.now()
+    if (remaining <= 0) throw Error('native find exceeded its remaining observation budget')
+    const result = await find(wc, needle, first, remaining)
     const after = await readTarget()
     samples.push({ before, native: result.selectionArea, after, matches: result.matches })
     return {
@@ -34,9 +45,11 @@ export async function findVisibleTarget(wc, find, needle, readTarget) {
     }
   }
   let observation = await observe(true)
-  if (!observation.nativeFind && observation.nativeMatches === 1) {
-    // This also guards against an unrelated native match outside the target paragraph:
-    // the positive result still requires both rectangles to overlap within the visible window.
+  let nearest = distanceToViewport(samples[0].before, viewport)
+  while (!observation.nativeFind && observation.nativeMatches === 1) {
+    const distance = distanceToViewport(observation.markerRect, viewport)
+    if (distance >= nearest) break
+    nearest = distance
     observation = await observe(false)
   }
   return { ...observation, findSamples: samples }

@@ -120,6 +120,7 @@ app.whenReady().then(async () => {
     const crashed = new Promise((_, reject) =>
       wc.once('render-process-gone', (_e, details) => reject(Error('renderer ' + details.reason)))
     )
+    const deadline = performance.now() + budget + 15000
     const timeout = new Promise((_, reject) => {
       timer = setTimeout(() => reject(Error('Renderer exceeded watchdog')), budget + 15000)
     })
@@ -142,14 +143,7 @@ app.whenReady().then(async () => {
           return {
             ...measurement,
             variant: 'middle-source-parts',
-            ...(await measureMiddleSelection(
-              wc,
-              clipboard,
-              js,
-              (...args) => find(...args, budget),
-              middle,
-              measured
-            ))
+            ...(await measureMiddleSelection(wc, clipboard, js, find, middle, measured, deadline))
           }
         }
         const semantic = await js('window.verifyBody()')

@@ -236,3 +236,19 @@ test('an offscreen target that intersects an offscreen native rectangle cannot p
   )
   assert.equal(result.nativeFind, false)
 })
+
+test('follows an advancing unique native match over multiple layout adjustments', async () => {
+  const wc = { executeJavaScript: async () => [1000, 600] }
+  const rect = (y) => ({ x: 482, y, width: 208, height: 18 })
+  const targets = [1129372, 90667, 90667, 290, 290, 290]
+  const nativePositions = [90667, 90667, 290]
+  const result = await findVisibleTarget(
+    wc,
+    async () => ({ matches: 1, selectionArea: rect(nativePositions.shift()) }),
+    'middle',
+    async () => rect(targets.shift())
+  )
+  assert.equal(result.nativeFind, true)
+  assert.equal(result.findSamples.length, 3)
+  assert.equal(result.findRect.y, 290)
+})
