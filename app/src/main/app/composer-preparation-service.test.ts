@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { withDataPort } from './data-host/data-port.testfixture'
 import { afterEach, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
@@ -16,6 +18,7 @@ afterEach(() => {
   for (const close of cleanups.splice(0)) close()
 })
 it('shares targets across catalog resources and warmup through the production assembly', async () => {
+  const projectDirectory = join(tmpdir(), 'composer-prepared-project')
   const requests: string[] = []
   const fetchImpl: typeof fetch = async (input, init) => {
     const path = new URL(new Request(input, init).url).pathname
@@ -66,7 +69,7 @@ it('shares targets across catalog resources and warmup through the production as
       get: () => adapter
     },
     db: { getSessionById: vi.fn() },
-    getCwd: () => 'C:/same',
+    getCwd: () => projectDirectory,
     harnessSettings: {
       list: () => [
         { key: 'opencode-one', harnessId: 'opencode', modelProviderId: 'one', models: [] }
@@ -97,7 +100,7 @@ it('shares targets across catalog resources and warmup through the production as
   const scope = {
     backend: 'opencode' as const,
     sessionId: null,
-    cwd: 'C:/same',
+    cwd: projectDirectory,
     projectId: null,
     providerKey: null,
     agentKind: 'code' as const
@@ -157,13 +160,17 @@ it('shares targets across catalog resources and warmup through the production as
   expect(await assembly.resources.read(draft)).toMatchObject({ state: 'connected' })
   expect(capture).toHaveBeenCalledTimes(1)
   const count = requests.filter((path) => path === '/mcp').length
-  await invokeChannel(CHANNELS.sessionNativeResources, { ...draft, cwd: 'C:/passive-only' }, sender)
+  await invokeChannel(
+    CHANNELS.sessionNativeResources,
+    { ...draft, cwd: join(tmpdir(), 'composer-passive-only') },
+    sender
+  )
   expect(requests.filter((path) => path === '/mcp')).toHaveLength(count)
   const warmup = new OpenCodeWarmup({
     service: assembly.service,
     allowed: () => true,
     settings: () => ({ lastBackend: 'opencode', lastCwd: null }),
-    cwd: () => 'C:/warmup-only',
+    cwd: () => join(tmpdir(), 'composer-warmup-only'),
     installed: async () => ({ installed: true })
   })
   cleanups.push(() => warmup.close())
