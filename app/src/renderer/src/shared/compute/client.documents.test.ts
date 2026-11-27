@@ -1,6 +1,8 @@
 import { expect, it, vi } from 'vitest'
 import { portHarness as harness } from './clientPort.testfixture'
 import * as protocol from './protocol'
+import { readWireText } from './chunkedText'
+import { createCreditWire, WIRE_FRAME_CHARS } from './creditWire'
 import { revisionOf } from './documents'
 import type { MarkdownRequest, DocRef } from './protocol'
 
@@ -298,4 +300,41 @@ it('VP-40 transfers a live revision in one lease, sends only the suffix and rese
   await last.promise
   replaced.release()
   expect(port.messages.at(-1)).toEqual({ type: 'doc.close', ref: reset })
+})
+
+it('VP-41 a pre-indexed Markdown document is opened from bounded ranges without sampling the entire string', async () => {
+  const part = 'x'.repeat(WIRE_FRAME_CHARS)
+  const text = part.repeat(8)
+  const { client, ports } = harness(text.length)
+  const doc = ref('large')
+  const read = vi.fn((start: number, end: number) => part.slice(0, end - start))
+  const original = String.prototype.charCodeAt
+  let scans = 0
+  try {
+    String.prototype.charCodeAt = function (index: number) {
+      if (this.length === text.length) scans++
+      return original.call(this, index)
+    }
+    const lease = client.openDocument(doc, { text, read }, 'markdown')
+    const job = client.request(markdown(doc))
+    const port = ports.get('markdown')!
+    const opening = port.messages[0]
+    expect(readWireText.get(opening)).toBe(read)
+    const queue: (() => void)[] = []
+    const received = vi.fn()
+    const up = createCreditWire((frame) => queue.push(() => down.receive(frame)), vi.fn())
+    const down = createCreditWire((ack) => queue.push(() => up.receive(ack)), received)
+    up.send(opening, true)
+    while (queue.length) queue.shift()!()
+    expect(received).toHaveBeenCalledWith({ type: 'doc.open', ref: doc, text })
+    expect(read.mock.calls).toEqual(
+      Array.from({ length: 8 }, (_, i) => [i * WIRE_FRAME_CHARS, (i + 1) * WIRE_FRAME_CHARS])
+    )
+    expect(scans).toBe(0)
+    port.reply()
+    await job.promise
+    lease.release()
+  } finally {
+    String.prototype.charCodeAt = original
+  }
 })

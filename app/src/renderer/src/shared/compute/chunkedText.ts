@@ -30,3 +30,6 @@ export class ChunkedText {
 }
 
 export const wireTextFor = new WeakMap<object, ChunkedText>()
+
+// Sender-local access for opening a pre-indexed source. The function never crosses the port.
+export const readWireText = new WeakMap<object, (start: number, end: number) => string>()

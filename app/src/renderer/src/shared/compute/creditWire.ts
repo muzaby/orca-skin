@@ -1,4 +1,4 @@
-import { ChunkedText, wireTextFor } from './chunkedText'
+import { ChunkedText, readWireText, wireTextFor } from './chunkedText'
 // Structured worker data on the Markdown/body paths is a tree of records, arrays and primitives.
 // Independently bound string bytes and record count. Each direction has one outstanding frame.
 export const WIRE_FRAME_CHARS = 16_384
@@ -18,14 +18,22 @@ type Frame = {
 }
 type Ack = { channel: 'oo-credit'; id: number; index: number }
 
-function* stringTokens(text: string, key: boolean): Generator<Token> {
+function* stringTokens(
+  text: string,
+  key: boolean,
+  read?: (start: number, end: number) => string
+): Generator<Token> {
   if (text.length <= WIRE_FRAME_CHARS) {
     yield key ? ['key', text] : ['value', text]
     return
   }
   yield [key ? 'longKey' : 'string']
-  for (let start = 0; start < text.length; start += WIRE_FRAME_CHARS)
-    yield ['chunk', text.slice(start, start + WIRE_FRAME_CHARS)]
+  for (let start = 0; start < text.length; start += WIRE_FRAME_CHARS) {
+    const end = Math.min(text.length, start + WIRE_FRAME_CHARS)
+    const chunk = read ? read(start, end) : text.slice(start, end)
+    if (chunk.length !== end - start) throw Error('Incomplete worker source range')
+    yield ['chunk', chunk]
+  }
   yield ['stringEnd']
 }
 
@@ -67,7 +75,11 @@ function* tokensFor(root: unknown): Generator<Token> {
     else if (cursor.kind === 'object' && cursor.index < cursor.keys.length) {
       const key = cursor.keys[cursor.index++]
       yield* stringTokens(key, true)
-      stack.push({ kind: 'value', value: cursor.fields[key] })
+      const value = cursor.fields[key]
+      const read =
+        key === 'text' && typeof value === 'string' ? readWireText.get(cursor.fields) : undefined
+      if (read && typeof value === 'string') yield* stringTokens(value, false, read)
+      else stack.push({ kind: 'value', value })
     } else {
       stack.pop()
       yield ['end']

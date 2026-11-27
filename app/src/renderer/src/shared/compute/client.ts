@@ -1,3 +1,4 @@
+import { readWireText } from './chunkedText'
 import { creditWorkerPort } from './creditWorkerPort'
 import { computeDiagnostics } from './diagnostics'
 import type { LineNumbers } from './diffSource'
@@ -82,12 +83,14 @@ export interface DocumentLease {
   replace?(ref: DocRef, text: string): DocumentLease
 }
 
+interface DocumentPayload {
+  text: string
+  lines?: LineNumbers
+  read?: (start: number, end: number) => string
+}
+
 export interface ComputeClient {
-  openDocument(
-    ref: DocRef,
-    payload: { text: string; lines?: LineNumbers },
-    lane: Lane
-  ): DocumentLease
+  openDocument(ref: DocRef, payload: DocumentPayload, lane: Lane): DocumentLease
   request<K extends ComputeRequest['kind']>(
     request: Extract<ComputeRequest, { kind: K }>,
     options?: { cacheable?: boolean; priority?: Priority }
@@ -169,7 +172,8 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       text: string
       lines?: LineNumbers
       handoff?: { from: DocRef; offset: number }
-      sample: DocumentSample
+      read?: DocumentPayload['read']
+      sample?: DocumentSample
       leases: number
       available: boolean
       sent: boolean
@@ -327,12 +331,14 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
             })
             doc.handoff = undefined
           } else {
-            target.postMessage({
+            const open: WireControl = {
               type: 'doc.open',
               ref: doc.ref,
               text: doc.text,
               ...(doc.lines && { lines: doc.lines })
-            })
+            }
+            if (doc.read) readWireText.set(open, doc.read)
+            target.postMessage(open)
           }
           doc.sent = true
         }
@@ -465,10 +471,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     pump()
   }
 
-  function openDocument(
-    ref: DocRef,
-    payload: { text: string; lines?: LineNumbers }
-  ): DocumentLease {
+  function openDocument(ref: DocRef, payload: DocumentPayload): DocumentLease {
     const key = docKey(ref)
     let entry = documents.get(key)
     if (!entry) {
@@ -476,7 +479,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       entry = {
         ref,
         ...payload,
-        sample: sampleDocument(payload.text),
+        sample: lane === 'markdown' ? undefined : sampleDocument(payload.text),
         available,
         sent: false,
         leases: 0,
@@ -576,7 +579,10 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
         job = {
           id,
           key,
-          size: requestSize(request, (ref) => documents.get(docKey(ref))!.sample),
+          size: requestSize(request, (ref) => {
+            const doc = documents.get(docKey(ref))!
+            return (doc.sample ??= sampleDocument(doc.text))
+          }),
           request,
           cacheable: options?.cacheable !== false,
           order: id,
