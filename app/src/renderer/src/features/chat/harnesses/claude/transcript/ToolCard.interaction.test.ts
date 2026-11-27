@@ -290,8 +290,7 @@ it('AC11 displays the worker stat on closed oversized Write, Edit and MultiEdit 
           createElement(ToolCard, { call, transcriptPolicy: agentUiPolicy('code').transcript })
         )
       render()
-      const toggle = (): FakeNode =>
-        dom.query('[data-focus-id="toggle"]')!
+      const toggle = (): FakeNode => dom.query('[data-focus-id="toggle"]')!
       expect(toggle().textContent).not.toContain('+654')
       const request = fake.requests.at(-1)!
       expect(request.kind).toBe('diffStat')

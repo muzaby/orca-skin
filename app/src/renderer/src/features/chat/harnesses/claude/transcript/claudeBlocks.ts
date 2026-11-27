@@ -256,7 +256,7 @@ function segmentPartKeys(
 ): { blockKey: string; partKeys: string[] } {
   if (segment.kind === 'tools' || segment.kind === 'ask') {
     const calls = segment.kind === 'tools' ? segment.calls : [segment.call]
-    const keys = calls.map(call => toolBlockKey(messageId, call.toolUseId))
+    const keys = calls.map((call) => toolBlockKey(messageId, call.toolUseId))
     const last = calls.at(-1)!.toolUseId
     // A tool run may span invisible parts. Stop at its last call, leaving
     // adjacent AskUserQuestion and other visible part keys for their owners.
