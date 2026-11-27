@@ -142,7 +142,7 @@ async function measureReading(): Promise<Measurement> {
 
 async function measureSessionSwitches(): Promise<Measurement[]> {
   const root = frameNode()
-  const records = []
+  const records: Measurement[] = []
   const targets = [
     ['claude-code-to-claude-code', 'claude', 'code'],
     ['claude-code-to-claude-work', 'claude', 'work'],
