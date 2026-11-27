@@ -254,6 +254,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const footerRef = useRef<HTMLDivElement | null>(null)
   const lastHeaderHeightRef = useRef<number | null>(null)
 
+  const positioningSearch = useRef(false)
   const requestHead = useCallback(
     (userInput = false): boolean => {
       const el = scrollRef.current
@@ -262,6 +263,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         !el ||
         !el.clientHeight ||
         controls?.before !== 'ready' ||
+        (!userInput && positioningSearch.current) ||
         isCorrecting(el) ||
         interruptedAnchorLayout.current ||
         entryMoving(el)
@@ -471,7 +473,16 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     const root = scrollRef.current
     if (!root || !target || selectionSequence === undefined || !revealKey) return
     cancelCorrection(root)
-    return revealSearchRow(
+    // The geometry before the target is positioned belongs to the old reading position.
+    positioningSearch.current = true
+    const positioned = (): void => {
+      if (!positioningSearch.current) return
+      positioningSearch.current = false
+      activeAnchorRef.current = null
+      anchorController.cancelAnchor()
+      restingAnchorRef.current = captureAnchor(root)
+    }
+    const stop = revealSearchRow(
       root,
       { seq: selectionSequence, target, keyboard, restore: restoring },
       () => {
@@ -487,11 +498,30 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         )
       },
       (top) => writeScrollTop(root, top),
-      () => setAnnounced(selectionSequence),
-      () => setReleasedSequence(selectionSequence),
+      () => {
+        positioned()
+        setAnnounced(selectionSequence)
+      },
+      () => {
+        positioned()
+        setReleasedSequence(selectionSequence)
+      },
       storedAnchor ? () => restoreAnchor(root, storedAnchor) : undefined
     )
-  }, [scrollRef, target, selectionSequence, revealKey, keyboard, restoring, storedAnchor])
+    return () => {
+      positioningSearch.current = false
+      stop()
+    }
+  }, [
+    scrollRef,
+    target,
+    selectionSequence,
+    revealKey,
+    keyboard,
+    restoring,
+    storedAnchor,
+    anchorController
+  ])
   const rangeExtractor = useCallback(
     (range: {
       startIndex: number
@@ -518,7 +548,13 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const flushAnchorRestore = useCallback((): void => {
     const el = scrollRef.current
     const anchor = activeAnchorRef.current
-    if (!el || !anchor || (isPinnedRef.current?.() && !isCorrecting(el))) return
+    if (
+      !el ||
+      !anchor ||
+      positioningSearch.current ||
+      (isPinnedRef.current?.() && !isCorrecting(el))
+    )
+      return
     const snap = snapshotRef.current
     let nextTop = restoreAnchor(el, anchor, () => {
       const blocks = el.querySelectorAll<HTMLElement>('[data-block-key]')
@@ -1157,7 +1193,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     if (!history || typeof requestAnimationFrame !== 'function') return
     const frame = requestAnimationFrame(() => requestHead())
     return () => cancelAnimationFrame(frame)
-  }, [history, snapshot.revision, requestHead, pulling])
+  }, [history, snapshot.revision, requestHead, pulling, announced, releasedSequence])
   renderedKeysRef.current = virtualItems.map((vi) => snapshot.keyAt(vi.index))
 
   return (

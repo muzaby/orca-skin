@@ -78,6 +78,14 @@ describe('common wheel listener for the three harnesses', () => {
         })
       )
       expect(reveal).toHaveBeenCalledOnce()
+      const announce = reveal.mock.calls[0][4]
+      // A target starts at the old scrollTop. Only its positioned head can request a page.
+      scroller.dispatchEvent(new Event('scroll'))
+      expect(request).not.toHaveBeenCalled()
+      announce()
+      scroller.dispatchEvent(new Event('scroll'))
+      expect(request).toHaveBeenCalledTimes(partial ? 1 : 0)
+      request.mockClear()
       reveal.mockRestore()
       expect(Boolean(dom.query('[data-history-edge="after"]'))).toBe(partial)
       expect(Boolean(dom.query('[data-live-footer="active"]'))).toBe(!partial)
