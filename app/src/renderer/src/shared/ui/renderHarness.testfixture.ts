@@ -739,9 +739,12 @@ export function installFakeDom(options: {
       listeners.get(type)?.delete(fn)
     }
   })
-  const requestFrame = (fn: (time: number) => void): ReturnType<typeof setTimeout> =>
-    setTimeout(() => fn(performance.now()), FRAME_MS)
-  const cancelFrame = (id: ReturnType<typeof setTimeout>): void => clearTimeout(id)
+  // A store harness may already own the frame queue. Window and global callers must share it.
+  const requestFrame =
+    globalThis.requestAnimationFrame ??
+    ((fn: FrameRequestCallback) => setTimeout(() => fn(performance.now()), FRAME_MS))
+  const cancelFrame =
+    globalThis.cancelAnimationFrame ?? ((id: ReturnType<typeof setTimeout>) => clearTimeout(id))
   vi.stubGlobal('requestAnimationFrame', requestFrame)
   vi.stubGlobal('cancelAnimationFrame', cancelFrame)
   vi.stubGlobal('window', {

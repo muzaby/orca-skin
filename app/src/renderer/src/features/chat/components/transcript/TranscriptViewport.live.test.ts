@@ -56,6 +56,7 @@ function renderTranscript(backend: 'claude' | 'opencode', agentKind: 'code' | 'w
       disconnect = vi.fn()
     }
   )
+  vi.stubGlobal('getComputedStyle', () => ({ lineHeight: '22px', fontSize: '14px' }))
   Object.assign(document, { fonts: { addEventListener: vi.fn(), removeEventListener: vi.fn() } })
   const scrollRef: TranscriptTimelineProps['scrollRef'] = { current: null }
   const contentRef: TranscriptTimelineProps['contentRef'] = { current: null }
