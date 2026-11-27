@@ -1,0 +1,56 @@
+범위	변이	실행 차수	종료 코드	관측
+공급자	error-as-proof	1	1	Test Files  1 failed (1) / Tests  1 failed | 6 skipped (7)
+공급자	first-id-only	1	1	Test Files  1 failed (1) / Tests  1 failed | 6 skipped (7)
+공급자	catch-direct	1	1	Test Files  1 failed (1) / Tests  1 failed | 6 skipped (7)
+공급자	constant-occurrence	1	1	Test Files  1 failed (1) / Tests  1 failed | 6 skipped (7)
+공급자	swapped-owners	1	1	Test Files  1 failed (1) / Tests  1 failed | 6 skipped (7)
+공급자	occurrence-time	1	1	Test Files  1 failed (1) / Tests  1 failed | 6 skipped (7)
+공급자	wrong-native-parent	1	1	Test Files  1 failed (1) / Tests  2 failed | 28 skipped (30)
+저장·투영	collision-reuse	1	1	DETECTED
+저장·투영	owner-swap	1	1	DETECTED
+저장·투영	occurrence-swap	1	1	DETECTED
+저장·투영	no-transaction	1	1	DETECTED
+저장·투영	no-unique	1	1	DETECTED
+저장·투영	wrong-session	1	1	DETECTED
+저장·투영	skip-source-alias	1	1	DETECTED
+저장·투영	drop-frontier-failure	1	1	DETECTED
+저장·투영	drop-work-order	1	1	DETECTED
+저장·투영	drop-local-owner-search	1	1	DETECTED
+저장·투영	drop-late-placement	1	1	DETECTED
+저장·투영	no-unconfirmed-check	1	1	DETECTED
+저장·투영	drop-work-receipt-boundary	1	1	DETECTED
+저장·투영	swap-shared-native-input	1	1	DETECTED
+저장·투영	drop-deferred-receipt	1	1	DETECTED
+오류 화면	X-session-key	1	1	vitest 1 failed | 4 passed (5)
+오류 화면	X-assistant-key	1	1	vitest 1 failed | 4 passed (5)
+오류 화면	X-batch-order	1	1	vitest 2 failed | 3 passed (5)
+오류 화면	X-insert-after-current	1	1	vitest 2 failed | 3 passed (5)
+오류 화면	X-occurrence-is-text	1	0	vitest 5 passed (5)
+오류 화면	X-next-turn	1	1	vitest 1 failed | 4 passed (5)
+오류 화면	X-footer	1	1	vitest 3 failed | 2 passed (5)
+오류 화면	X-prepend	1	0	vitest 5 passed (5)
+오류 화면	X-body	1	1	vitest 1 failed | 4 passed (5)
+오류 화면	X-load	1	1	vitest 1 failed | 4 passed (5)
+오류 화면	X-merge	1	1	vitest 1 failed | 4 passed (5)
+오류 화면	X-clear-B-live	1	1	vitest 1 failed | 2 passed (3)
+오류 화면	X-failed-detail	1	1	vitest 2 failed | 3 passed (5)
+오류 화면	X-occurrence-is-text	2	1	vitest 1 failed | 5 passed (6)
+오류 화면	X-prepend	2	1	vitest 1 failed | 5 passed (6)
+이력 본문	W-byte-count	1	1	vitest 3 failed | 15 passed (18)
+이력 본문	W-session	1	1	vitest 1 failed | 17 passed (18)
+이력 본문	W-generation	1	1	vitest 1 failed | 17 passed (18)
+이력 본문	W-page-size	1	0	vitest 18 passed (18)
+이력 본문	W-worker-utf8	1	0	vitest 18 passed (18)
+이력 본문	W-worker-close	1	1	vitest 1 failed | 17 passed (18)
+이력 본문	W-finish-layout	1	1	vitest 1 failed | 17 passed (18)
+이력 본문	W-page-size	2	1	vitest 1 failed | 18 passed (19)
+이력 본문	W-worker-utf8	2	1	vitest 1 failed | 18 passed (19)
+Markdown 워커	VP40-reorder	1	1	vitest 1 failed | 4 skipped (5)
+Markdown 워커	VP40-stale	1	1	vitest 1 failed | 4 skipped (5)
+Markdown 워커	VP41-unbounded	1	1	vitest 1 failed | 4 skipped (5)
+Markdown 워커	VP41-characters	1	1	vitest 1 failed | 4 skipped (5)
+Markdown 워커	VP40-delta	1	1	vitest 1 failed | 12 skipped (13)
+Markdown 워커	VP41-footnote	1	1	vitest 1 failed | 16 skipped (17)
+Markdown 워커	VP41-hash	1	1	vitest 1 failed | 19 skipped (20)
+Markdown 워커	VP41-cappedlayout	1	1	vitest 1 failed | 2 skipped (3)
+Markdown 워커	VP41-sample	1	1	vitest 1 failed | 12 skipped (13)
