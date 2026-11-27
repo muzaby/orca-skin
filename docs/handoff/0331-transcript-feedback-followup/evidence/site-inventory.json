@@ -16,7 +16,7 @@
       "name": "G2 프레임·여백",
       "search": "rg -n 'reserveSpacerPx|pt-\\[(8|16|24)px\\]|gaps\\[' app/src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx",
       "sites": {
-        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "1147,1160,1279,1280",
+        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "1150,1163,1282,1283",
         "app/src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx": "31,96,101,106,156"
       },
       "excluded": {}
@@ -111,7 +111,7 @@
       "search": "rg -n --with-filename --no-heading '\\b(?:failureId|ownerUserMessageKey|assistantMessageKey|responseBoundaryId|responseInputIds|occurredAt|turn\\.failureEvent|commitTurnFailure|commitFailure|publishFailure|restoreFailureTurns|restoreTurnFailures|validFailure|receiptEndsTurn|hasFailure|turn_failures)\\b|\\.failure\\b' app/src app/scripts -g '!*.test.*' -g '!*.testfixture.*'",
       "sites": {
         "app/scripts/transcript-layout/accepted-failures.mjs": "154,155,213,214,215,224,237",
-        "app/scripts/transcript-layout/failure-cards.ts": "61,62,65,67,83,87,88,89",
+        "app/scripts/transcript-layout/failure-cards.ts": "67,68,71,73,89,93,94,95,105,143,146",
         "app/scripts/transcript-layout/probe.tsx": "278",
         "app/src/main/adapters/claude/adapter.ts": "988,994,996,1096",
         "app/src/main/adapters/claude/map.ts": "837",
@@ -161,13 +161,15 @@
     },
     {
       "name": "E 실제 창의 오류 카드·인접 쌍과 재시작",
-      "search": "rg -n --with-filename --no-heading '\\b(?:acceptedFailures|capture|steps|cards|gaps|fault|owner|failure|messageKey|retryable|reopen|question|visible)\\b|data-transcript-error|\\b(?:previous|refreshed|failures|model not reached)\\b' app/scripts/transcript-layout/accepted-failures.mjs app/scripts/transcript-layout/failure-cards.ts",
+      "search": "rg -n --with-filename --no-heading '\\b(?:acceptedFailures|capture|steps|cards|gaps|fault|owner|failure|messageKey|retryable|reopen|question|visible)\\b|data-transcript-error|\\b(?:previous|refreshed|failures|model not reached)\\b|\\b(?:storedFaults|liveFaults|orderMatches|readMountedCards|observed|adjacent|allGaps|needsInitialBottom|observeElementOffset|viewportHeight)\\b|initialOffset: startAtEnd' app/scripts/transcript-layout/accepted-failures.mjs app/scripts/transcript-layout/failure-cards.ts app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx",
       "sites": {
-        "app/scripts/transcript-layout/accepted-failures.mjs": "17,18,69,132,143,148,149,150,154,155,162,182,206,211,213,214,215,223,224,227,229,231,233,237,240,261,302,321,322",
-        "app/scripts/transcript-layout/failure-cards.ts": "30,51,52,54,56,62,64,65,68,72,76,77,78,79,80,83,84,85,86,87,88,89,90,91,92,95,96,111,112,118,120,131,132,133,137,141,143"
+        "app/scripts/transcript-layout/accepted-failures.mjs": "17,18,69,132,143,148,149,150,154,155,162,182,206,211,213,214,215,223,224,227,229,231,233,237,240,261,266,269,270,271,273,274,277,318,337,338",
+        "app/scripts/transcript-layout/failure-cards.ts": "30,58,60,62,68,70,71,74,78,81,84,85,86,89,90,91,92,93,94,95,96,97,98,104,105,106,107,108,109,110,114,116,118,119,120,122,123,127,129,132,133,138,143,146,171,172,178,180,191,192,193,197,201,203",
+        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "753,769,773,774,775,776,777,779"
       },
       "excluded": {
-        "app/scripts/transcript-layout/accepted-failures.mjs": "270"
+        "app/scripts/transcript-layout/accepted-failures.mjs": "286",
+        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "104,106,107,724,725,730,1160,1163"
       }
     }
   ],
@@ -216,7 +218,7 @@
         "app/scripts/transcript-body/semantics.ts": "25",
         "app/scripts/transcript-history/probe.tsx": "609",
         "app/src/renderer/src/features/chat/components/markdown/WorkerMarkdownTail.tsx": "165",
-        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "485",
+        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "486",
         "app/src/renderer/src/features/chat/lib/transcript/viewport/searchReveal.ts": "33,90",
         "app/src/renderer/src/features/chat/lib/transcript/viewport/textOffset.ts": "42,46",
         "app/src/renderer/src/shared/ui/markdown/CodeBlock.tsx": "119,133,152",
@@ -285,7 +287,7 @@
         "app/src/renderer/src/features/chat/components/markdown/VirtualMarkdownView.tsx": "23,26,45",
         "app/src/renderer/src/features/chat/components/markdown/WorkerMarkdownTail.tsx": "40,41,51,151",
         "app/src/renderer/src/features/chat/components/markdown/useMarkdownRows.ts": "73,74,78,85,87",
-        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "485",
+        "app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx": "486",
         "app/src/renderer/src/features/chat/harnesses/claude/transcript/AssistantSegment.tsx": "43",
         "app/src/renderer/src/features/chat/harnesses/claude/transcript/ReasoningBlock.tsx": "38",
         "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Text.tsx": "29",
