@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { RightPanelTileId } from '../lib/panelTiles'
 import { MenuItem, type MenuItemProps } from '../../../shared/ui/MenuItem'
 
-const { sessionState, unseenCount, toggleTile, menu, confirmDialog } = vi.hoisted(() => ({
+const { sessionState, unseenCount, menu, confirmDialog } = vi.hoisted(() => ({
   sessionState: {
     value: {
       title: '작업 중인 대화',
@@ -22,14 +22,16 @@ const { sessionState, unseenCount, toggleTile, menu, confirmDialog } = vi.hoiste
     }
   },
   unseenCount: { value: 0 },
-  toggleTile: vi.fn(),
   confirmDialog: vi.fn(),
   menu: { children: null as ReactNode }
 }))
 
-vi.mock('../store/rightPanelStore', () => ({ useTopPanelTile: () => sessionState.value.top }))
-vi.mock('../store/chatStore', () => ({
-  chatActions: { toggleRightPanelTile: toggleTile, selectTask: vi.fn(), setPendingCwd: vi.fn() },
+vi.mock('../store/rightPanelStore', async (original) => ({
+  ...(await original<typeof import('../store/rightPanelStore')>()),
+  useTopPanelTile: () => sessionState.value.top
+}))
+vi.mock('../store/chatStore', async (original) => ({
+  chatActions: (await original<typeof import('../store/chatStore')>()).chatActions,
   getActiveChatSession: () => sessionState.value,
   useChatSession: (select: (s: unknown) => unknown) => select(sessionState.value),
   useUnseenSettledTaskCount: () => unseenCount.value
@@ -48,6 +50,7 @@ vi.mock('../../../shared/ui/confirmDialogStore', () => ({ openConfirmDialog: con
 vi.mock('./CwdButton', () => ({ CwdButton: () => null }))
 
 const { ChatTitleBar } = await import('./ChatTitleBar')
+const { panelActions, useRightPanelStore } = await import('../store/rightPanelStore')
 const { tileById } = await import('./rightpanel/tileRegistry')
 
 beforeEach(() => {
@@ -151,12 +154,15 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
       )
       const callbacks = tileCallbacks()
       expect(callbacks).toHaveLength(ids.length)
+      useRightPanelStore.setState(useRightPanelStore.getInitialState())
+      panelActions.switchSession({ key: 'menu', kind, backend }, false)
+      panelActions.tile(ids[0])
       callbacks.forEach((item, index) => {
         expect(item.icon).toBe(index === 0 ? 'check' : 'plus')
         item.onClick?.({} as React.MouseEvent<HTMLButtonElement>)
-        expect(toggleTile).toHaveBeenNthCalledWith(index + 1, ids[index], undefined)
+        const expected = ids.slice(1, index + 1).map((id) => ({ kind: 'tile', id }))
+        expect(useRightPanelStore.getState().stack).toMatchObject(expected)
       })
-      expect(toggleTile).toHaveBeenCalledTimes(ids.length)
     }
   )
 

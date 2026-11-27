@@ -75,6 +75,7 @@ import { ArtifactCards } from './ArtifactCards'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import type { ArtifactRef } from '../../../../../../../shared/artifacts'
 import { useConfirmStore } from '../../../../../shared/ui/confirmDialogStore'
+import { panelActions, useRightPanelStore } from '../../../store/rightPanelStore'
 import { closeArtifactViewer, useArtifactViewerStore } from '../../../store/artifactViewerStore'
 import { AssistantTurn } from '../../claude/transcript/AssistantTurn'
 import { agentUiPolicy } from '../../../lib/agentPresentation'
@@ -106,6 +107,7 @@ beforeEach(() => {
   h.sessionId = 's'
   vi.clearAllMocks()
   closeArtifactViewer()
+  useRightPanelStore.setState(useRightPanelStore.getInitialState())
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -197,6 +199,7 @@ it.each(['transcript', 'list'] as const)(
         }
       }
     })
+    panelActions.switchSession({ key: 's', kind: 'code', backend: 'claude' }, false)
     const tree = render([ref], variant) as ReactElement<{ children: unknown[] }>
     const cards = tree.props.children[1] as ReactElement<Parameters<typeof ArtifactCard>[0]>[]
     h.stateIndex = h.refIndex = 0
@@ -223,6 +226,10 @@ it.each(['transcript', 'list'] as const)(
       loading: false,
       result: { state: 'ready', content: '# actual preview' }
     })
+    expect(useRightPanelStore.getState().stack).toMatchObject([
+      { kind: 'tile', id: 'plan' },
+      { kind: 'artifact', viewer: { artifact: ref }, origin }
+    ])
     expect(useArtifactViewerStore.getState().opening).toBeNull()
   }
 )

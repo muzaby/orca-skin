@@ -13,7 +13,7 @@ vi.mock('../../../../../shared/ui/Button', () => ({
 }))
 vi.mock('../../../store/chatStore', () => ({
   useChatSession: () => undefined,
-  chatActions: { removeRightPanelTile: (id: string) => h.calls.push(`close:${id}`) }
+  chatActions: { removeRightPanelTile: () => h.calls.push('close:panel') }
 }))
 beforeEach(() => {
   h.buttons = []
@@ -39,7 +39,7 @@ describe('closing an expanded changes tile', () => {
   })
 
   it.each([false, true])(
-    'clears expansion before removing the tile when expanded=%s',
+    'closes the whole panel in a single action when expanded=%s',
     (expanded) => {
       const fixture: ComponentProps<typeof RightPanelTile> = {
         configuration: harnessRightPanel('claude').configuration,
@@ -53,7 +53,7 @@ describe('closing an expanded changes tile', () => {
       renderToStaticMarkup(createElement(RightPanelTile, fixture))
       const close = h.buttons.find((button) => button.leadingIcon === 'x')!
       ;(close.onClick as () => void)()
-      expect(h.calls).toEqual(expanded ? ['restore', 'close:diff'] : ['close:diff'])
+      expect(h.calls).toEqual(['close:panel'])
       expect(
         h.buttons.filter(
           (button) => button.leadingIcon === 'expand' || button.leadingIcon === 'collapse'

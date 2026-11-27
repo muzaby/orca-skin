@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV2·ΔV3) · Codex (ΔV1 추가 요구) |
 | 일자 | 2026-11-26 |
 | 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
-| 상태 | impl/IN_PROGRESS · r1. Chromium 일반·축소 실측 126/128. §10-A의 50ms 예산과 AC8 진입점별 검증을 진행 중이다. |
+| 상태 | impl/IN_PROGRESS · r1. Chromium 일반·축소 실측 126/128. AC8의 17개 진입점 검증을 마쳤으며 §10-A의 50ms 예산을 측정 중이다. |
 | V mode | `Delta V` |
 | 기준 V | 0332 V1 + ΔV1 + ΔV2 (`09d8b2ae`) |
 | 이번 V revision | `ΔV3` — 2차 리뷰 보완: VP-01 누락 기본값(Work 360·Code 520) · 닫힌 패널의 산출물 성공은 `navigate` 일반 규칙의 예외 |
@@ -600,7 +600,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
 | 01′·04′·11 | EP-1′ 설정 | protocol 기본/부분 쓰기, IPC 타입, Tweaks 기본/로드, 프레임 쓰기 | 6자리 | `settings-store.test.ts` 기본/손상/부분/왕복, `TweakProvider.store.test.ts` 로드/쓰기, `rightPanelStore.test.ts` A→B | false·Work 360·Code 520, 100·2000 복구, 독립 저장 | — |
-| 08·12 | EP-2 사용자 진입 | §8의 15개 UI 동작, 카드, 폭 | 제목/도구/승인/작업/상세/닫기/아티팩트/폭을 같은 store에 연결 | `ChatTitleBar.render`, `Panel.interaction`, `Panel.lifecycle`, `chatStore.panelTiles`, `ArtifactViewer.actions` | 선택한 작업·process·subagent id, 프레임 실제 타일·복귀 초점 | 17자리 각각에 독립적으로 결함을 심는 스윕 |
+| 08·12 | EP-2 사용자 진입 | §8의 15개 UI 동작, 카드, 폭 | 17자리 | 아래 EP-2 표의 17개 단일 소거. 원복 후 8파일 57/57 통과 | 선택한 작업·process·subagent ID, 실제 스택과 설정 폭 | — |
 | 02′·09·21 | EP-3′ 수명·자동 사건 | 프레임 배치, 구 wrapper, 계약, registry, 두 어댑터, 구 프레임. BEGIN/LOAD/RECV 및 사용자 액션 6종 | `ChatTile > RightPanelFrame`, registry `screen`, 수명 테스트 4쌍. 기존 자동 타일 배치 제거 | `Panel.lifecycle.test.ts` AC2, `Panel.render.test.ts` AC7, `chatStore.panelTiles.test.ts` AC9 | 세션 교체 전후 프레임 동일, 도착 층 교체, 비활성·닫힘 plan_review 무동작 | ChatTile 소유권 테스트에서 backend key 변이 1 red |
 | 03′·06·13·20′ | EP-4″ 스택 | §21 ①~⑨ | ① 닫힘→X, ② 토글 닫기, ③ 기존 층 pop-to, ④ push=`navigateStack`; ⑤ back·⑥ close·⑦ switchSession·⑧ commit(memory)=store; ⑨ 닫힌 산출물→[root,viewer]=`navigateStack` | `rightPanelStore.test.ts`의 E1~E8, AC6, A2/A8/A9 및 `Panel.lifecycle.test.ts` | 지원하지 않는 task→plan 뒤 OpenCode 복귀 시 task, 산출물 뒤로 시 기존 화면과 스크롤 | EP-4″ 사용자 연산 9/9 분기 대표 변이 검출 |
 | 04′·05·14 | EP-5 전환 | ① 열기 ② 닫기 ③ 모드·host ④ 드래그 | ①② `framePhase`·프레임의 outgoing/타이머, ③ `targetWidth`, ④ 프레임의 drag/finish | `rightPanelFrameState.test.ts`, Electron `pairedWidth`·`mode-width`·`resize-persistence` | 기본 360/520, host 690 시 450, 64px 드래그와 저장, 축소 모션 즉시 | — |
@@ -621,11 +621,11 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | VP-05 | REQUIRED | SELF_PASS | Electron pairedWidth-open/close, Panel.lifecycle | 일반 중간 표본 7/11, 축소 0/0. 199ms까지 구 층 유지, 200ms 후 제거. 즉시 unmount 변이 1 red |
 | VP-06 | REQUIRED | SELF_PASS | rightPanelStore AC6, Panel.lifecycle back·초점 | pop-to 제거 3 red |
 | VP-07′ | REQUIRED | SELF_PASS | §20-G rg와 registry·수명 양성 | 테스트 sentinel 0→1줄 |
-| VP-08 | REQUIRED | SELF_BLOCKED | ChatTitleBar·GitRow·Panel.interaction·chatStore.panelTiles 등 | 17자리 개별 소거 미완 |
+| VP-08 | REQUIRED | SELF_PASS | 아래 EP-2 표, 8개 렌더 스위트 | 17개 단일 소거를 모두 검출했다. 17개 지점을 두 복사본에서 각각 원복 후 57/57 통과 |
 | VP-09 | REQUIRED | SELF_PASS | chatStore.panelTiles AC9, chatReducer 세션/턴 | 닫힌 활성 세션, 열린 비활성 세션, 열린 활성 세션을 비교 |
 | VP-10 | REQUIRED | SELF_PASS | Electron lifecycle-restart, 실제 ChatTile/TweakProvider/settings | 두 모드에서 [plan,diff,subagent]→뒤로 [plan,diff]→다른 Work [task]→닫기. 같은 settings host에서 창의 provider와 store를 두 번 재생성해 닫힘, 열림, Code 540px 및 메모리 초기화를 모두 검증 |
 | VP-11 | REQUIRED | SELF_PASS | settings-store AC1 round-trips | 손상 복구 bounds 소거 1 red |
-| VP-12 | REQUIRED | SELF_BLOCKED | Panel.interaction·lifecycle | VP-08의 자리별 스윕 |
+| VP-12 | REQUIRED | SELF_PASS | Panel.interaction·lifecycle, Panel.nativeEntries | VP-08의 17개 소거 및 실제 Electron 세 동작. 원래 스택에서 클릭한 대상 ID·상세 본문·닫힌 뒤의 빈 프레임을 확인했다 |
 | VP-13 | REQUIRED | SELF_PASS | rightPanelStore AC6 | 기존 스택 pop-to 소거 3 red |
 | VP-14 | REQUIRED | SELF_PASS | rightPanelFrameState phase·targetWidth | host clamp 소거 1 red |
 | VP-15 | REQUIRED | SELF_PASS | §20-G rg | 테스트에 실제 잔여를 심어 1줄 |
@@ -635,6 +635,32 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | VP-19 | REQUIRED | SELF_BLOCKED | Electron surface-* 및 long-task-observation | 경로 9종 포함 33개 표면 각 2모드 통과. 긴 transcript 조작의 50ms 초과가 양 모드에서 발생 |
 | VP-20′ | REQUIRED | SELF_PASS | 실제 카드·뷰어 A1~A9 × 2모드, artifactViewerStore 및 rightPanelStore | 활성 세션 검사 제거 1 red, 닫힌 산출물 예외 제거 2 red. A8에서 뒤로/Escape 후 두 번째 카드 초점 복귀 |
 | VP-21 | REQUIRED | SELF_PASS | Panel.render AC7의 두 registry 계약, Panel.lifecycle AC2의 한 프레임 | 선택 증거 없음 |
+
+### EP-2 진입점별 렌더와 단일 소거
+
+분리한 두 앱 복사본에서 한 번에 한 줄의 동작만 비우고 해당 렌더 테스트를 실행했다. 표의 17개 변이가 모두 동작 단언에서 실패했다. 메뉴의 네 조합과 상태의 두 모드를 포함해 실패한 테스트는 21건이다. 각 실행 후 파일을 원복했고, 두 복사본의 17개 지점이 있는 파일을 작업 트리와 바이트 단위로 비교했다. 원복본에서 아래 일곱 스위트와 기존 `RightPanelTile.actions.test.ts`를 `vitest run --maxWorkers=1`로 함께 실행해 57/57 통과했다.
+
+| # | 제거한 제품 코드 지점 | 렌더 테스트 파일 | 제거했을 때 관측한 결과 |
+|---|---|---|---|
+| 1 | `ChatTitleBar.tsx:219` 메뉴 토글 | `ChatTitleBar.render.test.ts` | 현재 메뉴 항목을 눌러도 스택이 비워지지 않았다. Claude·OpenCode × Code·Work 네 조합 실패 |
+| 2 | `GitRow.tsx:151` 변경량 토글 | `entrypoints.interaction.test.ts` | 변경량 버튼을 눌러도 diff 스택이 비었다 |
+| 3 | `PendingAssistantStatus.tsx:21` 백그라운드 열기 | `statusLine.background.test.ts` | 현재 상태를 눌러도 Code의 subagent와 Work의 task가 모두 비었다 |
+| 4 | `ForegroundShellActions.tsx:80` 승격 후 열기 | `ForegroundShellActions.interaction.test.ts` | 셸 승격 요청은 성공했지만 subagent가 열리지 않았다 |
+| 5 | OpenCode `tiles.tsx:129` 에이전트 선택 | `Panel.nativeEntries.test.ts` | 두 번째 에이전트 클릭 후 선택 ID가 `agent-b` 대신 null이었다 |
+| 6 | OpenCode `tiles.tsx:211` 명령 선택 | `Panel.nativeEntries.test.ts` | 두 번째 명령 클릭 후 선택 ID가 `shell-b` 대신 null이었다 |
+| 7 | OpenCode `ToolCard.tsx:69` 작업 상세 | `Panel.interaction.test.ts` | 작업 요약 위에 상세가 생기지 않아 깊이가 1에 머물렀다 |
+| 8 | `AgentTaskBody.tsx:48` 상세 본문 버튼 | `entrypoints.interaction.test.ts` | `inspect-1`을 눌렀지만 선택 ID가 null이었다 |
+| 9 | `AgentTaskRow.tsx:91` 에이전트 행 | `entrypoints.interaction.test.ts` | 같은 작업 행을 눌렀지만 선택 ID가 null이었다 |
+| 10 | `SubagentNoticeRow.tsx:57` 완료 알림 | `entrypoints.interaction.test.ts` | 같은 작업의 완료 알림을 눌렀지만 선택 ID가 null이었다 |
+| 11 | `TaskProgressList.tsx:118` 진척 항목 선택 | `entrypoints.interaction.test.ts` | 클릭한 행을 원점으로 하는 [plan, taskDetail] 스택이 비었다 |
+| 12 | `TaskPanelContent.tsx:42` 사라진 작업 닫기 | `entrypoints.interaction.test.ts` | 로딩 중에는 선택을 유지했다. 로딩 종료 뒤에도 사라진 `agent:one`이 남았다 |
+| 13 | `TaskPanelContent.tsx:108` 작업 상세 뒤로 | `entrypoints.interaction.test.ts` | 독립 상세의 뒤로 버튼을 눌러도 `agent:one`이 선택된 상태였다 |
+| 14 | `RightPanelTile.tsx:52` 타일 닫기 | `entrypoints.interaction.test.ts` | diff 헤더의 닫기를 눌러도 [diff]가 남았다 |
+| 15 | `RightPanelFrame.tsx:322` OpenCode 상세 닫기 | `Panel.nativeEntries.test.ts` | 실제 프레임 속 닫기를 눌러도 요약과 상세 두 층이 남았다 |
+| 16 | `ArtifactCards.tsx:118` 준비된 카드 열기 | `ArtifactCards.lifecycle.test.ts` | 파일 미리보기는 준비됐지만 [plan, artifact] 스택이 비었다 |
+| 17 | `RightPanelFrame.tsx:271` 포인터 해제 시 폭 저장 | `entrypoints.interaction.test.ts` | 80px 드래그 후 포인터를 놓아도 Code 600·Work 360 설정 쓰기가 없었다 |
+
+별도 Electron/Chromium 창에서 실제 DOM 버튼 세 개를 눌렀다. 두 번째 에이전트와 두 번째 명령의 고유 ID·상세 본문을 각각 확인했고 상세의 닫기로 두 층이 모두 사라졌다. 프레임 드래그의 실제 포인터 입력과 모드별 폭 저장 결과는 EP-5에 있다.
 
 ### EP-9 사용자 조작과 화면 소유자
 
@@ -676,7 +702,7 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | 층 진입 애니메이션을 제거 | VP-18 | 첫 구현 | 정/역방향 깊이 2 red(모든 x=0), 열기/닫기·모드 두 방향 4 green | 검출 |
 | transcript의 flex-basis를 100%로 고정 | VP-17 | 첫 구현 | 경계만 재면 0px, host 폭 보존 오차는 양 모드 520px | 검출 |
 
-- **분모 검산**. 선택 증거 12개, 인용 이슈 0개, 음성 oracle 1개, 범위 검사 1개와 추가 스택 분기 7개로 21실행이다. EP-4″ 분기 대표는 9/9이며 site별 전체 소거와 구별한다. 하나의 실행을 여러 pair가 공유할 때 한 번만 셌다. EP-2의 17 진입과 EP-9의 개별 화면에 대한 자리별 소거 전수는 미완이다.
+- **분모 검산**. 선택 증거 12개, 인용 이슈 0개, 음성 oracle 1개, 범위 검사 1개와 추가 스택 분기 7개로 21실행이다. EP-4″ 분기 대표는 9/9이며 site별 전체 소거와 구별한다. 하나의 실행을 여러 pair가 공유할 때 한 번만 셌다. EP-2의 17개 단일 소거를 추가해 고유 실행은 38개다. EP-9 개별 화면의 자리별 소거는 남았다.
 - **덮개 회귀**. 구 열/행 전용 단언을 폐기하고, 기존 상세 생애·subagent/process 선택·원점 초점·스크롤 위치를 실제 공통 프레임 테스트로 옮겼다. 직전 verify에서 재실행할 고장 이력은 없다.
 
 ## [구현자 기입] Product/UX 파생 검토
@@ -721,12 +747,12 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 | **관측한 게이트 산출** | 주요 13파일 106개, 메뉴/셸 42개, 뷰어/CSS/composer 42개, store/초점·수명 22개, 세션/턴 정책 34개, 마지막 프레임 알림 수정의 수명/Work 17개, 점프 버튼 숨김 시 세션 전환 렌더/표시 동작을 포함한 ChatTile 9개 통과. 전체 실행에서 실패한 Panel.lifecycle은 시간 배율 6으로 독립 재실행하여 10/10 통과. 전체 문서 가드 9항목·127채널·링크 통과, test-budgets 18 real-git suites 위반 0. 통합 스냅숏의 Node 스크립트 1,174/1,174, 앱 빌드와 호스트/preload smoke 통과 |
 | **Electron 실측** | 0331~333 통합 `c9e3028e`, CPU 3–4에서 `check-right-panel.mjs` 일반·축소 각 63/64, 총 126/128, exit 1. 후속 창 재시작 시나리오를 실제 Chromium에서 따로 돌려 2/2 통과. 두 모드 모두 A1~A9, 9개 라우트 포함 33개 전환 표면, 세션 교체 다섯 방향, 폭·깊이·읽는 위치·하단·드래그 통과 |
 | **§10-A 운영 예산** | `long-task-observation`만 양 모드 실패. 일반 모션에서 50ms 초과 6건(최대 102ms, 세션 전환 중 4건), 축소 모션에서 3건(최대 215ms, 모두 세션 전환). 앞선 `99bbdf45`에서는 일반 14건/294ms·축소 17건/661ms였다. 최근 측정 뒤 ChatTile이 숨은 점프 버튼의 상태를 세션마다 다시 게시하는 동작도 제거했다. 그 수정 뒤의 통합 예산은 재측정 대상 |
-| **추가·수정 테스트의 subtree 규칙** | 기준 커밋과 대조해 현재 존재하는 추가·수정 테스트 45개. 직접 exe/native SQLite 사용 검색 0건. 실시간 기한 추가 0, 경계는 fake timer·메모리 fixture와 기존 store 규칙 사용 |
+| **추가·수정 테스트의 subtree 규칙** | 구현 전 기준 `99048270`과 대조해 현재 존재하는 추가·수정 테스트 49개. 직접 exe/native SQLite 사용 검색 0건. 실시간 기한 추가 0, 경계는 fake timer·메모리 fixture와 기존 store 규칙 사용 |
 | V-pair 자기확인 | 위 21행. REQUIRED 20, REGRESSION 1 |
 | 강제 지점 전수 | EP-1′~10 및 EP-4″ 9분기·EP-5 4지점을 위 표에 고정 |
-| **AC 자기보고**(`Criteria-Met`) | 12/14. AC1~7·9~12·14 통과. AC8은 17 진입점의 동작별 입증이 일부 남았다. AC11·12의 경계·깊이·스크롤은 통과했으나 §10-A의 장기 작업 운영 예산이 실패해 AC13 전체 적용을 닫지 않았다. AC14 산출물은 A1~A9가 양 모드 통과 |
-| **합계 검산** | ✅ 12 · ⚠️ 1(AC8) · ❌ 1(AC13/§10-A 예산) = 14 |
-| 블로커 / 역질문 | 설계 결정 요청 없음. EP-2 사용자 진입별 검증, §10-A 장기 작업과 EP-9 소거 검증이 남았다 |
+| **AC 자기보고**(`Criteria-Met`) | 13/14. AC1~12·14 통과. AC8은 17개 진입점에서 개별 소거를 검출하고 원복 후 8개 스위트 57개가 통과했다. AC11·12의 경계·깊이·스크롤은 통과했으나 §10-A의 장기 작업 운영 예산이 실패해 AC13 전체 적용을 닫지 않았다. AC14 산출물은 A1~A9가 양 모드 통과 |
+| **합계 검산** | ✅ 13 · ❌ 1(AC13/§10-A 예산) = 14 |
+| 블로커 / 역질문 | 설계 결정 요청 없음. §10-A 장기 작업과 EP-9 소거 검증이 남았다 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
