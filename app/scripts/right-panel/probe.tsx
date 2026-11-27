@@ -32,6 +32,7 @@ function renderApp(): void {
 renderApp()
 type Measurement = { name: string; ok: boolean; [field: string]: unknown }
 type FrameSample = { width: number; seam: number; hostError: number; x: number }
+type Reversal = { when: (sample: FrameSample) => boolean; action: () => void }
 
 const frame = (): Promise<number> =>
   new Promise<number>((resolve) => requestAnimationFrame(resolve))
@@ -53,9 +54,10 @@ function setKind(agentKind: 'code' | 'work'): void {
 }
 async function geometry(
   action: () => void,
-  reverse?: () => void
+  reverse?: Reversal
 ): Promise<{
   samples: FrameSample[]
+  reversedAt?: FrameSample
   first: number
   last: number
   seam: number
@@ -85,13 +87,14 @@ async function geometry(
   }
   read()
   flushSync(action)
-  let start = performance.now(),
-    reversed = false
+  let start = performance.now()
+  let reversedAt: FrameSample | undefined
   do {
     read()
-    if (reverse && !reversed && performance.now() - start > 65) {
-      flushSync(reverse)
-      reversed = true
+    const current = samples[samples.length - 1]
+    if (reverse && !reversedAt && reverse.when(current)) {
+      reversedAt = current
+      flushSync(reverse.action)
       start = performance.now()
     }
     await frame()
@@ -99,6 +102,7 @@ async function geometry(
   read()
   return {
     samples,
+    reversedAt,
     first: samples[0].width,
     last: samples.at(-1)!.width,
     seam: Math.max(...samples.map((row) => Math.abs(row.seam))),
@@ -360,7 +364,7 @@ Object.assign(window, {
       name: string,
       action: () => void,
       target: number,
-      reverse?: () => void
+      reverse?: Reversal
     ): Promise<void> => {
       step(name)
       const m = await geometry(action, reverse)
@@ -368,8 +372,7 @@ Object.assign(window, {
         ({ width }) =>
           Math.min(m.first, target) + 1 < width && width < Math.max(m.first, target) - 1
       ).length
-      const moved = m.samples.some((row) => Math.abs(row.width - m.first) > 1)
-      const motion = reverse ? reduced || moved : reduced ? intermediates === 0 : intermediates > 0
+      const motion = reverse ? !!m.reversedAt : reduced ? intermediates === 0 : intermediates > 0
       records.push({
         name,
         ok:
@@ -382,6 +385,7 @@ Object.assign(window, {
         first: m.first,
         last: m.last,
         intermediates,
+        reversedWidth: m.reversedAt?.width,
         hostError: m.hostError,
         seam: m.seam
       })
@@ -407,7 +411,9 @@ Object.assign(window, {
       ok:
         active()?.dataset.rightPanelLayer === 'diff' &&
         !!goBack &&
-        (reduced || forward.samples.some((s) => s.x > 1)),
+        (reduced
+          ? forward.samples.every((s) => near(s.x, 0))
+          : forward.samples.some((s) => s.x > 1)),
       forward: forward.samples.map((s) => s.x)
     })
     step('depth-back')
@@ -416,30 +422,32 @@ Object.assign(window, {
       name: 'depth-back',
       ok:
         active()?.dataset.rightPanelLayer === 'plan' &&
-        (reduced || back.samples.some((s) => s.x < -1)),
+        (reduced ? back.samples.every((s) => near(s.x, 0)) : back.samples.some((s) => s.x < -1)),
       back: back.samples.map((s) => s.x)
     })
     step('depth-interrupt')
-    const interrupted = await geometry(
-      () => panelActions.tile('diff'),
-      () => panelActions.back()
-    )
+    const interrupted = await geometry(() => panelActions.tile('diff'), {
+      when: ({ x }) => reduced || (x > 1 && x < (active()?.clientWidth ?? 0) - 1),
+      action: () => panelActions.back()
+    })
     const activeLayers = document.querySelectorAll('[data-right-panel-layer]:not([inert])')
     records.push({
       name: 'depth-interrupt',
       ok:
+        !!interrupted.reversedAt &&
         activeLayers.length === 1 &&
         active()?.dataset.rightPanelLayer === 'plan' &&
         useRightPanelStore.getState().stack.at(-1)?.kind === 'tile',
+      reversedX: interrupted.reversedAt?.x,
       frames: interrupted.samples.length
     })
     await widthCheck('pairedWidth-close', () => panelActions.close(), 0)
-    await widthCheck(
-      'pairedWidth-reverse',
-      () => panelActions.tile('plan'),
-      0,
-      () => panelActions.close()
-    )
+    await widthCheck('pairedWidth-reverse', () => panelActions.tile('plan'), 0, {
+      // Start the return on an observed outward frame. Under load the first
+      // rendered frame can come after a fixed 65ms timer would have fired.
+      when: ({ width }) => (reduced ? near(width, 520) : width > 1 && width < 519),
+      action: () => panelActions.close()
+    })
     await widthCheck('pairedWidth-reopen', () => panelActions.tile('plan'), 520)
     step('resize-persistence')
     const separator = find('[role=separator]')
