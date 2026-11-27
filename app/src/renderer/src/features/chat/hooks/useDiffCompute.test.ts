@@ -145,6 +145,25 @@ describe('useDiffSyntax', () => {
     })
   })
 
+  it('AC20 restores diff syntax after recovery', async () => {
+    render(lines, 'src/a.ts')
+    compute.rejectNext()
+    await settle()
+    expect(tokens.size).toBe(0)
+    expect(compute.requests).toHaveLength(1)
+    compute.recover('compute')
+    await settle()
+    expect(compute.requests).toHaveLength(2)
+    compute.resolveNext({
+      old: [[token('const old = 1', 'orange')]],
+      new: [[token('const next = 2', 'blue')]]
+    })
+    await settle()
+    expect(tokens.get(lines[0])?.old?.[0].color).toBe('orange')
+    compute.recover('compute')
+    await settle()
+    expect(compute.requests).toHaveLength(2)
+  })
   it('지원하지 않는 확장자는 요청하지 않는다', () => {
     render(lines, 'binary.unknown')
     expect(compute.requests).toEqual([])

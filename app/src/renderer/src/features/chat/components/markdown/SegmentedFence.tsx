@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../../shared/compute/useWorkerRetry'
 import { useEffect, useRef, useState } from 'react'
 import {
   computeClient,
@@ -34,8 +35,10 @@ export function SegmentedFence({
   priority: Priority
   onSettled?: (parsed: boolean) => void
 }): React.JSX.Element {
+  const retryWorker = useWorkerRetry('markdown', row)
   const [result, setResult] = useState<FenceResult>()
   const [failed, setFailed] = useState<Pick<FenceResult, 'row' | 'parts'>>()
+  const checkpoint = useRef<(FenceResult & { next: number }) | undefined>(undefined)
   const rank = useRef(priority)
   const running = useRef<ComputeHandle<ComputeResults['markdown']> | undefined>(undefined)
   useEffect(() => {
@@ -50,9 +53,11 @@ export function SegmentedFence({
     let lease: DocumentLease | undefined
     let unsubscribe: (() => void) | undefined
     let active = true
-    let index = 0
-    let code = ''
-    const runs: MarkedText[] = []
+    const saved = checkpoint.current
+    const resume = saved?.row === row && saved.parts === parts ? saved : undefined
+    let index = resume?.next ?? 0
+    let code = resume?.code ?? ''
+    const runs: MarkedText[] = resume?.runs ?? []
     const client = computeClient()
     function release(): void {
       unsubscribe?.()
@@ -71,15 +76,17 @@ export function SegmentedFence({
         const range = { indent: fence.indent, lineStart, parts: localParts }
         lease = client.openDocument(doc, { text: segment.text, read: segment.read }, 'markdown')
         const startJob = (): void => {
-          const job = client.request<'markdown'>(
-            {
-              kind: 'markdown',
-              doc,
-              start: start - segment.start,
-              end: end - segment.start,
-              fence: range
-            },
-            { cacheable: false, priority: rank.current }
+          const job = retryWorker(() =>
+            client.request<'markdown'>(
+              {
+                kind: 'markdown',
+                doc,
+                start: start - segment.start,
+                end: end - segment.start,
+                fence: range
+              },
+              { cacheable: false, priority: rank.current }
+            )
           )
           running.current = job
           void job.promise
@@ -101,6 +108,7 @@ export function SegmentedFence({
             .catch(() => {
               if (active) {
                 release()
+                checkpoint.current = { row, parts, code, runs, next: index - 1 }
                 setFailed({ row, parts })
               }
             })
@@ -109,7 +117,11 @@ export function SegmentedFence({
         else unsubscribe = lease.onAvailable(startJob)
         return
       }
-      if (active) setResult({ row, parts, code, runs })
+      if (active) {
+        checkpoint.current = undefined
+        setFailed(undefined)
+        setResult({ row, parts, code, runs })
+      }
     }
     next()
     return () => {
@@ -118,7 +130,7 @@ export function SegmentedFence({
       running.current = undefined
       release()
     }
-  }, [row, parts])
+  }, [row, parts, retryWorker])
   const complete = result?.row === row && result.parts === parts
   const rejected = failed?.row === row && failed.parts === parts
   useEffect(() => {

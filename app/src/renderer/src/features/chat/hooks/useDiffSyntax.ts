@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../shared/compute/useWorkerRetry'
 import { createContext, useEffect, useState, useSyncExternalStore } from 'react'
 import { computeClient } from '../../../shared/compute/client'
 import {
@@ -27,10 +28,11 @@ export function useDiffSyntax(lines: readonly DiffLine[], filePath: string): Hig
     tokens: HighlightedLines
   } | null>(null)
 
+  const retryWorker = useWorkerRetry('compute', lines)
   useEffect(() => {
     const request = diffTokensRequest(lines, filePath, theme)
     if (!request) return
-    const handle = computeClient().request(request)
+    const handle = retryWorker(() => computeClient().request(request))
     handle.promise
       .then((rows) =>
         setHighlighted({ lines, filePath, theme, tokens: mapDiffTokens(lines, rows) })
@@ -39,7 +41,7 @@ export function useDiffSyntax(lines: readonly DiffLine[], filePath: string): Hig
         // 취소·워커 실패 — diff 원문과 줄 동작은 그대로 사용할 수 있다.
       })
     return () => handle.cancel()
-  }, [lines, filePath, theme])
+  }, [lines, filePath, theme, retryWorker])
 
   return highlighted?.lines === lines &&
     highlighted.filePath === filePath &&

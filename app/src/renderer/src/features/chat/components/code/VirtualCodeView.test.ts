@@ -121,3 +121,66 @@ it('wt6 renders matching token colors and falls back to source text for a mismat
   expect(rows[0].children[0].props.style).toEqual({ color: '#123456' })
   expect(rows[1].children.some((child) => child.props.style)).toBe(false)
 })
+
+it('AC20 retries window tokens after recovery', async () => {
+  render(lines.join('\n'), 'typescript')
+  fake.rejectNext()
+  await settle()
+  expect(dom.query('[data-virtual-text]')?.textContent).toBe(lines[0])
+  expect(fake.requests).toHaveLength(1)
+  fake.recover('compute')
+  await settle()
+  expect(fake.requests).toHaveLength(2)
+  fake.resolveNext({ rows: [[{ content: lines[0], color: '#117733', offset: 0 }]] })
+  await settle()
+  expect(
+    dom
+      .query('[data-virtual-text]')!
+      .children.some(
+        (child) => (child.props.style as { color?: string } | undefined)?.color === '#117733'
+      )
+  ).toBe(true)
+  fake.recover('compute')
+  await settle()
+  expect(fake.requests).toHaveLength(2)
+})
+
+it('AC20 retries the code view after recovery', async () => {
+  const source = 'x'.repeat(1_000_001)
+  render(source)
+  fake.rejectNext()
+  await settle()
+  expect(dom.query('[data-fallback]')?.textContent === source).toBe(true)
+  expect(fake.requests).toHaveLength(1)
+  fake.recover('compute')
+  await settle()
+  expect(fake.requests).toHaveLength(2)
+  fake.resolveNext(codeIndex.codeWindow(codeIndex.buildCodeIndex('recovered line'), 0, 200))
+  await settle()
+  expect(dom.query('[data-virtual-text]')?.textContent).toBe('recovered line')
+  fake.recover('compute')
+  await settle()
+  expect(fake.requests).toHaveLength(2)
+})
+
+it('AC20 restores a failed later code window from the mounted fallback', async () => {
+  const source = 'x'.repeat(1_000_001)
+  const display = Array.from({ length: 450 }, (_, i) => 'line' + i).join('\n')
+  const index = codeIndex.buildCodeIndex(display)
+  render(source)
+  fake.resolveNext(codeIndex.codeWindow(index, 0, 200))
+  await settle()
+  visible.first = 202
+  render(source)
+  fake.rejectNext()
+  await settle()
+  expect(dom.query('[data-fallback]')?.textContent === source).toBe(true)
+  expect(fake.requests.filter((r) => r.kind === 'codeView')).toHaveLength(2)
+  fake.recover('compute')
+  await settle()
+  expect(fake.requests.filter((r) => r.kind === 'codeView')).toHaveLength(3)
+  expect(fake.requests.at(-1)).toMatchObject({ kind: 'codeView', start: 200 })
+  fake.resolveNext(codeIndex.codeWindow(index, 200, 400))
+  await settle()
+  expect(dom.query('[data-virtual-text]')?.textContent).toBe('line202')
+})

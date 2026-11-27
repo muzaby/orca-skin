@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../../shared/compute/useWorkerRetry'
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Root, Element } from 'hast'
 import { computeClient, type ComputeHandle, type Priority } from '../../../../shared/compute/client'
@@ -98,9 +99,14 @@ function RegularMarkdownRow({
   showPendingText = false
 }: RowProps): React.JSX.Element {
   const { doc, segment, block } = row
-  const [result, setResult] = useState<{ row: MarkdownRow; roots: Root[] | null }>()
+  const retryWorker = useWorkerRetry('markdown', row)
+  const [result, setResult] = useState<{
+    row: MarkdownRow
+    roots: Root[]
+    failedAttempt?: typeof retryWorker
+  }>()
   const roots = result?.row === row ? result.roots : undefined
-  const failed = roots === null
+  const failed = result?.row === row && result.failedAttempt === retryWorker
   const count = roots?.length ?? 0
   const chunks = block.table?.length ?? 1
   const [painted, setPainted] = useState<{ row: MarkdownRow; count: number }>()
@@ -120,17 +126,19 @@ function RegularMarkdownRow({
     let active = true
     const start = (): void => {
       const table = block.table?.[count]
-      const handle = client.request<'markdown'>(
-        {
-          kind: 'markdown',
-          doc,
-          start: block.start,
-          end: block.end,
-          ...(block.footnotes && { footnotes: block.footnotes }),
-          ...(segment.definitions && { definitions: segment.definitions }),
-          ...(table && { table })
-        },
-        { priority: rank.current }
+      const handle = retryWorker(() =>
+        client.request<'markdown'>(
+          {
+            kind: 'markdown',
+            doc,
+            start: block.start,
+            end: block.end,
+            ...(block.footnotes && { footnotes: block.footnotes }),
+            ...(segment.definitions && { definitions: segment.definitions }),
+            ...(table && { table })
+          },
+          { priority: rank.current }
+        )
       )
       task.current = handle
       void handle.promise.then(
@@ -142,7 +150,12 @@ function RegularMarkdownRow({
             }))
         },
         () => {
-          if (active) setResult({ row, roots: null })
+          if (active)
+            setResult((previous) => ({
+              row,
+              roots: previous?.row === row ? previous.roots : [],
+              failedAttempt: retryWorker
+            }))
         }
       )
     }
@@ -154,7 +167,7 @@ function RegularMarkdownRow({
       task.current = null
       lease.release()
     }
-  }, [row, doc, block, segment, failed, count, chunks, committed])
+  }, [row, doc, block, segment, failed, count, chunks, committed, retryWorker])
   const text = segment.read?.(block.start, block.end) ?? segment.text.slice(block.start, block.end)
   const localParts = useMemo(
     () => sliceSourceParts(parts, segment.start + block.start, segment.start + block.end),
@@ -163,7 +176,7 @@ function RegularMarkdownRow({
   useEffect(() => {
     if (failed || committed === chunks) onSettled?.(!failed)
   }, [failed, committed, chunks, onSettled])
-  if (!roots?.length)
+  if (failed || !roots?.length)
     return (
       <pre
         data-md-block-error={failed ? '' : undefined}
@@ -240,7 +253,7 @@ export function WorkerDocumentRows({
     parts: sourceParts,
     prefix: 0,
     ready: new Set<number>(),
-    failed: false
+    failed: new Set<number>()
   })
   const sameContent = progress.rows === rows && progress.parts === sourceParts
   const prefix = sameContent ? progress.prefix : 0
@@ -267,13 +280,25 @@ export function WorkerDocumentRows({
         const previous =
           current.rows === rows && current.parts === sourceParts
             ? current
-            : { rows, parts: sourceParts, prefix: 0, ready: new Set<number>(), failed: false }
-        if (index < previous.prefix || previous.ready.has(index)) return current
+            : {
+                rows,
+                parts: sourceParts,
+                prefix: 0,
+                ready: new Set<number>(),
+                failed: new Set<number>()
+              }
+        const wasFailed = previous.failed.has(index)
+        const alreadySettled = index < previous.prefix || previous.ready.has(index)
+        if (alreadySettled && wasFailed === !parsed) return current
+        const failed = new Set(previous.failed)
+        if (parsed) failed.delete(index)
+        else failed.add(index)
+        if (alreadySettled) return { ...previous, failed }
         const ready = new Set(previous.ready)
         ready.add(index)
         let next = previous.prefix
         while (ready.delete(next)) next++
-        return { rows, parts: sourceParts, ready, prefix: next, failed: previous.failed || !parsed }
+        return { rows, parts: sourceParts, ready, prefix: next, failed }
       })
     },
     [rows, sourceParts]
@@ -293,7 +318,7 @@ export function WorkerDocumentRows({
       </pre>
     )
   const settled = prefix === rows.length
-  const failed = sameContent && progress.failed
+  const failed = sameContent && progress.failed.size > 0
   const parsed = settled && !failed
   return (
     <div

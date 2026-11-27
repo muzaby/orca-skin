@@ -112,3 +112,31 @@ it('opens an artifact Markdown document under the publication and result revisio
     'markdown'
   )
 })
+
+it('AC20 retries the markdown layout after recovery', async () => {
+  const text = 'a'.repeat(70000)
+  render(text)
+  fake.rejectNext()
+  await settle()
+  expect(dom.query('[data-md-block-error]')?.textContent === text).toBe(true)
+  expect(fake.requests.map((r) => r.kind)).toEqual(['markdownLayout'])
+  fake.recover('markdown')
+  await settle()
+  expect(fake.requests).toHaveLength(1)
+  fake.recover('compute')
+  await settle()
+  expect(fake.requests.map((r) => r.kind)).toEqual(['markdownLayout', 'markdownLayout'])
+  fake.resolveNext({
+    segments: [{ start: 0, end: text.length, blocks: [{ start: 0, end: text.length }] }]
+  })
+  await settle()
+  expect(fake.requests.at(-1)?.kind).toBe('markdown')
+  fake.resolveNext({
+    hast: { type: 'root', children: [{ type: 'text', value: 'formatted after layout' }] }
+  })
+  await settle()
+  expect(dom.body.textContent).toBe('formatted after layout')
+  fake.recover('compute')
+  await settle()
+  expect(fake.requests.filter((r) => r.kind === 'markdownLayout')).toHaveLength(2)
+})

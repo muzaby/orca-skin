@@ -1,3 +1,4 @@
+import { useWorkerRetry } from '../../../../shared/compute/useWorkerRetry'
 import type { Root } from 'hast'
 import { useEffect, useMemo, useState } from 'react'
 import { computeClient } from '../../../../shared/compute/client'
@@ -33,12 +34,15 @@ export function useMarkdownRows(
     [source]
   )
   const needsWorker = source.length > 65536 && !hydrated
+  const retryWorker = useWorkerRetry('compute', source)
   const [indexed, setIndexed] = useState<{ source: string; layout: MarkdownSegmentRange[] }>()
   useEffect(() => {
     if (!needsWorker) return
-    const job = computeClient().request<'markdownLayout'>(
-      { kind: 'markdownLayout', sequence: ++layoutSequence, source },
-      { cacheable: false }
+    const job = retryWorker(() =>
+      computeClient().request<'markdownLayout'>(
+        { kind: 'markdownLayout', sequence: ++layoutSequence, source },
+        { cacheable: false }
+      )
     )
     let active = true
     void job.promise.then(
@@ -53,7 +57,7 @@ export function useMarkdownRows(
       active = false
       job.cancel()
     }
-  }, [source, needsWorker])
+  }, [source, needsWorker, retryWorker])
   return useMemo(() => {
     if (needsWorker && indexed?.source !== source) return undefined
     const revision = revisionOf(revisionSource ?? {})
