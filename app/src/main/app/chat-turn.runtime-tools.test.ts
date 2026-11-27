@@ -394,6 +394,23 @@ describe('registerChatHandlers runtime-tool continuation wiring (0158)', () => {
     expect(harness.requests[1]?.request.extensions).toBe(built[1])
   })
 
+  it('listens on the existing channel while its results await delivery across a tool revision', async () => {
+    const { runtime, built } = installHarness({
+      runtimeRevision: 1,
+      extensionRevisions: [1, 2],
+      defaultModel: 'sonnet',
+      selectedModel: 'opus',
+      steps: ['listen', 'break']
+    })
+    runtime.hasUnframedBacklog = true
+
+    await send()
+
+    expect(runtime.teardownChannel).not.toHaveBeenCalled()
+    expect(harness.requests[1]).toMatchObject({ kind: 'listen' })
+    expect(harness.requests[1]?.request.extensions).toBe(built[1])
+  })
+
   it('keeps the non-default selected model on a flush continuation without an unnecessary respawn', async () => {
     const { runtime } = installHarness({
       runtimeRevision: 2,

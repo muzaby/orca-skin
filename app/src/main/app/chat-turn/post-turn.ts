@@ -181,7 +181,14 @@ export async function runTurnWithContinuations(
           // 소모한 중단은 재개하되 await 중 새로 들어온 Stop은 새 정책으로 다시 정착한다.
           return abortResumePolicy(preparedTurn.abortContinuation).resume ? 'continue' : 'break'
         }
-        if (step === 'flush' && continuation.shouldRespawn && !mustDrain(sessionId))
+        // A fresh tool or provider configuration can replace an idle channel. A
+        // listener still needs the original channel for work produced before that change.
+        const listenHasWork =
+          step === 'listen' &&
+          (runtime.channelBusy ||
+            runtime.hasUnframedBacklog ||
+            backgroundTasks.hasPending(sessionId))
+        if (continuation.shouldRespawn && !listenHasWork && !mustDrain(sessionId))
           runtime.teardownChannel()
         return continuation
       }
