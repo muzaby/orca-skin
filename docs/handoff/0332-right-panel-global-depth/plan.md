@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV2·ΔV3) · Codex (ΔV1 추가 요구·§22 기술 보완) |
 | 일자 | 2026-11-26 · §22 재계획 2026-11-27 |
 | 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
-| 상태 | plan/READY · r1 · 다음 Codex(구현). §22는 AC13/§10-A의 미충족 예산을 고치는 기술 계획이다. 직전 자기보고 13/14, 실기 128/130. 독립 검증 횟수 변동 없음. |
+| 상태 | impl/IMPL_DONE · r1 · §22 재구현 자기보고 13/14. 최종 통합 실기 128/130, AC13의 50ms 예산이 남았다. 독립 검증 횟수 변동 없음. |
 | V mode | `Delta V` |
 | 기준 V | 0332 V1 + ΔV1 + ΔV2 (`09d8b2ae`) |
 | 이번 V revision | `ΔV3` — 2차 리뷰 보완: VP-01 누락 기본값(Work 360·Code 520) · 닫힌 패널의 산출물 성공은 `navigate` 일반 규칙의 예외 |
@@ -648,11 +648,36 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs \
 
 ## [구현자 기입] 설계 리뷰
 
+### §22 재구현
+
+- Chromium에서 cold 동기 높이 읽기는 115회였다. 고정 중 가시 63·아래 36·위 2회, 읽기 중 가시 8·아래 6회였다. 읽는 화면 아래에 새로 등록한 6회만 첫 RO에 맡길 수 있었다. 가시·고정 행은 같은 React 커밋 안에서 실제 높이를 먼저 읽은 뒤 TanStack에 등록한다.
+- 두 OpenCode 진입은 0~20행에 이어 403~419행을, Claude 복귀는 0~13행에 이어 289~299행을 마운트했다. 하단 고정 진입은 가상 목록의 첫 범위를 마지막 화면에서 시작한다. 부모 스크롤러가 실제 행·헤더·푸터로 최종 하단을 맞춘다. 검색과 저장된 읽기 위치는 기존 오프셋을 사용한다.
+- 가상 목록은 키 집합이 같은 커밋에서도 브라우저 선택을 조회했다. 새 행 존재를 먼저 확인하고 새 행과 선택이 겹칠 때 기존 취소 규칙을 적용한다.
+
+
 - D-011~015를 적용했다. 열림과 두 모드 폭은 기존 settings 채널에 저장하고, 세션·화면 기억은 창 안에 둔다. 기존 설정 파일을 읽을 때 누락한 필드만 해당 모드 기본값으로 채운다.
 - 하네스 registry가 화면 내용을 고른다. `ChatTile`의 영속 프레임이 폭·초점·깊이를 소유한다. 프레임이 콘텐츠와 별도로 살아 있어야 출발 층이 사라진 후에도 폭이 줄어든다.
 - 유효 V와 충돌하는 ACTIVE Decision을 발견하지 않았다. 일반·축소 모션 및 부하 예산은 단위 테스트와 별도로 실측했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+### §22 재구현 자리
+
+| 경로 | 직접 관측 | 남긴 곳 |
+|---|---|---|
+| VP-17·19 행 ref → 실측 → TanStack/RO | `TranscriptViewport.prepend.test.ts`에서 가시·고정 아래 99, 읽기 아래 초기 캐시 미기입 → RO 137 → 빈 borderBox 실제 148. 첫 observer 등록 전에 두 번째 가시 행도 이미 읽었다 | 예산은 실기 별도 |
+| warm·불일치·보정 | 같은 행 캐시 52 → RO 69는 rect 0회. 가시 cold 71은 1회. 이전 노드 69 통지 후 새 노드 캐시와 virtualizer는 93. observer 없는 저장값 46은 실제 81로 바뀜 | — |
+| 하단/읽기 진입·선택 | 50행 중 첫 커밋에 고정 [48,49], 저장된 읽기 [6,7]만 마운트. 키 순서만 바뀐 커밋과 새 키 커밋에서 선택 조회 0회·1회 | — |
+| VP-17·18·19 실기 | 두 모드의 공통 경계·호스트·읽기/하단·깊이·포인터·세션 교체·산출물·표면. 표면 33×2는 130건에 포함 | AC13 50ms는 구현 보고에 기록 |
+
+§22-B의 `vp`, `oc`에 `cc=app/src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx`를 더했다.
+
+```sh
+pattern='sizeCache|elementsCache|borderBoxSize|rect = element\.getBoundingClientRect|rect \?\? element\.getBoundingClientRect|scrollRef\.current\.getBoundingClientRect|ref=\{attachRow\}|attachingRows|attachedHeights|awaitingFirstObservation|startAtEnd|initialOffset|row\.getBoundingClientRect|viewportInstance|rangeCount === 0|selection: selectionPlace|options.getItemKey\(index\)|itemSizeCache.get\(currentKey\)|virtualizer.measureElement\(row\)'
+node .agents/skills/handoff-verify/scripts/site_census.mjs --search "rg -n -H '$pattern' $vp $oc $cc" --sites "$vp:210-212,$vp:234,$vp:399-401,$vp:575-577,$vp:585-596,$vp:603-619,$vp:636-637,$vp:663,$vp:670-672,$vp:687-709,$vp:716,$vp:734-741,$vp:751,$vp:762-765,$vp:781,$vp:861,$vp:1207,$oc:141-145,$cc:142" --excluded "$vp:152-154,$vp:1015"
+```
+
+검색 50줄, 운반 후보 47, 목록 46, 제외 4, 미분류 0, 목록만 0. 제외는 prop 타입 3줄과 별도 헤더 observer 1줄이다.
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
@@ -766,6 +791,18 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs \
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+### §22 재구현 소거
+
+| 개별 변이 | 행동 단언에서 관측한 실패 |
+|---|---|
+| 아래 행 검사 완화 · 고정 중 추정 허용 · 실제 높이를 추정값으로 치환 · 행마다 먼저 등록 | 각각 `measures cold mounted rows before positioning` red. 가시 행 읽기/observer 순서 또는 고정 행 99의 첫 실측이 달라졌다 |
+| 잠정값을 실제 캐시에 저장 · 첫 RO 크기를 버림 | 실제값 전 캐시에 100이 기록됐다. 별도 변이에서 warm 이후 기대값 69가 71이 됐다 |
+| 옛 노드의 통지를 반영 · observer 없이 warm 반환 | 새 행 93이 69가 됐다. 별도 변이에서 현재 높이 81 대신 저장된 46을 반환했다 |
+| 하단 오프셋 0 고정 · 저장된 오프셋 0 고정 | 첫 마운트 [48,49] 및 [6,7]이 각각 [0,1]이 됐다 |
+| 새 키 검사 삭제 | 같은 키를 다시 커밋해도 선택 취소가 일어났다 |
+
+단일 변이 11/11에서 해당 행동 단언의 red를 확인했다. 격리본 원복 뒤 제품 두 파일이 동결본과 바이트 단위로 일치했다. 기존 EP-2 17진입점과 EP-9 20개 소유자의 기록은 아래에 보존했다.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
 | Code 기본 폭 360 | VP-01′·04′ | 첫 구현 | settings-store / 2 | 검출 |
@@ -797,6 +834,10 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs \
 
 ## [구현자 기입] Product/UX 파생 검토
 
+### §22 재구현 관측
+
+핀·가시 행에는 첫 페인트 전 실제 border-box가 쓰인다. 보정 중에는 매번 현재 top을 읽으며, 아래 행도 핀이 켜지면 실제 높이를 사용한다. 두 OpenCode 진입과 Claude 복귀에서 대화 앞·뒤 화면을 연속 마운트하던 비용을 줄였다.
+
 | 질문 | 판정 | 후속 |
 |---|---|---|
 | 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 기존 번역의 뒤로·닫기·확대·폭 조절을 각 층과 separator가 사용한다 | 새 번역 없음 |
@@ -806,6 +847,10 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs \
 | 늦게 도착한 응답이 화면을 되돌리지 않는가 | 요청 번호와 최초 세션 활성 확인 뒤에만 상세를 연다 | A6/A7, 세션 교체 lifecycle |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+### §22 재구현 경계
+
+교체한 노드의 옛 통지가 도착할 때 TanStack의 지연 계산 목록에 옛 크기가 남을 수 있다. 현재 index/key 및 등록 노드를 대조한 후 현재 `itemSizeCache` 크기를 반환한다. 관찰이 없거나 entry에 높이가 없으면 실제 rect를 읽는다. 이번 커밋에서 모은 높이는 같은 layout effect의 `finally`에서 비워 다음 폭·세션으로 넘어가지 않는다.
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
@@ -830,6 +875,12 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs \
 
 ## [구현자 기입] 구현 보고
 
+### §22 재구현 실측
+
+공통 transcript 21파일 151건과 선택 관련 3파일 32건을 통과했다. 두 집합에는 겹치는 테스트가 있다. 독립 패널 판정기 자체 검사는 4/4다. 첫 제품 변경 후 일반 6건 최대 76ms, 축소 2건 최대 55ms였다. 하단 진입 보완 후 CPU 0~4 창에서는 일반 4건(61·54·144·53ms), 축소 2건(54·57ms)이었다. 두 실행 모두 예산 외 128개 관측 및 66개 표면을 통과했다. 두 번째 창에서는 별도 TypeScript 컴파일이 실행 중이었다.
+
+최종 통합 정본 `7a86f7db`(동일 체크아웃 번들·Electron main·판정 함수)을 일반/축소 각 65건씩 실행했다. B5 Electron이 렌더러 생성 전에 정지한 0~4 CPU 창을 썼다. 총 128/130, 기능 128/128, 표면 66/66, exit 1. 일반 장기 작업 2건은 깊이 반전→닫기 140ms와 폭 저장→Work 52ms였다. 축소 2건은 폭 저장→Work 184ms와 Claude Code→Work 422ms였다. 기능 AC 13개 충족, AC13 1개 미충족, 분모 14. VP-19는 SELF_BLOCKED다.
+
 | 항목 | 내용 |
 |---|---|
 | 변경 파일 | settings/IPC, TweakProvider, chat store와 reducer, 새 stack/frame, 두 하네스 화면, 진입점과 테스트, UI 모션 소유자, Electron gate, 아키텍처 문서와 인벤토리 |
@@ -849,6 +900,10 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs \
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
+
+### §22 재구현
+
+같은 §10-A 50ms 계약을 재측정했다. r1의 EP-2·EP-9 기록과 독립 검증 횟수를 유지한다. 하단 시작 변경 뒤 CPU 0~4 창에서는 OpenCode 두 진입 및 Claude 복귀의 장기 작업이 0건이었고 Code→Code·Code→Work에는 장기 작업이 남았다. 행 position/CSS 비교용 번들은 제품 커밋에서 제외했다.
 
 - 첫 구현으로 이전 verify의 수정 축은 없다.
 - D-011~015, EP-1′·3′·4″·6′·10에 누락 설정·기억 지원 여부·실패 경로·테스트 fixture를 명시했다.
