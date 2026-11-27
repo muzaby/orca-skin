@@ -17,6 +17,7 @@ vi.mock('../../../store/chatStore', () => ({
   useChatSession: (select: (state: ChatState) => unknown) => select(h.state),
   chatActions: { toggleRightPanelTile: () => {}, closeGitRow: () => {} }
 }))
+vi.mock('../../../store/rightPanelStore', () => ({ useTopPanelTile: () => null }))
 vi.mock('./useGitSnapshot', () => ({ useGitSnapshot: () => undefined }))
 vi.mock('../../../../../shared/i18n', () => ({
   useI18n: () => ({ tr: (key: string) => key, locale: 'ko' })
