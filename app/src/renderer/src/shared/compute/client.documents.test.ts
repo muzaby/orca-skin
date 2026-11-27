@@ -4,7 +4,7 @@ import * as protocol from './protocol'
 import { readWireText } from './chunkedText'
 import { createCreditWire, WIRE_FRAME_CHARS } from './creditWire'
 import { revisionOf } from './documents'
-import type { MarkdownRequest, DocRef } from './protocol'
+import type { MarkdownRequest, DocRef, WireResponse } from './protocol'
 
 const ref = (id: string): DocRef => ({ id, revision: 1 })
 const markdown = (doc: DocRef, end = 3): MarkdownRequest => ({
@@ -211,7 +211,7 @@ it('d4 routes real worker token continuations through the client and preserves t
   let tick = 0
   const run = createWorkerState(() => (tick += 51))
   const port = ports.get('compute')!
-  const replies: (boolean | 'continue')[] = []
+  const replies: WireResponse['ok'][] = []
   for (let i = 0; i < port.messages.length; i++) {
     const result = await run(structuredClone(port.messages[i]))
     if (result) {

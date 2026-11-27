@@ -77,7 +77,7 @@ it('q4 dispatches fresh visible work before a yielded range and resumes with a n
   expect((await pending.promise).rows).toHaveLength(101)
   expect((await next.promise).rows).toHaveLength(1)
   expect((await highlight.promise).html).toContain('shiki')
-  const sent = messages.filter((message) => 'id' in message)
+  const sent = messages.filter((message) => 'kind' in message)
   expect(sent.slice(0, 3).map((message) => [message.kind, message.resumeFrom])).toEqual([
     ['tokens', undefined],
     ['tokens', undefined],

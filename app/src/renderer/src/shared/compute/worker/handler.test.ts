@@ -9,11 +9,11 @@ import { handleMessage } from './handler'
 async function roundTrip(
   request: ComputeRequest,
   id = 7
-): Promise<Exclude<WireResponse, { ok: 'continue' }>> {
+): Promise<Extract<WireResponse, { ok: boolean }>> {
   // 워커 경계는 structured clone 이다 — JSON 왕복으로 "복제 가능한 값만 실린다"를 함께 본다.
   const wire = JSON.parse(JSON.stringify(await handleMessage({ ...request, id }))) as unknown
   const parsed = parseResponse(wire)
-  if (!parsed || parsed.ok === 'continue') throw new Error('응답 형식이 아니다')
+  if (!parsed || typeof parsed.ok !== 'boolean') throw new Error('응답 형식이 아니다')
   return parsed
 }
 
