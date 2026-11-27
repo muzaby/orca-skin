@@ -43,7 +43,7 @@ vi.mock('@tanstack/react-virtual', async () => {
         }
         options = { ...options, getItemKey: measured }
       }
-      if (waitForNativeScrollEvent) {
+      if (waitForNativeScrollEvent && !options.observeElementOffset) {
         // Chromium's offset observer subscribes without emitting a synthetic 0
         // before the virtualizer applies the requested initial position.
         options = { ...options, observeElementOffset: () => undefined }
@@ -362,6 +362,37 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
       expect(scroller.scrollTop).toBe(startAtEnd ? 4800 : 600)
     }
   )
+
+  it('mounts the head when the pinned transcript fits a newly attached scroller', () => {
+    waitForNativeScrollEvent = true
+    dom = installFakeDom({ innerWidth: 1200, innerHeight: 1200 })
+    const scroller = makeScroller(1200, 0)
+    Object.defineProperty(scroller, 'scrollHeight', { value: scroller.clientHeight })
+    // Chromium clamps a write to 0 without emitting a scroll event.
+    Object.defineProperty(scroller, 'scrollTop', { get: () => 0, set: () => {} })
+    const scrollRef = { current: null as HTMLDivElement | null }
+    const blocks = createBlockList(
+      Array.from({ length: 9 }, (_, index) => ({ key: String(index) }))
+    )
+    const rendered = new Set<string>()
+    const props = {
+      snapshot: blocks.snapshot(),
+      scrollRef,
+      startAtEnd: true,
+      isPinned: () => true,
+      estimateSizePx: 60,
+      overscan: 6,
+      renderBlock: (block: { key: string }) => {
+        rendered.add(block.key)
+        return null
+      }
+    }
+    dom.render(createElement(TranscriptViewport<{ key: string }>, props))
+    rendered.clear()
+    scrollRef.current = scroller
+    dom.render(createElement(TranscriptViewport<{ key: string }>, props))
+    expect([...rendered]).toEqual(Array.from({ length: 9 }, (_, index) => String(index)))
+  })
 
   it('AC5 requests once when the head enters and additional loading pulls never request again', () => {
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })

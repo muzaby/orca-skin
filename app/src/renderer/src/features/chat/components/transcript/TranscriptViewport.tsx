@@ -53,6 +53,7 @@ import {
   type RefObject
 } from 'react'
 import { useVirtualizer, type VirtualItem, type Virtualizer } from '@tanstack/react-virtual'
+import { observeElementOffset } from '@tanstack/virtual-core'
 import type { BlockSnapshot } from '../../lib/transcript/blockList'
 import { shouldScrollAfterCollapse } from '../../lib/bubbleCollapse'
 import { viewportMountSet } from '../../lib/transcript/viewport/range'
@@ -749,7 +750,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       rows.clear()
     }
   })
-  const viewportInstance = useRef<Virtualizer<HTMLDivElement, Element> | null>(null)
+  const needsInitialBottom = useRef(startAtEnd)
   const virtualizer = useVirtualizer({
     count: virtualized ? snapshot.count : 0,
     directDomUpdates: true,
@@ -765,16 +766,19 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     getItemKey,
     estimateSize,
     overscan,
-    // A new pinned scroller will be placed at the bottom by its harness.
-    // Seed the first mounted range there instead of laying out both ends.
-    initialOffset: startAtEnd
-      ? () => {
-          const initial = viewportInstance.current
-          const total = initial?.getTotalSize() ?? snapshot.count * estimateSizePx
-          const height = initial?.scrollRect?.height ?? scrollRef.current?.clientHeight ?? 0
-          return Math.max(0, total - height)
+    initialOffset: startAtEnd ? 0 : initialOffset,
+    // Chromium emits no scroll event when a short list clamps to its existing
+    // offset of zero. Seed the range after TanStack observes the mounted viewport.
+    ...(startAtEnd && {
+      observeElementOffset: (instance, notify) => {
+        if (needsInitialBottom.current) {
+          needsInitialBottom.current = false
+          const viewportHeight = instance.scrollRect?.height || instance.scrollElement!.clientHeight
+          notify(Math.max(0, instance.getTotalSize() - viewportHeight), false)
         }
-      : initialOffset,
+        return observeElementOffset(instance, notify)
+      }
+    }),
     rangeExtractor,
     scrollToFn: (offset, { adjustments = 0, behavior }, instance) => {
       const el = instance.scrollElement
@@ -784,7 +788,6 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     measureElement
   })
 
-  viewportInstance.current = virtualizer
   const attachRow = useCallback(
     (row: Element | null): void => {
       // Active restoration needs live top coordinates after each scroll write.
