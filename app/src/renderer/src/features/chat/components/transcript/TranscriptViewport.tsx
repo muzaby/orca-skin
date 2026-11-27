@@ -52,7 +52,7 @@ import {
   type ReactNode,
   type RefObject
 } from 'react'
-import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual'
+import { useVirtualizer, type VirtualItem, type Virtualizer } from '@tanstack/react-virtual'
 import type { BlockSnapshot } from '../../lib/transcript/blockList'
 import { shouldScrollAfterCollapse } from '../../lib/bubbleCollapse'
 import { viewportMountSet } from '../../lib/transcript/viewport/range'
@@ -569,14 +569,21 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   }, [scrollRef, requestHead])
 
   const measureElement = useCallback(
-    (element: Element, entry?: ResizeObserverEntry) => {
+    (
+      element: Element,
+      entry: ResizeObserverEntry | undefined,
+      instance: Virtualizer<HTMLDivElement, Element>
+    ) => {
       const key = element.getAttribute('data-block-key')
       const prevHeight = key ? sizeCache.get(key) : undefined
-      // The ref callback already attached ResizeObserver. Outside an active correction,
-      // a remounted row can reuse its last measured height until the next resize delivery.
+      // Only a row registered with this virtualizer's observer will receive a fresh
+      // border-box measurement after this ref callback.
       if (
         !entry &&
+        key !== null &&
         prevHeight !== undefined &&
+        instance.targetWindow?.ResizeObserver &&
+        instance.elementsCache.get(key) === element &&
         !activeAnchorRef.current &&
         !isCorrecting(scrollRef.current)
       )

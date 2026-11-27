@@ -162,8 +162,13 @@ describe('lib/transcript/viewport/virtualizerOptions (VP-21 · EP-10)', () => {
     expect(measure('b', 55)).toBe(55)
     expect(rect).not.toHaveBeenCalled()
     expect(sizeCache.get('b')).toBe(55)
-    expect(measure('a')).toBe(42)
+    // This scroller has no ResizeObserver. Attaching an already cached key must
+    // synchronously refresh its height because no later observer delivery can do so.
+    const row = element('a')
+    virtualizer.measureElement(row)
+    expect(virtualizer.elementsCache.get('a')).toBe(row)
     expect(rect).toHaveBeenCalledOnce()
+    expect(sizeCache.get('a')).toBe(42)
     expect(measure('a', 0)).toBe(42)
     expect(measure(null, 70)).toBe(70)
     expect([...sizeCache]).toEqual([

@@ -158,9 +158,22 @@ afterEach(() => {
 describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)', () => {
   it('reuses a measured row on ref attach and accepts its next observed height', () => {
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
-    const scroller = makeScroller()
+    const observers = new Map<Element, ResizeObserverCallback>()
+    class RowObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(element: Element): void {
+        observers.set(element, this.callback)
+      }
+      unobserve(element: Element): void {
+        observers.delete(element)
+      }
+      disconnect = vi.fn()
+    }
+    const scroller = Object.assign(makeScroller(), {
+      ownerDocument: { defaultView: Object.assign(window, { ResizeObserver: RowObserver }) }
+    })
     const sizes = new Map([['known', 52]])
-    const blocks = createBlockList([{ key: 'visible' }])
+    const blocks = createBlockList([{ key: 'known' }])
     dom.render(
       createElement(TranscriptViewport<{ key: string }>, {
         snapshot: blocks.snapshot(),
@@ -172,17 +185,27 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
     )
     const rect = vi.fn(() => ({ height: 71 }))
     const row = {
-      getAttribute: () => 'known',
+      isConnected: true,
+      getAttribute: (name: string) => (name === 'data-index' ? '0' : 'known'),
       getBoundingClientRect: rect
     } as unknown as HTMLElement
-    const measure = virtualizer.options.measureElement
-    expect(measure(row, undefined, virtualizer)).toBe(52)
+
+    virtualizer.measureElement(row)
+    expect(observers.has(row)).toBe(true)
+    expect(virtualizer.measurementsCache[0].size).toBe(52)
     expect(rect).not.toHaveBeenCalled()
-    const observed = { borderBoxSize: [{ blockSize: 69 }] } as unknown as ResizeObserverEntry
-    expect(measure(row, observed, virtualizer)).toBe(69)
+    const observed = {
+      target: row,
+      borderBoxSize: [{ blockSize: 69 }]
+    } as unknown as ResizeObserverEntry
+    observers.get(row)!([observed], {} as ResizeObserver)
     expect(sizes.get('known')).toBe(69)
+    expect(virtualizer.getVirtualItems()[0].size).toBe(69)
+    expect(rect).not.toHaveBeenCalled()
+
     sizes.delete('known')
-    expect(measure(row, undefined, virtualizer)).toBe(71)
+    virtualizer.measureElement(row)
+    expect(sizes.get('known')).toBe(71)
     expect(rect).toHaveBeenCalledTimes(1)
   })
 
