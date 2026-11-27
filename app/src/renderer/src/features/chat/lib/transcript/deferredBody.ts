@@ -5,7 +5,7 @@ import {
   type HistoryQuery
 } from '../../../../../../shared/history-page'
 import type { AppMessagePart } from '../../../../../../shared/ipc'
-import { computeClient } from '../../../../shared/compute/client'
+import { computeClient, type ComputeHandle } from '../../../../shared/compute/client'
 import { rememberHistoryLayout } from '../../../../shared/markdown/historyLayout'
 import type { ComputeResults, HistoryBodyRequest } from '../../../../shared/compute/protocol'
 import type { Message } from '../../reducer/chatReducer'
@@ -56,7 +56,9 @@ export async function readDeferredParts(
   signal?: AbortSignal
 ): Promise<AppMessagePart[]> {
   const sequence = ++bodySequence
-  const request = (packet: HistoryBodyRequest['packet']) =>
+  const request = (
+    packet: HistoryBodyRequest['packet']
+  ): ComputeHandle<ComputeResults['historyBody']> =>
     computeClient().request<'historyBody'>(
       { kind: 'historyBody', sequence, bytes: ref.bytes, packet },
       { cacheable: false }
