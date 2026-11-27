@@ -1,5 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
+import { scheduleMarkdownCommit } from './commitQueue'
+
 interface LineGroup {
   end: number
   height?: number
@@ -60,7 +62,7 @@ export function LongParagraphText({
     const measure = probe.current
     const paragraph = measure?.closest('p')
     if (!paragraph || !measure) return
-    let frame = 0
+    let cancel: (() => void) | undefined
     let groups: LineGroup[] = []
     let offset = 0
     let signature = ''
@@ -70,8 +72,8 @@ export function LongParagraphText({
     const text = document.createTextNode('')
     function next(): void {
       if (!measure) return
-      const deadline = performance.now() + 5
-      const frameLimit = groups.length + 8
+      const deadline = performance.now() + 3
+      const frameLimit = groups.length + 4
       do {
         if (value.length - offset <= 4096) {
           groups.push({ end: value.length })
@@ -117,7 +119,7 @@ export function LongParagraphText({
         groups.push({ end: offset, height })
       } while (offset < value.length && groups.length < frameLimit && performance.now() < deadline)
       setLayout({ value, groups: groups.slice() })
-      if (offset < value.length) frame = requestAnimationFrame(next)
+      if (offset < value.length) cancel = scheduleMarkdownCommit(next)
     }
     function resize(): void {
       if (!paragraph || !measure) return
@@ -137,8 +139,8 @@ export function LongParagraphText({
       groups = []
       previousWraps.clear()
       offset = 0
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(next)
+      cancel?.()
+      cancel = scheduleMarkdownCommit(next)
     }
     resize()
     const observer = new ResizeObserver(resize)
@@ -149,7 +151,7 @@ export function LongParagraphText({
     }
     document.fonts?.addEventListener('loadingdone', fontsChanged)
     return () => {
-      cancelAnimationFrame(frame)
+      cancel?.()
       observer.disconnect()
       document.fonts?.removeEventListener('loadingdone', fontsChanged)
       text.remove()

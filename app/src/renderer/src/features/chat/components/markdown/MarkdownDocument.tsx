@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Root, Element } from 'hast'
 import { computeClient, type ComputeHandle, type Priority } from '../../../../shared/compute/client'
 import { MARKDOWN_WORKER_MIN_CHARS } from '../../../../shared/compute/limits'
@@ -131,7 +131,7 @@ export const MarkdownRowView = memo(function MarkdownRowView({
       lease.release()
     }
   }, [row, doc, block, segment, failed, count, chunks, committed])
-  const text = segment.text.slice(block.start, block.end)
+  const text = segment.read?.(block.start, block.end) ?? segment.text.slice(block.start, block.end)
   const localParts = useMemo(
     () => sliceSourceParts(parts, segment.start + block.start, segment.start + block.end),
     [parts, segment, block]
@@ -171,7 +171,7 @@ const TranscriptRows = memo(function TranscriptRows({
   start: number
   end: number
   parts?: readonly MarkdownSourcePart[]
-  onComplete?: () => void
+  onComplete: (index: number) => void
 }): React.JSX.Element {
   return (
     <>
@@ -181,7 +181,7 @@ const TranscriptRows = memo(function TranscriptRows({
           row={row}
           priority="visible"
           parts={parts}
-          onComplete={start + i === end - 1 ? onComplete : undefined}
+          onComplete={() => onComplete(start + i)}
         />
       ))}
     </>
@@ -191,21 +191,34 @@ const TranscriptRows = memo(function TranscriptRows({
 function WorkerDocument({ source, sourceParts, className }: MarkdownProps): React.JSX.Element {
   const id = useId()
   const rows = useMarkdownRows(source, id)
-  const [progress, setProgress] = useState({ rows, count: 1 })
-  const count = progress.rows === rows ? progress.count : 1
-  const active = rows?.[count - 1]
-  const doc = active?.doc
-  const segment = active?.segment
+  const [progress, setProgress] = useState({ rows, prefix: 0, ready: new Set<number>() })
+  const prefix = progress.rows === rows ? progress.prefix : 0
+  const total = rows?.length ?? 0
+  // Limit in-flight results while earlier rows are painting; share an open segment
+  // with the workers even when a short paragraph finishes between frames.
+  const count = Math.min(total, prefix + 6)
+  const active = rows?.[Math.min(prefix, total - 1)]
+  const doc = prefix < total ? active?.doc : undefined
+  const segment = prefix < total ? active?.segment : undefined
   useEffect(() => {
     if (!doc || !segment) return
     const lease = computeClient().openDocument(doc, { text: segment.text }, 'markdown')
     return () => lease.release()
   }, [doc, segment])
-  const advance = useMemo(
-    () => () => {
-      setProgress({ rows, count: count + 1 })
+  const advance = useCallback(
+    (index: number): void => {
+      setProgress((current) => {
+        const previous =
+          current.rows === rows ? current : { rows, prefix: 0, ready: new Set<number>() }
+        if (index < previous.prefix || previous.ready.has(index)) return current
+        const ready = new Set(previous.ready)
+        ready.add(index)
+        let next = previous.prefix
+        while (ready.delete(next)) next++
+        return { rows, ready, prefix: next }
+      })
     },
-    [rows, count]
+    [rows]
   )
   if (!rows) return <span data-md-block-pending="" />
   if (!rows.length)
@@ -220,7 +233,8 @@ function WorkerDocument({ source, sourceParts, className }: MarkdownProps): Reac
         (className ?? MARKDOWN_TYPOGRAPHY + ' text-ink') +
         ' [&>*]:[content-visibility:auto] [&>*]:[contain-intrinsic-size:auto_1lh]'
       }
-      data-md-block-pending={count < rows.length ? '' : undefined}
+      data-markdown-document={prefix === rows.length ? 'complete' : 'pending'}
+      data-md-block-pending={prefix < rows.length ? '' : undefined}
     >
       {Array.from({ length: Math.ceil(Math.min(count, rows.length) / ROWS_PER_GROUP) }, (_, i) => {
         const start = i * ROWS_PER_GROUP
@@ -232,7 +246,7 @@ function WorkerDocument({ source, sourceParts, className }: MarkdownProps): Reac
             start={start}
             end={end}
             parts={sourceParts}
-            onComplete={end === count ? advance : undefined}
+            onComplete={advance}
           />
         )
       })}

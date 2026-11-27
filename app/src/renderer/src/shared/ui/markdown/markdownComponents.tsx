@@ -34,8 +34,14 @@ export const COMPONENTS: Components = {
       {children}
     </h1>
   ),
-  h2: ({ children }) => (
-    <h2 className="mt-4 mb-2 text-[calc(16px*var(--transcript-text-scale,1))] font-semibold tracking-tight text-ink">
+  h2: ({ id, className, children }) => (
+    <h2
+      id={id}
+      className={
+        (className ?? '') +
+        ' mt-4 mb-2 text-[calc(16px*var(--transcript-text-scale,1))] font-semibold tracking-tight text-ink'
+      }
+    >
       {children}
     </h2>
   ),
@@ -60,25 +66,32 @@ export const COMPONENTS: Components = {
     </h6>
   ),
   p: Paragraph,
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-rust underline-offset-2 hover:underline"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ node, ...link }) => {
+    // The parser supplies reference ids, aria labels and the reciprocal footnote link.
+    void node
+    const external = !link.href?.startsWith('#')
+    return (
+      <a
+        {...link}
+        target={external ? '_blank' : undefined}
+        rel={external ? 'noopener noreferrer' : undefined}
+        className={'text-rust underline-offset-2 hover:underline ' + (link.className ?? '')}
+      />
+    )
+  },
   ul: ({ children }) => <ul className="my-2 list-disc pl-5 [&_ul]:my-1 [&_ol]:my-1">{children}</ul>,
   ol: ({ children }) => (
     <ol className="my-2 list-decimal pl-5 [&_ul]:my-1 [&_ol]:my-1">{children}</ol>
   ),
-  li: ({ children, className }) => {
+  li: ({ id, children, className }) => {
     // remark-gfm 은 태스크리스트 항목에 `task-list-item` 클래스를 붙인다 —
     // disc/decimal 마커를 지우고 체크박스가 텍스트 앞에 오게 정렬한다.
     const isTask = typeof className === 'string' && className.includes('task-list-item')
-    return <li className={isTask ? 'my-0.5 list-none -ml-4' : 'my-0.5'}>{children}</li>
+    return (
+      <li id={id} className={isTask ? 'my-0.5 list-none -ml-4' : 'my-0.5'}>
+        {children}
+      </li>
+    )
   },
   blockquote: ({ children }) => (
     <blockquote className="my-2 border-l-2 border-border-strong pl-3 text-ink2">

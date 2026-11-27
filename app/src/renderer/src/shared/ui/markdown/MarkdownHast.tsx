@@ -1,5 +1,6 @@
 import {
   cloneElement,
+  memo,
   createContext,
   Fragment,
   useContext,
@@ -11,6 +12,8 @@ import {
 import { jsx, jsxs } from 'react/jsx-runtime'
 import { toJsxRuntime } from 'hast-util-to-jsx-runtime'
 import type { Element, Root, RootContent, Text } from 'hast'
+import { scheduleMarkdownCommit } from './commitQueue'
+import { MeasuredInlineParagraph } from './MeasuredInlineParagraph'
 import { LongParagraphText } from './LongParagraphText'
 import { MARKDOWN_COMMIT_MAX_NODES } from '../../compute/limits'
 import {
@@ -124,7 +127,7 @@ export function* markdownFrames(
         Number.isFinite(limit) &&
         parent === 'p' &&
         index === 0 &&
-        node.value.length > 131072 &&
+        node.value.length > 32768 &&
         (!parts || parts.length <= 1)
       ) {
         const run = <LongParagraphText value={node.value} onComplete={trackParagraph?.()} />
@@ -149,6 +152,36 @@ export function* markdownFrames(
       ignoreInvalidStyle: true,
       components: parts?.length ? withMarkedTableRows : withTableRows
     })
+    if (
+      typeof window !== 'undefined' &&
+      Number.isFinite(limit) &&
+      tag === 'p' &&
+      node.type === 'element' &&
+      node.children.length > 1024
+    ) {
+      const complete = trackParagraph?.()
+      const render = (
+        start: number,
+        end: number,
+        done?: () => void,
+        wrapped?: boolean
+      ): ReactNode => (
+        <InlineContent
+          node={node}
+          source={source}
+          parts={parts}
+          start={start}
+          end={end}
+          onComplete={done}
+          wrapped={wrapped}
+        />
+      )
+      return cloneElement(
+        template,
+        { key: index },
+        <MeasuredInlineParagraph node={node} render={render} onComplete={complete} />
+      )
+    }
     if (!node.children.length) return cloneElement(template, { key: index })
     const wrap = (children: ReactNode): ReactNode =>
       cloneElement(template, { key: index }, children)
@@ -180,6 +213,38 @@ export function* markdownFrames(
   return yield* visit(hast, 0)
 }
 
+const InlineContent = memo(function InlineContent({
+  node,
+  source,
+  parts,
+  start,
+  end,
+  onComplete,
+  wrapped
+}: {
+  node: Element
+  source: string
+  parts?: readonly MarkdownSourcePart[]
+  start: number
+  end: number
+  onComplete?: () => void
+  wrapped?: boolean
+}): React.JSX.Element {
+  const root = useMemo((): Root => {
+    const children = node.children.slice(start, end)
+    const last = children.at(-1)
+    if (wrapped && last?.type === 'text' && /^ +$/.test(last.value))
+      children[children.length - 1] = {
+        type: 'element',
+        tagName: 'span',
+        properties: { style: 'white-space:pre-wrap' },
+        children: [last]
+      }
+    return { type: 'root', children }
+  }, [node, start, end, wrapped])
+  return <MarkdownHast hast={root} source={source} parts={parts} onComplete={onComplete} />
+})
+
 export function MarkdownHast({
   hast,
   source,
@@ -200,7 +265,7 @@ export function MarkdownHast({
     const frames =
       typeof window === 'undefined'
         ? markdownFrames({ hast, source, parts }, Infinity, Infinity)
-        : markdownFrames({ hast, source, parts, trackParagraph })
+        : markdownFrames({ hast, source, parts, trackParagraph }, 256, 2)
     const first = frames.next()
     return { frames, first, pending }
   }, [hast, source, parts])
@@ -211,8 +276,7 @@ export function MarkdownHast({
       if (!stream.pending.size) onComplete?.()
       return
     }
-    const frame = requestAnimationFrame(() => setProgress({ stream, step: stream.frames.next() }))
-    return () => cancelAnimationFrame(frame)
+    return scheduleMarkdownCommit(() => setProgress({ stream, step: stream.frames.next() }))
   }, [step, stream, completedParagraphs, onComplete])
   const context = useMemo(() => (parts?.length ? { source, parts } : null), [source, parts])
   return (
