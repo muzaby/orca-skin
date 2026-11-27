@@ -1,6 +1,7 @@
 // A separate B5 diagnostic retains the locked corpus length and splits one unique word
 // across two real stored text parts in the middle paragraph.
 import assert from 'node:assert/strict'
+import { findVisibleTarget } from './find-target.mjs'
 
 const left = 'OrcaMiddle2026'
 const right = 'SelectionMarker'
@@ -96,7 +97,6 @@ export async function measureMiddleSelection(wc, clipboard, js, find, definition
   assert.equal(semantic.bodyCounts.checked, 2443)
   const context = await js('window.revealBody()')
   assert.equal(context, true, 'search row not revealed')
-  const found = await find(wc, needle, true)
   const locate = (select) =>
     js(
       '(' +
@@ -106,24 +106,10 @@ export async function measureMiddleSelection(wc, clipboard, js, find, definition
         ')'
     )
   const actual = await locate(false)
-  assert.equal(found.matches, 1, 'native match count')
   assert.equal(actual.paragraphs, 2443)
   assert.equal(actual.range, needle)
-  const rect = found.selectionArea
-  const target = actual.rect
-  assert.ok(
-    rect &&
-      target &&
-      rect.width > 0 &&
-      rect.height > 0 &&
-      target.width > 0 &&
-      target.height > 0 &&
-      rect.x < target.right &&
-      rect.x + rect.width > target.left &&
-      rect.y < target.bottom &&
-      rect.y + rect.height > target.top,
-    JSON.stringify({ rect, target })
-  )
+  const result = await findVisibleTarget(wc, find, needle, async () => (await locate(false)).rect)
+  assert.equal(result.nativeFind, true, JSON.stringify(result))
   wc.stopFindInPage('clearSelection')
   const selection = await locate(true)
   assert.deepEqual([selection.first, selection.last], ['message:text:0', 'message:text:1'])
@@ -150,9 +136,7 @@ export async function measureMiddleSelection(wc, clipboard, js, find, definition
     ok: true,
     ...semantic,
     searchTarget: context,
-    nativeMatches: found.matches,
-    findRect: rect,
-    markerRect: target,
+    ...result,
     selected: selection.selected,
     copied,
     first: selection.first,

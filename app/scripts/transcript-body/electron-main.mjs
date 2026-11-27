@@ -1,6 +1,7 @@
 import { app, BrowserWindow, clipboard, ipcMain } from 'electron'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { findVisibleTarget } from './find-target.mjs'
 import { middleCorpus, measureMiddleSelection } from './middle-selection.mjs'
 import { fixture } from './fixtures.mjs'
 
@@ -12,13 +13,13 @@ const screen = params.get('screen')
 const budget = input === 'B5' ? 600000 : 180000
 const chunkBytes = 65536
 
-function find(wc, needle, findNext) {
+function find(wc, needle, findNext, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const updates = []
     let selectionArea
     const timer = setTimeout(
       () => finish(Error('findInPage timed out ' + JSON.stringify({ requestId, updates }))),
-      15000
+      timeoutMs
     )
     const listener = (_event, result) => {
       updates.push([
@@ -136,7 +137,13 @@ app.whenReady().then(async () => {
           return {
             ...measurement,
             variant: 'middle-source-parts',
-            ...(await measureMiddleSelection(wc, clipboard, js, find, middle))
+            ...(await measureMiddleSelection(
+              wc,
+              clipboard,
+              js,
+              (...args) => find(...args, budget),
+              middle
+            ))
           }
         }
         const semantic = await js('window.verifyBody()')
@@ -151,36 +158,13 @@ app.whenReady().then(async () => {
           copied = clipboard.readText()
         }
         const searchTarget = await js('window.revealBody()')
-        let native,
-          findRect,
-          markerRect,
-          arrived = false
         const needle = { B1: '라마바 완료', B3: 'stream 완료', B4: 'link 완료' }[input] ?? '완료'
-        for (let index = 0; index < (native?.matches ?? 1); index++) {
-          native = await find(wc, needle, index === 0)
-          const target = await js('window.markerRect()')
-          const rect = native.selectionArea
-          findRect = rect
-          markerRect = target
-          arrived =
-            !!target &&
-            !!rect &&
-            rect.width > 0 &&
-            rect.height > 0 &&
-            rect.x < target.right &&
-            rect.x + rect.width > target.left &&
-            rect.y < target.bottom &&
-            rect.y + rect.height > target.top
-          if (arrived) break
-        }
+        const native = await findVisibleTarget(wc, find, needle, () => js('window.markerRect()'))
         return {
           ...measurement,
           ...semantic,
           searchTarget,
-          nativeMatches: native?.matches ?? 0,
-          nativeFind: arrived,
-          findRect,
-          markerRect,
+          ...native,
           selectionMatches:
             typeof expected === 'string' && expected.length > 0 && copied === expected
         }

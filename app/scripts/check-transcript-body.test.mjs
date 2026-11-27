@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { test } from 'node:test'
+import { findVisibleTarget } from './transcript-body/find-target.mjs'
 import { bodyCorpora, fixture } from './transcript-body/fixtures.mjs'
 import { judgeBodyMatrix } from './transcript-body/perf.mjs'
 import { overlapsMeasurement } from './transcript-body/observation.mjs'
@@ -196,4 +197,42 @@ test('fails closed on invalid raw observer timestamps and observation windows', 
   ]) {
     assert.throws(() => overlapsMeasurement({ startTime: start, duration }, lo, hi), RangeError)
   }
+})
+
+test('requires a fresh native rectangle intersecting the same visible target after the viewport moves', async () => {
+  const wc = { executeJavaScript: async () => [1000, 600] }
+  const before = { x: 400, y: 8468, width: 25, height: 18 }
+  const after = { ...before, y: 517 }
+  async function sample(second, matches = 1) {
+    const rects = [before, after, after, after]
+    const requests = []
+    const result = await findVisibleTarget(
+      wc,
+      async (_wc, _needle, first) => {
+        requests.push(first)
+        return { matches, selectionArea: first ? before : second }
+      },
+      'end',
+      async () => rects.shift()
+    )
+    return { result, requests }
+  }
+  const valid = await sample(after)
+  assert.equal(valid.result.nativeFind, true)
+  assert.deepEqual(valid.requests, [true, false])
+  assert.equal((await sample(before)).result.nativeFind, false)
+  assert.equal((await sample({ ...after, x: 700 })).result.nativeFind, false)
+  assert.equal((await sample(after, 2)).result.nativeFind, false)
+})
+
+test('an offscreen target that intersects an offscreen native rectangle cannot pass', async () => {
+  const wc = { executeJavaScript: async () => [1000, 600] }
+  const rect = { x: 10, y: 1200, width: 25, height: 18 }
+  const result = await findVisibleTarget(
+    wc,
+    async () => ({ matches: 1, selectionArea: rect }),
+    'end',
+    async () => rect
+  )
+  assert.equal(result.nativeFind, false)
 })
