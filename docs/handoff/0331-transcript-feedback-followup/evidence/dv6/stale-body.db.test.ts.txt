@@ -1,0 +1,48 @@
+// ΔV6 C2a 재현 — 이미 색인된 메시지가 바뀌면 새 세대가 발행되고 이전 세대 본문 참조는 'stale'이 된다.
+// 실행: app/src/main/features/history/ 아래에 `*.db.test.ts`로 복사 → `./node_modules/.bin/vitest run <파일>`
+// (better-sqlite3 Node ABI 필요). 2026-11-27 실행 결과(기준 c052c301):
+//   body before change: body
+//   body after tail append: body          (같은 세대 — 꼬리 추가는 세대를 유지)
+//   body after edit of indexed msg: stale (새 세대 발행)
+import Database from 'better-sqlite3'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { expect, it } from 'vitest'
+import type { HistoryQuery, HistoryPageReply } from '../../../shared/history-page'
+import { applyMigrations } from '../../infra/db/migrate'
+import { DbQueries } from '../../infra/db/queries'
+import { readHistoryPage } from './history-page'
+import { HistoryIndex } from './turn-index'
+
+it('body ref after index change', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'scratch-'))
+  const sqlite = new Database(join(root, 'h.db'))
+  sqlite.pragma('foreign_keys = ON')
+  applyMigrations(sqlite)
+  const db = new DbQueries(sqlite)
+  const sessionId = 's'
+  db.insertSession({ id: sessionId, backend: 'claude', title: null, projectId: null, createdAt: 0 })
+  const index = new HistoryIndex(db)
+  const query = async (req: HistoryQuery): Promise<HistoryPageReply> => {
+    const job = await index.prepare(sessionId)
+    return readHistoryPage({ db, getCwd: () => '.' }, { ...req, requestId: 1 }, job!.generation, job!.prepared)
+  }
+  const u = db.appendMessage({ sessionId, role: 'user', createdAt: 1, content: 'q' })
+  db.appendPart({ messageId: u, type: 'text', toolRunId: null, payloadJson: JSON.stringify({ text: 'q' }) })
+  const a = db.appendMessage({ sessionId, role: 'assistant', createdAt: 2, content: '' })
+  for (let i = 0; i < 300; i++)
+    db.appendPart({ messageId: a, type: 'text', toolRunId: null, payloadJson: JSON.stringify({ text: 'x'.repeat(400) + i }) })
+  const first = await query({ kind: 'latest', sessionId, openGeneration: 1 })
+  if (first.status !== 'ok') throw Error(first.status)
+  const ref = first.session.messages.find((m) => m.deferredBody)!.deferredBody!
+  expect((await query({ kind: 'body', sessionId, openGeneration: 1, ref, offset: 0 })).status).toBe('body')
+  const u2 = db.appendMessage({ sessionId, role: 'user', createdAt: 3, content: 'q2' })
+  db.appendPart({ messageId: u2, type: 'text', toolRunId: null, payloadJson: JSON.stringify({ text: 'q2' }) })
+  expect((await query({ kind: 'body', sessionId, openGeneration: 1, ref, offset: 0 })).status).toBe('body')
+  db.appendPart({ messageId: u2, type: 'text', toolRunId: null, payloadJson: JSON.stringify({ text: 'more' }) })
+  expect((await query({ kind: 'body', sessionId, openGeneration: 1, ref, offset: 0 })).status).toBe('stale')
+  index.stop()
+  sqlite.close()
+  rmSync(root, { recursive: true, force: true })
+})

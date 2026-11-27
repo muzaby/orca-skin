@@ -1,0 +1,878 @@
+{
+ "claude-code:tools": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "Please read | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 46.3,
+    "text": "Reading files."
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 670.6,
+    "text": "실행됨 명령 1개, 수정됨 파일 1개, 읽음 파일 1개 | 읽음 | a.ts | /"
+   },
+   {
+    "index": "3",
+    "children": 1,
+    "h": 34.3,
+    "text": "Done."
+   },
+   {
+    "index": "4",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 1,
+  "lineSpans": 12,
+  "h1": 0,
+  "tables": 1
+ },
+ "claude-code:markdown": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "md | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 256.9,
+    "text": "Title | item bold | item code | ts | const x = 1"
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 1,
+  "h2": 0,
+  "tables": 1,
+  "mdError": 0
+ },
+ "claude-work:abortEmpty": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "Question 0 | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 45,
+    "text": "응답 중단"
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "3",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 1 | 1월 1일"
+   },
+   {
+    "index": "4",
+    "children": 1,
+    "h": 45,
+    "text": "응답 중단"
+   },
+   {
+    "index": "5",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "6",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 2 | 1월 1일"
+   },
+   {
+    "index": "7",
+    "children": 1,
+    "h": 45,
+    "text": "응답 중단"
+   },
+   {
+    "index": "8",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "9",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 3 | 1월 1일"
+   },
+   {
+    "index": "10",
+    "children": 1,
+    "h": 45,
+    "text": "응답 중단"
+   },
+   {
+    "index": "11",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "tables": 0
+ },
+ "claude-work:abortText": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "Question 0 | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 46.3,
+    "text": "partial answer"
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 37,
+    "text": "응답 중단"
+   },
+   {
+    "index": "3",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   },
+   {
+    "index": "4",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 1 | 1월 1일"
+   },
+   {
+    "index": "5",
+    "children": 1,
+    "h": 46.3,
+    "text": "partial answer"
+   },
+   {
+    "index": "6",
+    "children": 1,
+    "h": 37,
+    "text": "응답 중단"
+   },
+   {
+    "index": "7",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   },
+   {
+    "index": "8",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 2 | 1월 1일"
+   },
+   {
+    "index": "9",
+    "children": 1,
+    "h": 46.3,
+    "text": "partial answer"
+   },
+   {
+    "index": "10",
+    "children": 1,
+    "h": 37,
+    "text": "응답 중단"
+   },
+   {
+    "index": "11",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   },
+   {
+    "index": "12",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 3 | 1월 1일"
+   },
+   {
+    "index": "13",
+    "children": 1,
+    "h": 46.3,
+    "text": "partial answer"
+   },
+   {
+    "index": "14",
+    "children": 1,
+    "h": 37,
+    "text": "응답 중단"
+   },
+   {
+    "index": "15",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "tables": 0
+ },
+ "claude-work:normal": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "Question 0 | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 46.3,
+    "text": "answer"
+   },
+   {
+    "index": "2",
+    "children": 0,
+    "h": 16,
+    "text": ""
+   },
+   {
+    "index": "3",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   },
+   {
+    "index": "4",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 1 | 1월 1일"
+   },
+   {
+    "index": "5",
+    "children": 1,
+    "h": 46.3,
+    "text": "answer"
+   },
+   {
+    "index": "6",
+    "children": 0,
+    "h": 16,
+    "text": ""
+   },
+   {
+    "index": "7",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   },
+   {
+    "index": "8",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 2 | 1월 1일"
+   },
+   {
+    "index": "9",
+    "children": 1,
+    "h": 46.3,
+    "text": "answer"
+   },
+   {
+    "index": "10",
+    "children": 0,
+    "h": 16,
+    "text": ""
+   },
+   {
+    "index": "11",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   },
+   {
+    "index": "12",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 3 | 1월 1일"
+   },
+   {
+    "index": "13",
+    "children": 1,
+    "h": 46.3,
+    "text": "answer"
+   },
+   {
+    "index": "14",
+    "children": 0,
+    "h": 16,
+    "text": ""
+   },
+   {
+    "index": "15",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "tables": 0
+ },
+ "claude-work:abortTwice": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "Question 0 | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 45,
+    "text": "응답 중단"
+   },
+   {
+    "index": "2",
+    "children": 0,
+    "h": 16,
+    "text": ""
+   },
+   {
+    "index": "3",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "4",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 1 | 1월 1일"
+   },
+   {
+    "index": "5",
+    "children": 1,
+    "h": 45,
+    "text": "응답 중단"
+   },
+   {
+    "index": "6",
+    "children": 0,
+    "h": 16,
+    "text": ""
+   },
+   {
+    "index": "7",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "8",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 2 | 1월 1일"
+   },
+   {
+    "index": "9",
+    "children": 1,
+    "h": 45,
+    "text": "응답 중단"
+   },
+   {
+    "index": "10",
+    "children": 0,
+    "h": 16,
+    "text": ""
+   },
+   {
+    "index": "11",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "12",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 3 | 1월 1일"
+   },
+   {
+    "index": "13",
+    "children": 1,
+    "h": 45,
+    "text": "응답 중단"
+   },
+   {
+    "index": "14",
+    "children": 0,
+    "h": 16,
+    "text": ""
+   },
+   {
+    "index": "15",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "h2": 0,
+  "tables": 0,
+  "mdError": 0
+ },
+ "claude-work:abortNoEnd": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "Question 0 | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 0,
+    "h": 24,
+    "text": ""
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "3",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 1 | 1월 1일"
+   },
+   {
+    "index": "4",
+    "children": 0,
+    "h": 24,
+    "text": ""
+   },
+   {
+    "index": "5",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "6",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 2 | 1월 1일"
+   },
+   {
+    "index": "7",
+    "children": 0,
+    "h": 24,
+    "text": ""
+   },
+   {
+    "index": "8",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "9",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 3 | 1월 1일"
+   },
+   {
+    "index": "10",
+    "children": 0,
+    "h": 24,
+    "text": ""
+   },
+   {
+    "index": "11",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "h2": 0,
+  "tables": 0,
+  "mdError": 0
+ },
+ "claude-work:abortTool": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "Question 0 | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 47.7,
+    "text": "도구 1개 사용함"
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 37,
+    "text": "응답 중단"
+   },
+   {
+    "index": "3",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "4",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 1 | 1월 1일"
+   },
+   {
+    "index": "5",
+    "children": 1,
+    "h": 47.7,
+    "text": "도구 1개 사용함"
+   },
+   {
+    "index": "6",
+    "children": 1,
+    "h": 37,
+    "text": "응답 중단"
+   },
+   {
+    "index": "7",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "8",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 2 | 1월 1일"
+   },
+   {
+    "index": "9",
+    "children": 1,
+    "h": 47.7,
+    "text": "도구 1개 사용함"
+   },
+   {
+    "index": "10",
+    "children": 1,
+    "h": 37,
+    "text": "응답 중단"
+   },
+   {
+    "index": "11",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "12",
+    "children": 1,
+    "h": 100.1,
+    "text": "Question 3 | 1월 1일"
+   },
+   {
+    "index": "13",
+    "children": 1,
+    "h": 47.7,
+    "text": "도구 1개 사용함"
+   },
+   {
+    "index": "14",
+    "children": 1,
+    "h": 37,
+    "text": "응답 중단"
+   },
+   {
+    "index": "15",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "h2": 0,
+  "tables": 0,
+  "mdError": 0
+ },
+ "claude-code:emptyReasoning": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "q | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 46.3,
+    "text": "answer after empty reasoning"
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "h2": 0,
+  "tables": 0,
+  "mdError": 0,
+  "deferred": [],
+  "pageCalls": []
+ },
+ "claude-code:pendingAsk": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "q | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 46.3,
+    "text": "Let me ask"
+   },
+   {
+    "index": "2",
+    "children": 0,
+    "h": 16,
+    "text": ""
+   },
+   {
+    "index": "3",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "h2": 0,
+  "tables": 0,
+  "mdError": 0,
+  "deferred": [],
+  "pageCalls": []
+ },
+ "opencode-code:ocReasoning": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 74,
+    "text": "q | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 38.3,
+    "text": "answer after reasoning"
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "h2": 0,
+  "tables": 0,
+  "mdError": 0,
+  "deferred": [],
+  "pageCalls": []
+ },
+ "claude-work:emptyReasoning": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "q | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 46.3,
+    "text": "answer after empty reasoning"
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 0,
+  "h2": 0,
+  "tables": 0,
+  "mdError": 0,
+  "deferred": [],
+  "pageCalls": []
+ },
+ "claude-code:tools:1": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "big turn | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 84438.7,
+    "text": "읽음 파일 150개 | 읽음 | f0.ts | /repo/src/f0.ts | cons"
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 36,
+    "text": "1월 1일"
+   },
+   {
+    "index": "3",
+    "children": 1,
+    "h": 100.1,
+    "text": "Please read | 1월 1일"
+   },
+   {
+    "index": "4",
+    "children": 1,
+    "h": 46.3,
+    "text": "Reading files."
+   },
+   {
+    "index": "5",
+    "children": 1,
+    "h": 670.6,
+    "text": "실행됨 명령 1개, 수정됨 파일 1개, 읽음 파일 1개 | 읽음 | a.ts | /"
+   },
+   {
+    "index": "6",
+    "children": 1,
+    "h": 34.3,
+    "text": "Done."
+   },
+   {
+    "index": "7",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 151,
+  "lineSpans": 3462,
+  "h1": 0,
+  "h2": 0,
+  "tables": 1,
+  "mdError": 0,
+  "deferred": [],
+  "pageCalls": [
+   {
+    "kind": "body",
+    "offset": 0
+   },
+   {
+    "kind": "body",
+    "offset": 65536
+   },
+   {
+    "kind": "body",
+    "offset": 131072
+   }
+  ],
+  "bigParts": 300
+ },
+ "claude-code:longMd": {
+  "rows": [
+   {
+    "index": "0",
+    "children": 1,
+    "h": 76.1,
+    "text": "long | 1월 1일"
+   },
+   {
+    "index": "1",
+    "children": 1,
+    "h": 7001.5,
+    "text": "Long answer | Section 0 | item bold 0 | item c"
+   },
+   {
+    "index": "2",
+    "children": 1,
+    "h": 44.3,
+    "text": "1월 1일"
+   }
+  ],
+  "shiki": 0,
+  "lineSpans": 0,
+  "h1": 1,
+  "h2": 30,
+  "tables": 30,
+  "mdError": 0
+ }
+}

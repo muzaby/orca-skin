@@ -8,15 +8,15 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0331-transcript-feedback-followup` |
-| 작성자 | Claude Code (V1·ΔV3·ΔV4) · Codex (ΔV1·ΔV2·ΔV5) |
-| 일자 | 2026-11-26 · ΔV5 2026-11-27 |
-| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0332 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
-| 상태 | impl/IMPL_DONE · Claude 검증 대기 · r1.4 · 구현 자기보고 16/17. AC9″의 실제 오류 귀속 및 재열기는 확인했다. AC14′의 최종 본문 실기는 4/30으로 미충족이다. |
+| 작성자 | Claude Code (V1·ΔV3·ΔV4·ΔV6) · Codex (ΔV1·ΔV2·ΔV5) |
+| 일자 | 2026-11-26 · ΔV5·ΔV6 2026-11-27 |
+| 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0332 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) · 0331~0333 사용자 실측(2026-11-27 — 기준 `c052c301`, §23) |
+| 상태 | plan/READY (ΔV6) · 다음 Codex(r1.5) · 라운드 1 — 사용자 실측 4건을 사용자 요구 변경 ΔV로 받는다(§23). r1.4 자기보고 16/17은 이력으로 남고 독립 검증 횟수는 0이다. |
 | V mode | `Delta V` |
 | 기준 V | 0331 V1 + ΔV1~ΔV4 · ΔV4 설계 `4fbe492c` · 구현 근거 `98381394` |
-| 이번 V revision | `ΔV5` · 연속 실패의 턴 귀속과 이력 재합류, 대용량 본문의 50ms 기준을 구현하고 판정하는 경로 (§22) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` |
-| 기준 트리 | `98381394`(r1 통합 결과). V1의 기준은 `18b5d5f`이다. |
+| 이번 V revision | `ΔV6` · 빈 가상 행 · 본문·커서의 세대 재합류 · 워커 교체 중 조립 재시작 · 워커 실패 회복·진단 · 도구 간격 0324 이전 값 (§23). 직전 `ΔV5`(§22) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
+| 기준 트리 | ΔV6: `c052c301`(r1.4 통합 결과). ΔV5: `98381394`. V1의 기준은 `18b5d5f`이다. |
 
 # Part I — Product & UX Contract
 
@@ -64,7 +64,7 @@
 | D-008 | 로드 단위는 5턴이다 — 세션 열기(최신)와 상단 로드(이전) 모두. 한 응답 한도(메시지 128·part 256·256 KiB)는 유지하고, 넘치면 같은 5턴 단위 잔여를 유휴 채움이 이어 읽는다. 단위가 끝나면 자동 연쇄를 멈춘다(최상단 자동 로드는 D-006) | “한 턴이 아닌 5개 턴으로 변경” + 답 “열기와 상단 로드 모두” | 사용자 피드백 + 질의 | ACTIVE | 0329 D-002(조회 단위 1턴) 대체 · D-009 범위를 같은 턴 → 같은 단위로 확장 |
 | D-009 | 마크다운의 크기별 원문 표시를 전부 없앤다 — 블록·각주 문서·스트리밍 꼬리 50,000자 초과, 결과 노드 20,000개 초과, 표 2,000행 초과·열 500 초과·머리+한 행 50,000자 초과 모두 마크다운으로 그린다. 파싱 위치 임계(4,000자)와 표 200행 조각 분할은 유지 | 답 “셋 모두 제거” · 선택지 설명 “크기와 무관하게 항상 마크다운으로 그린다” | 질의 | ACTIVE | 0327 D-033 원문 표시 · D-045 노드 예산·열/행 원문 · D-035·D-054 꼬리 원문 대체 |
 | D-010 | 연속 오류 턴의 인접 오류 버블 세로 간격은 모두 같다 | “상하 간격이 일관적이지 않고 점점 커짓는 경향” | 사용자 피드백 | ACTIVE | — |
-| D-011 | Claude 투영의 도구 간격 — Code 도구 블록의 위·아래 간격을 같게(12px), 그룹 안 카드 사이를 4px로, Work 도구 행 사이를 8px로 줄인다 | “도구 간 상하 간격이 넓음 … 위쪽 마진이 아래쪽보다 좁음.” 수치는 설계자 기본값 | 사용자 피드백 | ACTIVE | — |
+| D-011 | Claude 투영의 도구 간격 — Code 도구 블록의 위·아래 간격을 같게(12px), 그룹 안 카드 사이를 4px로, Work 도구 행 사이를 8px로 줄인다 | “도구 간 상하 간격이 넓음 … 위쪽 마진이 아래쪽보다 좁음.” 수치는 설계자 기본값 | 사용자 피드백 | SUPERSEDED | D-033 — 사용자 실측 “너무 좁아짐. 324 이전을 참고할 것” |
 | D-012 | 수정 도구 카드 머리의 +N/−M은 크기와 무관하게 표시한다 — Write는 내용 줄 수, Edit·MultiEdit·OpenCode patch는 창 동기 한도 안이면 창, 넘으면 워커가 같은 규칙으로 센다 | “+라인수 표시가 안 된 것을 발견. 수정할 것.” 원인 R11 | 사용자 피드백 | ACTIVE | — |
 | D-013 | 아티팩트 카드 ‘파일 없음’은 코드 결함이 아니다 — dev 실행은 산출물 루트가 `artifacts/.dev`로 갈라져 운영 DB의 파일을 찾지 않는다. 코드 변경 없음 | “검토 필요.” 근거 R12 | 사용자 피드백 + 조사 | SUPERSEDED | D-019 — 루트 차이는 가능한 원인일 뿐이라 판정 조건으로 바꿈(리뷰) |
 | D-014 | 기존 세션의 첫 본문 프레임에서 항상 최신 하단에 즉시 배치 | ΔV1의 최초 열기 규칙 | 사용자 피드백에 대한 ΔV1 해석 | SUPERSEDED | ΔV2 D-015. 실제로 보이는 시작 위치에서 이동할 때는 smooth 전환 |
@@ -82,6 +82,11 @@
 | D-026 | 아티팩트 판정은 경로 두 종류 × 세 경우다. 관리형(`category !== 'file'`: `<root>/<artifactFileId>/<filename>`, 루트 = `~/.config/orcinus-orca/artifacts[/.dev]`)과 일반 산출물(`category === 'file'`: DB `inputSource` 절대 경로, 부모 = OS 임시 폴더 `tmpdir()/orcinus-orca`) 각각 (a) 정상 파일 → 열림, 실패면 결함 · (b) 실제 누락 → `missing` · (c) 루트·경로 불일치 → 관리형 `missing`, 일반 `unsafe-path`. (c)로만 재현되면 환경 차이(운영 DB를 dev 루트나 다른 프로필에서 연 경우). 실패 시 data 호스트 로그 `{ category, rootKind | reason, relativePath | basename }` 1줄 | 2차 리뷰 “같은 transcript 카드에서 두 경로가 모두 열릴 수 있으므로 각각 정상 파일 클릭, 실제 파일 누락, 루트 또는 경로 불일치를 검증” | PR #656 2차 리뷰 | ACTIVE | D-019 대체 |
 | D-027 | 저장이 확인된 사용자 입력과 그 응답을 식별할 수 있는 최종 실패를 연결한다. 저장된 이력을 다시 받거나 대화를 재개해도 같은 실패는 그 입력 아래 한 번 보인다. | 연속 실패 사이 간격을 비교하려면 각 실패가 자기 위치에 남아야 한다. 세션 알림과 중단 상태의 기존 처리는 §22에 따른다. | D-010·AC9′와 r1 재현에 대한 설계 결정 | ACTIVE | D-010 보완 |
 | D-028 | 창과 계산 워커 간에 큰 본문·파싱 결과를 분할 전달하고, 해당 창에서 화면 반영에 쓸 시간을 본문 간에 공유한다. | D-025의 20,000노드 상한 안에서도 50ms를 넘었다. 기존 원문·서식·선택과 문서 등록 한도는 유지한다. | AC14′ 이행 설계 | ACTIVE | D-025 보완 |
+| D-029 | transcript 가상 행은 보이는 내용이 있는 블록에만 만든다. Work 응답의 `ended`·`unknown` 상태, 아직 답하지 않은 질문, 그리지 않는 reasoning, 보이는 도구가 없는 묶음, 세션 없는 산출물처럼 렌더가 비는 상태는 블록 모델이 행·간격을 만들지 않는다 | “공백 또한 data-index로 감싸져있음. 그러나 하위 엘레먼트가 없음” — 빈 행의 `pt-*` 여백이 연속 ‘응답 중단’ 간격을 바꾼다(§23-A 1) | 사용자 실측 2026-11-27 | ACTIVE | D-010 보완 |
+| D-030 | 본문 참조·이전/이후 커서의 세대는 힌트이고 메시지 키가 정본이다. data 호스트는 세대가 다르면 같은 키를 현재 세대에서 찾아 응답하고 응답에 현재 세대·본문 총 바이트를 싣는다. 키가 현재 세대에 없을 때만 `stale`이다. 창은 세대가 바뀐 응답을 실패로 보지 않는다 — 본문은 첫 조각부터 현재 세대로 다시 읽고, 이력 창은 응답 세대를 받아들인다 | “메시지 본문을 불러오지 못했습니다 … 왜 이러는 건가?” — 색인된 메시지가 바뀌면 새 세대가 발행되고 이전 참조는 영구 `stale`이라 다시 시도도 실패한다(§23-A 2a) | 사용자 실측 + 조사 | ACTIVE | D-004 보완 |
+| D-031 | 계산 워커 교체(워커 실패 처리·실행 중 diff 취소 교체)는 그 워커에 걸린 다조각 본문 조립을 사용자 실패로 만들지 않는다. 워커는 조립 상태가 없는 조각을 `worker-replaced`로 구별해 답하고, 창은 첫 조각부터 새 워커로 다시 읽는다. 재시작은 조립 1회당 D-030과 합쳐 2회까지, 넘으면 실패 | 실행 중 diff(pair) 취소가 워커를 교체하면 다음 조각이 `Invalid history body range`로 실패한다(§23-A 2b) | 조사(Chromium 재현) | ACTIVE | D-004·D-028 보완 |
+| D-032 | 계산·Markdown·이미지 워커 실패는 창 수명 동안 영구 상태가 아니다. ① 연속 실패 한도(3)에 닿은 레인은 대기(2초 → 10초 → 60초 상한) 동안만 요청을 거부하고, 대기 뒤 첫 요청에서 새 워커를 만든다 ② 실패 상태에서 첫 성공이 오면 레인 회복 회차를 올리고, 워커 원인으로 원문에 머문 화면은 각 1회 자동 재요청한다 ③ 요청 단위 실패(계산 오류 포함)와 큰 본문 실패를 레인·종류·사유로 기록한다(같은 사유 연속은 1분에 1줄) ④ 10초 넘게 응답이 없는 요청은 진단 1줄(작업은 유지) ⑤ 원문 폴백은 실패가 지속되는 동안만이다 | “모든 도구 카드에서 … pretty format이 사라짐”(질의 답 “색만 없는 고정폭 코드”) · “마크다운 원문으로만 출력” — 최초 계기는 미재현, 영구 폴백 경로는 확정(§23-A 3a·5) | 사용자 실측 + 조사 | ACTIVE | 0324 상태표 “연속 3회 실패하면 창이 닫힐 때까지 요청하지 않음” 대체 |
+| D-033 | 도구 간격은 0324 이전 값이다 — Code 도구 블록 위·아래 8px, 그룹 안 카드 사이 8px(`--chat-item-gap`), Work 도구 행 `py-2`(행 사이 16px) | “도구 상하 간 간격이 너무 좁아짐. 324 이전을 참고할 것.” · 질의 답 “0324 이전 값 전부” | 사용자 실측 + 질의 | ACTIVE | D-011 대체 |
 
 ### 갱신 메모
 
@@ -95,6 +100,8 @@
 - **ΔV4 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-022↔AC16·AC5″·AC6″ · D-023↔AC4″ · D-024↔AC17·AC15′ · D-025↔AC14′ · D-026↔AC13′ · D-021↔AC15′(당김 열기·실패 닫기는 당김 공간 애니메이션 — 앵커 쓰기 아님). D-005·D-018·D-019는 SUPERSEDED.
 
 - ΔV5의 ACTIVE 결정 대조는 D-010·D-027 ↔ AC9″, D-004·D-009·D-025·D-028 ↔ AC3′·AC8·AC14′다. 기존 결정의 폐기는 0건이다. §22의 두 재현 경로로 판정하며 AC 분모는 17이다.
+- ΔV6 추가 결정: D-029~D-033 · 대체: D-011 → D-033(사용자 결정 변경). 0324 상태표의 워커 영구 차단 규칙은 D-032가 대체한다.
+- **ΔV6 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-029↔AC18 · D-030↔AC3″·AC19 · D-031↔AC3″ · D-032↔AC20·AC3″(g) · D-033↔AC10″ · D-010↔AC18(연속 ‘응답 중단’ 간격)·AC9″(회귀). D-011은 SUPERSEDED라 대조 대상 아님. AC 분모 17 → 20.
 
 ## 4. 요구 비판적 검토
 
@@ -164,14 +171,14 @@
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 → **AC1′(ΔV3 §20-B)** | Code 투영에서 한 화면 턴 안 도구 A·B·C가 (a) 사이에 공백뿐 text, (b) assistant 메시지 경계(자동 연속 응답), (c) 중복 제거로 빈 도구 세그먼트를 두고 이어지면 **그룹 1개(헤더 “… 3개”)**다. 사이에 공백 아닌 text·보이는 reasoning·질문·오류·경계가 있으면 나뉜다 | 블록 모델: tools 블록 1개·`calls` = [A,B,C] / 분리 입력 5종은 블록 2개 · 렌더: `ClaudeToolGroup` 헤더 수 1 | 메시지 → `createClaudeBlockModel.advance` → `Timeline` → `ClaudeAssistantSegment` → `ClaudeToolGroup` |
 | R-02 | AT-02 / AC2 → **AC2′(ΔV3 §20-B 표시 위치)** | Work 펼침 목록에서 공백뿐 text는 메모 행·점을 만들지 않고 `noteCount`에 들지 않는다. 공백 아닌 메모는 점과 함께 남는다 | `[data-work-note]` 0 · 셸 행 위 점 0 / 메모 입력은 1 | 메시지 → `createWorkProjector` → `ActivityDisclosure` |
-| R-03 | AT-03 / AC3 → **AC3′(ΔV3 §20-B)** | 본문 참조 메시지가 든 페이지를 열면 버튼 없이 자동으로 본문을 받아 원래 자리에 정상 렌더한다. 받는 동안 그 자리에 스피너(`button` 0), 실패하면 오류 문구 + ‘다시 시도’, 성공 뒤 이웃 메시지 순서 불변. 세션 전환 뒤 도착한 본문은 버린다 | 요청 1회·버튼 0·성공 본문 텍스트 / 실패 재시도 1회 / 전환 뒤 화면 불변 | 페이지 commit → `chatStore` 자동 본문 → `sessionApi.page(body)` → `RESOLVE_HISTORY_BODY` → 블록 → 렌더 |
+| R-03 | AT-03 / AC3 → AC3′(ΔV3 §20-B) → **AC3″(ΔV6 §23-C)** | 본문 참조 메시지가 든 페이지를 열면 버튼 없이 자동으로 본문을 받아 원래 자리에 정상 렌더한다. 받는 동안 그 자리에 스피너(`button` 0), 실패하면 오류 문구 + ‘다시 시도’, 성공 뒤 이웃 메시지 순서 불변. 세션 전환 뒤 도착한 본문은 버린다 | 요청 1회·버튼 0·성공 본문 텍스트 / 실패 재시도 1회 / 전환 뒤 화면 불변 | 페이지 commit → `chatStore` 자동 본문 → `sessionApi.page(body)` → `RESOLVE_HISTORY_BODY` → 블록 → 렌더 |
 | R-04 | AT-04 / AC4 → **AC4″(ΔV4 §21-C)** | 부분 이력 머리에 ‘이전 부분 보기’·‘대화 시작’·‘이전 부분 불러오기’ 문구·버튼이 없다(ready·end·당김 상태 텍스트 0·`button` 0). loading은 스피너만, error는 ‘다시 시도’ 버튼. 슬롯 높이는 네 상태 모두 같다 | 상태별 렌더 텍스트·버튼 수·클래스 | `useHistoryControls` → `TranscriptViewport` → `HistoryEdge` |
 | R-05 | AT-05 / AC5 → AC5′(ΔV3 §20-B) → **AC5″(ΔV4 §21-C)** | 머리 슬롯이 뷰포트 안이면(`scrollTop ≤ 머리 높이` 또는 스크롤 불가) before = ready일 때 요청 1회. loading 중 0, end 0, error 0(버튼만), 슬롯 밖 0. 스크롤바 드래그로 닿아도 같다. 검색 보기 위 끝도 같다 | 스크롤 위치별 `request('before')` 호출 수 | 스크롤/commit → `TranscriptViewport` 상단 판정 → `controls.request` → `readPrevious`/`readSearchEdge` |
 | R-06 | AT-06 / AC6 → AC6′(ΔV3 §20-B) → **AC6″(ΔV4 §21-C)** | 이전 5턴 앞삽입(행 높이가 추정 140px와 다른 행 포함)에서 응답 commit 직전 프레임부터 정착(연속 10프레임 무변화)까지 **매 프레임** 읽던 글줄 top 변화 ≤ 1px. 3 transcript 화면 · 자동 트리거(휠 없음)와 휠 트리거 둘 다 | Electron 실기 프레임 기록 — 프레임별 글줄 top | 실제 Chromium → production `TranscriptView` |
 | R-07 | AT-07 / AC7 | 열기 첫 응답 = 최신 5턴(한도 안이면 5턴 전부, before `earlierTurn`). 한도 초과면 한도 직전까지 + before `withinUnit`, 유휴마다 같은 단위 잔여 1묶음, 5번째 턴 첫 메시지까지 채우면 before `earlierTurn`이고 자동 연쇄 0. 상단 로드 1회 = 이전 5턴 단위(같은 규칙). 5턴 미만이면 전부·before 없음 | data 응답 메시지 ID 목록·경계 종류·응답 수 / 창 자동 요청 수 | `sessionApi.page` → data `history-page` → 창 `readPrevious`·유휴 훅 |
 | R-08 | AT-08 / AC8 (예산은 ΔV3 AC14) | 50,001자 블록 · 노드 20,001 · 표 2,001행 · 열 501 · 머리+한 행 50,001자 · 각주 문서 50,001자 · 스트리밍 꼬리 50,001자가 모두 hast로 렌더된다 — `data-md-block-raw`·`data-markdown-tail="final"` 0, 워커 결과에 `tooLarge` 형 없음 | 워커 파서 결과 형 · 블록 분류 `raw` false · 렌더 표지 | `computeClient` → 워커 `markdownBlock` → `VirtualMarkdownView`/`WorkerMarkdownTail` → `MarkdownHast` |
 | R-09 | AT-09 / AC9 → AC9′(ΔV3 §20-B) → **AC9″(ΔV5 §22-A)** | 연속 오류 턴 6개(Code·Work · 저장된 error part · 응답 중단 status · 열기 후와 실시간 전송 후)에서 인접 오류 버블 사이 세로 거리가 모두 같다(±1px) | Electron 실기 DOM 거리 | production `TranscriptView` |
-| R-10 | AT-10 / AC10 → **AC10′(ΔV3 §20-B)** | Code: 도구 블록 위 간격(앞 블록 끝→도구 위) = 아래 간격(도구 끝→다음 블록 위) = 12px(±1). 그룹 안 카드 사이 4px. Work: 도구 행 사이 8px | Electron 실기 DOM 거리 + 블록 gap 값 | production `TranscriptView` |
+| R-10 | AT-10 / AC10 → AC10′(ΔV3 §20-B) → **AC10″(ΔV6 §23-C)** | Code: 도구 블록 위 간격(앞 블록 끝→도구 위) = 아래 간격(도구 끝→다음 블록 위) = 12px(±1). 그룹 안 카드 사이 4px. Work: 도구 행 사이 8px | Electron 실기 DOM 거리 + 블록 gap 값 | production `TranscriptView` |
 | R-11 | AT-11 / AC11 → **AC11′(ΔV3 §20-B)** | Write 654줄 → 머리 “+654”. 400줄·64,000자를 넘는 Edit·MultiEdit·OpenCode patch도 워커 결과로 +N/−M 표시(계산 중 빈 칸 → 도착 후 표시). 수치는 동기 경로와 같은 규칙(`diffLines` 줄 수) | 카드 머리 텍스트 · 동기/워커 결과 대조 | `ToolCard`/OpenCode 파일 카드 → `toolDiffStat` → (초과) `computeClient` → 워커 |
 | R-12 | AT-12 / AC12 (ΔV2) | 대상 세션의 표시 위치가 목표와 다르면 실제 본문·스크롤바가 중간 위치를 거쳐 최신 하단에 정착한다(오차 ≤ 1 CSS px). 처음 그리는 본문은 하단에서 등장한다. 점프·빈 프레임·이전 세션 재노출 0회. 사용자 입력 시 이동 취소, 축소 모션은 즉시 정착 | Electron `openFrames`에서 가시 글줄·실제 scrollTop·표시 진행률을 매 프레임 기록(§10-A) | 이력 목록 → `chatActions.loadSession` → 하네스 제어기 → 공통 뷰포트 |
 | R-13 | AT-13 / AC13 (ΔV3) → **AC13′(ΔV4 §21-C)** | 아티팩트 미리보기 세 경우: (a) 레코드 파일이 서비스 루트에 있음 → 열림 · (b) 같은 레코드를 다른 루트의 서비스로 엶 → `missing` + 진단 로그(확인한 루트 종류·상대 경로) · (c) 파일 삭제 → `missing`. (a) 실패는 결함 | §20-B AC13 | 카드 클릭 → `openArtifactViewer` → `artifactApi.preview` → data `artifacts` 핸들러 → `ArtifactService.preview` → `own` → `inspect` |
@@ -179,6 +186,9 @@
 | R-15 | AT-15 / AC15 (ΔV3) → **AC15′(ΔV4 §21-C)** | 앞삽입 보정은 부드러운 스크롤을 쓰지 않는다 — 스크롤 컨테이너에 `scroll-behavior: smooth`가 걸려도, 하단 이동(AC12) 도중이어도 AC6′가 성립한다 | §20-B AC15 · §20-E | 공통 뷰포트 `writeScrollTop` 소유자별 쓰기 |
 | R-16 | AT-16 / AC16 (ΔV4) | 최상단 당김·로딩 — 당김 열림·간격 유지·성공 시 같은 페인트 앞삽입·실패 시 토스트 1회와 원위치 복귀·이력 끝 무반응 | §21-C AC16 · §21-D | 실제 상향 휠 → `TranscriptViewport` 당김 영역 → 이력 store 조회 → 앞삽입/실패 통지 |
 | R-17 | AT-17 / AC17 (ΔV4) | 하단 이동 중 이전 이력 도착: 일시정지 → 앵커 앞삽입 → 취소 없을 때만 새 하단으로 재개 · 사용자 상향 입력은 하단 추종 취소 | §21-C AC17 | 세션 열기 하단 이동(AC12) → 단위 채움 응답 → 공통 뷰포트 |
+| R-18 | AT-18 / AC18 (ΔV6) | 세 transcript 화면의 모든 가상 행이 보이는 자식 요소를 가진다 — 빈 행 0. 연속 ‘응답 중단’ 6행(사이에 `ended`·`unknown`·이중 응답 섞임)의 인접 간격 차 ≤ 1px | §23-C AC18 | 메시지 → 블록 모델 → `Timeline` → `TranscriptViewport` 행 |
+| R-19 | AT-19 / AC19 (ΔV6) | 이전·이후 이력 읽기 도중 세대가 바뀌어도 실패 토스트·오류 머리 0, 다음 5턴이 이어 붙는다 | §23-C AC19 | 상단 도달 → `readPrevious`/`readSearchEdge` → data `readCursor` → 앞삽입 |
+| R-20 | AT-20 / AC20 (ΔV6) | 워커 레인이 연속 실패해도 대기 뒤 회복하고, 원문으로 떨어졌던 강조·Markdown·본문이 조작 없이 돌아온다. 요청 실패는 사유와 함께 기록된다 | §23-C AC20 | 워커 실패 → 레인 대기 → 새 워커 → 회복 알림 → 소비처 재요청 → 렌더 |
 
 ### AC 검증 주의사항
 
@@ -913,6 +923,207 @@ B1·B2·B4·B5는 첫 body 응답부터 pending/error 없음 + 마지막 서식 
 2. AC14′에서는 다섯 입력의 마지막 DOM과 원문을 확인한 뒤 두 화면의 30개 관측을 모두 집계한다. 단계별 계측이나 한 화면의 성공 기록은 최종 행렬과 분리해 남긴다.
 3. 통합 트리에서 기존 이력 390건·검색 6건, 선택·복사와 인접 행 간격을 다시 확인한다. 공통 뷰포트를 바꾸면 [0332 §22](../0332-right-panel-global-depth/plan.md)의 모드별 패널 검사도 수행한다. 원래 통과한 다른 15개 AC는 기존 V·운영 게이트를 따른다.
 4. §22-A·B의 현재 경로와 분모는 [자리 대조 명령](evidence/check-sites.mjs)으로 재현한다. 현재 기준선의 분류와 새로 구현할 오류 영수증·워커 전송 위치를 분리해 기록한다. 다음 단계는 Codex의 구현이며, 이 설계 턴은 독립 검증 횟수와 r1의 15/17 판정을 바꾸지 않는다.
+
+## 23. ΔV6 — 0331~0333 사용자 실측 후속
+
+**판정: 사용자 실측 5건 중 0331 몫 4건을 받는다.** 빈 행·본문 실패(두 경로)·간격은 원인을 재현했다. 도구 카드 색 없음·Markdown 원문은 "워커 실패가 창 수명 동안 영구 폴백으로 남는" 경로만 확정했고 최초 계기는 재현하지 못했다. 우측 패널 뒤로 가기 중복은 [0332 §23](../0332-right-panel-global-depth/plan.md)이 받는다. 기준 트리 `c052c301`, 재현 자료 [evidence/dv6](evidence/dv6/README.md).
+
+### 23-A. 요구 원문 ↔ 판정
+
+| # | 사용자 원문 (2026-11-27) | 판정 | 관측 | 반영 |
+|---|---|---|---|---|
+| 1 | “transcript에서 '응답 중단'이 연이어 나오는 케이스에 대해 줄바꿈공백이 해결되지 않음. Element 분석 시, 공백 또한 data-index로 감싸져있음. 그러나 하위 엘레먼트가 없음” | 현재 결함 — D-010 미충족 | Chromium 실측(`probe-results.json`): `claude-work:normal`·`abortTwice`의 `ended` 행 children 0·16px, `abortNoEnd`의 `unknown` 행 children 0·24px, `claude-code:pendingAsk` 행 children 0·16px. `Timeline.tsx:193`·`AskExchange.tsx:15`가 null을 그려도 행과 `pt-*`가 남는다. 기존 `errorRun`은 `aborted`만 써서 놓쳤다 | D-029 · AC18 · EP-20 |
+| 2 | “어시스턴트 메시지를 렌더링하지 못하고 '메시지 본문을 불러오지 못했습니다. <다시 시도>' 안내 및 버튼 렌더링이 되고 있음. 왜 이러는 건가?” | 현재 결함 — 경로 2개 확정 | (a) SQLite(`stale-body.db.test.ts.txt`): 색인된 메시지 변경 → 새 세대 → 이전 참조 `stale`(`history-page.ts:142`) → `deferredBody.ts:91` throw → `chatStore.ts:2782` 실패. 다시 시도도 같은 참조라 영구 실패. (b) Chromium(`run-drop.mjs`): 실행 중 diff(pair) 취소 → `client.ts:470` 워커 교체 → 다음 조각 `Invalid history body range`(`historyBody.ts:35`). 실패 사유는 기록되지 않는다(`chatStore.ts:2780` catch) | D-030 · D-031 · D-032 ③ · AC3″ · AC19 · EP-21·22 |
+| 3a | “read, edit 등등 모든 도구 카드에서 본문 내용에 대한 pretty format(확장자에 맞는 텍스트 폰트 지원, 셸 명령 등등)이 사라짐” · 질의 답 “색만 없는 고정폭 코드” | 경로 확정 · 계기 미재현 | 같은 트리를 Chromium에서 그리면 Read `.shiki` 1·`.line` 12, 큰 본문 3조각 뒤에도 강조 151건 정상. 색이 빠지는 경로: 강조 실패 → `useHighlightedHtml.ts:27` 무시 → 원문. 레인이 연속 3회 실패하면 창이 닫힐 때까지 전 요청 거부(`client.ts:204·572`). 요청 실패·거부는 기록되지 않는다 | D-032 · AC20 · EP-23 · WU-0 |
+| 3b | “또한 도구 상하 간 간격이 너무 좁아짐. 324 이전을 참고할 것.” · 질의 답 “0324 이전 값 전부” | 사용자 결정 변경 | 0324 이전(`671ee43d~1`): 세그먼트 사이 `gap-[var(--chat-item-gap)]`=8px(`registries/assistant.tsx:14`), 그룹 안 카드 8px, Work 행 `py-2`. 현재: 도구 블록 12(`claudeBlocks.ts:564`) · 카드 `gap-g2`=4px(`ToolGroup.tsx:95`) · Work `py-1` 3곳 | D-033 · AC10″ · EP-10′ |
+| 5 | “특정 세션에서 어시스턴트 답변이 마크다운 원문으로만 출력되는 현상 발견.” | 경로 확정 · 계기 미재현 | 4,000자 초과 본문은 워커 경로다. 요청 실패 시 `MarkdownDocument.tsx:169`가 `<pre data-md-block-error>`로 원문을 그리고 다시 요청하지 않는다(같은 폴백 `:276`·`SegmentedFence.tsx:130`·`VirtualMarkdownView.tsx:26`·`WorkerMarkdownTail.tsx:51`). Chromium 30절 장문은 `h2` 30·표 30·오류 0 | D-032 · AC20 · EP-23 · WU-0 |
+
+- 재현하지 못한 계기(3a·5)는 추측으로 고치지 않는다. WU-0이 사용자 앱 로그의 `compute.worker.failed`와 D-032 ③④의 새 진단으로 계기를 찾고, 코드 결함이면 현재 결함으로 이번 라운드에서 고친다(§23-F).
+- 2(b)는 3a·5와 같은 "워커 레인 수명" 문제다 — 워커 교체가 사용자 실패로 새어 나온다.
+
+### 23-B. 제품 계약 (Part I 보완)
+
+| 상태/이벤트 | 시스템 동작 | 사용자에게 보이는 결과 |
+|---|---|---|
+| Work 응답이 `ended`·`unknown`으로 끝남 · Code 질문이 아직 미응답 | 블록 모델이 행을 만들지 않는다(D-029) | 빈 줄 없음. ‘응답 중단’ 행 사이 간격 일정 |
+| 큰 본문 조회 전·중 세대 교체 | data 호스트가 키로 현재 세대에서 답한다 · 창은 첫 조각부터 다시 읽는다(D-030) | 스피너 → 현재 본문. 실패 문구 없음 |
+| 큰 본문 조립 중 계산 워커 교체 | 워커 `worker-replaced` → 창이 처음부터 다시 읽는다(D-031) | 스피너 → 본문 |
+| 재시작 3번째 · 호스트 불가 · 키 없음 · 형식 위반 | 실패 + 사유 로그 1줄 | 오류 문구 + ‘다시 시도’(새 조회 1회) |
+| 이전·이후 이력 읽기 중 세대 교체 | 커서를 키로 재해석해 다음 5턴 응답 · 창이 응답 세대를 받아들인다 | 당김 스피너 → 앞삽입(AC6″ 보정 유지). 토스트 없음 |
+| 워커 레인 연속 3회 실패 | 대기(2·10·60초) 동안 거부 → 다음 요청에 새 워커 | 대기 동안 원문 |
+| 레인 회복(실패 뒤 첫 성공) | 회복 회차 +1 → 워커 원인 폴백 화면 각 1회 재요청 | 원문 → 구문 강조·Markdown·본문 |
+| 도구 카드·Work 행 | 블록 위·아래 8px · 그룹 안 카드 8px · Work 행 `py-2` | 0324 이전 간격 |
+
+**AC 분모 17 → 20**(AC18~AC20 추가, AC3·AC10은 CHANGED).
+
+### 23-C. AC 변경·추가
+
+| AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| **AC3″** (CHANGED — AC3′ 대체, AC3′의 (a) 자동 요청·스피너·버튼 0 (b) 실패 재시도 (c) 전환 뒤 폐기는 유지) | (d) 조회 전·중 세대가 바뀌면 실패 표시 0 — 첫 조각부터 현재 세대로 다시 읽어 현재 본문을 렌더한다 (e) 조립 중 워커가 교체되면 실패 0 — 처음부터 다시 읽어 렌더한다 (f) 재시작은 조립 1회당 2회까지, 3번째와 호스트 `unavailable`·키 없음·형식 위반만 오류 문구 + ‘다시 시도’, 다시 시도는 새 조회 1회 (g) 실패마다 사유(`stale`·`invalid`·`unavailable`·`cancelled`·`worker`·`churn`·`transport`) 로그 1줄 | 렌더 텍스트·`button` 수·`sessionApi.page` 질의 순서(offset 0 재등장)·로그 호출 인자 | 페이지 commit → 자동 본문 → `sessionApi.page(body)` → data `history-page` → 워커 `historyBody` → `RESOLVE_HISTORY_BODY` → 렌더 |
+| **AC10″** (CHANGED — AC10′ 대체) | Code: 도구 블록 위 간격 = 아래 간격 = 8px(±1) · 그룹 안 카드 사이 8px(±1). Work: 도구 행 사이 16px(±1) | Electron 실기 DOM 거리 + 블록 gap 값 | production `TranscriptView` |
+| **AC18** (NEW) | 세 transcript 화면에서 모든 `[data-index]` 행이 높이 > 0인 자식 요소를 가진다. 입력: Work `aborted` 6턴 사이에 `ended`·`unknown`·이중 응답(`aborted`+`ended`)을 섞은 6턴 · Code 미응답 질문 · §23-E EP-20 자리별 입력. 연속 ‘응답 중단’ 6행의 다섯 인접 간격 최대−최소 ≤ 1px | Electron `--layout` 새 시나리오 `errorRunMixed`·`pendingAsk` + 자리별 렌더 단위 테스트 | 메시지 → 블록 모델 → `Timeline` → `TranscriptViewport` |
+| **AC19** (NEW) | 이전·이후 이력 읽기 도중 세대가 바뀌어도(색인된 메시지 변경·native 갱신) 실패 토스트·오류 머리 0, 다음 5턴이 앞삽입되고 AC6″ 보정이 유지된다. 일반·검색 보기 둘 다. 커서의 키가 현재 세대에 없으면 기존 실패(토스트 1회·다시 시도) | DB 커서 재해석 결과 · 창 `history.generation` 갱신·토스트 호출 0 · 앞삽입 메시지 ID | 상단 도달 → `readPrevious`/`readSearchEdge` → data `readCursor` → `PREPEND_HISTORY` |
+| **AC20** (NEW) | 계산·Markdown 레인이 연속 3회 실패하면 대기(2초 → 10초 → 60초 상한) 뒤 다음 요청에서 새 워커를 만든다. 회복 뒤 원문으로 떨어졌던 Read 카드 강조·Edit diff 강조·4,000자 초과 Markdown 블록·스트리밍 꼬리·큰 본문이 조작 없이 강조·hast·본문으로 바뀐다(각 1회 재요청). 요청 실패마다 로그 1줄(레인·종류·사유, 같은 사유 연속은 1분에 1줄), 10초 무응답 진단 1줄 | 레인 상태 단위(가짜 시계) · 소비처 14자리 렌더 단위 · Electron `workerRecovery`(`.shiki`·`h2` 복원) | 워커 실패 → 레인 대기 → 새 워커 → 회복 회차 → 소비처 재요청 → 렌더 |
+
+AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 짝짓는다(빈 `div` 하나로 통과시키지 않는다). AC20의 회복 단언은 "재요청 1회"와 "회복 전 재요청 0"을 함께 본다(무한 재시도 방지).
+
+### 23-D. V 변경 (ΔV6)
+
+- 기준 V: 0331 V1 + ΔV1~ΔV5(§22, 설계 커밋 — 검증자 기입) · 기준 트리 `c052c301`.
+- 변경이 시작되는 수준: R(사용자 관측)부터 MD까지 — 사용자 요구 변경 ΔV라 이후 verify 2회 동안 아래 NEW·CHANGED 노드 범위에서 확장 창이 다시 열린다.
+- `SUPERSEDED` 이관: VP-10(AC10′) → VP-48(AC10″, 기존 `toolSpacing` 시나리오·등록 변이 없음 그대로 기대값만 교체) · VP-22 → VP-54(같은 좌표 파일, 기대 12 → 8). 폐기 증거 0.
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-03 · AT-03″ | R · AT | 큰 본문 자동 로드 + 세대·워커 교체 재시작 + 실패 사유 | CHANGED | AT-03′(ΔV3) |
+| R-10 · AT-10″ | R · AT | 도구 간격 0324 이전 값 | CHANGED | AT-10′(ΔV3) |
+| R-18 · AT-18 | R · AT | 빈 가상 행 0 · 연속 ‘응답 중단’ 간격 | NEW | — |
+| R-19 · AT-19 | R · AT | 이력 커서 세대 재합류 | NEW | — |
+| R-20 · AT-20 | R · AT | 워커 레인 회복·재요청·진단 | NEW | — |
+| R-09 · AT-09″ | R · AT | 연속 실패 귀속·간격 | INHERITED | ΔV5 §22-A |
+| R-14 · AT-14 | R · AT | 큰 본문 50ms | INHERITED | ΔV4·ΔV5 §22-B |
+| SD-02 | SD | 큰 본문 수명 — 세대 재시작·워커 교체 재시작·사유 실패 | CHANGED | ΔV5 SD-02 |
+| SD-04 | SD | 워커 레인 수명 — 정상 → 실패 → 대기 → 새 워커 → 회복 → 재요청 | NEW | — |
+| AR-07 | AR | data `body`·커서의 키 재해석 ↔ 창 — `body` 응답에 `generation`·`bytes` | NEW | `shared/history-page.ts` 응답 스키마 |
+| AR-08 | AR | 계산 클라이언트 회복 신호 ↔ 소비처 14자리 | NEW | — |
+| AR-04 | AR | 본문 전송·워커 왕복 | INHERITED | ΔV5 VP-40 |
+| MD-06 | MD | 블록·카드·행 간격 값 | CHANGED | ΔV3 MD-06 |
+| MD-13 | MD | 가시 행 규칙 — 렌더가 비는 상태는 블록을 내보내지 않는다 | NEW | — |
+| MD-14 | MD | 레인 상태 기계 — 실패 수·대기 일정·회복 회차·진단 | NEW | — |
+| MD-15 | MD | 본문 조립 재시작 — 세대 변경·`worker-replaced`·상한 2 | NEW | — |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-44 | R-18 ↔ AT-18 | REQUIRED | 메시지 → 블록 모델 → `Timeline` → `TranscriptViewport` | `gate:xvfb-run -a node scripts/check-transcript-history.mjs --layout` 새 `errorRunMixed`(claude-work: `aborted` · `aborted`+`ended` · `aborted` · `unknown`(begin만) · `aborted` · `aborted`) — 모든 `[data-index]` 자식 높이 > 0 · ‘응답 중단’ 6행 다섯 간격 최대−최소 ≤ 1 · 새 `pendingAsk`(claude-code) 빈 행 0 | required — `Timeline.tsx:193` 경로로 `ended` 행을 되살린 변이가 `errorRunMixed` red | EP-20 |
+| VP-45 | R-03 ↔ AT-03″ | REQUIRED | 페이지 commit → 자동 본문 → data → 워커 → 렌더 | `TranscriptViewport.body.test.ts` 새 `AC3″ renders the current generation after a generation change`(page 흉내: 둘째 조각 응답의 `generation`이 바뀜 → offset 0 재요청 → 본문 · 실패 UI 0) · `AC3″ survives a worker replacement`(실제 클라이언트 + 워커마다 새 상태, 실행 중 diff pair 취소 → `worker-replaced` → 재시작 → 본문) · `AC3″ fails on the third restart and logs churn` · `AC3″ shows retry only for unavailable`(입력: `unavailable`·키 없음 `stale`·형식 위반 각 실패 1·버튼 1) · `AC3″ logs one reason per failure`(로그 인자 사유 7종) | required — 재시작 분기 제거 변이(세대 변경 입력에서 실패 UI 1, red) | EP-21 · EP-22 |
+| VP-46 | R-19 ↔ AT-19 | REQUIRED | 상단 도달 → `readPrevious`/`readSearchEdge` → data `readCursor` → 앞삽입 | `turn-page.db.test.ts` 새 `AC19 re-resolves a cursor by message key in a new generation`(색인된 메시지 변경 → `earlierTurn` 옛 커서 → ok·이전 5턴 ID · `withinUnit` 하한 재계산 · 키 삭제 → `stale`) · `history-port.integration.test.ts` 새 `AC19 prepend continues across a republish`(실제 포트 + store: 응답 세대 다름 → `history.generation` 갱신 · 토스트 0) · `history-search.test.ts` 새 `AC19 search edge adopts a new generation` | required — 창 `chatStore.ts:2971` 세대 비교를 되살린 변이(토스트 1, red) | EP-21 |
+| VP-47 | R-20 ↔ AT-20 | REQUIRED | 워커 실패 → 대기 → 새 워커 → 회복 → 재요청 → 렌더 | `client.test.ts` 새 `AC20 recovers after the cool-down and announces recovery` · 소비처 렌더 단위(VP-52 표) · `gate:… check-transcript-history.mjs --layout` 새 `workerRecovery`(프로브가 첫 3개 워커를 시작 직후 죽이는 생성기로 클라이언트를 만든다 → Read 강조·4,000자 초과 Markdown이 원문 → 대기 뒤 `.shiki`·`h2` 복원) | required — 회복 회차 증가 제거 변이(`workerRecovery` 원문 유지, red) | EP-23 |
+| VP-48 | R-10 ↔ AT-10″ | REQUIRED | Chromium → `TranscriptView` | 같은 스크립트 `--layout` `toolSpacing` 기대값 교체 — Code 위·아래 8±1 · 그룹 카드 사이 8±1 · Work 행 사이 16±1 | not selected — 직접 거리 단언 | EP-10′ |
+| VP-49 | SD-02 ↔ ST-02 | REQUIRED (ΔV6 경로 추가 — VP-13·VP-42는 REGRESSION) | 실제 data 포트 → 창 store → 워커 → reducer | `history-port.integration.test.ts` 새 `AC3″ body resolves across a republish through the real data port`(실제 SQLite 색인 + 포트: 첫 조각 뒤 색인된 메시지 변경 → 세대 변경 응답 → 재시작 → 최종 parts = DB 현재 parts) | not selected | EP-21 |
+| VP-50 | SD-04 ↔ ST-04 | REQUIRED | 레인 수명 전체 | `client.test.ts` 새 `AC20 lane lifecycle`(정상 → 실패 1·2 → 한도 → 대기 → 새 워커 → 성공 → 회복 → 다시 실패 시 대기 10초) · 취소 교체는 실패 수에 들지 않음 | not selected | EP-22 · EP-23 |
+| VP-51 | AR-07 ↔ IT-07 | REQUIRED | 창 전송 → data handler → 색인 | `history-port.integration.test.ts` 새 `AC19 body and cursor replies carry the served generation`(zod 왕복: `body` 응답 `generation`·`bytes` · 늘어난 bytes 수용 · `bytes ≤ 0`·`nextOffset > bytes` → `Mismatched history reply`) | not selected | EP-21 |
+| VP-52 | AR-08 ↔ IT-08 | REQUIRED | 계산 클라이언트 회복 회차 → 소비처 14자리 | §23-E EP-23 소비처 표의 자리별 좌표(자리마다 "실패 → 원문/빈칸 → 회복 → 재요청 1회 → 결과 표시" · 회복 전 재요청 0) | required — 자리마다 회복 의존 제거 변이 1개(14개), 각 자리 좌표 red | EP-23 |
+| VP-53 | MD-13 ↔ UT-13 | REQUIRED | 블록 모델·`Timeline` | §23-E EP-20 자리별 좌표 | not selected — 자리별 양성·음성 입력 | EP-20 |
+| VP-54 | MD-06 ↔ UT-06 | REQUIRED (VP-22 대체) | 블록 gap·카드·행 클래스 | `claudeBlocks.test.ts` `AC10″ tool block gap is 8 on both sides`(text→tools 8 · tools→text 8 · tools→ask 8 · text→text 16 유지) · `ToolGroup` 렌더 `AC10″ group cards use the item gap` · `WorkActivity.render.test.ts` `AC10″ work rows use py-2`(3자리) | not selected | EP-10′ |
+| VP-55 | MD-14 ↔ UT-14 | REQUIRED | `createComputeClient` 레인 | `client.test.ts` 규칙 칸 분기 입력(§23-E EP-23 레인 표) | required — 대기 일정 상수 고정 변이(10초 단계 입력 red) | EP-23 |
+| VP-56 | MD-15 ↔ UT-15 | REQUIRED | `readDeferredParts` | 새 `deferredBody.test.ts` 분기 입력(§23-E EP-21·22) | not selected | EP-21 · EP-22 |
+| VP-57 | R-09 ↔ AT-09″ | REGRESSION | §22-A | VP-36~39 좌표 재실행 · `errorRun` 기존 fixture | not selected | EP-18(비변경) |
+| VP-58 | R-14 ↔ AT-14 | REGRESSION | §22-B | VP-43 `--perf` 30창(레인·본문 경로 변경 영향) | not selected | EP-19(비변경) |
+| VP-59 | AR-04 ↔ IT-04 | REGRESSION | 본문 전송 | VP-40 좌표 재실행 | not selected | EP-19(비변경) |
+
+### 23-E. §10 추가·대체 행
+
+모든 검색은 저장소 루트에서 실행하고 `node .agents/skills/handoff-verify/scripts/site_census.mjs --search "<검색>" --sites … --excluded …`로 미분류 0을 확인했다(2026-11-27, `c052c301`). 단일 파일 검색은 `rg -nH`를 쓴다 — 파일명이 빠지면 집계가 0줄이 된다.
+
+**EP-20 · 빈 가상 행 (D-029 · MD-13 · VP-44·VP-53).** 검색 `rg -n 'return null' <claude·opencode transcript의 Timeline·AssistantSegment·AskExchange·ReasoningBlock·ToolGroup.tsx> app/src/renderer/src/features/chat/harnesses/common/transcript/ArtifactCards.tsx` → 11줄 · 자리 10 · 제외 1(`opencode/transcript/Timeline.tsx:251` `RetryStatus` — 대기 상태 안의 하위 줄, 행 전체가 아님). 규칙: 각 자리의 null 조건이 참인 입력에서 그 블록이 행으로 존재하지 않는다(블록 모델이 내보내지 않음). 고친 뒤 자리 줄이 남아 방어로만 남으면 그 조건 입력의 행 수로 판정한다.
+
+| # | 자리 (`harnesses/` 기준) | null 조건 = 행 없음 입력 | 직접 oracle (새 테스트) | 실측 |
+|---|---|---|---|---|
+| 1 | `claude/transcript/Timeline.tsx:193` | Work 응답 `ended` · `unknown`(end 없음) · 대조 `aborted`는 행 1 | `claudeBlocks.test.ts` `AC18 emits no status block for ended or unknown` + VP-44 `errorRunMixed` | 빈 행 16·24px |
+| 2 | `claude/transcript/AskExchange.tsx:15` | 미응답 질문(Code) · 대조 응답 질문은 행 1 | `Timeline.viewport.test.ts` `AC18 pending ask leaves no row` + VP-44 `pendingAsk` | 빈 행 16px |
+| 3 | `claude/transcript/AskExchange.tsx:17` | 응답됐지만 항목 0인 질문 | 같은 파일 `AC18 answered ask without items leaves no row` | 미측정 |
+| 4 | `claude/transcript/ReasoningBlock.tsx:26` | reasoning 항목 0 | `claudeBlocks.test.ts` `AC18 empty reasoning forms no block` | 빈 text reasoning은 행 없음(실측) |
+| 5 | `claude/transcript/ReasoningBlock.tsx:28` | 공백뿐 reasoning | 같은 테스트 공백 입력 | 미측정 |
+| 6 | `common/transcript/ArtifactCards.tsx:54` | 산출물 0 · 세션 ID 없음 | `claudeBlocks.test.ts`·OpenCode 블록 테스트 `AC18 artifacts block needs artifacts and a session` | 미측정 |
+| 7 | `opencode/transcript/Timeline.tsx:197` | reasoning 세그먼트 | OpenCode 블록 테스트 `AC18 reasoning forms no row` | 행 없음(실측 `ocReasoning`) |
+| 8 | `opencode/transcript/AssistantSegment.tsx:29` | reasoning 세그먼트(7과 같은 계약) | 7과 같은 좌표 | — |
+| 9 | `opencode/transcript/AskExchange.tsx:11` | 답 없는 질문 | OpenCode `Timeline` 렌더 `AC18 unanswered ask leaves no row` | 미측정 |
+| 10 | `opencode/transcript/ToolGroup.tsx:23` | 보이는 도구 0인 묶음 | OpenCode 블록 테스트 `AC18 tool group without visible tools forms no row` | 미측정 |
+
+- 다음 블록의 gap은 건너뛴 블록이 없었던 것처럼 계산한다(예: 상태 행을 건너뛴 뒤의 meta). 이 규칙은 VP-44 간격 단언이 잠근다.
+- 제외 근거(검색 밖): Claude `live` 블록은 `hasLive`(라이브 본문·추론이 있을 때만, `Timeline.tsx` `advance` 옵션)로 생성돼 비지 않는다.
+
+**EP-21 · 세대 재합류 (D-030 · AR-07 · MD-15 · VP-45·46·49·51·56).** 검색 `rg -n '(\.generation\b|\bg !== gen\b|ref\.bytes|body_bytes)' app/src/main/features/history/history-page.ts app/src/renderer/src/features/chat/lib/transcript/deferredBody.ts app/src/renderer/src/shared/api/transport/session-load.ts app/src/renderer/src/features/chat/store/chatStore.ts` → 46줄 · 자리 15 · 제외 31 · 미분류 0.
+
+| 자리 | 규칙 (분기) | 분기 입력 → 직접 oracle |
+|---|---|---|
+| `history-page.ts:78` 커서 세대 | 세대 다름 → 키를 현재 세대에서 찾음 · 있으면 그 이웃부터(방향 유지, `withinUnit` 하한은 현재 세대로 재계산) · 없으면 `stale` | 같은 세대 · 다른 세대+키 있음 · 다른 세대+키 없음 → VP-46 DB 테스트 3입력 |
+| `history-page.ts:140`·`:142`·`:144`·`:153` 본문 | 세대 다름 → 키로 현재 세대 머리 · 범위·`done`은 현재 `body_bytes` 기준 · 응답에 `generation`·`bytes` · 키 없음 `stale` | 같은 세대 · 다른 세대+같은 bytes · 다른 세대+늘어난 bytes · 키 없음 → `turn-page.db.test.ts` 새 `AC3″ serves a body by key in the current generation` 4입력 |
+| `deferredBody.ts:64`·`:75`·`:99`·`:100`·`:112` 창 조립 | 총 바이트는 첫 응답의 `bytes` · 응답 `generation`이 앞 조각과 다르면 워커 스트림을 닫고 offset 0부터 다시 · 재시작 상한 2(EP-22와 합산) · 3번째는 `churn` 실패 | 세대 불변 · 첫 조각 뒤 변경 · 연속 3회 변경 · bytes 증가 → VP-56 `deferredBody.test.ts` 4입력 |
+| `session-load.ts:163`·`:164` 응답 검사 | `body` 응답의 범위·`done`을 응답 `bytes`로 검사(질의 `ref.bytes` 아님) · `generation`·`bytes` 형식 검사 | 늘어난 bytes 수용 · `nextOffset > bytes` 거부 → VP-51 |
+| `chatStore.ts:2726` 본문 현재성 | 창 세대 == `ref.generation`을 요구하지 않는다 — 같은 세션·같은 열기 회차·같은 검색 회차·그 참조를 가진 메시지가 아직 있음만 본다 | 창 세대 갱신 뒤 진행 중 조립 유지 · 세션 전환 폐기 → VP-45 · 기존 `TranscriptViewport.body.test.ts` 5전환 |
+| `chatStore.ts:2915` 검색 보기 가장자리 · `:2971` 일반 앞삽입 | 응답 세대가 다르면 실패가 아니다 — 보기·창의 `generation`과 가장자리 커서를 응답 값으로 바꾸고 앞삽입한다 | 같은 세대 · 다른 세대 → VP-46 포트·검색 테스트 |
+
+- 제외 31줄 사유: 메타데이터 조각(`history-page.ts:122·124·125·134`, `session-load.ts:135·137·140·141`) · 검색 방문·대상·재개·캐시 위치(`history-page.ts:189·192·201·203`, `chatStore.ts:2497·2506·2512·2517·2532·2578·2581·2612·2630·2649·2659·3434·3435`) · 새 페이지가 만든 참조의 생산(`history-page.ts:281·292`)과 그 검사(`session-load.ts:129`) · 패널(`session-load.ts:145·150`) · 캐시 확인(`session-load.ts:158`).
+- **선언 경계** — ① 키가 현재 세대에 없는 참조·커서(삭제, 보관 사본 `x:<index>` 재번호)는 기존 실패 경로다. ② 메타데이터 조각과 검색 방문·대상·`useCached`의 세대 불일치는 이번 계약 밖이며 동작을 확인하지 않았다. ③ 창이 이미 그린 메시지 사본이 현재 세대와 다를 수 있는 것은 지금과 같다(이번 변경은 실패 표시만 없앤다).
+- IPC 계약 변경: `HistoryPageReplySchema` `body` 항에 `generation`·`bytes`를 더한다 → [`IPC_CONTRACT.md`](../../IPC_CONTRACT.md) 같은 PR 갱신, `check-doc-inventory.mjs --check`.
+
+**EP-22 · 워커 교체 중 조립 (D-031 · MD-15 · VP-45·50·56).** 검색 `rg -n 'dropWorker\(\)|streams\.get|job = request\(' app/src/renderer/src/shared/compute/client.ts app/src/renderer/src/shared/compute/worker/historyBody.ts app/src/renderer/src/features/chat/lib/transcript/deferredBody.ts` → 5줄 · 자리 4 · 제외 1(`client.ts:268` 함수 정의).
+
+| 자리 | 규칙 | 분기 입력 → 직접 oracle |
+|---|---|---|
+| `client.ts:285` 실패 교체 · `client.ts:470` 취소 교체 | 교체는 레인 워커 회차를 올린다. 취소 교체는 실패 수에 들지 않는다(EP-23) | 실패 교체 · 취소 교체 → VP-50 `AC20 lane lifecycle` |
+| `historyBody.ts:24` 스트림 조회 | `offset > 0`인데 스트림이 없으면 `worker-replaced` 오류(형식 위반 `Invalid history body range`와 구별) | 스트림 없음+offset>0 · 범위 위반 → `historyBody.test.ts` 새 `AC3″ distinguishes a replaced worker from an invalid range` |
+| `deferredBody.ts:105` 조각 요청 | `worker-replaced` → offset 0부터 다시(상한 2, EP-21과 합산) · 그 밖 오류 → `worker` 실패 | 교체 1회 · 교체 3회 · 형식 오류 → VP-56 · VP-45 `survives a worker replacement` |
+
+- **선언 경계** — tokens 이어 계산(`resumeFrom`)이 워커 교체 뒤 어떻게 되는지는 이번 계약 밖이며 측정하지 않았다.
+
+**EP-23 · 워커 레인 회복·재요청·진단 (D-032 · SD-04 · AR-08 · MD-14 · VP-47·50·52·55).**
+
+레인 상태 — 검색 `rg -nH 'failures|blocked|onError' app/src/renderer/src/shared/compute/client.ts` → 12줄 · 자리 9(`:189`·`:204`·`:283`·`:284`·`:290`·`:313`·`:379`·`:388`·`:572`) · 제외 3(`:139` 옵션 타입 · `:188` 선언 · `:198` 초기값).
+
+| 규칙 칸 분기 | 입력 → `client.test.ts` 좌표(가짜 시계) |
+|---|---|
+| 한도 미만 실패 → 다음 요청이 즉시 새 워커 | 실패 1·2 → 요청 성공 → `AC20 recreates below the limit` |
+| 한도 도달 → 대기 2초 거부 → 그 뒤 첫 요청에 새 워커 | 1,999ms 거부 · 2,000ms 생성 → `AC20 waits 2s after the limit` |
+| 연속 한도 2회째 10초 · 3회째 이후 60초 상한 | 각 경계 ±1ms → `AC20 grows the wait to 10s and caps at 60s` |
+| 실패·거부 뒤 첫 성공 → 회복 회차 +1·알림 1회 | → `AC20 announces recovery once` |
+| 실패 없이 성공 → 회복 알림 0 | → 같은 테스트 대조 입력 |
+| 계산 오류 `ok:false` → 로그 1줄 · 실패 수 불변 | → `AC20 logs request errors without failing the lane` |
+| 같은 사유 연속 → 1분에 1줄 | 59,999ms·60,000ms → `AC20 throttles repeated reasons` |
+| 10초 무응답 → 진단 1줄 · 작업 유지 | 9,999ms·10,000ms → `AC20 reports a slow job` |
+
+소비처 — 검색 `rg -n '(computeClient\(\)|client)\.request(<[^>]+>)?\(' app/src/renderer/src -g '!*.test.*' -g '!*.testfixture.*'` → 14줄 · 자리 14 · 제외 0. 규칙: 워커 원인으로 결과가 없거나 원문 폴백인 소비처는 레인 회복 회차가 바뀌면 1회 다시 요청한다. 취소·내용 변경은 기존대로다.
+
+| 자리 (`app/src/renderer/src/` 기준) | 폴백 화면 | 직접 oracle (새 테스트, 실패 → 회복 → 결과 · 회복 전 재요청 0) |
+|---|---|---|
+| `shared/compute/useHighlightedHtml.ts:24` | 색 없는 코드(Read·펜스) | `CodeBlock` 렌더 `AC20 restores highlight after recovery` |
+| `features/chat/hooks/useDiffSyntax.ts:33` | 색 없는 diff | `DiffBody.render.test.ts` `AC20 restores diff syntax after recovery` |
+| `features/chat/hooks/useWindowTokens.ts:50` | 큰 코드 창 원문 | `VirtualCodeView.test.ts` `AC20 retries window tokens after recovery` |
+| `features/chat/components/code/VirtualCodeView.tsx:40` | 큰 코드 색인 없음 | 같은 파일 `AC20 retries the code view after recovery` |
+| `features/chat/components/markdown/MarkdownDocument.tsx:123` | Markdown 블록 원문 | `MarkdownDocument` 렌더 `AC20 replaces a raw block with hast after recovery` |
+| `features/chat/components/markdown/SegmentedFence.tsx:74` | 나눈 펜스 원문 | `SegmentedFence.test.ts` `AC20 …` |
+| `features/chat/components/markdown/WorkerMarkdownTail.tsx:92` | 꼬리 원문 | `WorkerMarkdownTail.test.ts` `AC20 …` |
+| `features/chat/components/markdown/useMarkdownRows.ts:39` | 레이아웃 실패 원문 | `VirtualMarkdownView.test.ts` `AC20 …` |
+| `features/chat/lib/transcript/deferredBody.ts:63` | 본문 실패(사유 `worker`) | `TranscriptViewport.body.test.ts` `AC20 retries a worker-failed body after recovery` |
+| `features/chat/hooks/useDiffStat.ts:31` | 증감 수 빈칸 | `ToolCard.interaction.test.ts` `AC20 …` |
+| `features/chat/hooks/useDiffLines.ts:24` | diff 로딩 고정 | `useDiffLines` 단위 `AC20 …` |
+| `features/chat/hooks/useDiffViewWindow.ts:42` | 큰 diff 창 빈칸 | `DiffTable` 렌더 `AC20 …` |
+| `features/chat/hooks/useDiffAnchor.ts:22` | diff 위치 없음 | `useDiffAnchor` 단위 `AC20 …` |
+| `features/chat/hooks/useAttachments.ts:66` | 썸네일 없음(이미지 레인) | `useAttachments` 단위 `AC20 …` |
+
+- 실패 의미: 레인이 회복돼도 한 자리가 재요청하지 않으면 그 화면만 원문으로 남는다 — VP-52의 자리별 변이가 그 차이를 잡는다. 회복 회차는 성공 응답이 실패 상태 뒤에 왔을 때만 오르므로 재요청 폭주는 없다(VP-55).
+
+**EP-10′ · 간격 (D-033 · MD-06 · VP-48·54, EP-10 대체).** 검색 `rg -n '\? 12$|gap-g2 rounded-r6|relative py-1 pl-\[30px\]' app/src/renderer/src/features/chat/harnesses/claude/transcript` → 5줄 · 자리 5 · 제외 0: `claudeBlocks.ts:564`(도구 인접 gap 12 → 8 — `ClaudeBlockGap`에 8이 이미 있다) · `ToolGroup.tsx:95`(`gap-g2` → `gap-[var(--chat-item-gap)]`) · `WorkActivity.tsx:125`·`WorkToolTimeline.tsx:30`·`:101`(`py-1` → `py-2`). 직접 oracle은 VP-54 단위 + VP-48 실기.
+
+- 규칙 칸 ↔ 입력 1:1: EP-20 10자리 × null 조건 입력(+대조) · EP-21 6행 분기 → 입력 3·4·4·2·2·2 · EP-22 3행 → 입력 2·2·3 · EP-23 레인 8분기 → 8입력, 소비처 14 → 14좌표 · EP-10′ 5자리 → 5단언.
+
+### 23-F. 구현 순서와 인계
+
+| WU | 내용 | 완료 판정 |
+|---|---|---|
+| WU-0 | **계기 수집.** D-032 ③④ 진단을 먼저 넣는다. 사용자에게 앱 로그(로그 폴더의 JSONL에서 `compute.worker.failed`·새 진단 줄)를 요청해 오류 문자열을 [구현자 기입]에 적는다. Electron에서 큰 본문 + Edit 카드 다수 + 4,000자 초과 Markdown 세션을 열고 스크롤해 실패 사유를 수집한다 | 계기를 찾으면 원인·재현 명령을 적고 코드 결함이면 이번 라운드에서 고친다(새 계약이 필요하면 PLAN_GAP). 못 찾으면 "미재현"과 시도 목록을 적고 D-032 회복으로 갈음한다 |
+| WU-1 | EP-20 빈 행 | VP-44·53 |
+| WU-2 | EP-10′ 간격 | VP-48·54 |
+| WU-3 | EP-21 세대 재합류(data·IPC 스키마·창) + `IPC_CONTRACT.md` | VP-45·46·49·51·56 |
+| WU-4 | EP-22 워커 교체 재시작 | VP-45·50·56 |
+| WU-5 | EP-23 레인 회복·재요청 | VP-47·50·52·55 |
+| WU-6 | 회귀 — VP-57~59 · 기존 이력 390·검색 6 · 선택·복사(`check-transcript-selection.mjs`) · 0332 모드별 패널 검사 | 같은 통합 SHA |
+
+- 운영 gate: §7-A "현재 변경의 운영 gate" 전부 + `--layout`의 `errorRunMixed`·`pendingAsk`·`workerRecovery`·`toolSpacing`(새 기대) + `node scripts/check-doc-inventory.mjs --check`(IPC 계약). exit 3(Electron 없음)은 환경, exit 1만 blocking.
+- 다음 주체는 Codex(r1.5)다. 이 설계 턴은 독립 검증 횟수(0)와 라운드(1)를 바꾸지 않는다. r1.4의 AC14′ 4/30 미충족은 VP-58로 계속 추적한다.
+
+## READY self-review (ΔV6)
+
+- 사용자 원문 5건 모두 §23-A에 판정·반영 위치가 있다 — 0331 4건, 0332 1건(0332 §23). 기각 0.
+- 질의 답 3건을 Decision으로 보존했다: 배치(기존 handoff 갱신 — 이 절의 존재), 증상(D-032 근거), 간격(D-033). 뒤로 가기 답은 0332 D-016.
+- D-011 → D-033 SUPERSEDED · 0324 워커 영구 차단 → D-032 대체 · `ACTIVE 결정 ↔ AC` 대조 충돌 0(§3 갱신 메모).
+- 재현한 것(빈 행 4입력·`stale`·워커 교체)과 재현하지 못한 것(3a·5의 계기)을 나눴고, 후자는 WU-0과 회복 계약으로만 다룬다.
+- 모든 NEW·CHANGED 노드에 같은 레벨 REQUIRED pair가 있다 — R-03·10·18·19·20 ↔ VP-45·48·44·46·47 · SD-02·04 ↔ VP-49·50 · AR-07·08 ↔ VP-51·52 · MD-06·13·14·15 ↔ VP-54·53·55·56. 영향받은 INHERITED 3개는 REGRESSION(VP-57~59).
+- §10 자리 목록 5개를 `site_census.mjs`로 고정했다 — EP-20 10/11 · EP-21 15/46 · EP-22 4/5 · EP-23 9/12 + 14/14 · EP-10′ 5/5, 미분류 0.
+- 규칙 칸 분기마다 입력이 있다(§23-E 마지막 목록). 선언 경계는 EP-21 ①②③ · EP-22 tokens 이어 계산 — 측정하지 않은 보호를 경계로 적지 않았다.
+- AC 20개 ≤ 25. 수치 계약(간격 ±1px)은 Electron 실기로 잰다. 대기 일정(2·10·60초)과 진단 임계(10초·1분)는 설계자 기본값이며 가짜 시계 단위로 판정한다.
 
 ## READY self-review (V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4)
 
