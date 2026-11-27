@@ -1,5 +1,5 @@
 import type { AgentKind } from '../../../../../../shared/agent-kind'
-import type { RightPanelAgentPolicy } from '../../lib/rightPanelTiles'
+import type { RightPanelAgentPolicy } from '../../lib/panelTiles'
 import type { MessageKey } from '../../../../shared/i18n'
 
 export const planEmptyDescriptionKey: MessageKey = 'chat.rightpanel.planEmptyDesc'
@@ -10,7 +10,6 @@ export const RIGHT_PANEL_POLICY = {
     taskTarget: 'task',
     taskBadgeTile: 'task',
     initialTile: 'task',
-    columnMode: 'task-focus',
     taskTileChrome: 'work-overview'
   },
   code: {
@@ -18,7 +17,6 @@ export const RIGHT_PANEL_POLICY = {
     taskTarget: 'plan',
     taskBadgeTile: 'plan',
     initialTile: null,
-    columnMode: 'standard-grid',
     taskTileChrome: 'standard'
   }
 } as const satisfies Record<AgentKind, RightPanelAgentPolicy>

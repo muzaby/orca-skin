@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { InstallStatus } from '../../../../../../../shared/ipc'
 import { installApi } from '../../../../../shared/api/ipc'
 import { Button } from '../../../../../shared/ui/Button'
+import { useSurfacePresence } from '../../../../../shared/hooks/useSurfacePresence'
 import { useEscToClose } from '../../../../../shared/hooks/useEscToClose'
 import { InstallLog } from './InstallLog'
 import { InstallLogArchive } from './installLogArchive'
@@ -19,6 +20,7 @@ export function InstallerDialog({
   onComplete
 }: InstallerDialogProps): React.JSX.Element | null {
   const { tr } = useI18n()
+  const { present } = useSurfacePresence(open)
   const [log, setLog] = useState(() => ({ generation: 0, archive: new InstallLogArchive() }))
   const [revision, setRevision] = useState(0)
   const run = useRef<{ generation: number; archive: InstallLogArchive; failed: boolean } | null>(
@@ -72,7 +74,7 @@ export function InstallerDialog({
     }
   }, [open])
 
-  if (!open) return null
+  if (!present) return null
 
   const start = async (): Promise<void> => {
     if (run.current) return
@@ -102,6 +104,9 @@ export function InstallerDialog({
   // grid cell 중앙에 놓는다. fixed inset-0 도 grid 부모를 가지면 grid cell 기준으로 작동.
   return (
     <div
+      data-surface-presence={open ? 'open' : 'closing'}
+      inert={!open}
+      aria-hidden={!open}
       className="grid h-full w-full place-items-center"
       onClick={(e) => {
         if (e.target === e.currentTarget && !running) onClose()

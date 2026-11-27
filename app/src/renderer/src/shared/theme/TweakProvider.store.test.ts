@@ -38,6 +38,8 @@ describe('provider-owned Tweaks store', () => {
       theme: 'white',
       transcriptTextSize: 'medium',
       transcriptWidth: 'medium',
+      rightPanelOpen: false,
+      rightPanelWidths: { work: 360, code: 520 },
       sidebarCollapsed: false,
       sidebarWidth: 248,
       appFont: 'sans',
@@ -177,4 +179,24 @@ describe('provider-owned Tweaks store', () => {
     expect(store.getState().t).toBe(initial)
     expect(errorToastStore.getState().toasts).toHaveLength(0)
   })
+})
+
+it('AC1 persists rightPanelOpen and widths', async () => {
+  const store = createTweakStore()
+  store.getState().setTweak('rightPanelOpen', true)
+  store.getState().setTweak('rightPanelWidths', { work: 420, code: 600 })
+  expect(vi.mocked(settingsApi.set).mock.calls.map(([patch]) => patch)).toEqual([
+    { rightPanelOpen: true },
+    { rightPanelWidths: { work: 420, code: 600 } }
+  ])
+  vi.mocked(settingsApi.get).mockResolvedValue(SettingsSchema.parse({ ...store.getState().t }))
+  const restarted = createTweakStore()
+  const release = restarted.load()
+  await vi.waitFor(() =>
+    expect(restarted.getState().t).toMatchObject({
+      rightPanelOpen: true,
+      rightPanelWidths: { work: 420, code: 600 }
+    })
+  )
+  release()
 })

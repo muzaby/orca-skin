@@ -11,7 +11,7 @@
 | 작성자 | Claude Code (V1·ΔV2·ΔV3) · Codex (ΔV1 추가 요구) |
 | 일자 | 2026-11-26 |
 | 매핑 | 0330 사용자 피드백(2026-11-26) · 형제 handoff 0331 · PR #656 소유자 리뷰(2026-11-26 — 1차 기준 `3f3646fb`, 2차 기준 `09d8b2ae`) |
-| 상태 | READY — ΔV3가 PR #656 2차 리뷰의 규칙 2건을 정리했다(§21) |
+| 상태 | impl/IN_PROGRESS · r1. 전역 프레임과 하네스 이관을 구현했다. Electron 실측과 통합 회귀를 진행 중이다. |
 | V mode | `Delta V` |
 | 기준 V | 0332 V1 + ΔV1 + ΔV2 (`09d8b2ae`) |
 | 이번 V revision | `ΔV3` — 2차 리뷰 보완: VP-01 누락 기본값(Work 360·Code 520) · 닫힌 패널의 산출물 성공은 `navigate` 일반 규칙의 예외 |
@@ -591,76 +591,135 @@ ChatTile (features/chat/components/ChatTile.tsx — data-side-pane-host 행)
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- D-011~015를 적용했다. 열림과 두 모드 폭은 기존 settings 채널에 저장하고, 세션·화면 기억은 창 안에 둔다. 기존 설정 파일을 읽을 때 누락한 필드만 해당 모드 기본값으로 채운다.
+- 하네스 registry가 화면 내용을 고른다. `ChatTile`의 영속 프레임이 폭·초점·깊이를 소유한다. 프레임이 콘텐츠와 별도로 살아 있어야 출발 층이 사라진 후에도 폭이 줄어든다.
+- 유효 V와 충돌하는 ACTIVE Decision을 발견하지 않았다. 일반·축소 모션 및 부하 예산은 단위 테스트와 별도로 실측했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
+| 01′·04′·11 | EP-1′ 설정 | protocol 기본/부분 쓰기, IPC 타입, Tweaks 기본/로드, 프레임 쓰기 | 6자리 | `settings-store.test.ts` 기본/손상/부분/왕복, `TweakProvider.store.test.ts` 로드/쓰기, `rightPanelStore.test.ts` A→B | false·Work 360·Code 520, 100·2000 복구, 독립 저장 | — |
+| 08·12 | EP-2 사용자 진입 | §8의 15개 UI 동작, 카드, 폭 | 제목/도구/승인/작업/상세/닫기/아티팩트/폭을 같은 store에 연결 | `ChatTitleBar.render`, `Panel.interaction`, `Panel.lifecycle`, `chatStore.panelTiles`, `ArtifactViewer.actions` | 선택한 작업·process·subagent id, 프레임 실제 타일·복귀 초점 | 17자리 각각에 독립적으로 결함을 심는 스윕 |
+| 02′·09·21 | EP-3′ 수명·자동 사건 | 프레임 배치, 구 wrapper, 계약, registry, 두 어댑터, 구 프레임. BEGIN/LOAD/RECV 및 사용자 액션 6종 | `ChatTile > RightPanelFrame`, registry `screen`, 수명 테스트 4쌍. 기존 자동 타일 배치 제거 | `Panel.lifecycle.test.ts` AC2, `Panel.render.test.ts` AC7, `chatStore.panelTiles.test.ts` AC9 | 세션 교체 전후 프레임 동일, 도착 층 교체, 비활성·닫힘 plan_review 무동작 | ChatTile 소유권 테스트에서 backend key 변이 1 red |
+| 03′·06·13·20′ | EP-4″ 스택 | §21 ①~⑨ | ① 닫힘→X, ② 토글 닫기, ③ 기존 층 pop-to, ④ push=`navigateStack`; ⑤ back·⑥ close·⑦ switchSession·⑧ commit(memory)=store; ⑨ 닫힌 산출물→[root,viewer]=`navigateStack` | `rightPanelStore.test.ts`의 E1~E8, AC6, A2/A8/A9 및 `Panel.lifecycle.test.ts` | 지원하지 않는 task→plan 뒤 OpenCode 복귀 시 task, 산출물 뒤로 시 기존 화면과 스크롤 | §3 구현 조건별 소거 스윕 일부 |
+| 04′·05·14 | EP-5 전환 | ① 열기 ② 닫기 ③ 모드·host ④ 드래그 | ①② `framePhase`·프레임의 outgoing/타이머, ③ `targetWidth`, ④ 프레임의 drag/finish | `rightPanelFrameState.test.ts`, Electron `pairedWidth`·`mode-width`·`resize-persistence` | 모드 360/520, host 700 시 460, 축소 모션 즉시 | 일반 모션 실측 및 종료 시점 교란 |
+| 07′·15 | EP-6′ 폐기 | 기준 60파일 421줄. src/scripts 전체 | 구 grid 로직·계약·액션·수명 테스트 대체 | §20-G 명령 0줄. 테스트 fixture에 sentinel을 심어 같은 명령 정확히 1줄 | production·테스트·시나리오 3경로 포함 | — |
+| 10·17·18 | EP-7·8 경계·깊이 | transcript/패널 공통 flex, 양방향 navigation, 중단/세션 이동 | 프레임만 폭 보간, 콘텐츠 층별 transform, 구 층 inert·aria-hidden | `check-right-panel.mjs`, `Panel.lifecycle.test.ts` | 읽기 위치·하단·폭·도착층 x·inactive·원점 버튼 | 읽던 글줄·하단·정/역방향 x 통과. 첫 열기의 중간폭 표본 누락 |
+| 19 | EP-9 앱 전환 | 앱 셸·라우트, 페이지, 공통 UI, 기능별 소유자 | 아래 소유자 표 | `scripts/right-panel/surfaces.tsx`가 실제 컴포넌트를 그리고 계산값을 수집 | 일반/축소별 opacity, sidebar/disclosure 폭·높이, 스위치 thumb 위치 | 각 경로별 실측 및 긴 작업 예산 |
+| 20′ | EP-10 산출물 | 카드 클릭, 활성 검사, 취소, 세션 정리, 검색, 뷰어/닫기 버튼 | 7자리, 카탈로그의 기존 독립 호스트 유지 | `artifactViewerStore.test.ts` A1~A7, `rightPanelStore.test.ts` A2/A8/A9, `Panel.lifecycle.test.ts` | 늦은 완료·실패 시 스택 불변, 정상 완료 시 원 세션에만 push. 재시도 실패 시 뒷면 복귀 | 실제 카드 A2/A6 측정 |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드)
+- §10 밖 운반 자리. `scripts/fixtures/harness-entry/main.tsx`, OpenCode 시나리오·settings mock도 신규 경계로 이관했다.
+- 직전 verify의 고장 이력은 없다. 첫 구현 라운드다.
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
+| VP-01′ | REQUIRED | SELF_PASS | settings-store·TweakProvider·rightPanelStore AC1 | 기본 폭 360 고정 2 red, 세션/열림 적용 뒤집기 9 red |
+| VP-02′ | REQUIRED | SELF_BLOCKED | Panel.lifecycle AC2, Electron switch | ChatTile에 backend key 재도입 1 red. Electron 교체 전수 대기 |
+| VP-03′ | REQUIRED | SELF_PASS | rightPanelStore E1~E8 | fallback 기억 덮어쓰기 4 red |
+| VP-04′ | REQUIRED | SELF_BLOCKED | rightPanelFrameState AC4, Electron mode-width | 기본 폭 2 red, host clamp 제거 1 red. 실기 아래 참조 |
+| VP-05 | REQUIRED | SELF_BLOCKED | Electron pairedWidth-close | 199ms까지 구 층을 유지하고 200ms 후 제거. 즉시 unmount 변이 1 red |
+| VP-06 | REQUIRED | SELF_PASS | rightPanelStore AC6, Panel.lifecycle back·초점 | pop-to 제거 3 red |
+| VP-07′ | REQUIRED | SELF_PASS | §20-G rg와 registry·수명 양성 | 테스트 sentinel 0→1줄 |
+| VP-08 | REQUIRED | SELF_BLOCKED | ChatTitleBar·GitRow·Panel.interaction·chatStore.panelTiles 등 | 17자리 개별 소거 미완 |
+| VP-09 | REQUIRED | SELF_PASS | chatStore.panelTiles AC9, chatReducer 세션/턴 | 닫힌 활성 세션, 열린 비활성 세션, 열린 활성 세션을 비교 |
+| VP-10 | REQUIRED | SELF_BLOCKED | Electron pairedWidth·depth·session-swap, settings 왕복 | 전체 생애 재현 미완 |
+| VP-11 | REQUIRED | SELF_PASS | settings-store AC1 round-trips | 손상 복구 bounds 소거 1 red |
+| VP-12 | REQUIRED | SELF_BLOCKED | Panel.interaction·lifecycle | VP-08의 자리별 스윕 |
+| VP-13 | REQUIRED | SELF_PASS | rightPanelStore AC6 | 기존 스택 pop-to 소거 3 red |
+| VP-14 | REQUIRED | SELF_PASS | rightPanelFrameState phase·targetWidth | host clamp 소거 1 red |
+| VP-15 | REQUIRED | SELF_PASS | §20-G rg | 테스트에 실제 잔여를 심어 1줄 |
+| VP-16 | REGRESSION | SELF_PASS | Panel.lifecycle, ArtifactViewer.actions, ResizableSidePane | 초점·스크롤·가려진 상세·확대 복귀 |
+| VP-17 | REQUIRED | SELF_BLOCKED | Electron pairedWidth·읽던 글줄 | 부하 및 일반 모션 실측 아래 참조 |
+| VP-18 | REQUIRED | SELF_BLOCKED | Electron depth-forward/depth-back | 즉시 교체 변이 미계측 |
+| VP-19 | REQUIRED | SELF_BLOCKED | Electron surface-* | 개별 소유자 및 긴 작업 실측 아래 참조 |
+| VP-20′ | REQUIRED | SELF_BLOCKED | artifactViewerStore A1~A7, rightPanelStore A2/A8/A9 및 Electron artifactOpen | 활성 세션 검사 제거 1 red, 닫힌 산출물 예외 제거 2 red |
+| VP-21 | REQUIRED | SELF_PASS | Panel.render AC7의 두 registry 계약, Panel.lifecycle AC2의 한 프레임 | 선택 증거 없음 |
+
+### EP-9 사용자 조작과 화면 소유자
+
+| 조작/사건 | 전후 | 화면 소유자 | 관측 |
+|---|---|---|---|
+| 경로 선택 | /new, /chat/:id, /projects, /projects/:id, /scheduled, /artifacts, /plugins, /agent, /captures | AppLayout의 route pattern이 바뀔 때 main 진입. 같은 chat route 안에서는 키 유지 | 라우트별 소비 경로 확인. 모든 경로 왕복 실측은 미완 |
+| 시작·로그인·복원 | 부팅 대기→provider 로그인/다음 단계→앱 | BootScreen, FullFrameShell, GateLogin | surface-boot/gate/login-open |
+| nav 접기, 섹션 클릭 | nav 248px→3.5rem, disclosure 본문→0 | Sidebar, SidebarSection. 드래그 동안 transition 비활성 | surface-sidebar-collapse/disclosure-close |
+| 프로젝트·예약·산출물·확장 탭 선택 | 이전 목록→선택 탭 목록 | ProjectsScreen, SchedulesScreen, ArtifactsView, ExtensionsCatalogView의 keyed tabpanel | 앞 세 화면 surface-*-tab. 확장 탭 개별 실측 미완 |
+| 상세·설정 | 목록→상세, 일반→사용량·provider | DetailSidePane, SettingsModal | 상세 surface-detail-open. 설정 탭 개별 실측 미완 |
+| 사용자 토글·메뉴·모달 | 켜짐↔꺼짐, portal 열기↔닫기 | Toggle, Popover, Modal. 상태 정리·입력 즉시 해제 | surface-toggle, surface-popover-*, surface-modal-* |
+| 검색·인증 만료·설치 | 검색 레이어·auth/installer 진입·dismiss | OverlayLayer, SearchModal, AuthExpiredModal, InstallerDialog | surface-search/auth/installer |
+| 알림·개발 패널 | 오류 도착 및 만료, 디버그 접기 | ErrorToastHost 기존 4.6초 키프레임, FloatingPanel의 두 표면 | surface-toast-open/floating-close |
+| 대화 전환·스트리밍 | 열기·신규 토큰·스크롤·깊이 이동 | 0331 history/streaming 및 0332 RightPanelFrame | transcript 스트리밍은 메시지 갱신마다 재생하지 않는다. 읽던 글줄과 긴 작업은 통합 실측에 연결 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
+| Code 기본 폭 360 | VP-01′·04′ | 첫 구현 | settings-store / 2 | 검출 |
+| 세션 open 조건 반전 | VP-01′ | 첫 구현 | rightPanelStore / 9 | 검출 |
+| 범위 검사 제거 | EP-1′ | 첫 구현 | settings-store / 1 | 검출 |
+| host clamp 제거 | VP-04′ | 첫 구현 | rightPanelFrameState / 1 | 검출 |
+| fallback을 기억에 기록 | VP-03′ | 첫 구현 | rightPanelStore / 4 | 검출 |
+| 닫힌 산출물 뿌리 제거 | VP-20′ | 첫 구현 | rightPanelStore / 2 | 검출 |
+| 대상 세션 활성 확인 제거 | VP-20′ | 첫 구현 | artifactViewerStore / 1 | 검출 |
+| 기존 층 pop-to 제거 | VP-13 | 첫 구현 | rightPanelStore / 3 | 검출 |
+| ChatTile 내부 프레임을 backend key로 재생성 | VP-02′ | 첫 구현 | ChatTile.composerLifetime / 1 | 검출 |
+| 닫을 때 outgoing 즉시 제거 | VP-05 | 첫 구현 | Panel.lifecycle AC5 / 1 | 검출 |
+| 테스트에 rightPanelTiles 한 줄 삽입 | VP-07′·15 | 첫 구현 | §20-G 검색 0→1줄 | 검출 |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**. 선택 증거 9개, 인용 이슈 0개, 음성 oracle 1개, 추가 범위 검사 1개로 11실행이다. 하나의 실행을 여러 pair가 공유할 때 한 번만 셌다. 전체 §10 자리별 변이의 잔여에는 전환 클래스·같은 프레임 경계·깊이, EP-2의 17 진입, EP-9의 개별 화면이 있다.
+- **덮개 회귀**. 구 열/행 전용 단언을 폐기하고, 기존 상세 생애·subagent/process 선택·원점 초점·스크롤 위치를 실제 공통 프레임 테스트로 옮겼다. 직전 verify에서 재실행할 고장 이력은 없다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 기존 번역의 뒤로·닫기·확대·폭 조절을 각 층과 separator가 사용한다 | 새 번역 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | drag 취소, observer 해제, 세션별 pending preview 해제는 frame cleanup에 있다 | session-swap 및 가려진 상세 재사용 테스트 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 열 수 없는 산출물 A4/A5는 탐색기 또는 기존 실패 안내로 종료한다 | 스택 변경 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 카드 A1이 opening을 표시하고, 실패 시 기존 toast/reveal로 알린다 | retry 도중 사라진 파일도 위층을 해제한다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 요청 번호와 최초 세션 활성 확인 뒤에만 상세를 연다 | A6/A7, 세션 교체 lifecycle |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | active viewer의 미리보기 모드·확대가 다른 산출물에 가려지면 소실될 수 있다 | 각 층이 viewer snapshot을 보관하고 돌아오면 그 선택을 복원한다 | Panel.lifecycle의 가려진 산출물·retry 해제 |
+| 2 | 세션이 교체될 때 퇴장 층이 이전 내용을 잠깐 노출할 수 있다 | 세션 소유자가 바뀌면 즉시 폐기하고 같은 세션에서만 outgoing 보존 | Panel.lifecycle의 네 교체 쌍 |
+| 3 | 실제 화면 fixture가 구 패널이나 settings를 계속 주입하면 앱 대신 fixture가 실패한다 | harness-entry와 OpenCode scenario/native settings를 같이 이관 | 실제 ChatTile Electron 기동 |
+| 4 | 워크스페이스 전체 테스트와 Chromium의 시간 경쟁으로 150~200ms 사이 표본을 놓쳤다 | 표본 수와 실제 경과를 같이 보고 일반·축소 결과를 분리 기록 | EP-9 표와 실측 로그 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- 별도 Frame 렌더 파일 대신 기존 OpenCode `Panel.lifecycle.test.ts`의 실제 reducer/store/화면 트리에 프레임을 올렸다. pure stack과 store 입력은 `rightPanelStore.test.ts`에서 함께 재현한다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 200ms 정리 타이머가 새 entry를 제거할 수 있다 | AC5/12. Effect cleanup·같은 motion 객체 확인 |
+| 공유 | 같은 viewer store를 catalogue와 여러 층이 구독한다 | AC14. 현재 층과 selection identity가 일치할 때만 반영 |
+| 재진입 | closing 중 다시 열면 이전 outgoing 상태가 남을 수 있다 | AC5/11. reduced 및 재진입 Electron 관측 |
+| 다른 무효화 축 | 같은 모드에 하네스만 바뀌면 잘못된 기억을 선택할 수 있다 | AC2/3. E4~E6와 Claude↔OpenCode 수명 테스트 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| **추가·수정 테스트의 subtree 규칙** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | settings/IPC, TweakProvider, chat store와 reducer, 새 stack/frame, 두 하네스 화면, 진입점과 테스트, UI 모션 소유자, Electron gate, 아키텍처 문서와 인벤토리 |
+| 실행 명령 | `vitest run --maxWorkers=1` 대상 스위트, §20-G rg, `node scripts/check-doc-inventory.mjs --check`, `node scripts/check-test-budgets.mjs`, Electron right-panel gate |
+| **관측한 게이트 산출** | 주요 대상 13파일 106케이스 통과, 네 쌍 수명 9/9. 문서 인벤토리 9항목·127채널·링크 통과. 시간 예산 18 real-git suites·위반 0. 추가 회귀 4파일 42/42(팝업·셸), 4파일 42/42(뷰어·CSS·composer), 2파일 22/22(controls·수명). Chromium 두 모드에서 경계 차이 0px, 읽던 글줄·하단 및 깊이 이동 통과. 일반 모션 첫 열기 중간폭 0건, 50ms 초과 14건(최대 583ms). surface 21개 중 20개 양 모드 통과. 축소 sidebar 목표를 실제 3.5rem으로 교정해 다시 측정 중 |
+| **추가·수정 테스트의 subtree 규칙** | 기준 커밋과 대조해 현재 존재하는 추가·수정 테스트 45개. 직접 exe/native SQLite 사용 검색 0건. 실시간 기한 추가 0, 경계는 fake timer·메모리 fixture와 기존 store 규칙 사용 |
+| V-pair 자기확인 | 위 21행. REQUIRED 20, REGRESSION 1 |
+| 강제 지점 전수 | EP-1′~10 및 EP-4″ 9분기·EP-5 4지점을 위 표에 고정 |
+| **AC 자기보고**(`Criteria-Met`) | 잠정 6/14. AC1·3·6·7·9·10을 단위/동작 및 잔여 검색으로 확인. AC2·4·5·8·11·12·13·14 실기·자리별 남은 근거는 위 표 |
+| **합계 검산** | ✅ 6 · ⚠️ 8 · ❌ 0 = 14 |
+| 블로커 / 역질문 | 설계 결정 요청 없음. 일반 모션/부하와 전체 개별 소유자·적대 검사에 검증 공백 있음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: `r1`
+- 첫 구현으로 이전 verify의 수정 축은 없다.
+- D-011~015, EP-1′·3′·4″·6′·10에 누락 설정·기억 지원 여부·실패 경로·테스트 fixture를 명시했다.
+- 같은 머신에서 통합 CI와 동시에 돌린 Electron의 일반 모션은 중간 프레임 누락과 50ms 이상 작업을 기록했다. 축소 모션에서는 폭·opacity 중간값 0과 목표값 도달을 따로 검사했다.
+- 현재 라운드·impl 턴은 `r1`이다.
 
 ---
 

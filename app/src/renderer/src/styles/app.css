@@ -182,25 +182,6 @@
 
 /* 우측 패널 타일 마운트 연출 — 위치(상/하단) 무관 단일 애니메이션. 형제 제거로 인덱스가
    바뀌어도 재실행되지 않도록 인덱스별 클래스 대신 하나만 쓴다(grow 는 transition-[flex-basis]). */
-@keyframes tile-in {
-  0% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.99);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-@utility animate-tile-in {
-  animation: tile-in 180ms ease-out both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-tile-in {
-    animation: none;
-  }
-}
-
 /* 변경사항 패널의 **depth 전환**(0211 D-065) — 목록 ↔ peek 은 같은 타일 안의 두 화면이라,
    방향이 있어야 "들어갔다/나왔다" 로 읽힌다. 두 연출이 **서로 다른 것**이 계약이다: 한
    클래스를 양쪽에 붙이면 뒤로 갈 때도 앞으로 가는 것처럼 보인다.
@@ -528,4 +509,64 @@
 [data-history-highlight] {
   outline: 2px solid var(--color-rust);
   outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .panel-enter-forward {
+    animation: panel-from-right 200ms ease-out both;
+  }
+  .panel-enter-back {
+    animation: panel-from-left 200ms ease-out both;
+  }
+  .panel-exit-forward {
+    animation: panel-from-left 200ms ease-in reverse both;
+  }
+  .panel-exit-back {
+    animation: panel-from-right 200ms ease-in reverse both;
+  }
+}
+@keyframes panel-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes panel-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@utility animate-surface-in {
+  animation: surface-in 150ms ease-out both;
+}
+@keyframes surface-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-surface-entry] {
+    animation: surface-in 150ms ease-out both;
+  }
+  [data-surface-presence] {
+    transition: opacity 150ms ease-out;
+  }
+  [data-surface-presence='closing'] {
+    opacity: 0;
+    pointer-events: none;
+  }
+  @starting-style {
+    [data-surface-presence='open'] {
+      opacity: 0;
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { RightPanel } from '../../../src/renderer/src/features/chat/components/rightpanel/RightPanel'
+import { RightPanelFrame } from '../../../src/renderer/src/features/chat/harnesses/common/rightpanel/RightPanelFrame'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import '../../../src/renderer/src/styles/app.css'
@@ -311,7 +311,7 @@ export function App(): React.JSX.Element {
               />
             </Routes>
           </div>
-          <RightPanel projectName={projectName} projectPath={projectPath} />
+          <RightPanelFrame projectName={projectName} projectPath={projectPath} />
         </div>
       </div>
     </main>

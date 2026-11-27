@@ -52,7 +52,9 @@ export function AppLayout(): React.JSX.Element {
         <div className="app-frame-body z-0 flex min-h-0 min-w-0">
           <Sidebar {...slots} />
           <main
+            data-surface-entry=""
             className="app-frame-main flex min-h-0 min-w-0 flex-1 flex-col"
+            key={info.pattern}
             data-context="route-target"
           >
             <AppRouter artifactCatalog={artifactCatalog} onDeleteProject={onDeleteProject} />

@@ -66,7 +66,9 @@ vi.mock('../harnesses/opencode/transcript/ScrollController', () => ({
 vi.mock('./ChatTitleBar', () => ({ ChatTitleBar: () => null }))
 vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
 vi.mock('./transcript/TranscriptView', () => ({ TranscriptView: () => null }))
-vi.mock('./rightpanel/RightPanel', () => ({ RightPanel: () => null }))
+vi.mock('../harnesses/common/rightpanel/RightPanelFrame', () => ({
+  RightPanelFrame: () => createElement('div', { 'data-frame-owner-probe': '' })
+}))
 vi.mock('./Composer', async () => {
   const { createElement, useEffect, useState } = await import('react')
   return {
@@ -103,6 +105,8 @@ describe('ChatTile Composer identity', () => {
     const render = (): void =>
       dom!.render(createElement(ChatTile, { backendLabel: fixture.backend, canAbort: true }))
     render()
+    const frame = dom.body.querySelector('[data-frame-owner-probe]')
+    expect(frame).not.toBeNull()
     dom.click(dom.body.querySelector('[data-composer-probe]')!)
     for (const [backend, key] of [
       ['opencode', 'pending'],
@@ -115,6 +119,7 @@ describe('ChatTile Composer identity', () => {
       expect(dom.body.querySelector('[data-composer-probe]')!.textContent).toBe(
         'draft + attachment'
       )
+      expect(dom.body.querySelector('[data-frame-owner-probe]') === frame).toBe(true)
       expect(fixture.mounts).toBe(1)
       expect(fixture.unmounts).toBe(0)
     }

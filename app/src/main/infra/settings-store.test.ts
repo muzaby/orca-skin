@@ -280,3 +280,24 @@ it('moves and removes only user source preferences when a server is renamed or d
     opencode: {}
   })
 })
+
+it.each([
+  [{}, { work: 360, code: 520 }],
+  [{ rightPanelWidths: { work: 410 } }, { work: 410, code: 520 }],
+  [{ rightPanelWidths: { work: 100, code: 2000 } }, { work: 360, code: 520 }]
+])('AC1 settings defaults and bounds %j', (raw, widths) => {
+  expect(new SettingsStore('1.0.0', countingBackend(raw)).getAll()).toMatchObject({
+    rightPanelOpen: false,
+    rightPanelWidths: widths
+  })
+})
+
+it('AC1 round-trips right panel settings', () => {
+  const disk = countingBackend()
+  const settings = new SettingsStore('1.0.0', disk)
+  settings.patch({ rightPanelOpen: true, rightPanelWidths: { work: 410, code: 600 } })
+  expect(new SettingsStore('1.0.0', disk).getAll()).toMatchObject({
+    rightPanelOpen: true,
+    rightPanelWidths: { work: 410, code: 600 }
+  })
+})

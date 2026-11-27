@@ -62,7 +62,7 @@ function SidebarImpl({
     (): number => asideRef.current?.getBoundingClientRect().left ?? 0,
     []
   )
-  const { startResize } = useDragResize({
+  const { startResize, dragging } = useDragResize({
     getOrigin,
     min: SIDEBAR_MIN_WIDTH,
     max: SIDEBAR_MAX_WIDTH,
@@ -76,7 +76,7 @@ function SidebarImpl({
       <>
         <aside
           ref={asideRef}
-          className="app-frame-sidebar effect-primary-elevated relative my-2 ml-2 flex w-14 flex-none flex-col rounded-r6 border border-border bg-sidebar"
+          className="app-frame-sidebar motion-safe:transition-[width] motion-safe:duration-200 effect-primary-elevated relative my-2 ml-2 flex w-14 flex-none flex-col rounded-r6 border border-border bg-sidebar"
           data-behavior="collapsible resizable"
           data-state="collapsed"
         >
@@ -117,8 +117,8 @@ function SidebarImpl({
         ref={asideRef}
         // Claude Code 룩: 사이드바는 배경 위에 떠 있는 라운드 카드. 폭 조절 핸들은
         // 카드 바깥(우측 거터)에 형제로 그려져 카드 내부 border·스크롤바와 겹치지 않는다.
-        className="app-frame-sidebar effect-primary-elevated my-2 ml-2 flex flex-none flex-col overflow-hidden rounded-r6 border border-border bg-sidebar"
-        style={{ width }}
+        className="app-frame-sidebar motion-safe:transition-[width] motion-safe:duration-200 effect-primary-elevated my-2 ml-2 flex flex-none flex-col overflow-hidden rounded-r6 border border-border bg-sidebar"
+        style={{ width, transitionDuration: dragging ? '0ms' : undefined }}
         data-behavior="collapsible resizable"
         data-state="expanded"
       >

@@ -1,9 +1,11 @@
 import { HistoryPanelBoundary } from './HistoryPanelBoundary'
 import type { RightPanelHostConfiguration } from '../../contracts'
-import { useCallback, type ReactNode } from 'react'
+import { PanelBackButton } from './PanelBackButton'
+import { useRightPanelNav } from './panelNavigation'
+import { type ReactNode } from 'react'
 import { PanelCloseButton, PanelExpandButton } from '../../../../../shared/ui/PanelControls'
 import { chatActions, useChatSession } from '../../../store/chatStore'
-import { type RightPanelAgentPolicy, type RightPanelTileId } from '../../../lib/rightPanelTiles'
+import { type RightPanelAgentPolicy, type RightPanelTileId } from '../../../lib/panelTiles'
 import { useI18n, type MessageKey } from '../../../../../shared/i18n'
 
 interface RightPanelTileProps {
@@ -46,11 +48,8 @@ export function RightPanelTile({
     <PanelExpandButton expanded={expanded} targetLabel={label} onClick={onToggleExpand} />
   )
 
-  const remove = useCallback((): void => {
-    if (onClose) return onClose()
-    if (expanded) onToggleExpand?.()
-    chatActions.removeRightPanelTile(id)
-  }, [expanded, id, onToggleExpand, onClose])
+  const nav = useRightPanelNav()
+  const remove = onClose ?? nav?.close ?? chatActions.removeRightPanelTile
 
   return (
     <div
@@ -58,12 +57,19 @@ export function RightPanelTile({
       data-context={id}
       data-harness={backend}
     >
-      {isWorkTask && <div className="absolute right-2 top-1 z-10">{expandButton}</div>}
+      {(isWorkTask || isOpenCodeTask) && (
+        <div className="flex shrink-0 items-center justify-end gap-1 px-2 py-1">
+          <PanelBackButton />
+          {expandButton}
+          <PanelCloseButton data-panel-close="" onClick={remove} />
+        </div>
+      )}
       {!isWorkTask && !isOpenCodeTask && (
         <div
           data-diff-tile-header={isDiff || undefined}
           className={`app-frame-tile-header flex shrink-0 items-center ${isDiff ? 'h-[32px] gap-[2px] px-[4px] font-sans' : 'gap-2 border-b border-t5 px-3 py-2'}`}
         >
+          <PanelBackButton />
           {headerContent ?? (
             <span
               className={`min-w-0 truncate text-[13px] font-semibold tracking-tight ${appearance.title}`}

@@ -61,14 +61,7 @@ import {
 import { patchLinesToDiffLines } from '../lib/diffPatchLines'
 import { readGitPatchCache, writeGitPatchCache, type GitPatchCache } from '../lib/gitPatchCache'
 import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
-import {
-  addTileColumnMajor,
-  columnsContain,
-  removeTileFromColumns,
-  rightPanelColumnsForAgent,
-  type RightPanelColumns
-} from '../lib/rightPanelLayout'
-import { rightPanelPolicy, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { rightPanelTarget, type RightPanelTileId } from '../lib/panelTiles'
 import { rememberMessageEdit } from '../lib/segmentCache'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
 import {
@@ -270,7 +263,6 @@ function resetGitReview(
 export interface ChatState extends HeldParts {
   agentKind: import('../../../../../shared/agent-kind').AgentKind
   agentKindLocked: boolean
-  agentPanelInitialized: boolean
   sessionId: string | null
   // 사이드바 메타 (또는 LoadedSession.title) 에서 즉시 채워지는 세션 제목. 사용자가
   // 세션을 클릭한 순간부터 헤더에 표시되며, 메시지 도착 시점에 한 번 더 reconcile.
@@ -388,15 +380,8 @@ export interface ChatState extends HeldParts {
   // 승인/수정/거부 시 null. (백엔드 중립 — SDK 를 모름.) 우측 계획 타일의 액션바
   // (승인/수정/거부) 노출 여부 + requestId 의 소스.
   pendingPlanReview: (PlanReviewRequest & { providerRequest?: ProviderApprovalRequest }) | null
-  // 우측 패널 안의 활성 타일. 열 구조(열당 최대 ROWS_PER_COL)를 직접 들고 있어 제거 시
-  // 다른 열로 리플로우되지 않는다(rightPanelLayout 참고). 추가는 column-major 로 채운다.
-  rightPanelTiles: RightPanelColumns
   // 우측 패널 타일별 사용자 라벨 오버라이드. 값이 없으면 tile registry 의 기본 라벨을 쓴다.
   rightPanelTileLabels: Partial<Record<RightPanelTileId, string>>
-  // 우측 패널 열별 폭(px). 분리선 드래그로 조절, clamp 280–640.
-  rightPanelColWidths: number[]
-  // 우측 패널 열 내부의 상단 행 비율. 행 분리선 드래그로 조절, clamp 0.2–0.8.
-  rightPanelRowSplits: number[]
   // 작업 경로의 git 스냅샷 — **어느 cwd 의 값인지와 함께** 들고 있다(`statusForCwd`).
   // 컴포저 git 행과 diff 타일 헤더 둘이 읽으므로 세션 상태가 소유한다(0206 D-020).
   // null = 아직 조회 전. `useGitRowStatus` 만 채운다.
@@ -522,7 +507,6 @@ function activityOf(snapshot: ChatActivityState): ChatActivityState {
 export const initialChatState: ChatState = {
   agentKind: DEFAULT_AGENT_KIND,
   agentKindLocked: false,
-  agentPanelInitialized: false,
   sessionId: null,
   title: null,
   pendingProjectId: null,
@@ -562,10 +546,7 @@ export const initialChatState: ChatState = {
   permissionModeError: false,
   permissionModeExplicit: false,
   pendingPlanReview: null,
-  rightPanelTiles: [],
   rightPanelTileLabels: {},
-  rightPanelColWidths: [],
-  rightPanelRowSplits: [],
   gitStatus: null,
   gitSnapshot: {
     summary: null,
@@ -604,12 +585,6 @@ export const initialChatState: ChatState = {
 }
 
 // 우측 패널 열 폭/행 분할 clamp 범위.
-export const PANEL_MIN_WIDTH = 280
-export const PANEL_MAX_WIDTH = 640
-export const PANEL_DEFAULT_WIDTH = 360
-export const PANEL_MIN_ROW_SPLIT = 0.2
-export const PANEL_MAX_ROW_SPLIT = 0.8
-export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 
 // 턴 종료 공통 리셋 — inflight 와 턴 스냅샷(turnProviderKey 0119 · turnStartedAt)·재시도 배너를
 // 한 곳에서 내린다. 종료 경로(telemetry/turn.aborted/error/CANCEL_CHAT)가 늘거나 per-turn 필드가
@@ -757,10 +732,7 @@ export type ChatAction =
   // 위험 도구 승인 카드 응답(허용/세션허용/거부) 후 게이트 제거.
   | { type: 'RESOLVE_TOOL_APPROVAL'; approvalId: string }
   // 우측 패널 타일 활성 상태/라벨/레이아웃 조작.
-  | { type: 'TOGGLE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
-  | { type: 'SET_RIGHT_PANEL_TILE_ACTIVE'; id: RightPanelTileId; active: boolean }
   | { type: 'RENAME_RIGHT_PANEL_TILE'; id: RightPanelTileId; label: string }
-  | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
   | { type: 'SET_GIT_STATUS'; snapshot: BranchSnapshot }
   | {
       type: 'RECEIVE_GIT_PATCH'
@@ -810,8 +782,6 @@ export type ChatAction =
   | { type: 'TASK_STOP_REQUESTED'; toolUseId: string }
   | { type: 'TASK_STOP_FAILED'; toolUseId: string; detail?: string }
   | { type: 'ACKNOWLEDGE_SETTLED_TASKS' }
-  | { type: 'SET_RIGHT_PANEL_COL_WIDTH'; col: number; width: number }
-  | { type: 'SET_RIGHT_PANEL_ROW_SPLIT'; col: number; frac: number }
 
 // 현재 assistant 메시지에 파트를 누적한다. 마지막 메시지가 user 면(턴 시작) 새 assistant
 // 메시지를 만들고, assistant 면 그 parts 끝에 붙인다 — 한 턴의 reasoning/text/tool_*/error
@@ -1020,25 +990,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           },
           action.kind
         ),
-        permissionModeError: false,
-        rightPanelTiles: rightPanelColumnsForAgent(
-          state.rightPanelTiles,
-          action.kind,
-          state.backend
-        ),
-        rightPanelColWidths: [],
-        rightPanelRowSplits: []
+        permissionModeError: false
       }
     case 'BEGIN_TURN':
       return {
         ...state,
         agentKindLocked: true,
-        agentPanelInitialized: true,
-        rightPanelTiles:
-          rightPanelPolicy(state.agentKind, state.backend).initialTile &&
-          !state.agentPanelInitialized
-            ? activateTile(state, rightPanelPolicy(state.agentKind, state.backend).initialTile!)
-            : rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind, state.backend),
         sendCount: state.sendCount + 1,
         openCodeTodoTurnStartIndex: state.messages.length,
         inflight: true,
@@ -1423,8 +1380,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 ...ev.action.request,
                 ...(ev.action.providerRequest ? { providerRequest: ev.action.providerRequest } : {})
               },
-              planContent: ev.action.request.plan,
-              rightPanelTiles: activateTile(state, 'plan')
+              planContent: ev.action.request.plan
             }
           }
           // tool_approval — 위험 도구 실행 승인 게이트. approvalId 로 응답을 라우팅한다.
@@ -1786,8 +1742,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 modelAlias: null,
                 modelResolved: null,
                 harnessAgent: undefined,
-                modelVariant: undefined,
-                rightPanelTiles: rightPanelColumnsForAgent([], agentKind, action.session.backend)
+                modelVariant: undefined
               }
             : {}),
           loadingSession: false,
@@ -1817,19 +1772,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           agentKind
         ),
         agentKindLocked: true,
-        agentPanelInitialized: true,
-        rightPanelTiles: rightPanelColumnsForAgent(
-          state.agentPanelInitialized && state.sessionId === action.session.id
-            ? state.rightPanelTiles
-            : rightPanelPolicy(agentKind, action.session.backend).initialTile
-              ? activateTile(
-                  { ...state, agentKind, backend: action.session.backend, rightPanelTiles: [] },
-                  rightPanelPolicy(agentKind, action.session.backend).initialTile!
-                )
-              : [],
-          agentKind,
-          action.session.backend
-        ),
         ...(action.session.backend === 'opencode' && state.sessionId === action.session.id
           ? {
               selectedSubagentTaskId: state.selectedSubagentTaskId,
@@ -1966,7 +1908,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         harnessExplicitlySelected:
           state.harnessExplicitlySelected || action.explicitHarness === true,
         agentKind: kind,
-        rightPanelTiles: rightPanelColumnsForAgent(state.rightPanelTiles, kind, backend),
         harnessAgent: backend !== state.backend ? undefined : state.harnessAgent,
         modelVariant: selectionChanged ? undefined : state.modelVariant,
         providerKey: action.providerKey,
@@ -2048,42 +1989,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         )
       }
 
-    case 'TOGGLE_RIGHT_PANEL_TILE': {
-      const target = rightPanelTarget(action.id, state.agentKind, state.backend)
-      if (!target) return state
-      return columnsContain(state.rightPanelTiles, target)
-        ? removeTile(state, target)
-        : { ...state, rightPanelTiles: activateTile(state, target) }
-    }
-
-    case 'SET_RIGHT_PANEL_TILE_ACTIVE':
-      return action.active
-        ? { ...state, rightPanelTiles: activateTile(state, action.id) }
-        : removeTile(
-            state,
-            rightPanelTarget(action.id, state.agentKind, state.backend) ?? action.id
-          )
-
     case 'RENAME_RIGHT_PANEL_TILE': {
       const label = action.label.trim()
       const nextLabels = { ...state.rightPanelTileLabels }
       if (label) nextLabels[action.id] = label
       else delete nextLabels[action.id]
       return { ...state, rightPanelTileLabels: nextLabels }
-    }
-
-    case 'REMOVE_RIGHT_PANEL_TILE': {
-      const nextLabels = { ...state.rightPanelTileLabels }
-      delete nextLabels[action.id]
-      const removed = removeTile(state, action.id)
-      // 타일마다 자기 선택만 비운다(0204 §10 EP-12) — 한 분기로 합치면 한 타일을 닫을 때
-      // 다른 타일의 상세까지 접힌다.
-      return {
-        ...removed,
-        rightPanelTileLabels: nextLabels,
-        ...(['task', 'plan'].includes(action.id) ? { selectedTaskKey: null } : {}),
-        ...(action.id === 'subagent' ? { selectedSubagentTaskId: null } : {})
-      }
     }
 
     case 'SET_GIT_STATUS':
@@ -2148,7 +2059,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...next,
         activeDiffRequirementId: item.id,
         diffRequirementSelectionVersion: state.diffRequirementSelectionVersion + 1,
-        rightPanelTiles: activateTile(state, 'diff'),
         gitSnapshot: {
           ...next.gitSnapshot,
           expandedFiles: expandedFiles.includes(item.anchor.filePath)
@@ -2308,8 +2218,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         selectedTaskKey: action.key,
-        unseenSettledTaskKeys: [],
-        rightPanelTiles: activateTile(state, 'task')
+        unseenSettledTaskKeys: []
       }
 
     // 백그라운드 작업 타일의 선택 — `selectedTaskKey` 를 건드리지 않는다(EP-12).
@@ -2319,11 +2228,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'OPEN_SUBAGENT_TASK':
       return {
         ...state,
-        selectedSubagentTaskId: action.toolRunId,
-        rightPanelTiles: activateTile(
-          state,
-          HARNESS_CAPABILITIES[state.backend ?? 'claude'].subagentTile
-        )
+        selectedSubagentTaskId: action.toolRunId
       }
 
     case 'SELECT_PROCESS_TOOL':
@@ -2335,8 +2240,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return rightPanelTarget('process', state.agentKind, state.backend)
         ? {
             ...state,
-            selectedProcessToolId: action.toolRunId,
-            rightPanelTiles: activateTile(state, 'process')
+            selectedProcessToolId: action.toolRunId
           }
         : state
 
@@ -2420,20 +2324,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return state.unseenSettledTaskKeys.length === 0
         ? state
         : { ...state, unseenSettledTaskKeys: [] }
-
-    case 'SET_RIGHT_PANEL_COL_WIDTH': {
-      if (action.col < 0) return state
-      const nextWidths = state.rightPanelColWidths.slice()
-      nextWidths[action.col] = clampPanelWidth(action.width)
-      return { ...state, rightPanelColWidths: nextWidths }
-    }
-
-    case 'SET_RIGHT_PANEL_ROW_SPLIT': {
-      if (action.col < 0) return state
-      const nextSplits = state.rightPanelRowSplits.slice()
-      nextSplits[action.col] = clampPanelRowSplit(action.frac)
-      return { ...state, rightPanelRowSplits: nextSplits }
-    }
   }
 }
 
@@ -2469,43 +2359,3 @@ function markCompletedAgentTask(
     ? state.unseenSettledTaskKeys
     : [...state.unseenSettledTaskKeys, key]
 }
-
-// 타일 제거 — 열 구조에서 해당 타일만 떼어낸다. 그 결과 열이 비면 열을 드롭하면서, 열 인덱스를
-// 키로 쓰는 폭(rightPanelColWidths)·행분할(rightPanelRowSplits) 도 같은 인덱스에서 splice 해
-// 정합을 맞춘다(열이 2→1 로 줄 때는 열이 유지되므로 그대로).
-// 타일 활성화의 유일한 통로 (0205 §10 EP-01). 정지된 타일은 어느 경로로도 열에 들어가지
-// 않는다 — 무변경은 참조를 그대로 돌려주므로 `addTileColumnMajor` 의 중복 처리와 동형이다.
-//
-// **reducer 가 `addTileColumnMajor` 를 직접 부르지 않는다**: 지점이 5곳이라 한 곳만 막으면
-// 나머지로 정지가 뚫리고, 대표 경로 테스트는 그대로 통과한다. 게이트는 여기 하나다.
-function activateTile(state: ChatState, id: RightPanelTileId): RightPanelColumns {
-  const cols = rightPanelColumnsForAgent(state.rightPanelTiles, state.agentKind, state.backend)
-  const target = rightPanelTarget(id, state.agentKind, state.backend)
-  return target ? addTileColumnMajor(cols, target) : cols
-}
-
-function removeTile(state: ChatState, id: RightPanelTileId): ChatState {
-  const { columns, removedCol } = removeTileFromColumns(state.rightPanelTiles, id)
-  const clearedSelection =
-    state.backend === 'opencode'
-      ? {
-          ...(id === 'process' ? { selectedProcessToolId: null } : {}),
-          ...(id === 'subagent' ? { selectedSubagentTaskId: null } : {})
-        }
-      : {}
-  if (columns === state.rightPanelTiles && Object.keys(clearedSelection).length === 0) return state
-  if (removedCol === null) return { ...state, ...clearedSelection, rightPanelTiles: columns }
-  return {
-    ...state,
-    ...clearedSelection,
-    rightPanelTiles: columns,
-    rightPanelColWidths: state.rightPanelColWidths.filter((_, i) => i !== removedCol),
-    rightPanelRowSplits: state.rightPanelRowSplits.filter((_, i) => i !== removedCol)
-  }
-}
-
-const clampPanelWidth = (n: number): number =>
-  Math.max(PANEL_MIN_WIDTH, Math.min(PANEL_MAX_WIDTH, Math.round(n)))
-
-const clampPanelRowSplit = (n: number): number =>
-  Math.max(PANEL_MIN_ROW_SPLIT, Math.min(PANEL_MAX_ROW_SPLIT, n))

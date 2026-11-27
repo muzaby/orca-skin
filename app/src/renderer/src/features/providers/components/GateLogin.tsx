@@ -53,7 +53,10 @@ export function GateLogin({
   const [authKind, setAuthKind] = useState<ProviderAuthKind | null>(null)
 
   return (
-    <div className="flex w-full max-w-[360px] flex-col items-center gap-7 px-6">
+    <div
+      data-surface-entry=""
+      className="flex w-full max-w-[360px] flex-col items-center gap-7 px-6"
+    >
       <h1 className="flex flex-col items-center gap-1 text-center leading-none">
         <span className="text-5xl font-bold tracking-tight text-ink">{PRODUCT_DISPLAY_NAME}</span>
         <span className="whitespace-nowrap text-sm font-semibold uppercase tracking-[0.15em]">
@@ -85,7 +88,7 @@ export function GateLogin({
           <p className="mb-3 text-center text-[12.5px] text-ink2">{tr('gate.dailyRelogin')}</p>
         )}
         {failure && (
-          <p role="alert" className="mb-3 text-center text-[12.5px] text-bad">
+          <p data-surface-entry="" role="alert" className="mb-3 text-center text-[12.5px] text-bad">
             {failure.message}
           </p>
         )}
@@ -140,6 +143,7 @@ function GateStepForm({
     <>
       {fields.length > 0 && (
         <form
+          data-surface-entry=""
           className="mb-4"
           onSubmit={(e) => {
             e.preventDefault()

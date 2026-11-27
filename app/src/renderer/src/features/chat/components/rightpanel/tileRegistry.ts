@@ -1,4 +1,4 @@
-import type { RightPanelTileId } from '../../lib/rightPanelTiles'
+import type { RightPanelTileId } from '../../lib/panelTiles'
 import type { Backend } from '../../../../../../shared/ipc'
 import { harnessRightPanel } from '../../harnesses/registries/rightpanel'
 import type { RightPanelTileRegistration } from '../../harnesses/contracts'

@@ -1,14 +1,18 @@
-import type { AgentEnvironment } from '../../../src/shared/ipc'
+import { DEFAULT_UPDATE_CHECK, type AgentEnvironment } from '../../../src/shared/ipc'
 import { emptyBackgroundState } from '../../../src/shared/background-task'
 import { useAgentStore } from '../../../src/renderer/src/shared/stores/agentStore'
 import { useBackendStore } from '../../../src/renderer/src/features/backend/store/backendStore'
 
 export const nativeCalls: { operation: string; args: unknown[] }[] = []
 let settings = {
+  accountInstructions: '',
+  scheduler: { updateCheck: DEFAULT_UPDATE_CHECK },
   theme: 'white',
   uiLocale: 'ko',
   transcriptTextSize: 'medium',
   transcriptWidth: 'medium',
+  rightPanelOpen: false,
+  rightPanelWidths: { work: 360, code: 520 },
   sidebarCollapsed: false,
   sidebarWidth: 248,
   appFont: 'sans',
@@ -52,6 +56,7 @@ async function call(namespace: string, method: string, args: unknown[]): Promise
           : [{ id: 'fixture', variants: ['high', 'low'] }]
     }
   }
+  if (namespace === 'session' && method === 'globalExtensions') return { items: [] }
   if (namespace === 'settings') {
     if (method === 'set') settings = { ...settings, ...(args[0] as object) }
     return settings

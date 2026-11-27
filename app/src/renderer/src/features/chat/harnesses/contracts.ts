@@ -140,34 +140,33 @@ export interface ComposerModule extends ComposerInputPresentation {
 }
 
 export interface RightPanelTileRegistration {
-  id: import('../lib/rightPanelTiles').RightPanelTileId
+  id: import('../lib/panelTiles').RightPanelTileId
   defaultLabelKey: MessageKey
   Content: ComponentType
   HeaderActions?: ComponentType
-  HeaderContent?: ComponentType<import('../lib/rightPanelTiles').RightPanelHeaderProps>
+  HeaderContent?: ComponentType<import('../lib/panelTiles').RightPanelHeaderProps>
 }
 
 export interface RightPanelHostConfiguration {
   backend: Backend
   appearance: RightPanelAppearance
-  tileById: (id: import('../lib/rightPanelTiles').RightPanelTileId) => RightPanelTileRegistration
+  tileById: (id: import('../lib/panelTiles').RightPanelTileId) => RightPanelTileRegistration
 }
 
-export interface RightPanelHostProps {
+export interface PanelScreenProps {
+  layer: Exclude<import('../lib/rightPanelStack').PanelEntry, { kind: 'artifact' }>
+  configuration: RightPanelHostConfiguration
+  panelPolicy: import('../lib/panelTiles').RightPanelAgentPolicy
   projectName?: string | null
   projectPath?: string | null
-  className?: string
-  onExpandedChange?: (sessionKey: string, expanded: boolean) => void
-  configuration: RightPanelHostConfiguration
-  panelPolicy: import('../lib/rightPanelTiles').RightPanelAgentPolicy
-  layout: import('../lib/rightPanelLayout').RightPanelLayout
+  expanded: boolean
+  onToggleExpand: () => void
 }
 
 export interface RightPanelModule {
-  Panel: ComponentType<RightPanelHostProps>
+  screen: ComponentType<PanelScreenProps>
   configuration: RightPanelHostConfiguration
   tiles: readonly RightPanelTileRegistration[]
-  resetBySession: boolean
 }
 
 export interface ComposerChipProps {

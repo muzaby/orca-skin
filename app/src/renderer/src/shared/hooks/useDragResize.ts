@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export interface UseDragResizeOptions {
   // 드래그 시작 시점에 기준 좌표 (컨테이너의 left/top) 를 측정. 측정 element 의 ref 를
@@ -26,7 +26,9 @@ const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.m
 // - 소유 컴포넌트가 끌기 중 unmount 되면 취소다 — 예약 프레임을 취소하고 리스너를 해제하며 남은 값은 버린다.
 export function useDragResize(opts: UseDragResizeOptions): {
   startResize: (e: React.MouseEvent) => void
+  dragging: boolean
 } {
+  const [dragging, setDragging] = useState(false)
   const { getOrigin, min, max, disabled, invert, axis = 'x', onChange } = opts
   // 진행 중 끌기 하나 — 정상 종료(finish)와 취소(cancel)를 갖는다.
   const dragRef = useRef<{ finish: () => void; cancel: () => void } | null>(null)
@@ -39,6 +41,7 @@ export function useDragResize(opts: UseDragResizeOptions): {
       if (disabled) return
       e.preventDefault()
       dragRef.current?.cancel()
+      setDragging(true)
       const origin = getOrigin()
       let pending: number | null = null
       let frame: number | null = null
@@ -66,6 +69,7 @@ export function useDragResize(opts: UseDragResizeOptions): {
       }
       // ③⑥ 정상 종료 — 남은 값 즉시 1회 반영 → 예약 취소 → 리스너 해제.
       function finish(): void {
+        setDragging(false)
         if (pending !== null) {
           const value = pending
           pending = null
@@ -86,5 +90,5 @@ export function useDragResize(opts: UseDragResizeOptions): {
     [getOrigin, min, max, disabled, invert, axis, onChange]
   )
 
-  return { startResize }
+  return { startResize, dragging }
 }

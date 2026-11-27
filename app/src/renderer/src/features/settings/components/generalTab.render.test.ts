@@ -8,6 +8,8 @@ const values: Tweaks = {
   theme: 'white',
   transcriptTextSize: 'medium',
   transcriptWidth: 'medium',
+  rightPanelOpen: false,
+  rightPanelWidths: { work: 360, code: 520 },
   sidebarCollapsed: false,
   sidebarWidth: 248,
   appFont: 'sans',

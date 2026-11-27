@@ -4,7 +4,7 @@ import { useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { gitStatusForCwd } from '../../harnesses/common/composer/branchChipState'
 import { agentUiPolicy } from '../../lib/agentPresentation'
-import { columnsContain } from '../../lib/rightPanelLayout'
+import { useTopPanelTile } from '../../store/rightPanelStore'
 
 import {
   COMPOSER_PANEL_ICON_SIZE,
@@ -133,7 +133,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
   const agentKind = useChatSession((s) => s.agentKind)
   useGitSnapshot(sessionStarted ? cwd : null, sessionStarted ? sessionId : null)
   const status = useChatSession(gitStatusForCwd)
-  const tiles = useChatSession((s) => s.rightPanelTiles)
+  const top = useTopPanelTile()
   const worktree = useChatSession((s) => s.worktree)
   // 변경량은 diff 요약 합계다(ΔV1 D-025) — 우측 패널과 같은 값을 읽는다.
   const totals = useChatSession((s) => s.gitSnapshot.summary?.totals ?? null)
@@ -147,7 +147,7 @@ export function GitRow({ cwd, sessionStarted }: GitRowProps): React.JSX.Element 
       identityGeneration={JSON.stringify([tick, refreshTick])}
       key={JSON.stringify([sessionId, cwd])}
       view={view}
-      diffOpen={columnsContain(tiles, 'diff')}
+      diffOpen={top === 'diff'}
       onToggleDiff={() => chatActions.toggleRightPanelTile('diff')}
       onClose={chatActions.closeGitRow}
       canOpenDiff={agentUiPolicy(agentKind).composer.showGitRow}

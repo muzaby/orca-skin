@@ -1,3 +1,4 @@
+vi.mock('../store/rightPanelStore', () => ({ useTopPanelTile: () => null }))
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -24,7 +25,6 @@ const fixture = vi.hoisted(() => ({
     projectId: null,
     worktree: null,
     messages: [],
-    rightPanelTiles: [],
     rightPanelTileLabels: {}
   }
 }))

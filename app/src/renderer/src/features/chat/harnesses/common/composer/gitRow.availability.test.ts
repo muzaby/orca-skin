@@ -1,3 +1,4 @@
+vi.mock('../../../store/rightPanelStore', () => ({ useTopPanelTile: () => 'diff' }))
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
@@ -35,8 +36,7 @@ beforeEach(() => {
     gitStatus: {
       cwd: '/repo',
       status: { isRepo: true, root: '/repo', branch: 'main', detached: false }
-    },
-    rightPanelTiles: [{ id: 'diff-column', tiles: ['diff'] }]
+    }
   }
 })
 describe('복원된 세션의 composer diff 버튼', () => {

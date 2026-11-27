@@ -16,12 +16,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 import type { GitDiffPatch, GitDiffSummary, GitStatus } from '../../../../../../../shared/ipc'
-import {
-  DEFAULT_DIFF_VIEW,
-  PANEL_DEFAULT_WIDTH,
-  PANEL_MAX_WIDTH,
-  type DiffViewOptions
-} from '../../../reducer/chatReducer'
+import { DEFAULT_DIFF_VIEW, type DiffViewOptions } from '../../../reducer/chatReducer'
 import { ALL_CHANGES, type DiffComparison } from './diffComparison'
 
 /** 세션 시작 브랜치는 `main`, 지금 체크아웃된 브랜치는 `feature-x` — 두 값이 달라야 부재가 뜻을 갖는다. */
@@ -73,7 +68,7 @@ let fixture: Fixture = {
   comparison: ALL_CHANGES,
   sidebarVisible: false,
   view: DEFAULT_DIFF_VIEW,
-  colWidth: PANEL_DEFAULT_WIDTH,
+  colWidth: 520,
   expanded: false,
   status: gitStatus
 }
@@ -83,8 +78,7 @@ vi.mock('../../../store/chatStore', () => ({
     setDiffSidebarVisible: vi.fn(),
     setDiffComparison: vi.fn(),
     setDiffViewOption: vi.fn(),
-    setAllDiffFilesExpanded: vi.fn(),
-    setRightPanelColWidth: vi.fn()
+    setAllDiffFilesExpanded: vi.fn()
   },
   useChatSession: (select: (state: unknown) => unknown) =>
     select({
@@ -98,12 +92,7 @@ vi.mock('../../../store/chatStore', () => ({
         view: fixture.view
       },
       cwd: '/repo',
-      gitStatus: { cwd: '/repo', status: fixture.status },
-      rightPanelTiles: [
-        { id: 'col-a', tiles: ['task'] },
-        { id: 'col-b', tiles: ['diff'] }
-      ],
-      rightPanelColWidths: [PANEL_DEFAULT_WIDTH, fixture.colWidth]
+      gitStatus: { cwd: '/repo', status: fixture.status }
     })
 }))
 
@@ -117,7 +106,7 @@ function render(patchFixture: Partial<Fixture> = {}): string {
     comparison: ALL_CHANGES,
     sidebarVisible: false,
     view: DEFAULT_DIFF_VIEW,
-    colWidth: PANEL_DEFAULT_WIDTH,
+    colWidth: 520,
     expanded: false,
     status: gitStatus,
     ...patchFixture
@@ -230,8 +219,8 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
   // **속성을 지목해 센다**(r2 검증 D17). 같은 문자열이 `title` 에도 실려 있어 문구만 찾으면
   // `aria-label` 을 통째로 지운 변이가 green 이다 — AT-52 가 이름 붙인 것은 접근성 이름이다.
   it('열 너비와 무관하게 transcript를 덮은 상태에서만 되돌리는 라벨이다', () => {
-    const wide = render({ colWidth: PANEL_MAX_WIDTH, expanded: false })
-    const narrow = render({ colWidth: PANEL_DEFAULT_WIDTH, expanded: true })
+    const wide = render({ colWidth: 960, expanded: false })
+    const narrow = render({ colWidth: 520, expanded: true })
 
     // 키가 그대로 새어 나오면 카탈로그를 지나지 않은 것이다.
     expect(wide).not.toContain('chat.rightpanel.diff')
@@ -250,10 +239,10 @@ describe('`↗` 라벨은 카탈로그로 해석된다 (AT-52)', () => {
       return button.match(/<path d="([^"]+)"/)?.[1] ?? ''
     }
 
-    expect(iconPath(render({ colWidth: PANEL_DEFAULT_WIDTH }))).toBe(
+    expect(iconPath(render({ colWidth: 520 }))).toBe(
       'M120-120v-320h80v184l504-504H520v-80h320v320h-80v-184L256-200h184v80H120Z'
     )
-    expect(iconPath(render({ colWidth: PANEL_DEFAULT_WIDTH, expanded: true }))).toBe(
+    expect(iconPath(render({ colWidth: 520, expanded: true }))).toBe(
       'm136-80-56-56 264-264H160v-80h320v320h-80v-184L136-80Zm344-400v-320h80v184l264-264 56 56-264 264h184v80H480Z'
     )
   })

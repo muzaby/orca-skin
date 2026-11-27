@@ -1,3 +1,4 @@
+import { panelActions, useRightPanelStore } from './rightPanelStore'
 import { userMessageId } from '../../../../../shared/message-id'
 // chatStore 의 이벤트 라우팅(델타 → live 슬라이스 / 커밋 → reducer / sessionId 키 라우팅)
 // 단위 테스트. IPC(window.oo)를 건드리지 않는 경로만 다룬다 — send/loadSession 등 액션과
@@ -735,6 +736,7 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
   })
 
   it('selection opens the matching scope/file without invalidating the submitted snapshot', () => {
+    panelActions.switchSession({ key: 's', kind: 'code', backend: 'claude' }, false)
     const item = { ...requirement('selected'), commitSha: 'commit-a' }
     chatActions.addDiffRequirement(item)
     const snapshot = chatActions.captureDiffRequirementSnapshot()
@@ -742,9 +744,7 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
     expect(entry().session.activeDiffRequirementId).toBe(item.id)
     expect(entry().session.gitSnapshot.comparison).toEqual({ kind: 'commit', sha: 'commit-a' })
     expect(entry().session.gitSnapshot.expandedFiles).toContain(item.anchor.filePath)
-    expect(entry().session.rightPanelTiles.some((column) => column.tiles.includes('diff'))).toBe(
-      true
-    )
+    expect(useRightPanelStore.getState().stack.at(-1)).toMatchObject({ id: 'diff' })
     const version = entry().session.diffRequirementSelectionVersion
     chatActions.selectDiffRequirement(item.id)
     expect(entry().session.diffRequirementSelectionVersion).toBe(version + 1)

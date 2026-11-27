@@ -213,3 +213,40 @@ describe('viewer selection and request lifetime', () => {
     expect(errorToastStore.getState().toasts).toEqual([])
   })
 })
+
+it('AC14 A1-A7 allocate only the latest ready result while its initiating session is active', async () => {
+  const first = deferred(),
+    second = deferred()
+  let active = true
+  const open = vi.fn()
+  const target = { active: () => active, open }
+  preview.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+  const old = openArtifactViewer('key', 's', ref, undefined, target)
+  const latest = openArtifactViewer(
+    'key',
+    's',
+    { ...ref, publicationId: 'next' },
+    undefined,
+    target
+  )
+  expect(useArtifactViewerStore.getState().opening?.publicationId).toBe('next')
+  expect(open).not.toHaveBeenCalled()
+  first.resolve(ready)
+  await old
+  expect(open).not.toHaveBeenCalled()
+  second.resolve(ready)
+  await latest
+  expect(open).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ artifact: expect.objectContaining({ publicationId: 'next' }) })
+  )
+  active = false
+  await openArtifactViewer('key', 's', ref, undefined, target)
+  expect(open).toHaveBeenCalledTimes(1)
+  active = true
+  preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'missing' })
+  await openArtifactViewer('key', 's', ref, undefined, target)
+  preview.mockResolvedValueOnce({ state: 'unavailable', reason: 'unsupported-format' })
+  await openArtifactViewer('key', 's', ref, undefined, target)
+  expect(reveal).toHaveBeenCalled()
+  expect(open).toHaveBeenCalledTimes(1)
+})

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useRef, useState } from 'react'
 import { HARNESS_CAPABILITIES } from '../../../../../shared/harness'
 import { reportError } from '../../../shared/errors'
 import { useI18n } from '../../../shared/i18n'
@@ -8,7 +8,7 @@ import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import { partsText } from '../lib/parts'
-import { flattenColumns, rightPanelColumnsForAgent } from '../lib/rightPanelLayout'
+import { useTopPanelTile } from '../store/rightPanelStore'
 import {
   rightPanelMenuTileDefinitionsForAgent,
   rightPanelPolicy,
@@ -16,7 +16,7 @@ import {
   showsUnseenTaskBadge,
   SUSPENDED_RIGHT_PANEL_TILES,
   type RightPanelTileId
-} from '../lib/rightPanelTiles'
+} from '../lib/panelTiles'
 import type { ChatState } from '../reducer/chatReducer'
 import {
   chatActions,
@@ -60,13 +60,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const sessionId = useChatSession((s) => s.sessionId)
   const agentKind = useChatSession((s) => s.agentKind)
   const backend = useChatSession((s) => s.backend)
-  // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
-  // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
-  const tileColumns = useChatSession((s) => s.rightPanelTiles)
-  const activeTiles = useMemo(
-    () => flattenColumns(rightPanelColumnsForAgent(tileColumns, agentKind, backend)),
-    [tileColumns, agentKind, backend]
-  )
+  const top = useTopPanelTile()
+  const activeTiles = top ? [top] : []
   const unseenSettledTasks = useUnseenSettledTaskCount()
   // 배지 판정은 SSOT 가 갖고 여기는 결과만 그린다(§10 EP-03) — 정지된 타일을 가리키는
   // 배지는 애초에 뜨지 않는다.
@@ -221,7 +216,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 icon={active ? 'check' : 'plus'}
                 iconSize={13}
                 onClick={() => {
-                  chatActions.toggleRightPanelTile(tile.id)
+                  chatActions.toggleRightPanelTile(tile.id, anchorRef.current ?? undefined)
                   setOpen(false)
                 }}
                 role="menuitemcheckbox"

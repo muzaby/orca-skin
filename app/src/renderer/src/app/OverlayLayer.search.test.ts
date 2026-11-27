@@ -5,6 +5,11 @@ import { SearchModal } from '../features/sessions/components/SearchModal'
 import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
 
 const h = vi.hoisted(() => ({ navigate: vi.fn(), open: vi.fn(async () => true), cancel: vi.fn() }))
+// This test walks the shell's returned tree to verify wiring. Settle presence
+// immediately here; the Electron surface gate covers the actual animation.
+vi.mock('../shared/hooks/useSurfacePresence', () => ({
+  useSurfacePresence: (open: boolean) => ({ present: open, instance: 0 })
+}))
 vi.mock('react-router-dom', () => ({ useNavigate: () => h.navigate }))
 vi.mock('../features/backend', () => ({
   backendActions: {},

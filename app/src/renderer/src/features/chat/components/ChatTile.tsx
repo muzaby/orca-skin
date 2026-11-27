@@ -5,7 +5,7 @@ import { ChatTitleBar } from './ChatTitleBar'
 import { LineageBanner } from './transcript/LineageBanner'
 import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
-import { RightPanel } from './rightpanel/RightPanel'
+import { RightPanelFrame } from '../harnesses/common/rightpanel/RightPanelFrame'
 import { HarnessScrollController, type ScrollControls } from './transcript/HarnessScrollController'
 import {
   chatActions,
@@ -190,7 +190,7 @@ export function ChatTile({
           )}
         </div>
 
-        <RightPanel
+        <RightPanelFrame
           projectName={projectName}
           projectPath={projectPath}
           onExpandedChange={onPanelExpandedChange}

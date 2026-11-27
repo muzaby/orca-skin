@@ -5,6 +5,7 @@ import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
 import { MODAL_BACKDROP_CLASS } from '../shared/ui/Modal'
 import { SearchModal } from '../features/sessions'
+import { useSurfacePresence } from '../shared/hooks/useSurfacePresence'
 import { useNavigate } from 'react-router-dom'
 import { UpdateDebugSection, UpdateDialog, useUpdateDialogOpen } from '../features/update'
 import { ProviderDebugSection } from '../features/providers'
@@ -28,19 +29,22 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
   const authExpired = useChatSession((s) => s.error?.category === 'auth_error')
   const updateOpen = useUpdateDialogOpen()
   const modalActive = installerOpen || authExpired || searchOpen
+  const { present: modalPresent } = useSurfacePresence(modalActive)
+  const { present: searchPresent, instance: searchInstance } = useSurfacePresence(searchOpen)
 
   return (
     <>
       <div
         id="app-frame-overlay"
-        className={`${MODAL_BACKDROP_CLASS} ${modalActive ? 'z-10' : '-z-10'}`}
+        className={`${MODAL_BACKDROP_CLASS} motion-safe:transition-opacity motion-safe:duration-150 ${modalPresent ? 'z-10' : '-z-10'} ${modalActive ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         data-state={modalActive ? 'visible' : 'hidden'}
         data-context="overlay"
         aria-hidden
       />
       <div
         id="app-frame-modal"
-        className={modalActive ? 'z-20' : '-z-20'}
+        className={modalPresent ? 'z-20' : '-z-20'}
+        inert={!modalActive}
         data-state={modalActive ? 'visible' : 'hidden'}
         data-behavior="focus-trap blocks-interaction"
         data-context="modal"
@@ -58,8 +62,10 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
           onNewChat={chatActions.newChat}
           onDismiss={chatActions.clearError}
         />
-        {searchOpen && (
+        {searchPresent && (
           <SearchModal
+            key={searchInstance}
+            open={searchOpen}
             onClose={() => {
               chatActions.cancelSearchRequest()
               onCloseSearch()

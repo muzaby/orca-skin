@@ -1,7 +1,6 @@
 // 0215 ΔV1 · VP-22 (AR-05 ↔ IT · §10 EP-20·EP-21) — 컨테이너가 세션 상태를 목록 View 로
 // **공급하는지**를 관측한다.
 //
-// 기존 AT-19(`rightPanelTiles.render.test.ts`)는 `SubAgentTaskList` 에 props 를 직접 넣어
 // 문구 렌더 규칙만 봤다. 그래서 `SubAgentTileContent` 가 `stopErrors={stopErrors}` 를
 // 빼도 전 스위트가 초록이었다(verify r1 M-G). 여기서는 **컨테이너를 마운트**해 store →
 // props → 문구까지의 배선을 본다.

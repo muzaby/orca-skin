@@ -8,7 +8,6 @@ import {
 } from './chatStore'
 import { installChatStoreHarness } from './chatStore.testHarness'
 import { chatReducer, initialChatState } from '../reducer/chatReducer'
-import { flattenColumns } from '../lib/rightPanelLayout'
 import { SettingsSchema } from '../../../../../shared/protocol'
 
 describe('product agent kind', () => {
@@ -51,11 +50,6 @@ describe('product agent kind', () => {
       }
     })
     expect(loaded.agentKind).toBe('work')
-    expect(flattenColumns(loaded.rightPanelTiles)).toContain('task')
-    const closed = chatReducer(loaded, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'task' })
-    const next = chatReducer(closed, { type: 'BEGIN_TURN' })
-    expect(flattenColumns(closed.rightPanelTiles)).toEqual([])
-    expect(flattenColumns(next.rightPanelTiles)).toEqual([])
     expect(
       chatReducer(initialChatState, {
         type: 'LOAD_SESSION',

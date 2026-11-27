@@ -803,12 +803,22 @@ export const SetGlobalNativeResourceSchema = GlobalNativeResourceTargetSchema.ex
   enabled: z.boolean()
 })
 
+const PanelWidth = z.number().int().min(320).max(960)
+const PanelWidths = z.object({ work: PanelWidth, code: PanelWidth })
+
 export const SettingsSchema = z.object({
   harnesses: HarnessSettingsSchema.prefault({}),
   theme: z.enum(['white', 'dark']).catch('white').default('white'),
   // 대화 내용 텍스트 크기 · 대화 기록 너비(0256). 손상 값은 부팅을 막지 않고 'medium' 으로 복구.
   transcriptTextSize: z.enum(TRANSCRIPT_TEXT_SIZES).catch('medium').default('medium'),
   transcriptWidth: z.enum(TRANSCRIPT_WIDTHS).catch('medium').default('medium'),
+  rightPanelOpen: z.boolean().catch(false),
+  rightPanelWidths: z
+    .object({
+      work: PanelWidth.catch(360),
+      code: PanelWidth.catch(520)
+    })
+    .catch({ work: 360, code: 520 }),
   sidebarCollapsed: z.boolean().default(false),
   sidebarWidth: z
     .number()
@@ -877,6 +887,8 @@ export const SettingsPatchSchema = z
     theme: z.enum(['white', 'dark']),
     transcriptTextSize: z.enum(TRANSCRIPT_TEXT_SIZES),
     transcriptWidth: z.enum(TRANSCRIPT_WIDTHS),
+    rightPanelOpen: z.boolean(),
+    rightPanelWidths: PanelWidths,
     sidebarCollapsed: z.boolean(),
     sidebarWidth: z.number().int().min(SIDEBAR_WIDTH_MIN).max(SIDEBAR_WIDTH_MAX),
     lastBackend: BackendSchema.nullable(),

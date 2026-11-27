@@ -17,7 +17,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ChatTile } from './ChatTile'
 import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
-import { RightPanel } from './rightpanel/RightPanel'
+import { RightPanelFrame } from '../harnesses/common/rightpanel/RightPanelFrame'
 import { initialChatState } from '../reducer/chatReducer'
 import { HarnessScrollController } from './transcript/HarnessScrollController'
 import { useScrollAnchor as mockScrollAnchor } from '../harnesses/claude/transcript/useScrollAnchor'
@@ -82,7 +82,7 @@ vi.mock('./ChatTitleBar', () => ({ ChatTitleBar: () => null }))
 vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
 vi.mock('./transcript/TranscriptView', () => ({ TranscriptView: () => null }))
 vi.mock('./Composer', () => ({ Composer: () => null }))
-vi.mock('./rightpanel/RightPanel', () => ({ RightPanel: () => null }))
+vi.mock('../harnesses/common/rightpanel/RightPanelFrame', () => ({ RightPanelFrame: () => null }))
 
 function find(node: ReactNode, type: unknown): ReactElement | undefined {
   if (!isValidElement(node)) return undefined
@@ -130,7 +130,7 @@ describe('actual ChatTile Work session lifetime wiring', () => {
       harness.kind = kind
       const render = (): React.JSX.Element => ChatTile({ backendLabel: 'Claude', canAbort: true })
       const first = render()
-      const panel = find(first, RightPanel)!
+      const panel = find(first, RightPanelFrame)!
       const expand = (panel.props as { onExpandedChange: (key: string, expanded: boolean) => void })
         .onExpandedChange
       const content = (node: ReactNode): ReactElement<{ inert?: boolean }> | undefined => {

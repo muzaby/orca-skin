@@ -9,7 +9,7 @@ import type {
   RightPanelAppearance,
   ModelPresentation
 } from './contracts'
-import type { RightPanelAgentPolicy } from '../lib/rightPanelTiles'
+import type { RightPanelAgentPolicy } from '../lib/panelTiles'
 import { agentPresentation } from './claude/presentation'
 import { openCodeTranscript } from './opencode/presentation'
 import { composerAppearance as claudeComposer } from './claude/composer/appearance'

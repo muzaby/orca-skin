@@ -1,103 +1,67 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { chatActions, getActiveChatSession, useChatStore } from './chatStore'
+import { chatActions, getActiveChatSession, ingestChatEvent, useChatStore } from './chatStore'
 import { installChatStoreHarness } from './chatStore.testHarness'
-import { flattenColumns } from '../lib/rightPanelLayout'
-import { initialChatState } from '../reducer/chatReducer'
+import { panelActions, useRightPanelStore } from './rightPanelStore'
+import { layerKey } from '../lib/rightPanelStack'
 
 beforeEach(() => {
-  installChatStoreHarness({
-    backend: 'opencode',
-    agentKind: 'code',
-    agentPanelInitialized: true,
-    rightPanelTiles: [{ id: 'summary', tiles: ['task'] }]
-  })
+  installChatStoreHarness({ backend: 'opencode', agentKind: 'code' })
+  useRightPanelStore.setState(useRightPanelStore.getInitialState())
+  panelActions.switchSession({ key: 's', kind: 'code', backend: 'opencode' }, true)
 })
-
-describe('OpenCode independent panel state', () => {
-  it('keeps the summary and other selections while opening and revealing each target', () => {
-    chatActions.setRightPanelTileActive('diff', true)
-    chatActions.openSubagentTask('child')
-    expect(useChatStore.getState().sessions.s.panelReveal?.detail).toEqual({
-      id: 'subagent',
-      selectedId: 'child'
-    })
-    chatActions.openProcessTool('shell-1')
+it('opens process, source and subagent entries through the active session actions', () => {
+  chatActions.setRightPanelTileActive('diff', true)
+  chatActions.openSubagentTask('child')
+  expect(useRightPanelStore.getState().stack.at(-1)).toMatchObject({
+    kind: 'detail',
+    selection: { id: 'subagent', selectedId: 'child' }
+  })
+  chatActions.openProcessTool('shell')
+  chatActions.setRightPanelTileActive('source', true)
+  expect(useRightPanelStore.getState().stack.map(layerKey)).toEqual([
+    'task',
+    'detail:subagent',
+    'process',
+    'source'
+  ])
+  expect(getActiveChatSession().selectedProcessToolId).toBe('shell')
+  chatActions.openProcessTool('shell-2')
+  expect(useRightPanelStore.getState().stack.at(-1)).toMatchObject({ id: 'process' })
+  expect(getActiveChatSession().selectedProcessToolId).toBe('shell-2')
+})
+it.each(['work', 'code'] as const)(
+  'filters unsupported Claude %s process and source entries',
+  (kind) => {
+    installChatStoreHarness({ backend: 'claude', agentKind: kind })
+    panelActions.switchSession({ key: 's', kind, backend: 'claude' }, false)
+    chatActions.openProcessTool('shell')
     chatActions.setRightPanelTileActive('source', true)
-    expect(flattenColumns(getActiveChatSession().rightPanelTiles)).toEqual([
-      'task',
-      'diff',
-      'process',
-      'source'
-    ])
-    expect(getActiveChatSession().selectedSubagentTaskId).toBe('child')
-    expect(getActiveChatSession().selectedProcessToolId).toBe('shell-1')
-    expect(useChatStore.getState().sessions.s.panelReveal?.id).toBe('source')
-    const columns = getActiveChatSession().rightPanelTiles
-    chatActions.openProcessTool('shell-2')
-    expect(getActiveChatSession().rightPanelTiles).toBe(columns)
-    expect(getActiveChatSession().selectedSubagentTaskId).toBe('child')
-    expect(getActiveChatSession().selectedProcessToolId).toBe('shell-2')
-    expect(useChatStore.getState().sessions.s.panelReveal?.id).toBe('process')
-    chatActions.openProcessTool('shell-2')
-    expect(getActiveChatSession().rightPanelTiles).toBe(columns)
-  })
+    expect(useRightPanelStore.getState().stack).toEqual([])
+  }
+)
 
-  it.each(['toggle', 'deactivate', 'remove'] as const)(
-    'clears only the closed process selection through %s',
-    (method) => {
-      chatActions.openSubagentTask('child')
-      chatActions.openProcessTool('shell')
-      if (method === 'toggle') chatActions.toggleRightPanelTile('process')
-      if (method === 'deactivate') chatActions.setRightPanelTileActive('process', false)
-      if (method === 'remove') chatActions.removeRightPanelTile('process')
-      expect(getActiveChatSession().selectedProcessToolId).toBeNull()
-      expect(getActiveChatSession().selectedSubagentTaskId).toBe('child')
-      expect(flattenColumns(getActiveChatSession().rightPanelTiles)).toEqual(['task'])
-      chatActions.setRightPanelTileActive('process', true)
-      expect(getActiveChatSession().selectedProcessToolId).toBeNull()
-      chatActions.setRightPanelTileActive('subagent', true)
-      chatActions.toggleRightPanelTile('subagent')
-      expect(getActiveChatSession().selectedSubagentTaskId).toBeNull()
+it('AC9 only an active open panel navigates to an arriving plan review', () => {
+  const review = (id: string) =>
+    ingestChatEvent({
+      type: 'permission.requested',
+      sessionId: id,
+      origin: 'agent',
+      approvalId: 'approve',
+      action: { kind: 'plan_review', request: { requestId: 'approve', plan: 'Review' } }
+    })
+  panelActions.close()
+  review('s')
+  expect(useRightPanelStore.getState().stack).toEqual([])
+  panelActions.tile('task')
+  const here = useChatStore.getState().sessions.s
+  useChatStore.setState((state) => ({
+    sessions: {
+      ...state.sessions,
+      other: { ...here, session: { ...here.session, sessionId: 'other' } }
     }
-  )
-
-  it('keeps selections and closed tiles in their own cached session', async () => {
-    chatActions.openProcessTool('shell-a')
-    chatActions.toggleRightPanelTile('task')
-    const selectedA = useChatStore.getState().sessions.s
-    useChatStore.setState((state) => ({
-      sessions: {
-        ...state.sessions,
-        other: {
-          ...selectedA,
-          session: {
-            ...initialChatState,
-            sessionId: 'other',
-            backend: 'opencode',
-            agentKind: 'code'
-          }
-        }
-      }
-    }))
-    await chatActions.loadSession('other')
-    expect(getActiveChatSession().selectedProcessToolId).toBeNull()
-    chatActions.openProcessTool('shell-b')
-    await chatActions.loadSession('s')
-    expect(useChatStore.getState().sessions.s).toBe(selectedA)
-    expect(getActiveChatSession().selectedProcessToolId).toBe('shell-a')
-    expect(flattenColumns(getActiveChatSession().rightPanelTiles)).toEqual(['process'])
-    expect(useChatStore.getState().sessions.other.session.selectedProcessToolId).toBe('shell-b')
-  })
-
-  it('does not open process/source tiles in either Claude mode', () => {
-    for (const agentKind of ['code', 'work'] as const) {
-      installChatStoreHarness({ backend: 'claude', agentKind })
-      const initial = getActiveChatSession()
-      chatActions.openProcessTool('shell')
-      expect(getActiveChatSession()).toBe(initial)
-      chatActions.setRightPanelTileActive('source', true)
-      expect(flattenColumns(getActiveChatSession().rightPanelTiles)).toEqual([])
-      expect(useChatStore.getState().sessions.s.panelReveal).toBeUndefined()
-    }
-  })
+  }))
+  review('other')
+  expect(useRightPanelStore.getState().stack.map(layerKey)).toEqual(['task'])
+  review('s')
+  expect(useRightPanelStore.getState().stack.map(layerKey)).toEqual(['task', 'plan'])
 })

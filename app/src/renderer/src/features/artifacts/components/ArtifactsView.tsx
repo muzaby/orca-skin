@@ -153,7 +153,9 @@ export function ArtifactsView({
             </div>
           )}
           <div
+            key={tab}
             role="tabpanel"
+            data-surface-entry=""
             id={`${id}-items`}
             aria-labelledby={`${id}-${tab}`}
             aria-busy={loading}

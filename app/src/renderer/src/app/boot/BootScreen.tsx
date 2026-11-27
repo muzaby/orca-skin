@@ -47,7 +47,11 @@ export function BootScreen({
           <WinControls />
         </div>
       </header>
-      <main className="flex min-h-0 flex-1 items-center justify-center bg-bg" role="status">
+      <main
+        data-surface-entry=""
+        className="flex min-h-0 flex-1 items-center justify-center bg-bg"
+        role="status"
+      >
         <span className="sr-only">{srLabel}</span>
         <span
           className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-ink motion-reduce:animate-none"

@@ -1,3 +1,4 @@
+import { panelActions, useRightPanelStore } from '../store/rightPanelStore'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -131,9 +132,9 @@ describe('0232 Spark background action', () => {
           foreground: 'streaming' as const,
           queuedCount: 1,
           backgroundTaskCount: 1
-        },
-        rightPanelTiles: []
+        }
       }
+      panelActions.switchSession({ key, kind: agentKind, backend: 'claude' }, false)
       const sessions = {
         [key]: {
           session,
@@ -146,17 +147,11 @@ describe('0232 Spark background action', () => {
       const html = renderToStaticMarkup(createElement(PendingAssistantStatus))
       expect(html).toContain('백그라운드 작업 1건</button>')
       expect(harness.click).toBeTypeOf('function')
+      const target = agentKind === 'work' ? 'task' : 'subagent'
       harness.click!()
-      const opened = useChatStore.getState().sessions[key]
-      const target = agentKind === 'code' ? 'subagent' : 'task'
-      expect(opened.session.rightPanelTiles.flatMap((column) => column.tiles)).toContain(target)
-      expect(opened.panelReveal?.id).toBe(target)
+      expect(useRightPanelStore.getState().stack.at(-1)).toMatchObject({ id: target })
       harness.click!()
-      expect(
-        useChatStore
-          .getState()
-          .sessions[key].session.rightPanelTiles.flatMap((column) => column.tiles)
-      ).toEqual(opened.session.rightPanelTiles.flatMap((column) => column.tiles))
+      expect(useRightPanelStore.getState().stack).toHaveLength(1)
     }
   )
 })

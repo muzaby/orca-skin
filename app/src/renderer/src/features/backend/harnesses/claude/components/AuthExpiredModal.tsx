@@ -1,4 +1,5 @@
 import { Button } from '../../../../../shared/ui/Button'
+import { useSurfacePresence } from '../../../../../shared/hooks/useSurfacePresence'
 import { useEscToClose } from '../../../../../shared/hooks/useEscToClose'
 import { useI18n } from '../../../../../shared/i18n'
 
@@ -14,13 +15,17 @@ export function AuthExpiredModal({
   onDismiss
 }: AuthExpiredModalProps): React.JSX.Element | null {
   const { tr } = useI18n()
+  const { present } = useSurfacePresence(open)
   // Esc·바깥 클릭 = 닫기 버튼과 동일한 dismiss (handoff 0121 닫기 UX 통일).
   useEscToClose(open, onDismiss)
-  if (!open) return null
+  if (!present) return null
   const cmd = 'claude /login'
   // backdrop 은 #app-frame-overlay 가 담당. panel 만 grid cell 중앙에.
   return (
     <div
+      data-surface-presence={open ? 'open' : 'closing'}
+      inert={!open}
+      aria-hidden={!open}
       className="grid h-full w-full place-items-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onDismiss()

@@ -35,11 +35,15 @@ export function CollapsibleSection({
         <span>{label}</span>
         <Icon name={expanded ? 'chevD' : 'chevR'} size={12} />
       </button>
-      {expanded && (
-        <div id={bodyId} className="px-1.5">
-          {children}
-        </div>
-      )}
+      <div
+        id={bodyId}
+        data-disclosure-content=""
+        inert={!expanded}
+        aria-hidden={!expanded}
+        className={`grid transition-[grid-template-rows,opacity] duration-150 motion-reduce:transition-none ${expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+      >
+        <div className="min-h-0 overflow-hidden px-1.5">{children}</div>
+      </div>
     </div>
   )
 }

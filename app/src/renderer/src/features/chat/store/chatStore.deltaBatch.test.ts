@@ -72,7 +72,6 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
     expect(entry.live.text).toBe('abc')
     expect(entry.live.textKey).toBe('a:1')
     expect(entry.session.agentKindLocked).toBe(true)
-    expect(entry.session.agentPanelInitialized).toBe(true)
     expect(entry.session.sendCount).toBe(1)
     expect(replaced).toEqual(['abc'])
     ingestChatEvent(makeReasoning('r', { messageKey: 'a:1' }))

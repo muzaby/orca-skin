@@ -160,7 +160,13 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               </Button>
             )}
           </div>
-          <div role="tabpanel" id={`${id}-items`} aria-labelledby={`${id}-${selection.tab}`}>
+          <div
+            key={selection.tab}
+            role="tabpanel"
+            data-surface-entry=""
+            id={`${id}-items`}
+            aria-labelledby={`${id}-${selection.tab}`}
+          >
             {skills.loading ||
             mcp.loading ||
             providers.loading ||

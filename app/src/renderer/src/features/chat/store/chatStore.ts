@@ -85,7 +85,8 @@ import { createEventCoalescer, type DeltaEvent } from '../lib/eventCoalescer'
 import { hasSegmentReasoning, hasSegmentText } from '../lib/parts'
 import { toPlanFeedback } from '../lib/planComments'
 import { generatingSessionKeys, sameKeys } from '../lib/responseProgress'
-import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { panelActions, useRightPanelStore } from './rightPanelStore'
+import { rightPanelTarget, type RightPanelTileId } from '../lib/panelTiles'
 import { shouldQueueAsPending, steerBlockedByProviderBoundary } from '../lib/sendAdmission'
 import {
   chatReducer,
@@ -204,11 +205,6 @@ export interface SessionEntry {
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
   pendingSteer?: PendingSteerState[]
-  panelReveal?: {
-    id: RightPanelTileId
-    detail?: { id: 'subagent'; selectedId: string }
-    origin?: HTMLElement
-  }
 }
 
 interface QueuedNewChat {
@@ -513,13 +509,12 @@ function dispatchActive(action: ChatAction): void {
   dispatchTo(getState().activeKey, action)
 }
 
-function revealRightPanelTile(id: RightPanelTileId): void {
-  patchEntry(getState().activeKey, (entry) => {
-    const target = rightPanelTarget(id, entry.session.agentKind, entry.session.backend)
-    return target && entry.session.rightPanelTiles.some((column) => column.tiles.includes(target))
-      ? { ...entry, panelReveal: { id: target } }
-      : entry
-  })
+function showTaskDetail(key: string, origin?: HTMLElement): void {
+  const { session } = useRightPanelStore.getState()
+  const id = rightPanelTarget('task', session.kind, session.backend)
+  if (!id) return
+  panelActions.tile(id)
+  panelActions.navigate({ kind: 'taskDetail', id, task: key, origin })
 }
 
 function captureDiffRequirementSnapshot(): DiffRequirementSubmitSnapshot {
@@ -1177,6 +1172,13 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'permission.requested':
+      if (
+        ev.action.kind === 'plan_review' &&
+        key === getState().activeKey &&
+        key === useRightPanelStore.getState().session.key &&
+        useRightPanelStore.getState().stack.length
+      )
+        panelActions.tile('plan')
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       if (ev.sessionId && key === ev.sessionId && entrySession?.sessionId === ev.sessionId) {
         for (const listener of responseRequestListeners) listener(ev.sessionId)
@@ -3050,19 +3052,20 @@ export const chatActions = {
   approveTool,
   approveToolForSession,
   denyTool,
-  toggleRightPanelTile: (id: RightPanelTileId): void => {
-    dispatchActive({ type: 'TOGGLE_RIGHT_PANEL_TILE', id })
-    revealRightPanelTile(id)
-  },
+  toggleRightPanelTile: (id: RightPanelTileId, origin?: HTMLElement): void =>
+    panelActions.tile(id, true, origin),
   setRightPanelTileActive: (id: RightPanelTileId, active: boolean): void => {
-    dispatchActive({ type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id, active })
-    if (active) revealRightPanelTile(id)
+    if (active) panelActions.tile(id)
+    else {
+      const { session, stack } = useRightPanelStore.getState()
+      const top = stack.at(-1)
+      if (top?.kind === 'tile' && top.id === rightPanelTarget(id, session.kind, session.backend))
+        panelActions.close()
+    }
   },
   renameRightPanelTile: (id: RightPanelTileId, label: string): void =>
     dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
-  removeRightPanelTile: (id: RightPanelTileId): void => {
-    dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id })
-  },
+  removeRightPanelTile: panelActions.close,
   setGitStatus: (snapshot: BranchSnapshot): void =>
     dispatchActive({ type: 'SET_GIT_STATUS', snapshot }),
   receiveGitPatch: (
@@ -3072,8 +3075,11 @@ export const chatActions = {
   ): void => dispatchActive({ type: 'RECEIVE_GIT_PATCH', request, patch, comparison }),
   setDiffComparison: (comparison: DiffComparison): void =>
     dispatchActive({ type: 'SET_DIFF_COMPARISON', comparison }),
-  selectDiffRequirement: (id: string | null): void =>
-    dispatchActive({ type: 'SELECT_DIFF_REQUIREMENT', id }),
+  selectDiffRequirement: (id: string | null): void => {
+    dispatchActive({ type: 'SELECT_DIFF_REQUIREMENT', id })
+    if (id && getState().sessions[getState().activeKey]?.session.activeDiffRequirementId === id)
+      panelActions.tile('diff')
+  },
   refreshGitSnapshot: (): void => dispatchActive({ type: 'REFRESH_GIT_SNAPSHOT' }),
   failGitSnapshotQuery: (
     request: GitSnapshotRequest,
@@ -3103,7 +3109,11 @@ export const chatActions = {
     dispatchActive({ type: 'SET_DIFF_REQUIREMENT_DRAFT', draft }),
   captureDiffRequirementSnapshot,
   clearDiffRequirementsIfUnchanged,
-  selectTask: (key: string | null): void => dispatchActive({ type: 'SELECT_TASK', key }),
+  selectTask: (key: string | null, origin?: HTMLElement): void => {
+    dispatchActive({ type: 'SELECT_TASK', key })
+    if (key) showTaskDetail(key, origin)
+    else if (useRightPanelStore.getState().stack.at(-1)?.kind === 'taskDetail') panelActions.back()
+  },
   restoreComposerDraft: (
     key: string,
     text: string,
@@ -3115,7 +3125,7 @@ export const chatActions = {
   },
   openTask: (key: string): void => {
     dispatchActive({ type: 'OPEN_TASK', key })
-    revealRightPanelTile('task')
+    showTaskDetail(key)
   },
   selectSubagentTask: (toolRunId: string | null): void =>
     dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId }),
@@ -3123,12 +3133,7 @@ export const chatActions = {
     dispatchActive({ type: 'SELECT_PROCESS_TOOL', toolRunId }),
   openProcessTool: (toolRunId: string): void => {
     dispatchActive({ type: 'OPEN_PROCESS_TOOL', toolRunId })
-    revealRightPanelTile('process')
-  },
-  closePanelDetail: (): void => {
-    patchEntry(getState().activeKey, (entry) =>
-      entry.panelReveal?.detail ? { ...entry, panelReveal: undefined } : entry
-    )
+    panelActions.tile('process')
   },
   openSubagentTask: (toolRunId: string, origin?: HTMLElement): void => {
     if (
@@ -3136,13 +3141,15 @@ export const chatActions = {
         .subagentTile === 'task'
     ) {
       dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
-      patchEntry(getState().activeKey, (entry) => ({
-        ...entry,
-        panelReveal: { id: 'task', detail: { id: 'subagent', selectedId: toolRunId }, origin }
-      }))
+      panelActions.tile('task')
+      panelActions.navigate({
+        kind: 'detail',
+        selection: { id: 'subagent', selectedId: toolRunId },
+        origin
+      })
     } else {
       dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId })
-      revealRightPanelTile('subagent')
+      panelActions.tile('subagent', false, origin)
     }
     const sessionId = getState().sessions[getState().activeKey]?.session.sessionId
     const background = sessionId
@@ -3153,11 +3160,7 @@ export const chatActions = {
   },
   acknowledgeSettledTasks: (): void => dispatchActive({ type: 'ACKNOWLEDGE_SETTLED_TASKS' }),
   stopTask,
-  backgroundTask,
-  setRightPanelColWidth: (col: number, width: number): void =>
-    dispatchActive({ type: 'SET_RIGHT_PANEL_COL_WIDTH', col, width }),
-  setRightPanelRowSplit: (col: number, frac: number): void =>
-    dispatchActive({ type: 'SET_RIGHT_PANEL_ROW_SPLIT', col, frac })
+  backgroundTask
 }
 
 // IPC 구독·cwd 1회 조회를 연결하는 부트스트랩 — ChatProvider 의 effect 가 1회 호출한다.

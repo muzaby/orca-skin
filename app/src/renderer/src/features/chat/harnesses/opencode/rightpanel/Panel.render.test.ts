@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
-import { RightPanel } from '../../../components/rightpanel/RightPanel'
+import { harnessRightPanel } from '../../registries/rightpanel'
+import { rightPanelPolicy, type RightPanelTileId } from '../../../lib/panelTiles'
 import { tileById } from '../../../components/rightpanel/tileRegistry'
 import { useChatStore } from '../../../store/chatStore'
 import { AgentDetail, AgentList } from './AgentViews'
@@ -14,6 +15,18 @@ import { OpenCodePanelNavigationContext, type OpenCodePanelSelection } from './n
 const initial = useChatStore.getInitialState()
 const entry = initial.sessions[initial.activeKey]
 const original = entry.session
+
+function renderScreen(id: RightPanelTileId): React.ReactElement {
+  const { backend, agentKind } = entry.session
+  const module = harnessRightPanel(backend)
+  return createElement(module.screen, {
+    layer: { kind: 'tile', id },
+    configuration: module.configuration,
+    expanded: false,
+    onToggleExpand: () => {},
+    panelPolicy: rightPanelPolicy(agentKind, backend)
+  })
+}
 
 function renderSelectionLayers(
   selection: Extract<OpenCodePanelSelection, { selectedId: string | null }>
@@ -87,6 +100,15 @@ afterEach(() => {
   entry.session = original
 })
 describe('OpenCode panel rendering', () => {
+  it.each(['claude', 'opencode'] as const)('AC7 %s provides the screen contract', (backend) => {
+    const module = harnessRightPanel(backend)
+    expect(Object.keys(module).sort()).toEqual(['configuration', 'screen', 'tiles'])
+    entry.session = { ...original, backend }
+    const $ = load(renderToStaticMarkup(renderScreen(backend === 'claude' ? 'plan' : 'task')))
+    expect($('[data-right-panel-frame]')).toHaveLength(0)
+    expect($.text().trim()).not.toBe('')
+  })
+
   it('dispatches the default OpenCode summary with Work context sources and no PR', () => {
     entry.session = {
       ...original,
@@ -94,10 +116,9 @@ describe('OpenCode panel rendering', () => {
       backend: 'opencode',
       agentKind: 'code',
       cwd: 'C:/workspace/orcinus-orca',
-      extraDirs: ['C:/refs'],
-      rightPanelTiles: [{ id: 'task', tiles: ['task'] }]
+      extraDirs: ['C:/refs']
     }
-    const $ = load(renderToStaticMarkup(createElement(RightPanel)))
+    const $ = load(renderToStaticMarkup(renderScreen('task')))
     expect($('[data-component="opencode-session-panel"]').length).toBe(1)
     for (const label of ['변경 사항', '소스', 'orcinus-orca', 'refs', '폴더 추가'])
       expect($.html()).toContain(label)
@@ -107,12 +128,11 @@ describe('OpenCode panel rendering', () => {
     expect($.text()).not.toContain('풀 리퀘스트')
     entry.session = {
       ...entry.session,
-      backend: 'claude',
-      rightPanelTiles: [{ id: 'plan', tiles: ['plan'] }]
+      backend: 'claude'
     }
-    const claude = load(renderToStaticMarkup(createElement(RightPanel)))
+    const claude = load(renderToStaticMarkup(renderScreen('plan')))
     expect(claude('[data-component="opencode-session-panel"]').length).toBe(0)
-    expect(claude('[data-panel-tiles="plan"]').length).toBe(1)
+    expect(claude('[data-context="plan"]').length).toBe(1)
   })
   it.each(['Task', 'Bash'] as const)(
     'shows only the populated %s group and hides it after removal',
@@ -121,11 +141,9 @@ describe('OpenCode panel rendering', () => {
         ...original,
         backend: 'opencode',
         agentKind: 'code',
-        cwd: 'C:/orcinus-orca',
-        rightPanelTiles: [{ id: 'task', tiles: ['task'] }]
+        cwd: 'C:/orcinus-orca'
       }
-      const render = (): ReturnType<typeof load> =>
-        load(renderToStaticMarkup(createElement(RightPanel)))
+      const render = (): ReturnType<typeof load> => load(renderToStaticMarkup(renderScreen('task')))
       expect(render()('[data-component="opencode-session-panel"] button').text()).toBe('변경 사항')
       expect(render()('[data-panel-group], [data-component="opencode-sources"]').length).toBe(0)
       entry.session = {
@@ -181,8 +199,7 @@ describe('OpenCode panel rendering', () => {
       agentKind: 'code',
       cwd: 'C:/orcinus-orca',
       extraDirs: ['C:/refs'],
-      messages,
-      rightPanelTiles: [{ id: 'task', tiles: ['task'] }]
+      messages
     }
     const { Content } = tileById('process', 'opencode')
     const render = (): ReturnType<typeof load> =>
@@ -191,7 +208,7 @@ describe('OpenCode panel rendering', () => {
           createElement(
             'div',
             null,
-            createElement(RightPanel),
+            renderScreen('task'),
             createElement(
               OpenCodePanelNavigationContext.Provider,
               { value: { open: () => {}, selection: { id: 'process', selectedId: 'first' } } },
@@ -263,14 +280,15 @@ describe('OpenCode panel rendering', () => {
       backend: 'opencode',
       agentKind: 'code',
       sessionId: 's',
-      cwd: 'C:/orcinus-orca',
-      rightPanelTiles: [{ id: 'task', tiles: ['task', 'source'] }]
+      cwd: 'C:/orcinus-orca'
     }
-    const render = (): ReturnType<typeof load> =>
-      load(renderToStaticMarkup(createElement(RightPanel)))
+    const render = (id: RightPanelTileId = 'task'): ReturnType<typeof load> =>
+      load(renderToStaticMarkup(renderScreen(id)))
     expect(render()('[data-context="task"] [data-component="opencode-sources"]').length).toBe(0)
-    expect(render()('[data-context="source"] button[aria-label="폴더 추가"]').length).toBe(1)
-    expect(render()('[data-context="source"]').text()).toContain('orcinus-orca')
+    expect(render('source')('[data-context="source"] button[aria-label="폴더 추가"]').length).toBe(
+      1
+    )
+    expect(render('source')('[data-context="source"]').text()).toContain('orcinus-orca')
     entry.session = { ...entry.session, extraDirs: ['C:/refs'] }
     expect(render()('[data-context="task"] [data-component="opencode-sources"]').text()).toContain(
       'refs'
@@ -282,17 +300,17 @@ describe('OpenCode panel rendering', () => {
     entry.session = {
       ...original,
       backend: 'opencode',
-      agentKind: 'code',
-      rightPanelTiles: [
-        { id: 'task', tiles: ['task', 'diff'] },
-        { id: 'process', tiles: ['process'] }
-      ]
+      agentKind: 'code'
     }
-    const $ = load(renderToStaticMarkup(createElement(RightPanel)))
-    expect($('.app-frame-tile[data-context]')).toHaveLength(3)
+    const $ = load(renderToStaticMarkup(renderScreen('diff')))
+    expect($('.app-frame-tile[data-context]')).toHaveLength(1)
     expect($('[data-context="diff"] .app-frame-tile-header')).toHaveLength(1)
     expect($('[data-diff-tile-header] button[aria-label="변경사항 닫기"]')).toHaveLength(1)
-    expect($('[data-context="process"] .app-frame-tile-header')).toHaveLength(1)
+    expect(
+      load(renderToStaticMarkup(renderScreen('process')))(
+        '[data-context="process"] .app-frame-tile-header'
+      )
+    ).toHaveLength(1)
   })
   describe.each(['subagent', 'process'] as const)('%s selection contexts', (id) => {
     const label = id === 'subagent' ? 'agent' : 'process'

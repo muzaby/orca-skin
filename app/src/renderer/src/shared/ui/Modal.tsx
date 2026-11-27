@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { useSurfacePresence } from '../hooks/useSurfacePresence'
 import { createPortal } from 'react-dom'
 import { Button } from './Button'
 import { useEscToClose } from '../hooks/useEscToClose'
@@ -49,15 +50,20 @@ export function Modal({
 }: ModalProps): React.JSX.Element | null {
   useEscToClose(open && !busy, onClose)
 
-  if (!open) return null
+  const { present, instance } = useSurfacePresence(open)
+  if (!present) return null
 
   return createPortal(
     <div
       className={`fixed inset-0 z-50 grid place-items-center p-4 ${MODAL_BACKDROP_CLASS}`}
       onClick={busy ? undefined : onClose}
       data-context="overlay"
+      data-surface-presence={open ? 'open' : 'closing'}
+      inert={!open}
+      aria-hidden={!open}
     >
       <div
+        key={instance}
         role="dialog"
         aria-modal="true"
         aria-label={title == null ? ariaLabel : undefined}

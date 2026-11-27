@@ -16,7 +16,7 @@ import {
   rightPanelTileDefinitionsForAgent,
   showsUnseenTaskBadge,
   visibleRightPanelTileDefinitions
-} from './rightPanelTiles'
+} from './panelTiles'
 
 describe('우측 패널 타일 가시성 — 메뉴 목록 (AT-01)', () => {
   // 0213 D-001 — 정지가 풀려 넷이 됐다. 음성만 두면 아무것도 그리지 않는 회귀가 통과하므로
@@ -98,7 +98,6 @@ describe('종류별 우측 패널 정책 (R8)', () => {
         taskTarget: 'task',
         taskBadgeTile: 'task',
         initialTile: 'task',
-        columnMode: 'task-focus',
         taskTileChrome: 'work-overview'
       },
       code: {
@@ -106,7 +105,6 @@ describe('종류별 우측 패널 정책 (R8)', () => {
         taskTarget: 'plan',
         taskBadgeTile: 'plan',
         initialTile: null,
-        columnMode: 'standard-grid',
         taskTileChrome: 'standard'
       }
     })

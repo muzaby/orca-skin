@@ -32,7 +32,6 @@ export interface RightPanelAgentPolicy {
   taskTarget: RightPanelTileId
   taskBadgeTile: RightPanelTileId
   initialTile: RightPanelTileId | null
-  columnMode: 'standard-grid' | 'task-focus'
   taskTileChrome: 'standard' | 'work-overview' | 'opencode-overview'
 }
 

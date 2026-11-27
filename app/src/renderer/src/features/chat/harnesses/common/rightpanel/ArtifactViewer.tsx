@@ -1,6 +1,8 @@
 import { VirtualRowMountContext } from '../../../../../shared/ui/virtual/rowMount'
 import { usePanelSelection } from '../../../hooks/usePanelSelection'
 import { useEffect, useRef } from 'react'
+import { PanelBackButton } from './PanelBackButton'
+import { useRightPanelNav } from './panelNavigation'
 import { Button } from '../../../../../shared/ui/Button'
 import { PanelCloseButton, PanelExpandButton } from '../../../../../shared/ui/PanelControls'
 import { Icon } from '../../../../../shared/ui/Icon'
@@ -21,6 +23,7 @@ export function ArtifactViewer({
   selection: ArtifactViewerSelection
 }): React.JSX.Element {
   const { tr } = useI18n()
+  const nav = useRightPanelNav()
   const bodyRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const { action, copied, copy, download } = useArtifactViewerActions(selection)
@@ -45,13 +48,14 @@ export function ArtifactViewer({
       aria-label={tr('chat.artifactViewer.title')}
       className="app-frame-tile effect-primary-elevated flex h-full min-h-0 flex-col overflow-hidden rounded-r6 border border-border bg-panel"
       onKeyDown={(event) => {
-        if (event.key === 'Escape') {
+        if (event.key === 'Escape' && !nav) {
           event.stopPropagation()
           closeArtifactViewer(selection.sessionKey)
         }
       }}
     >
       <div className="flex min-w-0 shrink-0 items-center gap-2 border-b border-border px-2 py-2">
+        <PanelBackButton />
         <div
           role="radiogroup"
           aria-label={tr('chat.artifactViewer.mode')}
@@ -125,7 +129,7 @@ export function ArtifactViewer({
             ref={closeRef}
             label={tr('chat.artifactViewer.close')}
             data-behavior="viewer:close"
-            onClick={() => closeArtifactViewer(selection.sessionKey)}
+            onClick={nav?.close ?? (() => closeArtifactViewer(selection.sessionKey))}
           />
         </div>
       </div>

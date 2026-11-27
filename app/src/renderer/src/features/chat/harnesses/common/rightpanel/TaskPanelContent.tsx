@@ -3,6 +3,7 @@ import { useI18n } from '../../../../../shared/i18n'
 import { Button } from '../../../../../shared/ui/Button'
 import { chatActions, useChatSession, useUnseenSettledTaskCount } from '../../../store/chatStore'
 import { taskBoardItemByKey, type TaskBoardItem } from '../../../lib/taskBoard'
+import { useRightPanelNav } from './panelNavigation'
 import { TaskDetail } from './TaskProgressList'
 
 // 두 작업 패널의 선택 수명만 공유한다. 문서/섹션/구독은 mounted overview의 소유다.
@@ -18,7 +19,14 @@ export function TaskPanelContent({
   children: ReactNode
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const selectedKey = useChatSession((s) => s.selectedTaskKey)
+  const nav = useRightPanelNav()
+  const active = nav?.active ?? true
+  const sessionSelection = useChatSession((s) => s.selectedTaskKey)
+  const selectedKey = nav
+    ? nav.layer.kind === 'taskDetail'
+      ? nav.layer.task
+      : null
+    : sessionSelection
   const loading = useChatSession((s) => s.loadingSession)
   const selected = taskBoardItemByKey(items, selectedKey)
   const visibleSelection = selected?.key ?? null
@@ -28,11 +36,11 @@ export function TaskPanelContent({
   const scrollPositions = useRef(new Map<string, number>())
   const previousSelection = useRef<string | null>(null)
   useEffect(() => {
-    if (unseen > 0 && !visibleSelection) chatActions.acknowledgeSettledTasks()
-  }, [unseen, visibleSelection])
+    if (active && unseen > 0 && !visibleSelection) chatActions.acknowledgeSettledTasks()
+  }, [active, unseen, visibleSelection])
   useEffect(() => {
-    if (selectedKey && !selected && !loading) chatActions.selectTask(null)
-  }, [selectedKey, selected, loading])
+    if (active && selectedKey && !selected && !loading) chatActions.selectTask(null)
+  }, [active, selectedKey, selected, loading])
   useLayoutEffect(() => {
     const previous = previousSelection.current
     previousSelection.current = visibleSelection
@@ -88,16 +96,18 @@ export function TaskPanelContent({
           className={`flex min-h-0 flex-col overflow-hidden ${mode === 'work' ? 'h-[calc(100cqh-2px)]' : 'flex-1'}`}
         >
           <div className="flex min-w-0 shrink-0 items-center gap-2 border-b border-t5 px-4 py-3">
-            <Button
-              ref={backRef}
-              iconOnly
-              size="small"
-              leadingIcon="arrowL"
-              data-behavior={`action:back-to-${mode}-overview`}
-              aria-label={tr('chat.taskTile.backToList')}
-              title={tr('chat.taskTile.backToList')}
-              onClick={() => chatActions.selectTask(null)}
-            />
+            {!nav && (
+              <Button
+                ref={backRef}
+                iconOnly
+                size="small"
+                leadingIcon="arrowL"
+                data-behavior={`action:back-to-${mode}-overview`}
+                aria-label={tr('chat.taskTile.backToList')}
+                title={tr('chat.taskTile.backToList')}
+                onClick={() => chatActions.selectTask(null)}
+              />
+            )}
             <h2
               className="min-w-0 truncate text-body font-medium text-ink"
               title={selected.subject}

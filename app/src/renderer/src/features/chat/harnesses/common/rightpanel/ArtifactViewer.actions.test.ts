@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   ri: 0,
   save: vi.fn()
 }))
+vi.mock('./panelNavigation', () => ({ useRightPanelNav: () => null }))
 vi.mock('../../../hooks/usePanelSelection', () => ({
   usePanelSelection: () => ({ notify: () => {}, suppressed: false, onPointerDown: () => {} })
 }))

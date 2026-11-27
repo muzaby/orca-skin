@@ -17,6 +17,8 @@ export interface Tweaks {
   transcriptTextSize: TranscriptTextSize
   // 대화 기록 너비(0256). TweakProvider 가 --reading-column 으로 적용.
   transcriptWidth: TranscriptWidth
+  rightPanelOpen: boolean
+  rightPanelWidths: { work: number; code: number }
   sidebarCollapsed: boolean
   sidebarWidth: number
   // 앱 전체 폰트(설정 모달). TweakProvider 가 --font-app var 로 적용.
@@ -35,6 +37,8 @@ const DEFAULTS: Tweaks = {
   theme: 'white',
   transcriptTextSize: 'medium',
   transcriptWidth: 'medium',
+  rightPanelOpen: false,
+  rightPanelWidths: { work: 360, code: 520 },
   sidebarCollapsed: false,
   sidebarWidth: 248,
   appFont: 'sans',
@@ -99,6 +103,8 @@ export function createTweakStore(): TweakStore {
               theme: s.theme,
               transcriptTextSize: s.transcriptTextSize,
               transcriptWidth: s.transcriptWidth,
+              rightPanelOpen: s.rightPanelOpen,
+              rightPanelWidths: s.rightPanelWidths,
               sidebarCollapsed: s.sidebarCollapsed,
               sidebarWidth: s.sidebarWidth,
               appFont: s.appFont,

@@ -12,6 +12,7 @@
     "scripts/transcript-body/probe.tsx",
     "scripts/transcript-streaming/probe.tsx",
     "scripts/visible-views/probe.tsx",
+    "scripts/right-panel/probe.tsx",
     "scripts/fixtures/opencode-ui/main.tsx",
     "scripts/fixtures/opencode-ui/native.ts",
     "scripts/fixtures/opencode-ui/scenarios.ts"

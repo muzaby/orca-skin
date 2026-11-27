@@ -11,7 +11,6 @@ const h = vi.hoisted(() => ({
     sessionId: 's1',
     agentKind: 'code',
     messages: [],
-    rightPanelTiles: [],
     rightPanelTileLabels: {}
   }
 }))

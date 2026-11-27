@@ -53,6 +53,7 @@ export function FloatingPanel({ title, children }: FloatingPanelProps): React.JS
   if (!open) {
     return (
       <button
+        data-surface-entry=""
         onClick={() => setOpen(true)}
         className="fixed bottom-4 right-4 z-[2147483646] cursor-pointer rounded-full border-[0.5px] border-white/60 bg-floating-panel-bg px-3 py-1.5 font-mono text-[11px] text-floating-panel-text shadow-[var(--shadow-floating-panel-closed)] [backdrop-filter:blur(24px)_saturate(160%)]"
       >
@@ -62,7 +63,12 @@ export function FloatingPanel({ title, children }: FloatingPanelProps): React.JS
   }
 
   return (
-    <div ref={dragRef} className={PANEL_CLASS} style={{ right: 16, bottom: 16 }}>
+    <div
+      data-surface-entry=""
+      ref={dragRef}
+      className={PANEL_CLASS}
+      style={{ right: 16, bottom: 16 }}
+    >
       <div
         className="flex cursor-move select-none items-center justify-between pb-2.5 pl-3.5 pr-2 pt-2.5"
         onMouseDown={onDragStart}

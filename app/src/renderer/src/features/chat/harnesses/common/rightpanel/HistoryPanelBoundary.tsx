@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { PanelKind } from '../../../../../../../shared/history-panels/rows'
 import { useI18n } from '../../../../../shared/i18n'
 import { useTileHistoryPages } from '../../../store/chatStore'
-import type { RightPanelTileId } from '../../../lib/rightPanelTiles'
+import type { RightPanelTileId } from '../../../lib/panelTiles'
 
 export function HistoryPanelBoundary({
   id,

@@ -4,6 +4,7 @@ import { Button } from '../../../../../shared/ui/Button'
 import { openConfirmDialog } from '../../../../../shared/ui/confirmDialogStore'
 import { useI18n } from '../../../../../shared/i18n'
 import { useChatSession, useChatStore } from '../../../store/chatStore'
+import { panelActions } from '../../../store/rightPanelStore'
 import { openArtifactViewer, useArtifactViewerStore } from '../../../store/artifactViewerStore'
 import {
   acquireArtifacts,
@@ -112,7 +113,10 @@ export function ArtifactCards({
           opening={openingId === artifact.publicationId}
           onPreview={(selected, origin) => {
             if (useChatStore.getState().activeKey !== activeKey) return
-            void openArtifactViewer(activeKey, sessionId, selected, origin)
+            void openArtifactViewer(activeKey, sessionId, selected, origin, {
+              active: () => useChatStore.getState().activeKey === activeKey,
+              open: (viewer) => panelActions.navigate({ kind: 'artifact', viewer, origin })
+            })
           }}
           onAction={act}
         />

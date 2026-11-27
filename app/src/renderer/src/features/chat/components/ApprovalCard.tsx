@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { chatActions, useChatSession } from '../store/chatStore'
-import { columnsContain } from '../lib/rightPanelLayout'
+import { useTopPanelTile } from '../store/rightPanelStore'
 import { quoteSnippet } from '../lib/planComments'
 import type { PlanComment } from '../reducer/chatReducer'
 import { useI18n } from '../../../shared/i18n'
@@ -68,7 +68,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
   const review = useChatSession((s) => s.pendingPlanReview)
   const agentKind = useChatSession((s) => s.agentKind)
   const planBodyPlacement = agentUiPolicy(agentKind).transcript.planBodyPlacement
-  const planTileOpen = useChatSession((s) => columnsContain(s.rightPanelTiles, 'plan'))
+  const planTileOpen = useTopPanelTile() === 'plan'
   const comments = useChatSession((s) => s.planComments)
   const [feedback, setFeedback] = useState('')
   // 수정 영역 확장 여부를 "사용자가 마지막으로 접었을 때의 코멘트 수"로 표현한다(null = 명시적 펼침).

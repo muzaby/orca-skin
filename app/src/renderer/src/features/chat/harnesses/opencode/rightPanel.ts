@@ -1,4 +1,4 @@
-import type { RightPanelAgentPolicy } from '../../lib/rightPanelTiles'
+import type { RightPanelAgentPolicy } from '../../lib/panelTiles'
 import type { MessageKey } from '../../../../shared/i18n'
 
 export const planEmptyDescriptionKey: MessageKey = 'chat.rightpanel.planEmptyDescOpenCode'
@@ -9,7 +9,6 @@ export const OPEN_CODE_PANEL_POLICY: RightPanelAgentPolicy = {
   taskTarget: 'task',
   taskBadgeTile: 'task',
   initialTile: 'task',
-  columnMode: 'standard-grid',
   taskTileChrome: 'opencode-overview'
 }
 

@@ -63,7 +63,12 @@ export function FullFrameShell({
           <WinControls />
         </div>
       </header>
-      <main className="flex min-h-0 flex-1 items-center justify-center bg-bg px-6">{children}</main>
+      <main
+        data-surface-entry=""
+        className="flex min-h-0 flex-1 items-center justify-center bg-bg px-6"
+      >
+        {children}
+      </main>
       {footer}
     </div>
   )

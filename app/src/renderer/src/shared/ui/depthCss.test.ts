@@ -37,12 +37,8 @@ describe('depth 전환 연출 (AT-40 · EP-26)', () => {
   })
 
   it('시간축·이징이 기존 마운트 연출과 같다 — 새 상수를 발명하지 않았다', () => {
-    const tile = utility('animate-tile-in')
-    const duration = /(\d+)ms/.exec(tile)?.[1]
-    expect(duration).toBeDefined()
-
     for (const name of ['animate-depth-in', 'animate-depth-out']) {
-      expect(utility(name)).toContain(`${duration}ms`)
+      expect(utility(name)).toContain('180ms')
       expect(utility(name)).toContain('ease-out')
     }
   })

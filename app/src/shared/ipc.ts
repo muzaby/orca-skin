@@ -1160,6 +1160,8 @@ export interface Settings {
   transcriptTextSize: TranscriptTextSize
   // 트랜스크립트·채팅 입력창 열의 최대 너비 단계. 기본 'medium'.
   transcriptWidth: TranscriptWidth
+  rightPanelOpen: boolean
+  rightPanelWidths: { work: number; code: number }
   sidebarCollapsed: boolean
   sidebarWidth: number
   lastBackend: Backend | null

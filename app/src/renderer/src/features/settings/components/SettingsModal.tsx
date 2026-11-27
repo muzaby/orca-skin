@@ -88,7 +88,12 @@ export function SettingsModal({
 
       {/* 우: 내용 — 닫기는 Esc·백드롭 클릭 (X 아이콘 없음, 0121 사용자 피드백) */}
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
+        <div
+          key={tab}
+          data-settings-tab={tab}
+          data-surface-entry=""
+          className="min-h-0 flex-1 overflow-y-auto px-7 py-6"
+        >
           {tab === 'general' && <GeneralTab harnessBrand={harnessBrand} />}
           {tab === 'usage' && <UsageTab />}
           {/* `key` 로 provider 마다 인스턴스를 가른다 (0186 r6). 없으면 서브탭을 바꿔도 같은

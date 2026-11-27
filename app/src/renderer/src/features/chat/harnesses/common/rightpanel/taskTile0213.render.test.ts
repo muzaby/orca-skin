@@ -6,7 +6,6 @@ import { taskBoardFromMessages } from '../../../lib/transcriptIndex.legacy.testf
 // 이라 서브에이전트가 돌고 있으면 침묵했다 — `items` 는 할 일 + 서브에이전트 합집합이다(D-007).
 //
 // `TaskProgressList` 는 props-only View 라 store 없이 `react-dom/server` 로 돈다(0203 선례).
-// 껍데기 부재(AC8·AC9)는 형제 파일 `rightPanelTiles.render.test.ts` 가 래퍼를 직접 렌더해
 // 양성 짝과 함께 관측한다 — 여기서 다시 단언하지 않는다.
 
 import { load } from 'cheerio'

@@ -1,3 +1,4 @@
+import { panelActions, useRightPanelStore } from './rightPanelStore'
 import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
 import { beforeEach } from 'vitest'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -75,13 +76,13 @@ describe('remembered harness and request routing', () => {
   it('reveals the supported OpenCode subagent panel through store actions', () => {
     installChatStoreHarness({
       backend: 'opencode',
-      agentKind: 'code',
-      rightPanelTiles: [{ id: 'stale', tiles: ['subagent'] }]
+      agentKind: 'code'
     })
+    panelActions.switchSession({ key: 's', kind: 'code', backend: 'opencode' }, false)
     chatActions.setRightPanelTileActive('subagent', true)
-    expect(useChatStore.getState().sessions.s.panelReveal?.id).toBe('subagent')
+    expect(useRightPanelStore.getState().stack.at(-1)).toMatchObject({ id: 'subagent' })
     chatActions.toggleRightPanelTile('subagent')
-    expect(useChatStore.getState().sessions.s.panelReveal?.id).toBe('subagent')
+    expect(useRightPanelStore.getState().stack).toEqual([])
   })
   it('defaults to Claude, remembers model selection and sends native options', () => {
     const { settingsSet, chatSend } = installChatStoreHarness({ sessionId: null })

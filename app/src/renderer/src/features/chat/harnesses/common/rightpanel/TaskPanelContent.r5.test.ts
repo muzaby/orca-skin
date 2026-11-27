@@ -145,7 +145,8 @@ describe('0224 r5 actual panel composition', () => {
         children: '패널 내용'
       }
       const $ = load(renderToStaticMarkup(createElement(RightPanelTile, tileProps)))
-      expect($('button').length).toBe(kind === 'work' ? 1 : 2)
+      expect($('button').length).toBe(2)
+      expect($('[data-panel-close]')).toHaveLength(1)
       expect($('button[title="패널 펼치기"]').length).toBe(1)
       expect($('button[title="패널 펼치기"]').attr('aria-label')).toContain('계획')
       expect($.text()).toContain('패널 내용')

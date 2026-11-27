@@ -1,3 +1,4 @@
+import { panelActions, useRightPanelStore } from '../../../store/rightPanelStore'
 import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -116,11 +117,12 @@ function call(toolUseId: string, name: 'Bash' | 'PowerShell' = 'Bash'): ToolCall
 }
 
 function seed(state: BackgroundSessionState, kind: 'code' | 'work' = 'code'): void {
+  panelActions.switchSession({ key: sessionId, kind, backend: 'claude' }, false)
   const base = savedChat.sessions[savedChat.activeKey]
   const sessions = {
     [sessionId]: {
       ...base,
-      session: { ...base.session, sessionId, agentKind: kind, rightPanelTiles: [] }
+      session: { ...base.session, sessionId, agentKind: kind }
     }
   }
   Object.assign(chatInitial, { activeKey: sessionId, sessions })
@@ -202,10 +204,7 @@ describe('foreground shell promotion action', () => {
     expect(buttons()[0].disabled).toBe(true)
     release()
     await vi.waitFor(() => {
-      const tiles = useChatStore
-        .getState()
-        .sessions[sessionId].session.rightPanelTiles.flatMap((column) => column.tiles)
-      expect(tiles).toContain('subagent')
+      expect(useRightPanelStore.getState().stack.at(-1)).toMatchObject({ id: 'subagent' })
     })
 
     ;(powershell.onClick as () => void)()
@@ -250,8 +249,7 @@ describe('foreground shell promotion action', () => {
       ...state.sessions[sessionId],
       session: {
         ...state.sessions[sessionId].session,
-        sessionId: 'other-session',
-        rightPanelTiles: []
+        sessionId: 'other-session'
       }
     }
     useChatStore.setState({
@@ -262,8 +260,7 @@ describe('foreground shell promotion action', () => {
     await Promise.resolve()
     await Promise.resolve()
 
-    expect(useChatStore.getState().sessions['other-session'].session.rightPanelTiles).toEqual([])
-    expect(useChatStore.getState().sessions[sessionId].session.rightPanelTiles).toEqual([])
+    expect(useRightPanelStore.getState().stack).toEqual([])
   })
 
   it('disables unregistered foreground shells and hides terminal, background, and Work actions', () => {

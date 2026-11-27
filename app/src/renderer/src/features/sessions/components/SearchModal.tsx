@@ -13,6 +13,7 @@ import { useI18n } from '../../../shared/i18n'
 import type { SearchHit } from '../../../../../shared/ipc'
 
 interface SearchModalProps {
+  open?: boolean
   onClose: () => void
   onCancelChoice?: () => void
   onChoose: (hit: SearchHit, keyboard: boolean) => Promise<boolean>
@@ -21,11 +22,11 @@ interface SearchModalProps {
 const DEBOUNCE_MS = 150
 const LIMIT = 30
 
-// 대화 검색 모달. 부모 (OverlayLayer) 가 `searchOpen` 일 때만 mount 하므로 internal
-// open prop 은 없다 — unmount 가 곧 닫힘이고 state 자연 reset. 입력어는 150ms
+// 검색 모달은 퇴장 동안 내용을 유지하며 닫기와 함께 입력 및 미결 요청을 해제한다. 입력어는 150ms
 // debounce 후 main 의 FTS5 IPC 로 전달. 인플라이트 request id 시퀀스 비교로 stale
 // 응답을 폐기 — 빠르게 타이핑해도 마지막 응답만 반영.
 export function SearchModal({
+  open = true,
   onClose,
   onChoose,
   onCancelChoice
@@ -43,7 +44,7 @@ export function SearchModal({
   // 검색어가 바뀌면 기존 선택을 비우고 최신 요청의 결과만 표시한다.
   useEffect(() => {
     const trimmed = query.trim()
-    if (trimmed === '') return
+    if (!open || trimmed === '') return
     const seq = ++reqSeqRef.current
     const handle = window.setTimeout(() => {
       void searchApi.messages(trimmed, LIMIT).then((rows) => {
@@ -52,11 +53,15 @@ export function SearchModal({
         setSelectedIdx(0)
       })
     }, DEBOUNCE_MS)
-    return () => window.clearTimeout(handle)
-  }, [query])
+    return () => {
+      ++reqSeqRef.current
+      window.clearTimeout(handle)
+    }
+  }, [open, query])
 
   // 외부 클릭 + Escape 로 닫기. Popover 패턴과 동일.
   useEffect(() => {
+    if (!open) return
     const onMouseDown = (e: MouseEvent): void => {
       const target = e.target as Node | null
       if (panelRef.current?.contains(target ?? null)) return
@@ -74,11 +79,12 @@ export function SearchModal({
     document.addEventListener('mousedown', onMouseDown)
     document.addEventListener('keydown', onKey)
     return () => {
+      ++choice.current
       document.removeEventListener('wheel', onWheel, true)
       document.removeEventListener('mousedown', onMouseDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [onClose, onCancelChoice])
+  }, [open, onClose, onCancelChoice])
 
   const goto = useCallback(
     (hit: SearchHit, keyboard = false): void => {
@@ -112,7 +118,12 @@ export function SearchModal({
 
   return (
     // 모달은 #app-frame-modal 의 grid 셀 중앙에 자리. 폭/높이는 콘텐츠 측에서 결정.
-    <div className="grid h-full w-full place-items-center p-6">
+    <div
+      data-surface-presence={open ? 'open' : 'closing'}
+      inert={!open}
+      aria-hidden={!open}
+      className="grid h-full w-full place-items-center p-6"
+    >
       <div
         ref={panelRef}
         className="app-frame-search-modal flex max-h-[60vh] w-[640px] max-w-[92vw] flex-col overflow-hidden rounded-r6 border border-border bg-panel shadow-xl"
@@ -198,7 +209,7 @@ function SearchResults({
     )
   }
   return (
-    <div className="overflow-y-auto p-2.5">
+    <div data-surface-entry="" className="overflow-y-auto p-2.5">
       <div id="search-modal-results" role="listbox">
         {hits.map((hit, idx) => (
           <button

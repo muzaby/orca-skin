@@ -5,8 +5,7 @@ import {
   rightPanelTarget,
   rightPanelTileDefinitionsForAgent,
   type RightPanelTileId
-} from './rightPanelTiles'
-import { rightPanelColumnsForAgent } from './rightPanelLayout'
+} from './panelTiles'
 
 describe('harness panel policy', () => {
   it('limits only the OpenCode menu while retaining every supported target', () => {
@@ -18,29 +17,8 @@ describe('harness panel policy', () => {
       ids
     )
     expect(ids.map((id) => rightPanelTarget(id, 'code', 'opencode'))).toEqual(ids)
-    const columns = [
-      { id: 'first', tiles: ids.slice(0, 3) },
-      { id: 'second', tiles: ids.slice(3) }
-    ]
-    expect(rightPanelColumnsForAgent(columns, 'code', 'opencode')).toEqual(columns)
   })
 
-  it('retains supported OpenCode targets and persisted columns', () => {
-    expect(rightPanelTarget('subagent', 'code', 'opencode')).toBe('subagent')
-    expect(
-      rightPanelColumnsForAgent(
-        [
-          { id: '1', tiles: ['subagent'] },
-          { id: '2', tiles: ['diff'] }
-        ],
-        'code',
-        'opencode'
-      )
-    ).toEqual([
-      { id: '1', tiles: ['subagent'] },
-      { id: '2', tiles: ['diff'] }
-    ])
-  })
   it('offers the task summary and independent process/source tiles only to OpenCode', () => {
     expect(rightPanelTileDefinitionsForAgent('code', 'opencode').map((tile) => tile.id)).toEqual([
       'plan',
@@ -59,14 +37,6 @@ describe('harness panel policy', () => {
     for (const kind of ['code', 'work'] as const) {
       expect(rightPanelTarget('process', kind, 'claude')).toBeNull()
       expect(rightPanelTarget('source', kind, 'claude')).toBeNull()
-      const columns = [{ id: 'old', tiles: ['process', 'source'] as const }]
-      expect(
-        rightPanelColumnsForAgent(
-          columns.map((column) => ({ ...column, tiles: [...column.tiles] })),
-          kind,
-          'claude'
-        )
-      ).toEqual([])
     }
   })
   it('retains Claude Code and Work panel sets', () => {
@@ -95,10 +65,5 @@ it.each(['claude', 'opencode'] as const)(
     expect(rightPanelMenuTileDefinitionsForAgent('work', backend).map((tile) => tile.id)).toEqual([
       'task'
     ])
-    const columns = [{ id: 'retained', tiles: ['diff', 'task'] as RightPanelTileId[] }]
-    expect(rightPanelColumnsForAgent(columns, 'work', backend)).toEqual([
-      { id: 'retained', tiles: backend === 'claude' ? ['task'] : ['diff', 'task'] }
-    ])
-    expect(columns[0].tiles).toContain('diff')
   }
 )

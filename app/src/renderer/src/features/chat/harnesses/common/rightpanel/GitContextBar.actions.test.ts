@@ -14,11 +14,7 @@ import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GitDiffPatch, GitDiffSummary } from '../../../../../../../shared/ipc'
-import {
-  DEFAULT_DIFF_VIEW,
-  PANEL_DEFAULT_WIDTH,
-  PANEL_MAX_WIDTH
-} from '../../../reducer/chatReducer'
+import { DEFAULT_DIFF_VIEW } from '../../../reducer/chatReducer'
 import { ALL_CHANGES } from './diffComparison'
 
 type Props = Record<string, unknown>
@@ -26,6 +22,10 @@ type Props = Record<string, unknown>
 const buttons: Props[] = []
 const menuItems: Props[] = []
 const toggleExpand = vi.fn()
+const setTweak = vi.fn()
+vi.mock('../../../../../shared/theme/TweakProvider', () => ({
+  useTweakContext: () => ({ t: { rightPanelWidths: { code: colWidth, work: 360 } }, setTweak })
+}))
 
 vi.mock('../../../../../shared/ui/Button', () => ({
   Button: (props: Props) => {
@@ -52,8 +52,7 @@ const actions = {
   setDiffComparison: vi.fn(),
   setDiffViewOption: vi.fn(),
   setAllDiffFilesExpanded: vi.fn(),
-  refreshGitSnapshot: vi.fn(),
-  setRightPanelColWidth: vi.fn()
+  refreshGitSnapshot: vi.fn()
 }
 
 const summary: GitDiffSummary = {
@@ -92,7 +91,7 @@ const patch: GitDiffPatch = {
   unavailable: false
 }
 
-let colWidth = PANEL_DEFAULT_WIDTH
+let colWidth = 520
 let sidebarVisible = false
 
 vi.mock('../../../store/chatStore', () => ({
@@ -114,19 +113,13 @@ vi.mock('../../../store/chatStore', () => ({
       gitStatus: {
         cwd: '/repo',
         status: { isRepo: true, root: '/repo', branch: 'feature-x', detached: false }
-      },
-      rightPanelTiles: [
-        { id: 'col-a', tiles: ['task'] },
-        { id: 'col-b', tiles: ['plan'] },
-        { id: 'col-c', tiles: ['diff'] }
-      ],
-      rightPanelColWidths: [PANEL_DEFAULT_WIDTH, PANEL_DEFAULT_WIDTH, colWidth]
+      }
     })
 }))
 
 const { GitContextBar } = await import('./GitContextBar')
 
-function render(width = PANEL_DEFAULT_WIDTH, visible = false, expanded = false): void {
+function render(width = 520, visible = false, expanded = false): void {
   buttons.length = 0
   menuItems.length = 0
   colWidth = width
@@ -141,23 +134,21 @@ const click = (props: Props): void => (props.onClick as () => void)()
 
 beforeEach(() => {
   toggleExpand.mockClear()
+  setTweak.mockClear()
   for (const fn of Object.values(actions)) fn.mockClear()
 })
 
 describe('변경사항 확대는 transcript host를 덮는 패널 상태를 토글한다', () => {
-  it.each([PANEL_DEFAULT_WIDTH, PANEL_MAX_WIDTH, 420])(
-    '열 폭 %s에서도 같은 확대 동작을 요청한다',
-    (width) => {
-      render(width)
+  it.each([520, 960, 420])('열 폭 %s에서도 같은 확대 동작을 요청한다', (width) => {
+    render(width)
 
-      const control = byMarker(buttons, 'data-diff-expand-panel')
-      expect(control.leadingIcon).toBe('expand')
-      click(control)
+    const control = byMarker(buttons, 'data-diff-expand-panel')
+    expect(control.leadingIcon).toBe('expand')
+    click(control)
 
-      expect(toggleExpand).toHaveBeenCalledOnce()
-      expect(actions.setRightPanelColWidth).not.toHaveBeenCalled()
-    }
-  )
+    expect(toggleExpand).toHaveBeenCalledOnce()
+    expect(setTweak).not.toHaveBeenCalled()
+  })
 
   it('펼친 상태에서 다시 누르면 원래 배치로 복귀하며 열 폭은 유지한다', () => {
     render(420, false, true)
@@ -168,7 +159,7 @@ describe('변경사항 확대는 transcript host를 덮는 패널 상태를 토�
 
     expect(control['aria-pressed']).toBe(true)
     expect(toggleExpand).toHaveBeenCalledOnce()
-    expect(actions.setRightPanelColWidth).not.toHaveBeenCalled()
+    expect(setTweak).not.toHaveBeenCalled()
   })
 })
 
@@ -177,7 +168,7 @@ describe('변경사항 확대는 transcript host를 덮는 패널 상태를 토�
 // 넘어가 세그먼트의 멱등이 깨진다.
 describe('사이드바 버튼과 메뉴가 같은 상태를 바꾼다 (ΔV7 EP-52)', () => {
   it.each([false, true])('목록 표시 %s에서 두 진입점이 모두 반대 값을 설정한다', (visible) => {
-    render(PANEL_DEFAULT_WIDTH, visible)
+    render(520, visible)
     const toggles = buttons.filter((props) => props['data-diff-sidebar-toggle'] !== undefined)
     expect(toggles).toHaveLength(1)
     click(toggles[0])
@@ -191,7 +182,7 @@ describe('사이드바 버튼과 메뉴가 같은 상태를 바꾼다 (ΔV7 EP-5
     click(byMarker(buttons, 'data-diff-sidebar-toggle'))
 
     expect(actions.setDiffViewOption).not.toHaveBeenCalled()
-    expect(actions.setRightPanelColWidth).not.toHaveBeenCalled()
+    expect(setTweak).not.toHaveBeenCalled()
   })
 })
 

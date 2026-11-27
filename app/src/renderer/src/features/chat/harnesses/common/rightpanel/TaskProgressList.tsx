@@ -113,9 +113,9 @@ export function TaskProgressList({
                 data-task-detail-trigger={item.key}
                 aria-label={`${item.subject}: ${tr(STATUS_KEY[item.status])}`}
                 title={`${item.title} · ${tr(STATUS_KEY[item.status])}`}
-                onClick={() => {
+                onClick={(event) => {
                   closeTooltip()
-                  chatActions.selectTask(item.key)
+                  chatActions.selectTask(item.key, event.currentTarget)
                 }}
                 className="flex min-w-0 flex-1 items-start gap-3 rounded-r3 text-left outline-none ring-focus hover:bg-bg2"
               >

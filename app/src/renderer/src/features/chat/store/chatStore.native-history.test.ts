@@ -52,10 +52,7 @@ beforeEach(() => {
     ],
     permissionMode: 'accept_edits',
     modelFamily: 'selected-model',
-    agentPanelInitialized: true,
-    rightPanelTiles: [{ id: 'custom', tiles: ['process'] }],
-    selectedProcessToolId: 'shell',
-    rightPanelColWidths: [420]
+    selectedProcessToolId: 'shell'
   })
   const original = useChatStore.getState().sessions.s
   useChatStore.setState({
@@ -96,8 +93,6 @@ describe('native history refresh on cached session reopen', () => {
       modelFamily: 'selected-model',
       selectedProcessToolId: 'shell'
     })
-    expect(after.session.rightPanelTiles).toBe(before.session.rightPanelTiles)
-    expect(after.session.rightPanelColWidths).toBe(before.session.rightPanelColWidths)
     expect(after.live).toBe(before.live)
     expect(report).not.toHaveBeenCalled()
   })

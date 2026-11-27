@@ -4,8 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Children, createElement, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { RightPanelColumns } from '../lib/rightPanelLayout'
-import type { RightPanelTileId } from '../lib/rightPanelTiles'
+import type { RightPanelTileId } from '../lib/panelTiles'
 import { MenuItem, type MenuItemProps } from '../../../shared/ui/MenuItem'
 
 const { sessionState, unseenCount, toggleTile, menu, confirmDialog } = vi.hoisted(() => ({
@@ -18,7 +17,7 @@ const { sessionState, unseenCount, toggleTile, menu, confirmDialog } = vi.hoiste
       cwd: '/repo',
       worktree: null,
       sessionId: 's1',
-      rightPanelTiles: [] as RightPanelColumns,
+      top: null as string | null,
       rightPanelTileLabels: {} as Record<string, string>
     }
   },
@@ -28,6 +27,7 @@ const { sessionState, unseenCount, toggleTile, menu, confirmDialog } = vi.hoiste
   menu: { children: null as ReactNode }
 }))
 
+vi.mock('../store/rightPanelStore', () => ({ useTopPanelTile: () => sessionState.value.top }))
 vi.mock('../store/chatStore', () => ({
   chatActions: { toggleRightPanelTile: toggleTile, selectTask: vi.fn(), setPendingCwd: vi.fn() },
   getActiveChatSession: () => sessionState.value,
@@ -63,9 +63,7 @@ function render(
   props: ComponentProps<typeof ChatTitleBar> = {}
 ): string {
   unseenCount.value = opts.unseen ?? 0
-  sessionState.value.rightPanelTiles = (
-    opts.activeTiles?.length ? [{ id: 'c1', tiles: opts.activeTiles }] : []
-  ) as RightPanelColumns
+  sessionState.value.top = opts.activeTiles?.at(-1) ?? null
   return renderToStaticMarkup(createElement(ChatTitleBar, props))
 }
 
@@ -156,7 +154,7 @@ describe('실제 타일 메뉴 — 평면 목록과 토글 (0262 ΔV9 · 0263 Δ
       callbacks.forEach((item, index) => {
         expect(item.icon).toBe(index === 0 ? 'check' : 'plus')
         item.onClick?.({} as React.MouseEvent<HTMLButtonElement>)
-        expect(toggleTile).toHaveBeenNthCalledWith(index + 1, ids[index])
+        expect(toggleTile).toHaveBeenNthCalledWith(index + 1, ids[index], undefined)
       })
       expect(toggleTile).toHaveBeenCalledTimes(ids.length)
     }

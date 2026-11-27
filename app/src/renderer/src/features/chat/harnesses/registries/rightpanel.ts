@@ -1,28 +1,26 @@
 import type { Backend } from '../../../../../../shared/ipc'
 import type { RightPanelModule } from '../contracts'
-import { ClaudeRightPanel } from '../claude/rightpanel/Panel'
+import { PanelScreen } from '../common/rightpanel/PanelScreen'
 import { claudeTileById, claudeTiles } from '../claude/rightpanel/tileRegistry'
 import { rightPanelAppearance as claudeAppearance } from '../claude/rightPanel'
-import { OpenCodeRightPanel } from '../opencode/rightpanel/Panel'
+import { OpenCodePanelScreen } from '../opencode/rightpanel/OpenCodePanelScreen'
 import { openCodeTileById, openCodeTiles } from '../opencode/rightpanel/tileRegistry'
 import { rightPanelAppearance as openCodeAppearance } from '../opencode/rightPanel'
 
 const panels = {
   claude: {
-    Panel: ClaudeRightPanel,
+    screen: PanelScreen,
     configuration: { backend: 'claude', appearance: claudeAppearance, tileById: claudeTileById },
-    tiles: claudeTiles,
-    resetBySession: false
+    tiles: claudeTiles
   },
   opencode: {
-    Panel: OpenCodeRightPanel,
+    screen: OpenCodePanelScreen,
     configuration: {
       backend: 'opencode',
       appearance: openCodeAppearance,
       tileById: openCodeTileById
     },
-    tiles: openCodeTiles,
-    resetBySession: true
+    tiles: openCodeTiles
   }
 } satisfies Record<Backend, RightPanelModule>
 

@@ -110,33 +110,45 @@ export async function openArtifactViewer(
   sessionKey: string,
   sessionId: string,
   artifact: ArtifactRef,
-  origin?: HTMLElement
+  origin?: HTMLElement,
+  panel?: { active: () => boolean; open: (selection: ArtifactViewerSelection) => void }
 ): Promise<void> {
-  const pending = useArtifactViewerStore.getState().opening
+  const { selection: visible, opening: pending } = useArtifactViewerStore.getState()
+  if (
+    panel &&
+    panel.active() &&
+    visible?.sessionKey === sessionKey &&
+    visible.artifact.publicationId === artifact.publicationId
+  ) {
+    // Clicking the visible publication also supersedes an older pending card click.
+    if (pending) useArtifactViewerStore.setState({ opening: null })
+    return
+  }
   if (pending?.sessionKey === sessionKey && pending.publicationId === artifact.publicationId) return
   const opening = { request: ++sequence, sessionKey, publicationId: artifact.publicationId }
   useArtifactViewerStore.setState({ opening })
   const result = await readPreview(sessionId, artifact.publicationId)
   if (useArtifactViewerStore.getState().opening?.request !== opening.request) return
   useArtifactViewerStore.setState({ opening: null })
+  if (panel && !panel.active()) return
   if (result.state === 'unavailable' && result.reason === 'unsupported-format') {
     await revealUnsupported(sessionId, artifact, result)
     return
   }
   if (blocked(artifact, result)) return
-  useArtifactViewerStore.setState({
-    selection: {
-      sessionKey,
-      sessionId,
-      artifact,
-      origin,
-      request: opening.request,
-      loading: false,
-      result,
-      mode: artifact.kind === 'text' ? 'code' : 'preview',
-      expanded: false
-    }
-  })
+  const selection: ArtifactViewerSelection = {
+    sessionKey,
+    sessionId,
+    artifact,
+    origin,
+    request: opening.request,
+    loading: false,
+    result,
+    mode: artifact.kind === 'text' ? 'code' : 'preview',
+    expanded: false
+  }
+  useArtifactViewerStore.setState({ selection })
+  panel?.open(selection)
 }
 
 export function closeArtifactViewer(sessionKey?: string): void {

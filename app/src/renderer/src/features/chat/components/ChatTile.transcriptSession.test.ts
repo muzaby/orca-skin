@@ -46,7 +46,7 @@ vi.mock('./transcript/HarnessScrollController', () => ({
 vi.mock('./ChatTitleBar', () => ({ ChatTitleBar: () => null }))
 vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
 vi.mock('./Composer', () => ({ Composer: () => null }))
-vi.mock('./rightpanel/RightPanel', () => ({ RightPanel: () => null }))
+vi.mock('../harnesses/common/rightpanel/RightPanelFrame', () => ({ RightPanelFrame: () => null }))
 
 let dom: FakeDom
 afterEach(() => {

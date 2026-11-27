@@ -49,6 +49,7 @@ export function DetailSidePane({
     >
       <section
         {...markers}
+        data-surface-entry=""
         aria-label={title}
         className="app-frame-tile effect-primary-elevated flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-r6 border border-border bg-panel"
         onKeyDown={(event) => {

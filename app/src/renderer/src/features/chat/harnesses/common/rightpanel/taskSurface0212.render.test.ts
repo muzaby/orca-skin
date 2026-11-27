@@ -7,7 +7,6 @@ import {
 // 도달하는지만 본다.
 //
 // JSX 를 쓰지 않는 이유: vitest include 가 `src/**/*.test.ts` 라 `.tsx` 를 잡지 않는다
-// (`rightPanelTiles.render.test.ts` 와 같은 제약).
 //
 // **음성 단언에는 양성 짝을 둔다** — 아무것도 그리지 않는 출력에서 음성만 자동으로 참이 되는
 // 것을 막는다.

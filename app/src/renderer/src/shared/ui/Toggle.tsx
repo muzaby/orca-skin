@@ -56,12 +56,12 @@ export function Toggle({
       role="switch"
       aria-checked={on}
       aria-label={label}
-      className={`relative h-[17px] w-[30px] flex-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 rounded-[9px] border-0 transition-colors ${
+      className={`relative h-[17px] w-[30px] flex-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 rounded-[9px] border-0 transition-colors motion-reduce:transition-none ${
         on ? 'bg-toggle-on' : 'bg-border-strong'
       }`}
     >
       <span
-        className="absolute top-[1.5px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-[left] duration-150"
+        className="absolute top-[1.5px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-[left] duration-150 motion-reduce:transition-none"
         style={{ left: on ? 14.5 : 1.5 }}
       />
     </button>

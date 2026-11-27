@@ -201,38 +201,8 @@ describe('chatReducer — 두 타일의 선택 상태 독립 (AT-30)', () => {
     expect(backToSubagentList.selectedTaskKey).toBe('agent:1')
   })
 
-  it('타일을 닫으면 그 타일의 선택만 비워진다', () => {
-    const s = bothSelected()
-
-    const taskClosed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'plan' })
-    expect(taskClosed.selectedTaskKey).toBeNull()
-    expect(taskClosed.selectedSubagentTaskId).toBe('bg1')
-
-    const subagentClosed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'subagent' })
-    expect(subagentClosed.selectedSubagentTaskId).toBeNull()
-    expect(subagentClosed.selectedTaskKey).toBe('agent:1')
-  })
-
-  it('각 타일 열기는 자기 타일만 패널에 붙인다', () => {
-    const taskOnly = chatReducer(initialChatState, { type: 'OPEN_TASK', key: 'agent:1' })
-    const tiles = taskOnly.rightPanelTiles.flatMap((c) => c.tiles)
-    // 0213 — `작업` 이 자기 타일을 붙인다(0204 AT-30 복귀). **형제 타일은 붙지 않는다** —
-    // 두 타일이 서로를 열지 않는 것이 D-015 의 요지다.
-    expect(taskOnly.selectedTaskKey).toBe('agent:1')
-    expect(tiles).toContain('plan')
-    expect(tiles).not.toContain('subagent')
-
-    const subagentOnly = chatReducer(initialChatState, {
-      type: 'OPEN_SUBAGENT_TASK',
-      toolRunId: 'bg1'
-    })
-    const tiles2 = subagentOnly.rightPanelTiles.flatMap((c) => c.tiles)
-    expect(tiles2).toContain('subagent')
-    expect(tiles2).not.toContain('task')
-  })
+  // ── 0212 — 기능 게이트 보존 · 라이브 상태 표식 (AT-04·18·19·26) ────────────────
 })
-
-// ── 0212 — 기능 게이트 보존 · 라이브 상태 표식 (AT-04·18·19·26) ────────────────
 
 describe('0212 — session.updated patch 병합 (AT-04 · §10 EP-02)', () => {
   const sessionUpdated = (patch: Record<string, unknown>): NormalizedEvent =>

@@ -7,7 +7,7 @@ import { Popover } from '../../../../../shared/ui/Popover'
 import { useI18n } from '../../../../../shared/i18n'
 import { formatRelativeTime } from '../../../../../shared/i18n/datetime'
 import type { DiffViewOptions } from '../../../reducer/chatReducer'
-import type { RightPanelHeaderProps } from '../../../lib/rightPanelTiles'
+import type { RightPanelHeaderProps } from '../../../lib/panelTiles'
 import { chatActions, useChatSession } from '../../../store/chatStore'
 import { gitStatusForCwd } from '../composer/branchChipState'
 

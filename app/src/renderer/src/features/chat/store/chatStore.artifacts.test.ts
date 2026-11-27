@@ -1,3 +1,4 @@
+import { panelActions, useRightPanelStore } from './rightPanelStore'
 import { userMessageId } from '../../../../../shared/message-id'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { chatActions, ingestChatEvent, useChatStore } from './chatStore'
@@ -16,17 +17,18 @@ const artifact = {
 }
 beforeEach(() => {
   installChatStoreHarness()
+  panelActions.switchSession({ key: 's', kind: 'code', backend: 'claude' }, false)
   useArtifactStore.setState({ sessions: {} })
 })
-it('an explicit repeat open requests the same offscreen tile again; background publication does not', () => {
+it('a repeat open preserves the current tile and background publication keeps it visible', () => {
   chatActions.setRightPanelTileActive('plan', true)
-  const first = useChatStore.getState().sessions.s.panelReveal
+  const first = useRightPanelStore.getState().stack
   chatActions.setRightPanelTileActive('plan', true)
-  const second = useChatStore.getState().sessions.s.panelReveal
-  expect(second?.id).toBe('plan')
-  expect(second).not.toBe(first)
+  const second = useRightPanelStore.getState().stack
+  expect(second.at(-1)).toMatchObject({ id: 'plan' })
+  expect(second).toBe(first)
   ingestChatEvent({ type: 'artifact.published', sessionId: 's', artifact })
-  expect(useChatStore.getState().sessions.s.panelReveal).toBe(second)
+  expect(useRightPanelStore.getState().stack).toBe(second)
 })
 it('background publication refreshes a mounted list without changing chat layout or reveal identity', async () => {
   Object.assign(window.oo, { artifacts: { list: vi.fn().mockResolvedValue([artifact]) } })
@@ -42,7 +44,7 @@ it('background publication refreshes a mounted list without changing chat layout
   expect(useArtifactStore.getState().sessions.s.list).toEqual([artifact])
   expect(useChatStore.getState()).toBe(before)
   expect(changed).not.toHaveBeenCalled()
-  expect(useChatStore.getState().sessions.s.panelReveal?.id).toBe('plan')
+  expect(useRightPanelStore.getState().stack.at(-1)).toMatchObject({ id: 'plan' })
   unsubscribe()
   release()
 })
@@ -121,7 +123,6 @@ it('a captured output updates the original background session without starting a
   expect(partsArtifacts(after.sessions.s.session.messages[0].parts)).toEqual([artifact])
   expect(after.sessions.s.session.inflight).toBe(false)
   expect(after.sessions.s.live).toBe(before.sessions.s.live)
-  expect(after.sessions.s.panelReveal).toBe(before.sessions.s.panelReveal)
   expect(after.sessions.other).toBe(before.sessions.other)
   expect(after.activeKey).toBe('other')
 })

@@ -115,13 +115,11 @@ export function resetScenario(
         sessionId,
         title: sessionId,
         agentKindLocked: true,
-        agentPanelInitialized: true,
         cwd: 'C:/fixture',
         providerKey: `${backend}:fixture`,
         modelFamily: 'fixture',
         modelAlias: '검증 모델',
-        messages,
-        rightPanelTiles: []
+        messages
       }
       return [
         sessionId,

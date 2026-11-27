@@ -1,5 +1,5 @@
 import { createElement } from 'react'
-import { rightPanelTileDefinitions, type RightPanelTileId } from '../../../lib/rightPanelTiles'
+import { rightPanelTileDefinitions, type RightPanelTileId } from '../../../lib/panelTiles'
 import { harnessCatalog } from '../../catalog'
 import { DiffTileContent } from '../../common/rightpanel/DiffTileContent'
 import { GitContextBar } from '../../common/rightpanel/GitContextBar'

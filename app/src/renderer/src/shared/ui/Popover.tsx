@@ -1,4 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject
+} from 'react'
+import { useSurfacePresence } from '../hooks/useSurfacePresence'
 import { createPortal } from 'react-dom'
 import { TOOLTIP_SURFACE } from './tooltipStyle'
 import { popoverPosition, type PopoverPlacement, type PopoverPosition } from './popoverPosition'
@@ -33,6 +42,7 @@ export function Popover({
   role = 'menu',
   className = ''
 }: PopoverProps): React.JSX.Element | null {
+  const { present, instance } = useSurfacePresence(open)
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<PopoverPosition | null>(null)
 
@@ -100,7 +110,7 @@ export function Popover({
     }
   }, [open, onClose, anchorRef])
 
-  if (!open) return null
+  if (!present) return null
 
   // pos 미확정 동안에도 패널을 마운트해 높이를 측정한다(visibility:hidden, 화면 밖 좌상단).
   // pos 가 잡히면 실제 위치로 가시화한다. min-width 강제는 두지 않는다 — 패널이 콘텐츠
@@ -114,13 +124,16 @@ export function Popover({
   return createPortal(
     <div
       ref={panelRef}
+      data-surface-presence={open ? 'open' : 'closing'}
+      inert={!open}
+      aria-hidden={!open}
       role={role}
       className={`app-frame-floating fixed z-50 ${role === 'tooltip' ? TOOLTIP_SURFACE : 'rounded-lg border border-border bg-panel p-1 shadow-lg'} ${className}`}
       style={style}
       data-context="floating"
       data-behavior="dismissible"
     >
-      {children}
+      <Fragment key={instance}>{children}</Fragment>
     </div>,
     document.body
   )
