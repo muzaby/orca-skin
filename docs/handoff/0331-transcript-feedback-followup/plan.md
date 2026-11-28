@@ -1306,6 +1306,15 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 
 ## [구현자 기입] 설계 리뷰
 
+### r1.6 · ΔV6 (Claude — 사용자 지시 “331~332 코덱스의 작업을 이어서 하라”)
+
+- 판정: Codex 커밋 6개(WU-3·4·5 · `workerRecovery` 실기)를 이어받아 남은 WU-1(EP-20)·WU-2(EP-10′)를 구현하고 ΔV6 전체를 닫았다. Codex 트리는 vitest 24건 실패·typecheck error 2였고, `--layout` 판정은 레코드 27을 요구하는데 시나리오는 28이었다(`check-transcript-history.mjs` ↔ `electron-main.mjs` 대조 — 항상 exit 1) — 아래 구현 보고에서 기준선과 이번 턴 수정을 가른다.
+- **PLAN_GAP 1건 — 설계 정정 커밋으로 닫음.** AC10″·VP-48의 Work 행 "16px"은 D-033("0324 이전 값 전부")·EP-10′(`py-1 → py-2`)과 모순이다. 0324 이전 트리 `671ee43d~1`도 루트 글꼴 14.5px라 `py-2` 두 개 = 14.5px(실측 `workDot` 14.5). 규범 행 정정은 구현과 분리된 설계 커밋(§23-G)이다.
+- **현재 결함 1건 — 선조치.** `laneRecovery.ts`의 대기 타이머가 레인 시계보다 일찍 깨면 `probe()`가 `blocked`로 돌아가고 다시 예약하지 않아 레인이 영영 회복하지 않았다(AC20). Electron `workerRecovery`에서 Markdown 레인 4번째 워커 0 · `restored:false`로 재현, 시계 0.5ms 지연 단위로도 재현했다.
+- 설계 대비 차이(구현 세부): ① 세션 유무는 Timeline prop이 아니라 `ArtifactCards`와 같은 원천(store `sessionId`)으로 블록 모델에 넘긴다 — prop을 쓰면 store만 채운 렌더에서 블록과 카드가 갈렸다(`TurnOutputCards.test.ts` 실패로 관측). ② 답 없는 질문을 숨기면 제자리 갱신만으로는 행이 생기지 않으므로, 블록 모델이 질문 판정을 기억하고 늦은 결과·입력이 판정을 바꾸면 소유 턴을 다시 투영한다(두 하네스). ③ 답 없는 질문은 보이지 않는 경계라 앞뒤 도구 묶음을 가르지 않는다 — "건너뛴 블록이 없었던 것처럼"(§23-E EP-20)의 귀결.
+- 인용 테스트 확인: plan이 이름으로 적은 좌표 중 8개는 Codex가 다른 이름으로 같은 행동을 단언한다(예: `AC3″ fails on the third restart` → `deferredBody.test.ts` `AC3″ shares the two restarts across %s, %s and %s`). 대응은 강제 지점 표의 좌표 칸에 적었다.
+- WU-0은 ΔV8(§25)이 계기를 닫았다(결정 원장 ΔV8 줄). 이번 턴에 새로 수집한 사용자 로그는 없다.
+
 ### r1.5 · ΔV7·ΔV8 (Claude, 사용자 지시 “수정하라”)
 
 - 판정: ΔV7(§24)·ΔV8(§25)을 계약대로 구현했다. 설계 대비 차이 0 — `pendingText` 이름·전달 경로(메모 → `ClaudeAssistantSegment` → `TranscriptMarkdown` → `WorkerDocumentRows` → `TranscriptRows` → `MarkdownRowView`)는 §24-D ③~⑦ 그대로다. ΔV6(§23)은 범위 밖이며 Codex r1.6 몫이다.
@@ -1317,6 +1326,86 @@ AC 검증 주의: AC18의 "자식 요소" 단언은 높이 > 0 양성 단언과 
 - EP-6에서는 같은 페인트의 DOM 글자 위치와 실제 글을 함께 비교했다. EP-12에서는 첫 화면의 하단과 캐시 재검증 뒤의 하단 이동을 따로 관측했다. 세부 측정은 아래 이력 표에 있다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+### r1.6 · ΔV6 EP-20·EP-10′·EP-21·EP-22·EP-23 (§23-E)
+
+**EP-20 · 빈 가상 행 — 10/10.** 검색(§23-E) 재실행: 11줄 · 자리 10 · 제외 1(`opencode/transcript/Timeline.tsx:255` `RetryStatus`) — 줄 이동만 있다(claude `Timeline.tsx:193 → :198`, opencode `Timeline.tsx:197 → :201`). 자리 줄은 렌더 방어로 남고 블록 모델이 같은 조건에서 행을 만들지 않는다(§23-E "방어로만 남으면 행 수로 판정").
+
+| # | 자리 → 블록 모델 쪽 구현 | 분기 → 입력 | 직접 oracle 좌표 | 고장 |
+|---|---|---|---|---|
+| 1 | claude `Timeline.tsx:198` → `claudeBlocks.ts:714` | `ended` · `unknown`(end 없음·begin만) · 대조 `aborted` · 이중 응답 · aborted+begin만 · 앞 노드를 건너뛴 뒤 보이는 행 | `claudeBlocks.test.ts` `AC18 emits no status block for ended or unknown` · `gate:--layout` `errorRunMixed` | S20-1·1a·1b red · VP44-E red · S20-gap red · S20-1t green(동치 — 블록이 오지 않는 방어) |
+| 2 | claude `AskExchange.tsx:15` → `claudeBlocks.ts:563`(Code)·`:714`(Work) · `ask.ts` `askHasExchange` | 미응답 · 대조 응답 · 늦은 답이 같은 턴/다른 턴 · 답 철회 | `Timeline.viewport.test.ts` `AC18 pending ask leaves no row` · `claudeBlocks.test.ts` `AC18 a question row appears with its answer and leaves when the answer is withdrawn (%s)` · `gate:--layout` `pendingAsk` | S20-2·2w·2r red · S20-re·rec red · S20-2x green(동치) |
+| 3 | claude `AskExchange.tsx:17` → `askHasExchange` 항목 항 | 응답 있음 + 항목 0 | `Timeline.viewport.test.ts` `AC18 answered ask without items leaves no row` · 같은 블록 테스트 끝 입력 | S20-3 red · S20-3x green(동치) |
+| 4 | `ReasoningBlock.tsx:26` → `parts.ts` `segmentForPart` reasoning | 빈 추론(Code·Work) | `claudeBlocks.test.ts` `AC18 empty reasoning forms no block` | S20-4 red · S20-4x green(동치) |
+| 5 | `ReasoningBlock.tsx:28` → 같음 | 공백뿐 추론 | 같은 테스트 `' \n\t '` 입력 | S20-4 red · S20-5x green(동치) |
+| 6 | `ArtifactCards.tsx:54` → `claudeBlocks.ts:827`·`openCodeBlocks.ts:647` `&& hasSession` · 두 Timeline이 store `sessionId`를 넘김 | 산출물 있음+세션 · 세션 없음 · 산출물 없음 · 같은 모델에서 세션 생김 | 두 블록 테스트 `AC18 artifacts block needs artifacts and a session` · `TurnOutputCards.test.ts` `AC18 waits for a session id before it forms the %s turn output row` · OpenCode `Timeline.render.test.ts` 같은 이름 | S20-6·6a·6b·6b2·6c·6d·6e·6o·6oa·6ob·6oc red · S20-6ow red · S20-6x green(동치) |
+| 7 | opencode `Timeline.tsx:201` → `openCodeBlocks.ts:498` | 추론 세그먼트 · 진행 중 추론만 | `openCodeBlocks.test.ts` `AC18 reasoning forms no row` | S20-7 red · S20-7t green(동치) |
+| 8 | opencode `AssistantSegment.tsx:29` → 7과 같음 | 7과 같음 | 7과 같음 | S20-8 green(동치) |
+| 9 | opencode `AskExchange.tsx:11` → `openCodeBlocks.ts:619` · `v1/toolPresentation.ts` `questionHasAnswers` | 미응답 · 대조 답 · 응답만+항목 0 · 다른 턴의 답·철회 | `Timeline.render.test.ts` `AC18 unanswered ask leaves no row` · `openCodeBlocks.test.ts` `AC18 a question row appears …` | S20-9·9r red · S20-9q·reo·reco red · S20-9x green(동치) |
+| 10 | opencode `ToolGroup.tsx:23` → `openCodeBlocks.ts:510` todo 필터 | todo만 · todo+read | `openCodeBlocks.test.ts` `AC18 tool group without visible tools forms no row` | S20-10 red · S20-10x green(동치) |
+
+**EP-21 · 세대 재합류 — 자리 15/15.** Codex가 커서·본문 판정을 다시 짜서 설계 턴의 줄(`c052c301`)이 다른 구문으로 옮겼다 — 같은 술어 검색은 41줄(설계 46). 아래 표는 각 자리의 지금 구현과 그 자리만 바꾼 변이다(재앵커).
+
+| 자리 (설계 줄 → 지금) | 규칙 칸 분기 → 입력 | 직접 oracle 좌표 | 고장 |
+|---|---|---|---|
+| `history-page.ts:78` 커서 → `:87`·`:88`·`:90`·`:101~106` | 같은 세대 · 다른 세대+키 있음 · 다른 세대+키 없음 · (같은 세대 키 불일치 · 다른 세대 이웃 없음) · `withinUnit` 하한 재계산 | `turn-page.db.test.ts` `AC19 re-resolves a cursor by message key in a new generation` · `AC19 recomputes the withinUnit floor when the ordinal of its message changes` · `AC19 ends at the first message of a new generation and rejects a key that left its ordinal` | S21-1·2 red · S21-1b·1c red |
+| `history-page.ts:140`·`:142`·`:144`·`:153` 본문 → `:162~182` | 같은 세대 · 다른 세대+같은 bytes · 다른 세대+늘어난/줄어든 bytes(offset 0 재시작) · 키 없음 · 응답 `generation`·`bytes`·`done` | `turn-page.db.test.ts` `AC3″ serves a body by key in the current generation and rejects foreign references` | S21-3·3b·3c·3d·3e·3f red |
+| `deferredBody.ts:64`·`:75`·`:99`·`:100`·`:112` → `:94`·`:131~132`·`:136~146`·`:148`·`:195` | 첫 응답 bytes가 총량 · 세대 변경 → offset 0 재시작 · 상한 2(EP-22와 합산) · 3번째 `churn` · 형식 위반(0 이하·정수 아님·세대 없음) | `deferredBody.test.ts` `AC3″ shares the two restarts across %s, %s and %s` · `AC3″ rejects a body reply with %s as invalid` · `TranscriptViewport.body.test.ts` `AC3″ renders the current generation after a generation change` | S21-4·4b·4c·4d3 red · S21-4d·4d2 green(동치 — 전송 계약 `shared/history-page.ts:170` `bytes: int().positive()`가 창보다 먼저 거부하고, 0·음수는 뒤 범위 검사가 같은 `invalid`로 막는다) · S21-4e green(동치 — 재시작 뒤 첫 응답이 `servedRef`를 다시 정한다 `:148`) |
+| `session-load.ts:163`·`:164` → `:160~170` | 응답 `bytes`로 범위·`done` 검사 · 늘어난 bytes 수용 · `nextOffset > bytes` 거부 · 줄어든 본문의 offset 0 | `session-load.test.ts` `AC19 validates a body against the served generation and total byte count` | S21-5·5b red |
+| `chatStore.ts:2726` 본문 현재성 → `:2730~2742` | 창 세대 ≠ `ref.generation`이어도 같은 열기·검색 회차·참조가 있으면 유지 · 세션 전환 폐기 | `TranscriptViewport.body.test.ts` `AC3″ renders the current generation after a generation change` + 기존 5전환 | S21-6 red(옛 세대 비교를 되살림) |
+| `chatStore.ts:2915` 검색 가장자리 → `:2940`·`:2953` | 같은 세대 · 다른 세대 → 보기 세대 채택 | `history-search.test.ts` `AC19 adopts a new generation at the %s history edge without reporting a failure` | S21-7·7b red |
+| `chatStore.ts:2971` 일반 앞삽입 → `:2997`·`:3015` | 같은 세대 · 다른 세대 → 창 세대 채택 · 토스트 0 | `history-port.integration.test.ts` `AC3″ resolves a republished body through the real port and AC19 prepends the five current turns` | S21-8(등록 변이 VP-46)·8b red |
+
+**EP-22 · 워커 교체 중 조립 — 자리 4/4.**
+
+| 자리 | 규칙 → 입력 | 직접 oracle 좌표 | 고장 |
+|---|---|---|---|
+| `client.ts:285` 실패 교체 → `fail()` `:296~311` | 교체는 워커 회차 +1 · 조립 중 본문 실패는 `worker-replaced` | `client.test.ts` `AC20 recreates below the limit (%i)` · `TranscriptViewport.body.test.ts` `AC3″ survives a worker replacement when a running diff pair is cancelled` | S22-1·1b·5 red |
+| `client.ts:470` 취소 교체 → `cancel()` `:518~527` | 취소 교체는 실패 수에 들지 않는다 | `client.documents.test.ts` `AC20 does not count a cancelled pair replacement as a lane failure` | S22-4 red |
+| `historyBody.ts:24` 스트림 조회 → `:27` | 스트림 없음+offset>0 → `worker-replaced` · 범위 위반은 따로 | `historyBody.test.ts` `AC3″ distinguishes a replaced worker from an invalid range` | S22-2 red |
+| `deferredBody.ts:105` 조각 요청 → `:161` | `worker-replaced` → offset 0부터(상한 2 합산) · 그 밖 → `worker` | `deferredBody.test.ts` `AC3″ shares the two restarts …` · body 좌표 | S22-3 red |
+
+**EP-23 · 레인 회복·재요청·진단 — 레인 자리 9/9 · 규칙 칸 8분기 · 소비처 14/14.** 레인 검색(`failures|blocked|onError`)은 Codex가 상태를 `LaneRecovery`(`laneRecovery.ts`)로 옮겨 `client.ts`에 `blocked` 3줄·`onError` 2줄만 남았다 — 옮긴 자리는 아래처럼 재앵커했다. 소비처 검색은 14줄 · 자리 14 · 제외 0 그대로다.
+
+| 규칙 칸 분기 | 구현 자리 | 직접 oracle 좌표(`client.test.ts`, 가짜 시계) | 고장 |
+|---|---|---|---|
+| 한도 미만 실패 → 즉시 새 워커 | `laneRecovery.ts:75` `>=` · `client.ts:296` `fail` | `AC20 recreates below the limit (%i)` | S23-2·14 red |
+| 한도 → 2초 거부 → 다음 요청에 새 워커 | `laneRecovery.ts:3` · `client.ts:313`·`:642` | `AC20 waits 2s after the limit` | S23-1b red · S23-10 green(동치 — `:313`이 막는 순간 대기열을 비우고 `:642`가 대기 중 요청을 거부해 `pump`는 대기 중 작업을 보지 않는다) |
+| 2회째 10초 · 이후 60초 상한 | `laneRecovery.ts:3`·`:78` | `AC20 grows the wait to 10s and caps at 60s` | S23-1(등록 변이 VP-55)·1c red |
+| 실패·거부 뒤 첫 성공 → 회복 +1·알림 1회 | `laneRecovery.ts:86~92` | `AC20 announces recovery once and ignores stale worker replies` · `AC20 recovers after the cool-down …` · `AC20 reschedules the recovery check when the timer wakes before the cool-down ends` · `AC20 checks the lane again after a running job ends with a calculation error` | S23-3·4·5(등록 변이 VP-47 — Electron VP47-E도)·6·12 red · S23-13 red · S23-11 green(동치 — `probe`의 유일한 호출자인 깨어남 `:66`이 `blocked`를 먼저 본다) |
+| 실패 없이 성공 → 알림 0 | `laneRecovery.ts:87` | 같은 테스트 대조 입력 | S23-4 red |
+| 계산 오류 → 로그 1줄 · 실패 수 불변 | `client.ts:464~465` | `AC20 logs request errors without failing the lane` · `AC20 keeps the lane open after a calculation error that follows two crashes` | S23-9b red · S23-9 red |
+| 같은 사유 연속 → 1분에 1줄 | `laneRecovery.ts:104~109` | `AC20 throttles repeated reasons` | S23-7·7b red |
+| 10초 무응답 → 진단 1줄 · 작업 유지 | `laneRecovery.ts:5`·`:117` | `AC20 reports a slow job once without dropping it` | S23-8 red |
+
+| 소비처 (`app/src/renderer/src/` 기준) | 직접 oracle 좌표 | 고장(VP-52 등록 변이 — 회복 의존 제거) |
+|---|---|---|
+| `shared/compute/useHighlightedHtml.ts:26` | `CodeBlock.compute.test.ts` `AC20 restores highlight after recovery` · `AC20 ignores recovery for a computation error and an unmounted failure` | C01 · S23-15 red |
+| `features/chat/hooks/useDiffSyntax.ts:35` | `useDiffCompute.test.ts` `AC20 restores diff syntax after recovery` | C02 red |
+| `features/chat/hooks/useWindowTokens.ts:52` | `VirtualCodeView.test.ts` `AC20 retries window tokens after recovery` | C03 red |
+| `features/chat/components/code/VirtualCodeView.tsx:46`·`:186` | 같은 파일 `AC20 retries the code view after recovery` · `AC20 restores a failed later code window from the mounted fallback` | C04·C04b red |
+| `features/chat/components/markdown/MarkdownDocument.tsx:129` | `SegmentedFence.test.ts` `AC20 replaces a raw block with hast after recovery` + Electron `workerRecovery` | C05 red |
+| `features/chat/components/markdown/SegmentedFence.tsx:79` | 같은 파일 `AC20 retries the failed segmented fence piece after recovery` | C06 red |
+| `features/chat/components/markdown/WorkerMarkdownTail.tsx:94` | `WorkerMarkdownTail.test.ts` `AC20 retries the worker markdown tail after recovery` | C07 red |
+| `features/chat/components/markdown/useMarkdownRows.ts:41` | `VirtualMarkdownView.test.ts` `AC20 retries the markdown layout after recovery` | C08 red |
+| `features/chat/lib/transcript/deferredBody.ts:122` → `chatStore.ts:2701` | `TranscriptViewport.body.test.ts` `AC20 retries a worker-failed body once after recovery` | C09·C09b red |
+| `features/chat/hooks/useDiffStat.ts:33` | `ToolCard.interaction.test.ts` `AC20 restores header stats on an existing closed card after worker recovery` | C10 red |
+| `features/chat/hooks/useDiffLines.ts:26` | `useDiffWorkerRecovery.test.ts` `AC20 restores failed diff lines once after compute recovery` | C11 red |
+| `features/chat/hooks/useDiffViewWindow.ts:44` | `DiffTable.virtual.test.ts` `AC20 restores the row window of a remote diff table after worker recovery` | C12 red |
+| `features/chat/hooks/useDiffAnchor.ts:24` | `useDiffWorkerRecovery.test.ts` `AC20 restores the missing diff anchor and context once after compute recovery` | C13 red |
+| `features/chat/hooks/useAttachments.ts:103` | `useAttachments.views.test.ts` `AC20 restores each surviving image preview once without reading its source again` | C14 red |
+
+**EP-10′ · 간격 — 5/5.** 검색(§23-E)은 이제 테스트의 부재 단언 2줄(`WorkActivity.render.test.ts:214`·`:225`)만 낸다 — 자리 5곳 모두 값이 바뀌었다.
+
+| 자리 | 값 | 직접 oracle 좌표 | 고장 |
+|---|---|---|---|
+| `claudeBlocks.ts:579` 도구 인접 gap | 12 → 8 | `claudeBlocks.test.ts` `AC10″ tool block gap is 8 on both sides`(text→tools · tools→text · tools→ask 8 · text→text 16) · `gate:--layout` `toolSpacing` 8·8·8 | S10-1 red |
+| `ToolGroup.tsx:95` 그룹 카드 | `gap-g2` → `gap-[var(--chat-item-gap)]` | `WorkActivity.render.test.ts` `AC10″ group cards use the item gap` · `toolSpacing` | S10-2 red |
+| `WorkActivity.tsx:125` 메모 행 · `WorkToolTimeline.tsx:30` 도구 행 · `:101` 에이전트 행 | `py-1` → `py-2` | `WorkActivity.render.test.ts` `AC10″ work rows use py-2`(자리별 3 입력) · `gate:--layout` `workDot` 14.5 | S10-3·4·5 red |
+
+- 닫은 수: EP-20 10/10 · EP-21 15/15 · EP-22 4/4 · EP-23 레인 9/9 + 소비처 14/14 · EP-10′ 5/5 = 57/57. 남긴 곳 없음. 동치 15건은 위 표에 코드 근거와 함께 적었다(확인 실행 = 그 변이의 green).
+- 미분류: EP-20·EP-23 소비처는 같은 검색 출력이 자리 목록과 같다(11줄 = 10 + 제외 1 · 14줄 = 14). EP-21·22·23 레인은 Codex 재작성으로 설계 줄이 다른 구문으로 옮겨 검색 술어가 닿지 않는다 — 옮긴 자리를 표의 "→ 지금"으로 재앵커했고 변이도 그 자리에 심었다. EP-10′은 값이 바뀌어 검색이 테스트의 부재 단언 2줄만 낸다.
+- pair 자기 상태: VP-44~57·59·65 `SELF_PASS`(VP-57·59·65는 REGRESSION — 기존 좌표가 필터 없는 vitest에서 통과, VP-57은 `--layout` `errorRun` 두 화면 통과). VP-58(REGRESSION · `--perf` 30창)은 회귀 없음 — 20/30(r1.4 4/30), 세부는 아래 구현 보고.
 
 ### r1.5 · EP-24(§24-D) 7자리 · EP-25(§25-D) 3자리
 
@@ -1472,6 +1561,24 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+### r1.6 · sweep 111/111 · 변이 116
+
+열거 항목 111(§10 자리 57 · 규칙 칸 분기 48 · 등록 변이 pair 6 — VP-44·45·46·47·52·55) 모두 그 항목만 바꾼 변이를 1개 이상 심었다 — `mutate.py`로 4회(1차 108 · 2차 17 · 3차 1 · 4차 4), 매회 원복 확인("모든 파일 원문 그대로"). Electron 변이 3건은 `--layout` 30레코드 전체를 oracle로 돌렸다. 돌리지 못한 항목 0.
+
+| 묶음 | 변이 | 결과 | 비고 |
+|---|---|---|---|
+| EP-20 빈 행 (S20-*) | 40 | red 30 · 동치 10 | 동치 10은 렌더 방어 줄(블록 모델이 같은 조건에서 행을 만들지 않아 도달하지 않음). 1차 `못 잡음` 7(배선·항목 0·간격·다른 턴의 답) → 입력 추가 뒤 red |
+| EP-10′ 간격 (S10-*) | 5 | red 5 | |
+| EP-21 세대 재합류 (S21-*) | 27 | red 24 · 동치 3 | S21-8 = 등록 변이 VP-46, S21-4 = VP-45. 1차 `못 잡음` 2(같은 세대 키 불일치 · 새 세대 이웃 없음) → 입력 추가 뒤 red |
+| EP-22 워커 교체 (S22-*) | 6 | red 6 | S22-4(취소 교체가 실패 수에 듦)는 1차 `못 잡음` → 입력 추가 뒤 red |
+| EP-23 레인 (S23-*) | 19 | red 17 · 동치 2 | S23-1 = VP-55, S23-5 = VP-47(단위), S23-12 = 이번 턴의 깨어남 재예약 제거(새 좌표 `AC20 reschedules …`가 수정 전 코드에서도 red). S23-9·13은 1차 `못 잡음` → 입력 추가 뒤 red |
+| EP-23 소비처 (C*) | 16 | red 16 | C01~C14 = 등록 변이 VP-52(자리마다 1개) · C04b·C09b는 같은 자리의 두 번째 회복 경로 |
+| Electron 등록 변이 · 새 oracle 민감도 | 3 | red 3 | VP44-E → `errorRunMixed`만 실패(간격 167·183 교대 · 빈 행 4) · VP47-E → `workerRecovery`만 실패(`restored:false`) · S20-2E → `pendingAsk`만 실패 |
+
+- 검산: 선택 증거 19(VP-44 1 · VP-45 1 · VP-46 1 · VP-47 1 · VP-52 14 · VP-55 1) · 인용 변이 0(이전 verify 없음) · 새 oracle 3(`--layout` `errorRunMixed` · `pendingAsk` · `TurnOutputCards.test.ts` 빈 행 정규식 — 민감도 VP44-E · S20-2E · S20-6d red) · sweep 116 = 표 행 116(선택 증거·새 oracle 민감도 행은 sweep 변이와 같은 행).
+- 1차 `못 잡음` 16 → 입력 추가 12 · 동치 4(S21-4d·4e · S23-10·11). 최종 `못 잡음` 0.
+- 덮개 회귀: 이번 턴이 바꾼 기존 테스트 장치 — `claudeBlocks.test.ts` AC10(기대 12 → AC10″ 8, VP-54가 VP-22 대체) · 질문 fixture를 "답한 질문"으로(z8·z4·AC1′·OpenCode z8·`Timeline.render.test.ts`) · `--layout` `matrix-c4-ask`도 답한 질문 · `TranscriptViewport.prepend` 스냅샷(턴마다 빈 `ended` 행 1개가 빠짐: 측정 606 → 505) · 레코드 수 27 → 30 · 선택 실기 B2 대조 4px → 1px(+ `scrolled > 0` 판정 — 대조가 비어 통과하지 못하게 강화). 바꾼 fixture는 소유·결과 이전 단언을 그대로 지닌다 — 그 단언을 끊는 1차 변이(S20-2·2w·S20-re 등)가 여전히 red.
+
 ### r1.5 · sweep 20/20
 
 | ID | 자리·항목 | 변이 | 결과 |
@@ -1514,6 +1621,21 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 
 ## [구현자 기입] Product/UX 파생 검토
 
+### r1.6
+
+새 사용자 문구 0. 보이는 변화는 다섯이고 모두 Electron `--layout` 최종 실행(30/30)에서 관측했다.
+
+| 변화 | 관측 |
+|---|---|
+| Work 응답이 `ended`·`unknown`으로 끝나면 빈 행이 없다 — ‘응답 중단’이 이어져도 간격이 같다 | `errorRunMixed` 6행 · 다섯 간격 167.17px 동일 · 빈 행 0/23 |
+| 답 없는 질문(Code·Work·OpenCode)은 행이 없고, 답이 오면 그 자리에 버블이 생긴다 | `pendingAsk` 빈 행 0/3 · 단위 `AC18 a question row appears with its answer …` |
+| 세션 ID가 생기기 전에는 산출물 행이 없다(카드도 그리지 않던 상태) | `TurnOutputCards.test.ts` `AC18 waits for a session id …` 빈 행 0 |
+| 도구 간격이 0324 이전 값으로 돌아간다 | `toolSpacing` 8·8·8 · `workDot` 14.5 |
+| 워커가 연속 실패해도 대기 뒤 원문이 강조·Markdown으로 돌아온다 | `workerRecovery` Markdown 레인 4번째 워커 · 대기 2000.6ms · `restored:true` |
+
+- 화면이 비어 보이는 한 경우: begin만 남은 턴(응답이 시작 직후 끊김)은 행이 meta(시각)뿐이라 기존 "앞 행 없는 턴의 meta" 규칙으로 사용자 버블 바로 아래(간격 0)에 붙는다. 이전에는 빈 24px 행 뒤 16px이었다 — 보고만(Part I 표에 이 상태 행이 없다).
+- 답 없는 질문은 보이지 않는 경계라 앞뒤 도구 묶음이 하나로 합쳐진다. 답이 오면 질문 행이 생기며 묶음이 다시 갈린다(키는 각 묶음 첫 도구).
+
 ### r1.5
 
 - 새 사용자 문구 0. 보이는 변화 셋: ① 보이지 않는 글뿐인 Work 메모의 행·점이 사라진다(Chromium `evidence/dv6/work-notes-before-after.json` 8 → 4행). ② 4,000자를 넘는 Work 메모는 워커 응답 전에 원문(`<pre>`, 고정폭)을 보이다가 서식으로 바뀐다 — 짧은 원문 깜빡임이 생기며 transcript 본문은 지금처럼 빈 대기다. ③ dev 실행에서 계산·Markdown 워커가 살아 큰 본문·구문 강조·장문 Markdown이 돌아온다(`evidence/dv6/dev-worker.mjs` 수정 전 두 워커 `ReferenceError` → 수정 후 생존).
@@ -1529,6 +1651,18 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 | 늦은 응답 | 검색 종료·세션 전환·재진입과 같은 커서 중복 호출을 store 및 IPC로 확인했다. |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+### r1.6
+
+| 발견 | 분류 | 처리 |
+|---|---|---|
+| 대기 타이머가 레인 시계보다 먼저 깨면 `probe()`가 `blocked`로 돌아가고 다시 예약하지 않아 레인이 영영 회복하지 않는다 | 현재 결함(AC20) | 선조치 — `laneRecovery.ts` 깨어남에서 대기 중이면 남은 시간만큼 재예약 · `client.test.ts` `AC20 reschedules the recovery check …`(시계 0.5ms 지연) |
+| AC10″·VP-48 Work "16px" ↔ D-033·EP-10′(`py-2` = 14.5px) | plan 내부 불일치(PLAN_GAP) | 설계 정정 커밋(§23-G) — 구현은 `py-2` 그대로 |
+| `TranscriptActionRow` 키보드 경로가 전역 `event`를 넘김(typecheck error 2) | 현재 결함(0332 D-008) | 선조치 — 0332 r1.3 보고 |
+| `--layout`의 레코드 수가 고정값이라 시나리오를 더할 때마다 손으로 고친다 — Codex `workerRecovery` 추가 때 27이 남아 exit 1이었다 | 비귀속(검사기 개선) | 이번 30으로 고침 · 시나리오 목록에서 세는 방식은 후보로 보고만 |
+| `session.selectedSubagentTaskId`·`OPEN_SUBAGENT_TASK`·`chatActions.selectSubagentTask`의 화면 소비처가 0332 뒤 0이다 | 비귀속(0334 정리 후보) | 보고만 |
+| begin만 남은 턴의 meta가 사용자 버블에 붙는다 | Product/UX 파생 | 보고만(위 Product/UX) |
+| `check-transcript-selection.mjs` B2("행을 마운트하지 않는 스크롤은 선택을 유지한다" 대조)가 Work 화면 3회 실패 — 4px 휠이 `py-2`로 길어진 행의 overscan 경계를 넘어 행 1개를 마운트했다(변경 전 트리 `24335edb` 통과 · `py-1`로 되돌리면 통과). 제품은 0326 계약(선택 중 행 마운트 → 선택 취소)대로다 | 이번 변경의 gate(대조 전제가 배치에 묶임) | B2를 1px 스크롤로 바꾸고 대조가 실제로 움직였는지(`scrolled > 0`)를 판정부가 본다 — 세 화면 9회 1px·마운트 0 · 판정 단위 `k6′ the scroll control must move the transcript` |
 
 ### r1.5
 
@@ -1551,6 +1685,22 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 `unitFloor`는 5번째 그룹의 전체 행을 집계하는 대신 바로 앞 턴을 찾는 제한된 색인 검색을 쓴다. 단위 하한과 wire 커서는 그대로다. 큰 파일의 접힌 헤더는 diff 본문 모델 전체 대신 줄 수만 돌려주는 계산 요청을 쓴다. UI 모델은 실제 워커 응답 후 갱신된다. 만료(세션·발행 세대), 공유(커서 하한·문서 리스), 재진입(동일 커서·동시 본문), 무효화(선택·문서 교체)의 구별 입력은 위 두 담당 표에 기록했다.
 
 ## [구현자 기입] 구현 보고
+
+### r1.6 · ΔV6
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | Codex 커밋 6개(데이터 호스트 커서·본문 키 재해석 · IPC 응답 `generation`·`bytes` + `IPC_CONTRACT.md` · 창 조립 재시작 · 레인 수명 `laneRecovery.ts` · 소비처 14 재요청 · `workerRecovery` 실기) 위에 이번 턴: `claudeBlocks.ts`·`openCodeBlocks.ts`(빈 행 · 질문 재투영 · 세션 유무 · 간격 8) · 두 `Timeline.tsx` · `lib/ask.ts`·OpenCode `toolPresentation`(질문 판정) · `ToolGroup.tsx`·`WorkActivity.tsx`·`WorkToolTimeline.tsx`(간격) · `laneRecovery.ts`(깨어남 재예약) · 실기 `probe.tsx`·`electron-main.mjs`·`check-transcript-history.mjs` · 테스트 |
+| 실행 명령 | `app/`: 가드 5종 · `npm run lint` · `npm run typecheck` · 필터 없는 `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` · `npx electron-vite build && node scripts/smoke-hosts.mjs && node scripts/smoke-preload.mjs out/preload` · `xvfb-run -a node scripts/check-transcript-history.mjs`(기본·`--layout`) · `xvfb-run -a node scripts/check-transcript-selection.mjs` · `mutate.py` 4 spec. OpenCode CLI 1.18.27을 scratchpad에 설치해 `ORCINUS_ORCA_TEST_OPENCODE_EXE`로 지정했다(`--layout`의 실제 실패 캡처) |
+| 관측한 게이트 산출 | 가드 5종 exit 0(마이그레이션 · 문서 인벤토리 9항목·127채널·링크 · 제품 이름 · test-budgets 18 real-git · 프로세스 경계) · lint 0 error·15 warning(모두 변경 전 트리에도 있는 규칙 — 자동 수정 0, 실행 전후 diff 동일) · typecheck error 0 · vitest 1,174파일 중 실패 1 · 11,210케이스 중 8 실패 + unhandled 1(아래 기준선) · `node --test` 1,230/1,230 · build OK · smoke-hosts OK · smoke-preload OK · Electron `--layout` 30/30 exit 0 · 이력 기본 390/390 · 검색 6/6 · 실패 0 · 선택·복사 90/90 exit 0(B2 대조를 고친 뒤 — 놓친 잠재 문제 표) |
+| 기준선 분리 | vitest 실패 8 + unhandled 1 = 전부 `src/main/app/claude-input.cli.integration.test.ts` — 서명 `--dangerously-skip-permissions cannot be used with root/sudo privileges`(root 컨테이너의 실제 Claude CLI). 변경 전(Codex HEAD `24335edb`) 같은 명령의 실패 24건(4파일) 중 이 파일 8건과 같다 — 지금 실패 − 변경 전 실패 = 0줄 · 환경 원인. 나머지 16건(보고 지점 레지스트리 3 · 패널 소비처 고정 1 · 정본 백그라운드 렌더 12)은 이번 변경의 gate 실패라 고쳤다. 전체 실행 1회는 도중에 `git stash`로 트리가 잠깐 바뀌어 옛 테스트 이름 8건이 실패했다 — 버리고 다시 돌린 결과만 적는다 |
+| 추가·수정 테스트의 subtree 규칙 | `git diff --name-only 99fb033c`(r1.5 커밋) + 작업 트리 → 테스트 47파일. `check-test-budgets` OK(18 real-git suite · 예산 자리 전부 `scaleMs`) · unit 풀 가드 위반 0(필터 없는 vitest) · `scripts/test-pools.test.mjs` 통과(`node --test`). 이번 턴 테스트는 가짜 시계·fake DOM·기존 SQLite 픽스처(`turn-page.db.test.ts`, io 풀)만 쓴다 |
+| V-pair 자기확인 | VP-44~57·59·65 `SELF_PASS` · VP-58 `SELF_PASS`(REGRESSION — 회귀 없음): `--perf` 30창 중 20창이 장기 작업 0건(r1.4 4/30) · 원문·완료 서식 30/30 · 장기 작업 합계 907건(r1.4 2,344) · 최장 312ms(r1.4 734ms). 실패 10창 = 전부 `measurement`(장기 작업) — B2 6/6 · B4 3/6 · B1 1/6. 입력별 0건 창: B1 5/6 · B2 0/6 · B3 6/6 · B4 3/6 · B5 6/6. 작업 트리(HEAD `0377902e` + 이번 턴 미커밋 변경)에서 실행 |
+| AC 자기보고와 합계 | ΔV6 AC3″·AC10″(§23-G 정정값)·AC18·AC19·AC20 ✅ · 기존 AC1·2″·4~9·11~13·15~17·21 ✅(필터 없는 vitest · `--layout` 30/30 · 이력 기본 실기) · AC14′ ⚠️ — 위 VP-58 실측 20/30(장기 작업이 남은 10창 · B2는 6창 모두) |
+| 블로커 / 설계 질문 | 없음 — AC10″ 수치 모순은 설계 정정 커밋(§23-G)으로 닫았다 |
+| 대상 커밋 | `(r1.6 구현 — 좌표는 INDEX)` |
+
+- 검산: ✅ 20 · ⚠️ 1(AC14′) · ❌ 0 = 총 21. 분모 변경 없음(r1.5와 같은 21) — r1.5의 15/21에서 ΔV6 AC3″·AC10″·AC18·AC19·AC20 5건이 ✅로 바뀌었다
 
 ### r1.5 · ΔV7·ΔV8
 
@@ -1581,6 +1731,14 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 | 대상 커밋 | `(r1.3 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
+
+### r1.6
+
+- 라운드 1 · impl 턴 `r1.6`(Claude가 Codex의 r1.6 커밋 6개를 이어 마무리 — 사용자 요구 변경 ΔV6 턴). verify 0회.
+- 이어받은 트리는 커밋 trailer가 `partial`이었고 INDEX·`[구현자 기입]`이 갱신되지 않았다. 필수 gate(전체 vitest·typecheck·`--layout`)가 red였다 — 구현 턴이 끝나기 전에 커밋이 멈춘 상태였다.
+- 고정 레코드 수(`--layout` 27, `24cd46d4`가 도입)를 다음 시나리오 추가(Codex `workerRecovery`)가 갱신하지 않아 gate가 깨졌다 — 시나리오 목록과 판정 수가 두 파일에 따로 산다.
+- 설계 산술이 실측과 어긋났다(AC10″ 16px ↔ 14.5px) — 루트 글꼴 14.5px를 가정하지 않은 단위 환산. 0331 r1.4 강제 지점 표에도 "Work 도구 행 7.25px" 실측이 있었다.
+- 환경 한계: `--layout`은 OpenCode CLI(1.18.27)를 요구한다 — 이 컨테이너에는 없어 scratchpad에 설치해 `ORCINUS_ORCA_TEST_OPENCODE_EXE`로 지정했다. root 컨테이너라 Claude CLI 통합 테스트 8건은 기준선 실패다.
 
 ### r1.5
 

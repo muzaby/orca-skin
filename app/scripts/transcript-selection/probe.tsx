@@ -226,6 +226,9 @@ Object.assign(globalThis, {
       const el = scroller()
       el.scrollTop = where === 'top' ? 0 : el.scrollHeight
     },
+    scrollTop() {
+      return scroller().scrollTop
+    },
     scrollerRect() {
       const r = scroller().getBoundingClientRect()
       return { x: r.left, y: r.top, width: r.width, height: r.height }

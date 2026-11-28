@@ -23,6 +23,7 @@ import {
   type MessageSegment
 } from '../../../lib/parts'
 import { createSegmentCache } from '../../../lib/segmentCache'
+import { askHasExchange } from '../../../lib/ask'
 import { createWorkProjector, type WorkActivityNode } from '../../../lib/workActivity'
 import {
   createBlockList,
@@ -151,6 +152,9 @@ export interface ClaudeAdvanceOptions {
   readonly inflight?: boolean
   readonly reserve?: boolean
   readonly forkable?: boolean
+  // 산출물 카드는 세션 ID가 있어야 그린다(ArtifactCards) — 없으면 산출물 블록을 만들지 않는다
+  // (0331 D-029 · EP-20 ⑥). 생략하면 있음으로 본다.
+  readonly hasSession?: boolean
 }
 
 export interface ClaudeBlockModel {
@@ -345,6 +349,10 @@ export function createClaudeBlockModel(
     { messageId: string; blockKey: string; itemIndex?: number }
   >()
   const toolInputs = new OrderedToolParts<Record<string, unknown>>()
+  // 0331 D-029 · EP-20 ②③ — 질문 행은 답이 있어야 보인다. 빌드가 내린 판정과 그때의 call 을
+  // 기억해, 늦은 결과·입력이 판정을 바꾸면 소유 턴을 다시 투영한다(제자리 갱신은 행을 만들거나 지우지 못한다).
+  const askVisibility = new Map<string, { messageId: string; call: ToolCall; shown: boolean }>()
+  let hasSession = true
 
   // Turn tracking
   let turns: TurnGroup[] = []
@@ -489,6 +497,12 @@ export function createClaudeBlockModel(
     return kept
   }
 
+  function askShown(messageId: string, call: ToolCall): boolean {
+    const shown = askHasExchange(call)
+    askVisibility.set(call.toolUseId, { messageId, call, shown })
+    return shown
+  }
+
   function buildCodeMessageBlocks(
     message: Message,
     partsFrom: number | undefined,
@@ -546,6 +560,7 @@ export function createClaudeBlockModel(
       }
 
       const matched = segmentPartKeys(message.id, seg, entries, entryCursor, tracker)
+      if (seg.kind === 'ask' && !askShown(message.id, seg.call)) continue
       const sourceParts = seg.kind === 'text' ? textGroups[textIndex++] : undefined
       const partKeys = sourceParts?.map((part) => part.key) ?? matched.partKeys
       const blockKey = sourceParts
@@ -561,7 +576,7 @@ export function createClaudeBlockModel(
           ? 0
           : 24
         : seg.kind === 'tools' || (previous.kind === 'segment' && previous.segment.kind === 'tools')
-          ? 12
+          ? 8
           : 16
 
       const prior = blockBySegment.get(seg)
@@ -694,7 +709,17 @@ export function createClaudeBlockModel(
     const blocks: ClaudeBlock[] = []
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i]
-      const gap: ClaudeBlockGap = i === 0 ? (isFirstInDocument ? 0 : 24) : 16
+      // 렌더가 비는 노드는 행을 만들지 않는다(0331 D-029 · EP-20 ①②③) — 다음 행의 간격은
+      // 건너뛴 노드가 없었던 것처럼 이미 만든 행 수로 정한다.
+      if (node.kind === 'status' && (node.outcome === 'ended' || node.outcome === 'unknown'))
+        continue
+      if (
+        node.kind === 'segment' &&
+        node.segment.kind === 'ask' &&
+        !askShown(node.messageId, node.segment.call)
+      )
+        continue
+      const gap: ClaudeBlockGap = blocks.length === 0 ? (isFirstInDocument ? 0 : 24) : 16
       if (node.kind === 'activity') {
         const itemPartKeys = node.items.flatMap((item) =>
           item.segment.kind === 'tools'
@@ -715,7 +740,7 @@ export function createClaudeBlockModel(
         node.items.forEach((item, index) =>
           registerToolOwners(item.segment, item.messageId, actKey, index)
         )
-        const prior = previousBlock?.(i, actKey)
+        const prior = previousBlock?.(blocks.length, actKey)
         if (
           prior?.kind === 'activity' &&
           prior.gap === gap &&
@@ -741,7 +766,7 @@ export function createClaudeBlockModel(
         )
       } else if (node.kind === 'status') {
         const key = `${turnId}:${node.key}`
-        const prior = previousBlock?.(i, key)
+        const prior = previousBlock?.(blocks.length, key)
         if (prior?.kind === 'status' && prior.gap === gap && prior.outcome === node.outcome) {
           blocks.push(prior)
           continue
@@ -757,7 +782,7 @@ export function createClaudeBlockModel(
         )
       } else {
         registerToolOwners(node.segment, node.messageId, node.key)
-        const prior = previousBlock?.(i, node.key)
+        const prior = previousBlock?.(blocks.length, node.key)
         if (
           prior?.kind === 'segment' &&
           prior.gap === gap &&
@@ -799,7 +824,7 @@ export function createClaudeBlockModel(
       if (scanned.firstText !== Infinity) copyable = true
     }
     let artifactsBlock: ClaudeArtifactsBlock | undefined
-    if (artifactParts.length) {
+    if (artifactParts.length && hasSession) {
       const gap = hasPriorBlocks ? 16 : 0
       const prior = artifactBlocks.get(artifactParts[0])
       if (
@@ -860,6 +885,7 @@ export function createClaudeBlockModel(
     toolResultsByMessage.clear()
     toolResultStacks.clear()
     toolOwnerBlockKey.clear()
+    askVisibility.clear()
     toolInputs.clear()
     msgToTurn.clear()
     turns = []
@@ -1256,7 +1282,8 @@ export function createClaudeBlockModel(
         hasLive: rawOptions.hasLive ?? false,
         inflight: rawOptions.inflight ?? false,
         reserve: rawOptions.reserve ?? false,
-        forkable: rawOptions.forkable ?? false
+        forkable: rawOptions.forkable ?? false,
+        hasSession: rawOptions.hasSession ?? true
       }
 
       const { messages, transcriptChanges } = state
@@ -1266,7 +1293,8 @@ export function createClaudeBlockModel(
         opts.hasLive !== prevHasLive ||
         opts.inflight !== prevInflight ||
         opts.reserve !== prevReserve ||
-        opts.forkable !== prevForkable
+        opts.forkable !== prevForkable ||
+        opts.hasSession !== hasSession
 
       if (changes !== 'reset' && changes.length === 0 && !optionsChanged && cursor !== undefined) {
         return list.snapshot()
@@ -1275,7 +1303,9 @@ export function createClaudeBlockModel(
       const mustRebuild =
         changes === 'reset' ||
         changes.some((c) => c.kind === 'reset') ||
-        opts.showAutomaticFeeds !== prevShowAutomaticFeeds
+        opts.showAutomaticFeeds !== prevShowAutomaticFeeds ||
+        opts.hasSession !== hasSession
+      hasSession = opts.hasSession
 
       if (mustRebuild) {
         messageOrderFor(state, true)
@@ -1520,6 +1550,15 @@ export function createClaudeBlockModel(
           const newTurn = next === undefined ? undefined : msgToTurn.get(next)
           if (oldTurn) affectedTurns.add(oldTurn)
           if (newTurn) affectedTurns.add(newTurn)
+        }
+        // A late answer can show a hidden question row, and a retracted one can hide it.
+        for (const toolId of lateResultTools) {
+          const ask = askVisibility.get(toolId)
+          if (!ask) continue
+          const call = withToolState(ask.call, toolResults.get(toolId), toolInputs.latest(toolId))
+          if (askHasExchange(call) === ask.shown) continue
+          const owner = msgToTurn.get(ask.messageId)
+          if (owner) affectedTurns.add(owner)
         }
 
         // Empty turns can expose two adjacent fragments of one role. Rebuild the

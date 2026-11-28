@@ -61,7 +61,13 @@ function toolMatrix(name: string): LoadedMessage[] {
   const gaps: Record<string, AppMessagePart[]> = {
     'c4-text': [text('visible')],
     'c4-reasoning': [{ type: 'reasoning', text: 'reason' }],
-    'c4-ask': [call('ask', 'AskUserQuestion', { questions: [] })],
+    // 답한 질문만 보이는 경계다(0331 D-029) — 답 없는 질문은 행이 없어 도구를 가르지 않는다.
+    'c4-ask': [
+      call('ask', 'AskUserQuestion', {
+        questions: [{ question: 'Pick?', header: 'h' }],
+        answers: { 'Pick?': 'a' }
+      })
+    ],
     'c4-error': [{ type: 'error', error }],
     'c4-compact': [{ type: 'compact_boundary' }],
     o2: [{ type: 'reasoning', text: 'hidden' }],
@@ -78,8 +84,41 @@ function toolMatrix(name: string): LoadedMessage[] {
     ])
   ]
 }
+const boundary = (id: string, outcome?: 'aborted' | 'ended'): AppMessagePart =>
+  outcome
+    ? { type: 'response_boundary', boundary: { phase: 'end', id, outcome } }
+    : { type: 'response_boundary', boundary: { phase: 'begin', id } }
+// 0331 AC18 — 응답 중단 6행 사이에 이중 응답(aborted+ended)·begin만 남은 응답을 섞고, 앞뒤에
+// 단독 ended·begin만 턴을 둔다. ended·unknown 이 행을 만들면 그 턴의 간격만 커진다.
+function errorRunMixed(): LoadedMessage[] {
+  const responses: AppMessagePart[][] = [
+    [boundary('n'), text('answer'), boundary('n', 'ended')],
+    [boundary('r1'), boundary('r1', 'aborted')],
+    [boundary('r2'), boundary('r2', 'aborted'), boundary('e2'), boundary('e2', 'ended')],
+    [boundary('r3'), boundary('r3', 'aborted')],
+    [boundary('r4'), boundary('r4', 'aborted'), boundary('u4')],
+    [boundary('r5'), boundary('r5', 'aborted')],
+    [boundary('r6'), boundary('r6', 'aborted')],
+    [boundary('u7')]
+  ]
+  return responses.flatMap((parts, i) => [
+    msg('u' + i, 'user', [text('Question')]),
+    msg('a' + i, 'assistant', parts)
+  ])
+}
 function fixture(): LoadedMessage[] {
   if (measureWorkerRecovery) return recoveryMessages()
+  if (scenario === 'errorRunMixed') return errorRunMixed()
+  if (scenario === 'pendingAsk')
+    return [
+      msg('u', 'user', [text('Question')]),
+      msg('a', 'assistant', [
+        text('Let me ask'),
+        call('ask', 'AskUserQuestion', {
+          questions: [{ question: 'Pick?', header: 'h', options: [{ label: 'a' }, { label: 'b' }] }]
+        })
+      ])
+    ]
   if (scenario?.startsWith('matrix-')) return toolMatrix(scenario.slice(7))
   if (scenario === 'errorRun' || scenario === 'errorLive') {
     return Array.from({ length: scenario === 'errorLive' ? 3 : 6 }, (_, i) => [
@@ -198,6 +237,11 @@ const all = (s: string): HTMLElement[] => Array.from(document.querySelectorAll<H
 const gap = (a: Element, b: Element): number =>
   b.getBoundingClientRect().top - a.getBoundingClientRect().bottom
 const near = (a: number, b: number): boolean => Math.abs(a - b) <= 1
+// AC18 — 모든 가상 행은 높이 > 0 인 자식 요소를 가진다(빈 div 하나로 통과시키지 않는다).
+const emptyRows = (): number =>
+  all('[data-index]').filter(
+    (row) => !Array.from(row.children).some((child) => child.getBoundingClientRect().height > 0)
+  ).length
 const statHeads = (): string[] =>
   all('[data-focus-id="toggle"][aria-expanded="false"]').map((el) => el.textContent || '')
 const startingStats = statHeads()
@@ -236,6 +280,27 @@ Object.assign(window, {
       }
     }
     if (accepted) return measureAccepted(reopened)
+    if (scenario === 'pendingAsk') {
+      const rows = all('[data-index]').length
+      const empty = emptyRows()
+      return { ok: rows > 0 && empty === 0, rows, empty }
+    }
+    if (scenario === 'errorRunMixed') {
+      const rows = all('[data-transcript-error]')
+      const gaps = rows.slice(1).map((node, i) => gap(rows[i], node))
+      const aborted = rows.every(
+        (row) => row.dataset.responseOutcome === 'aborted' && Boolean(row.innerText.trim())
+      )
+      const empty = emptyRows()
+      return {
+        ok:
+          aborted && rows.length === 6 && empty === 0 && Math.max(...gaps) - Math.min(...gaps) <= 1,
+        rows: rows.length,
+        gaps,
+        empty,
+        indexed: all('[data-index]').length
+      }
+    }
     if (scenario === 'errorLive') {
       const gaps: number[] = []
       const counts: number[] = []
@@ -323,7 +388,8 @@ Object.assign(window, {
           rows.length === 2 &&
           (scenario === 'workNote'
             ? notes.length === 1
-            : notes.length === 0 && dots === 0 && near(spacing!, 8)),
+            : // AC10″ — 0324 이전 `py-2`(루트 14.5px 기준 0.5rem) 두 개 = 14.5px.
+              notes.length === 0 && dots === 0 && near(spacing!, 14.5)),
         dots,
         notes: notes.length,
         spacing
@@ -339,6 +405,7 @@ Object.assign(window, {
       gap(group, rows[2].firstElementChild!),
       gap(cards[0], cards[1])
     ]
-    return { ok: gaps.every((v, i) => near(v, [12, 12, 4][i])), gaps }
+    // AC10″ — 0324 이전 값: 도구 블록 위·아래 8, 그룹 안 카드 사이 8.
+    return { ok: gaps.every((v, i) => near(v, [8, 8, 8][i])), gaps }
   }
 })

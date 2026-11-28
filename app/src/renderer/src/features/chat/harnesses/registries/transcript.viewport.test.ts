@@ -37,7 +37,9 @@ vi.mock('../../store/chatStore', () => ({
   useLiveTextKey: () => undefined,
   useLiveTextFor: () => '',
   useLiveReasoningFor: () => '',
-  useTranscriptView: () => ({})
+  useTranscriptView: () => ({}),
+  useChatSession: (select: (session: { sessionId: string; retry: null }) => unknown) =>
+    select({ sessionId: 's1', retry: null })
 }))
 
 function callsVirtualizer(path: string): boolean {

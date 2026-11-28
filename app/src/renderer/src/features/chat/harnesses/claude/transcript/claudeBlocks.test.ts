@@ -26,6 +26,11 @@ function assistantMsg(id: string, parts: AppMessagePart[], createdAt = 2000): Me
   return { id, role: 'assistant', createdAt, parts }
 }
 
+// 답이 있는 질문 — 답 없는 질문은 행을 만들지 않는다(0331 D-029 · AC18).
+const answered = { questions: [{ question: 'Pick?', header: 'h' }], answers: { 'Pick?': 'a' } }
+const askArgs = (toolName: string, args: Record<string, unknown>): Record<string, unknown> =>
+  toolName === 'AskUserQuestion' ? { ...answered, ...args } : args
+
 describe('claudeBlocks (EP-8 · z1~z9)', () => {
   it('z1/z5: append adds only new blocks and updates boundary meta/gap without recreating unrelated blocks', () => {
     const model = createClaudeBlockModel({ mode: 'code', sessionKey: 's1' })
@@ -383,7 +388,12 @@ describe('claudeBlocks (EP-8 · z1~z9)', () => {
         const call = (id: string, input: string): Message =>
           assistantMsg(id, [
             { type: 'response_boundary', boundary: { phase: 'begin', id } },
-            { type: 'tool_call', toolName, toolRunId: 'shared', args: { input } },
+            {
+              type: 'tool_call',
+              toolName,
+              toolRunId: 'shared',
+              args: askArgs(toolName, { input })
+            },
             { type: 'response_boundary', boundary: { phase: 'end', id, outcome: 'ended' } }
           ])
         const result = assistantMsg('result', [
@@ -412,7 +422,7 @@ describe('claudeBlocks (EP-8 · z1~z9)', () => {
                 return calls.map((c) => [item.messageId, c.input, c.result?.output])
               })
             })
-            expect(visible).toEqual([[owner, { input }, 'done']])
+            expect(visible).toEqual([[owner, askArgs(toolName, { input }), 'done']])
           }
         }
         check('original', 'second')
@@ -582,7 +592,7 @@ describe('claudeBlocks (EP-8 · z1~z9)', () => {
     (toolName) => {
       const model = createClaudeBlockModel({ mode: 'work', sessionKey: 'standalone' })
       const first = assistantMsg('owner', [
-        { type: 'tool_call', toolRunId: 'outside', toolName, args: {} },
+        { type: 'tool_call', toolRunId: 'outside', toolName, args: askArgs(toolName, {}) },
         { type: 'response_boundary', boundary: { phase: 'begin', id: 'r' } },
         { type: 'text', text: 'conclusion' },
         { type: 'response_boundary', boundary: { phase: 'end', id: 'r', outcome: 'ended' } }
@@ -871,7 +881,7 @@ describe('0331 tool run boundaries', () => {
       const boundaries: AppMessagePart[] = [
         { type: 'text', text: 'visible' },
         { type: 'reasoning', text: 'reason' },
-        call('ask', 'AskUserQuestion'),
+        { type: 'tool_call', toolRunId: 'ask', toolName: 'AskUserQuestion', args: answered },
         { type: 'error', error: 'error' },
         { type: 'compact_boundary' }
       ]
@@ -927,10 +937,17 @@ describe('0331 tool run boundaries', () => {
     const blocks = buildClaudeBlocksOracle(messages, { mode: 'code', sessionKey: 's' })
     expect(blocks.map((block) => block.key)).toEqual(['m:tool:a', 'm:error:0', 'm:meta'])
   })
-  it('AC10 tool gap is symmetric within and across messages', () => {
+  // VP-54 (VP-22 대체) — 도구 블록 위·아래 8, 글 사이 16(0324 이전 값 · D-033).
+  it('AC10″ tool block gap is 8 on both sides', () => {
     for (const same of [true, false]) {
       const text: AppMessagePart = { type: 'text', text: 'visible' }
-      for (const end of [text, call('ask', 'AskUserQuestion')]) {
+      const ask: AppMessagePart = {
+        type: 'tool_call',
+        toolRunId: 'ask',
+        toolName: 'AskUserQuestion',
+        args: answered
+      }
+      for (const end of [text, ask]) {
         const messages = (same ? [[text, a, end]] : [[text], [a], [end]]).map((p, i) =>
           assistantMsg('m' + i, p)
         )
@@ -938,8 +955,16 @@ describe('0331 tool run boundaries', () => {
           buildClaudeBlocksOracle(messages, { mode: 'code', sessionKey: 's' })
             .filter((b) => b.kind === 'segment')
             .map((b) => b.gap)
-        ).toEqual([0, 12, 12])
+        ).toEqual([0, 8, 8])
       }
+      const texts = (same ? [[text, { type: 'error', error: 'e' }, text]] : [[text], [text]]).map(
+        (p, i) => assistantMsg('t' + i, p as AppMessagePart[])
+      )
+      expect(
+        buildClaudeBlocksOracle(texts, { mode: 'code', sessionKey: 's' })
+          .filter((b) => b.kind === 'segment')
+          .map((b) => b.gap)
+      ).toEqual(same ? [0, 16, 16] : [0, 16])
     }
   })
   it('AC1′ merged owner receives the later result and retains the first key after prepend', () => {
@@ -964,4 +989,206 @@ describe('0331 tool run boundaries', () => {
       segment: { calls: [{ toolUseId: 'a' }, { toolUseId: 'b', result: { output: 'late' } }] }
     })
   })
+})
+
+// 0331 ΔV6 EP-20 — 렌더가 비는 상태는 블록 모델이 행을 만들지 않는다(D-029 · VP-53).
+describe('AC18 rows always carry visible content', () => {
+  const begin = (id: string): AppMessagePart => ({
+    type: 'response_boundary',
+    boundary: { phase: 'begin', id }
+  })
+  const end = (id: string, outcome: 'ended' | 'aborted' | 'unknown'): AppMessagePart => ({
+    type: 'response_boundary',
+    boundary: { phase: 'end', id, outcome }
+  })
+  const kinds = (blocks: ClaudeBlock[]): string[] =>
+    blocks.map((block) =>
+      block.kind === 'status'
+        ? 'status:' + block.outcome
+        : block.kind === 'segment'
+          ? 'segment:' + block.segment.kind
+          : block.kind
+    )
+  const work = (messages: Message[]): ClaudeBlock[] =>
+    buildClaudeBlocksOracle(messages, { mode: 'work', sessionKey: 's' }, { forkable: true })
+
+  it('AC18 emits no status block for ended or unknown', () => {
+    for (const [parts, expected] of [
+      [
+        [begin('r'), { type: 'text', text: 'answer' }, end('r', 'ended')],
+        ['segment:text', 'meta']
+      ],
+      [[begin('r')], ['meta']],
+      [[begin('r'), end('r', 'unknown')], ['meta']],
+      [
+        [begin('r'), end('r', 'aborted')],
+        ['status:aborted', 'meta']
+      ],
+      [
+        [begin('r'), end('r', 'aborted'), begin('s'), end('s', 'ended')],
+        ['status:aborted', 'meta']
+      ],
+      [
+        [begin('r'), end('r', 'aborted'), begin('s')],
+        ['status:aborted', 'meta']
+      ],
+      [
+        [
+          begin('r'),
+          end('r', 'ended'),
+          begin('s'),
+          { type: 'text', text: 'answer' },
+          end('s', 'ended')
+        ],
+        ['segment:text', 'meta']
+      ]
+    ] as [AppMessagePart[], string[]][]) {
+      const blocks = work([userMsg('u', 'q'), assistantMsg('a', parts)])
+      expect(kinds(blocks).slice(1)).toEqual(expected)
+      // 건너뛴 행이 없었던 것처럼 — 턴 첫 행은 24, 그 뒤는 16. 행이 meta 하나뿐이면
+      // 앞 행이 없는 턴의 meta 규칙(0)을 따른다.
+      expect(blocks.slice(1).map((block) => block.gap)).toEqual(
+        expected.length === 1 ? [0] : expected.map((_, i) => (i === 0 ? 24 : 16))
+      )
+    }
+  })
+
+  it('AC18 empty reasoning forms no block', () => {
+    for (const mode of ['code', 'work'] as const)
+      for (const text of ['', ' \n\t ']) {
+        const parts: AppMessagePart[] = [
+          { type: 'reasoning', text },
+          { type: 'text', text: 'answer' }
+        ]
+        const blocks = buildClaudeBlocksOracle(
+          [assistantMsg('a', mode === 'work' ? [begin('r'), ...parts, end('r', 'ended')] : parts)],
+          { mode, sessionKey: 's' }
+        )
+        expect(kinds(blocks)).toEqual(['segment:text', 'meta'])
+      }
+  })
+
+  it('AC18 artifacts block needs artifacts and a session', () => {
+    const artifact: AppMessagePart = {
+      type: 'artifact',
+      artifact: {
+        publicationId: 'p1',
+        artifactFileId: 'f1',
+        category: 'file',
+        filename: 'a.txt',
+        publishedAt: 1
+      } as Extract<AppMessagePart, { type: 'artifact' }>['artifact']
+    }
+    for (const mode of ['code', 'work'] as const) {
+      const messages = (parts: AppMessagePart[]): Message[] => [
+        assistantMsg('a', mode === 'work' ? [begin('r'), ...parts, end('r', 'ended')] : parts)
+      ]
+      const text: AppMessagePart = { type: 'text', text: 'done' }
+      const project = (parts: AppMessagePart[], hasSession?: boolean): string[] =>
+        kinds(buildClaudeBlocksOracle(messages(parts), { mode, sessionKey: 's' }, { hasSession }))
+      expect(project([text, artifact])).toEqual(['segment:text', 'artifacts', 'meta'])
+      expect(project([text, artifact], true)).toEqual(['segment:text', 'artifacts', 'meta'])
+      expect(project([text, artifact], false)).toEqual(['segment:text', 'meta'])
+      expect(project([text], true)).toEqual(['segment:text', 'meta'])
+      // 같은 모델에서 세션 ID가 생기면 산출물 행이 나타난다.
+      const model = createClaudeBlockModel({ mode, sessionKey: 's' })
+      const state = {
+        messages: messages([text, artifact]),
+        transcriptChanges: recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      }
+      expect(kinds(snapshotToArray(model.advance(state, { hasSession: false })))).toEqual([
+        'segment:text',
+        'meta'
+      ])
+      expect(kinds(snapshotToArray(model.advance(state, { hasSession: true })))).toEqual([
+        'segment:text',
+        'artifacts',
+        'meta'
+      ])
+    }
+  })
+
+  it.each(['code', 'work'] as const)(
+    'AC18 a question row appears with its answer and leaves when the answer is withdrawn (%s)',
+    (mode) => {
+      const wrap = (parts: AppMessagePart[]): AppMessagePart[] =>
+        mode === 'work' ? [begin('r'), ...parts, end('r', 'ended')] : parts
+      const question = { questions: [{ question: 'Pick?', header: 'h' }] }
+      const owner = assistantMsg(
+        'owner',
+        wrap([
+          { type: 'text', text: 'Let me ask' },
+          { type: 'tool_call', toolRunId: 'ask', toolName: 'AskUserQuestion', args: question }
+        ])
+      )
+      const answer = assistantMsg('answer', [
+        {
+          type: 'tool_result',
+          toolRunId: 'ask',
+          isError: false,
+          result: { answers: { 'Pick?': 'a' } }
+        }
+      ])
+      const model = createClaudeBlockModel({ mode, sessionKey: 's' })
+      let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      let messages: Message[] = [userMsg('u', 'q'), owner]
+      const segments = (): string[] =>
+        kinds(snapshotToArray(model.advance({ messages, transcriptChanges: changes }))).filter(
+          (kind) => kind.startsWith('segment:')
+        )
+      expect(segments()).toEqual(['segment:text'])
+      messages = [...messages, answer]
+      changes = recordChange(changes, { kind: 'append', ids: ['answer'] })
+      expect(segments()).toEqual(['segment:text', 'segment:ask'])
+      expect(
+        snapshotToArray(model.advance({ messages, transcriptChanges: changes })).map((b) => b.key)
+      ).toEqual(
+        buildClaudeBlocksOracle(messages, { mode, sessionKey: 's' }).map((block) => block.key)
+      )
+      messages = messages.slice(0, -1)
+      changes = recordChange(changes, { kind: 'remove', ids: ['answer'] })
+      expect(segments()).toEqual(['segment:text'])
+      // 답이 다른 턴에서 온다 — 소유 턴은 제자리 갱신만 받으므로 다시 투영해야 행이 생긴다.
+      const later = createClaudeBlockModel({ mode, sessionKey: 's' })
+      let laterChanges = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      let laterMessages: Message[] = [userMsg('u', 'q'), owner, userMsg('next', 'more')]
+      const laterSegments = (): string[] =>
+        kinds(
+          snapshotToArray(
+            later.advance({ messages: laterMessages, transcriptChanges: laterChanges })
+          )
+        ).filter((kind) => kind.startsWith('segment:'))
+      expect(laterSegments()).toEqual(['segment:text'])
+      laterMessages = [...laterMessages, answer]
+      laterChanges = recordChange(laterChanges, { kind: 'append', ids: ['answer'] })
+      expect(laterSegments()).toEqual(['segment:text', 'segment:ask'])
+      expect(
+        snapshotToArray(
+          later.advance({ messages: laterMessages, transcriptChanges: laterChanges })
+        ).map((b) => b.key)
+      ).toEqual(buildClaudeBlocksOracle(laterMessages, { mode, sessionKey: 's' }).map((b) => b.key))
+      laterMessages = laterMessages.slice(0, -1)
+      laterChanges = recordChange(laterChanges, { kind: 'remove', ids: ['answer'] })
+      expect(laterSegments()).toEqual(['segment:text'])
+      // 답은 같지만 질문 항목이 없으면 행이 없다(EP-20 ③).
+      const empty = buildClaudeBlocksOracle(
+        [
+          assistantMsg(
+            'e',
+            wrap([
+              {
+                type: 'tool_call',
+                toolRunId: 'q',
+                toolName: 'AskUserQuestion',
+                args: { questions: [] }
+              },
+              { type: 'tool_result', toolRunId: 'q', isError: false, result: { response: 'ok' } }
+            ])
+          )
+        ],
+        { mode, sessionKey: 's' }
+      )
+      expect(kinds(empty).filter((kind) => kind.startsWith('segment:'))).toEqual([])
+    }
+  )
 })

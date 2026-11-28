@@ -14,6 +14,11 @@ function assistantMsg(id: string, parts: AppMessagePart[], createdAt = 2000): Me
   return { id, role: 'assistant', createdAt, parts }
 }
 
+// 답이 있는 질문 — 답 없는 질문은 행을 만들지 않는다(0331 D-029 · AC18).
+const answered = { questions: [{ question: 'Pick?', header: 'h' }], answers: { 'Pick?': 'a' } }
+const askArgs = (toolName: string, args: Record<string, unknown>): Record<string, unknown> =>
+  toolName === 'AskUserQuestion' ? { ...answered, ...args } : args
+
 describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
   it('preserves paragraph whitespace and part offsets across assistant message boundaries', () => {
     const blocks = snapshotToArray(
@@ -353,7 +358,9 @@ describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
       const model = createOpenCodeBlockModel()
       let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
       let messages = [
-        assistantMsg('owner', [{ type: 'tool_call', toolRunId: 'original', toolName, args: {} }]),
+        assistantMsg('owner', [
+          { type: 'tool_call', toolRunId: 'original', toolName, args: askArgs(toolName, {}) }
+        ]),
         userMsg('next', 'continue'),
         assistantMsg('older', [result('old')]),
         assistantMsg('later', [result('latest'), result('last part')])
@@ -396,7 +403,9 @@ describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
     'z8: %s replay transfers result ownership on removal and restores inputs on replay withdrawal',
     (toolName) => {
       const call = (messageId: string, input: string): Message =>
-        assistantMsg(messageId, [{ type: 'tool_call', toolRunId: 'x', toolName, args: { input } }])
+        assistantMsg(messageId, [
+          { type: 'tool_call', toolRunId: 'x', toolName, args: askArgs(toolName, { input }) }
+        ])
       const end = assistantMsg('result', [
         { type: 'tool_result', toolRunId: 'x', result: 'done', isError: false }
       ])
@@ -422,7 +431,7 @@ describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
                   : []
             return calls.map((call) => [block.messageId, call.input, call.result?.output])
           })
-          expect(calls).toEqual([[owner, { input }, 'done']])
+          expect(calls).toEqual([[owner, askArgs(toolName, { input }), 'done']])
         }
       }
       check('original', 'second')
@@ -831,4 +840,141 @@ it('AC1′ matrix o1-o4 joins adjacent exploration tools through invisible conte
   expect(project([[a, { type: 'reasoning', text: 'internal' }, b]])).toEqual([['a', 'b']])
   expect(project([[a, tool('shell', 'bash'), b]])).toEqual([['a'], ['shell'], ['b']])
   expect(project([[a], [b]])).toEqual([['a', 'b']])
+})
+
+// 0331 ΔV6 EP-20 ⑥~⑩ — 렌더가 비는 상태는 블록 모델이 행을 만들지 않는다(D-029 · VP-53).
+describe('AC18 OpenCode rows always carry visible content', () => {
+  const kinds = (blocks: ReturnType<typeof buildOpenCodeBlocksOracle>): string[] =>
+    blocks.map((block) => (block.kind === 'segment' ? 'segment:' + block.segment.kind : block.kind))
+
+  it('AC18 reasoning forms no row', () => {
+    const blocks = buildOpenCodeBlocksOracle([
+      userMsg('u', 'q'),
+      assistantMsg('a', [
+        { type: 'reasoning', text: 'thinking hard' },
+        { type: 'text', text: 'answer' }
+      ])
+    ])
+    expect(kinds(blocks)).toEqual(['user', 'segment:text', 'meta'])
+    // 진행 중 추론만 도착한 상태도 행이 없다.
+    const live = buildOpenCodeBlocksOracle(
+      [userMsg('u', 'q'), assistantMsg('a', [{ type: 'reasoning', text: 'live' }])],
+      { pending: true, liveReasoning: true }
+    )
+    expect(kinds(live).filter((kind) => kind.startsWith('segment:'))).toEqual([])
+  })
+
+  it('AC18 tool group without visible tools forms no row', () => {
+    const todo: AppMessagePart = {
+      type: 'tool_call',
+      toolRunId: 'todo',
+      toolName: 'todowrite',
+      args: { todos: [] }
+    }
+    const read: AppMessagePart = {
+      type: 'tool_call',
+      toolRunId: 'read',
+      toolName: 'read',
+      args: { filePath: 'a.ts' }
+    }
+    expect(kinds(buildOpenCodeBlocksOracle([assistantMsg('a', [todo])]))).toEqual(['meta'])
+    expect(kinds(buildOpenCodeBlocksOracle([assistantMsg('a', [todo, read])]))).toEqual([
+      'segment:tools',
+      'meta'
+    ])
+  })
+
+  it('AC18 artifacts block needs artifacts and a session', () => {
+    const artifact: AppMessagePart = {
+      type: 'artifact',
+      artifact: {
+        publicationId: 'p1',
+        artifactFileId: 'f1',
+        category: 'file',
+        filename: 'a.txt',
+        publishedAt: 1
+      } as Extract<AppMessagePart, { type: 'artifact' }>['artifact']
+    }
+    const text: AppMessagePart = { type: 'text', text: 'done' }
+    const project = (parts: AppMessagePart[], hasSession?: boolean): string[] =>
+      kinds(buildOpenCodeBlocksOracle([assistantMsg('a', parts)], { hasSession }))
+    expect(project([text, artifact])).toEqual(['segment:text', 'artifacts', 'meta'])
+    expect(project([text, artifact], true)).toEqual(['segment:text', 'artifacts', 'meta'])
+    expect(project([text, artifact], false)).toEqual(['segment:text', 'meta'])
+    expect(project([text], true)).toEqual(['segment:text', 'meta'])
+    const model = createOpenCodeBlockModel()
+    const state = {
+      messages: [assistantMsg('a', [text, artifact])],
+      transcriptChanges: recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    }
+    expect(kinds(snapshotToArray(model.advance(state, { hasSession: false })))).toEqual([
+      'segment:text',
+      'meta'
+    ])
+    expect(kinds(snapshotToArray(model.advance(state, { hasSession: true })))).toEqual([
+      'segment:text',
+      'artifacts',
+      'meta'
+    ])
+  })
+
+  it('AC18 a question row appears with its answer and leaves when the answer is withdrawn', () => {
+    const owner = assistantMsg('owner', [
+      { type: 'text', text: 'Let me ask' },
+      {
+        type: 'tool_call',
+        toolRunId: 'ask',
+        toolName: 'AskUserQuestion',
+        args: { questions: [{ question: 'Pick?', header: 'h' }] }
+      }
+    ])
+    const answer = assistantMsg('answer', [
+      {
+        type: 'tool_result',
+        toolRunId: 'ask',
+        isError: false,
+        result: { answers: { 'Pick?': 'a' } }
+      }
+    ])
+    const model = createOpenCodeBlockModel()
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    let messages: Message[] = [userMsg('u', 'q'), owner]
+    const segments = (): string[] =>
+      kinds(snapshotToArray(model.advance({ messages, transcriptChanges: changes }))).filter(
+        (kind) => kind.startsWith('segment:')
+      )
+    expect(segments()).toEqual(['segment:text'])
+    messages = [...messages, answer]
+    changes = recordChange(changes, { kind: 'append', ids: ['answer'] })
+    expect(segments()).toEqual(['segment:text', 'segment:ask'])
+    expect(
+      snapshotToArray(model.advance({ messages, transcriptChanges: changes })).map((b) => b.key)
+    ).toEqual(buildOpenCodeBlocksOracle(messages).map((block) => block.key))
+    messages = messages.slice(0, -1)
+    changes = recordChange(changes, { kind: 'remove', ids: ['answer'] })
+    expect(segments()).toEqual(['segment:text'])
+    // 답이 다른 턴에서 온다 — 소유 턴을 다시 투영해야 행이 생긴다.
+    const later = createOpenCodeBlockModel()
+    let laterChanges = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    let laterMessages: Message[] = [userMsg('u', 'q'), owner, userMsg('next', 'more')]
+    const laterSegments = (): string[] =>
+      kinds(
+        snapshotToArray(later.advance({ messages: laterMessages, transcriptChanges: laterChanges }))
+      ).filter((kind) => kind.startsWith('segment:'))
+    expect(laterSegments()).toEqual(['segment:text'])
+    laterMessages = [...laterMessages, answer]
+    laterChanges = recordChange(laterChanges, { kind: 'append', ids: ['answer'] })
+    expect(laterSegments()).toEqual(['segment:text', 'segment:ask'])
+    laterMessages = laterMessages.slice(0, -1)
+    laterChanges = recordChange(laterChanges, { kind: 'remove', ids: ['answer'] })
+    expect(laterSegments()).toEqual(['segment:text'])
+    // 응답만 있고 질문 항목이 없으면 행이 없다(EP-20 ⑨의 항목 조건).
+    const empty = buildOpenCodeBlocksOracle([
+      assistantMsg('e', [
+        { type: 'tool_call', toolRunId: 'q', toolName: 'AskUserQuestion', args: { questions: [] } },
+        { type: 'tool_result', toolRunId: 'q', isError: false, result: { response: 'ok' } }
+      ])
+    ])
+    expect(kinds(empty).filter((kind) => kind.startsWith('segment:'))).toEqual([])
+  })
 })

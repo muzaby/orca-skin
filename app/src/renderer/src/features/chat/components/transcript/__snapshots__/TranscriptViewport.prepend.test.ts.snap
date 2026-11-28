@@ -22,18 +22,18 @@ exports[`TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥) >
 exports[`TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥) > prepending one turn costs the same after 1 and 100 loaded turns (claude-work) 1`] = `
 {
   "long": {
-    "chunkEntries": 11,
-    "measurements": 606,
+    "chunkEntries": 9,
+    "measurements": 505,
     "messages": 202,
-    "orderEntries": 11,
-    "virtualKeys": 1878,
+    "orderEntries": 9,
+    "virtualKeys": 1576,
   },
   "short": {
     "chunkEntries": 2,
-    "measurements": 12,
+    "measurements": 10,
     "messages": 4,
     "orderEntries": 2,
-    "virtualKeys": 96,
+    "virtualKeys": 85,
   },
 }
 `;

@@ -60,6 +60,8 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
   const hasLiveText = useHasLiveText()
   const hasLiveReasoning = useHasLiveReasoning()
   const liveTextKey = useLiveTextKey()
+  // 산출물 카드와 같은 원천 — 카드가 그리지 않는 동안 블록도 만들지 않는다(0331 EP-20 ⑥).
+  const hasSession = useChatSession((session) => Boolean(session.sessionId))
   const scroll = useTimelineScroll()
   const fallbackState = useMemo(() => new TimelineViewState(), [])
   const state = scroll?.state ?? fallbackState
@@ -74,7 +76,8 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
           liveText: inflight && hasLiveText,
           liveReasoning: inflight && hasLiveReasoning,
           liveTextKey,
-          pending: inflight
+          pending: inflight,
+          hasSession
         }
       ),
     [
@@ -85,7 +88,8 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
       inflight,
       hasLiveText,
       hasLiveReasoning,
-      liveTextKey
+      liveTextKey,
+      hasSession
     ]
   )
 

@@ -27,7 +27,7 @@ export const WorkToolRow = memo(function WorkToolRow({
   const failed = view.status === 'failed'
   return (
     <div
-      className="relative py-1 pl-[30px]"
+      className="relative py-2 pl-[30px]"
       data-work-tool={call.toolUseId}
       data-part-key={partKey}
       data-tool-status={view.status}
@@ -98,7 +98,7 @@ export const WorkToolTimeline = memo(function WorkToolTimeline({
           <div
             key={call.toolUseId}
             data-part-key={partKeys?.[index]}
-            className="relative py-1 pl-[30px]"
+            className="relative py-2 pl-[30px]"
           >
             <span
               aria-hidden

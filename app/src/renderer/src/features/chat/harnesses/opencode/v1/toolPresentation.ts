@@ -71,6 +71,12 @@ export function questionAnswers(call: ToolCall): ParsedAsk {
   }
 }
 
+/** A question row is shown only after it has an answer or a response (0331 D-029 · EP-20 ⑨). */
+export function questionHasAnswers(call: ToolCall): boolean {
+  const { items, response } = questionAnswers(call)
+  return items.length > 0 && (items.some((item) => item.answer) || response != null)
+}
+
 /** Only executed root writes can replace the composer list; an empty list is a valid clear. */
 export function readSuccessfulTodos(call: ToolCall): OpenCodeTodo[] | undefined {
   if (

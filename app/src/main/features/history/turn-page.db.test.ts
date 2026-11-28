@@ -361,6 +361,29 @@ describe('turn pages from the published SQLite generation', () => {
     expect(await readEdge(cursor, 'before')).toMatchObject({ status: 'stale' })
   })
 
+  // EP-21 history-page 커서 자리의 두 분기 — 같은 세대에서 순번의 키가 다르면 stale,
+  // 새 세대에서 키는 있지만 그쪽 이웃이 없으면 빈 페이지(이력 끝)다.
+  it('AC19 ends at the first message of a new generation and rejects a key that left its ordinal', async () => {
+    for (let i = 0; i < 12; i++) {
+      local('user', String(i))
+      local('assistant', String(i))
+    }
+    const tail = await latest()
+    if (tail.status !== 'ok') throw Error(tail.status)
+    const edge = tail.session.history.before!
+    const values = JSON.parse(Buffer.from(edge.cursor, 'base64url').toString()) as unknown[]
+    values[6] = 'm:none'
+    const forged = { ...edge, cursor: Buffer.from(JSON.stringify(values)).toString('base64url') }
+    expect(await readEdge(forged, 'before')).toMatchObject({ status: 'stale' })
+    const first = Number(tail.session.messages[0].id.slice(2))
+    sqlite.prepare('DELETE FROM messages WHERE id < ?').run(first)
+    const end = await readEdge(edge, 'before')
+    if (end.status !== 'ok') throw Error(end.status)
+    expect(end.session.history.generation).not.toBe(tail.session.history.generation)
+    expect(end.session.messages).toEqual([])
+    expect(end.session.history.before).toBeUndefined()
+  })
+
   it('AC19 recomputes the withinUnit floor when the ordinal of its message changes', async () => {
     const keys = Array.from({ length: 10 }, (_, i) => {
       const first = 'm:' + local('user', String(i))

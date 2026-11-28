@@ -92,7 +92,7 @@ export const ClaudeToolGroup = memo(function ClaudeToolGroup({
         }`}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="mt-g2 flex flex-col gap-g2 rounded-r6 border border-t5 bg-bg p-p7">
+          <div className="mt-g2 flex flex-col gap-[var(--chat-item-gap)] rounded-r6 border border-t5 bg-bg p-p7">
             {calls.map((c, index) => (
               <ToolCard
                 key={c.toolUseId}

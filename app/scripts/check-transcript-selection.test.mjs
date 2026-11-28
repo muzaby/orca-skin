@@ -45,6 +45,7 @@ function record(screen, scenario, run) {
         clipboard: SENTINEL
       }
     case 'B2':
+      return { ...base, ...copy, mountedKeys: 0, scrolled: 1, selectionText: ['x', 'x'] }
     case 'C4':
       return { ...base, ...copy, mountedKeys: 0, selectionText: ['x', 'x'] }
     case 'C5':
@@ -142,6 +143,15 @@ test('k6 a control scenario must mount nothing and keep the selection', () => {
   ])
   assert.deepEqual(reasons(grid(at('opencode-code', 'C5', 2, { mountedKeys: 0 }))), [
     'no row mounted'
+  ])
+})
+
+test('k6′ the scroll control must move the transcript (0331 D-033)', () => {
+  assert.deepEqual(reasons(grid(at('claude-work', 'B2', 1, { scrolled: 0 }))), [
+    'control did not scroll'
+  ])
+  assert.deepEqual(reasons(grid(at('claude-work', 'B2', 1, { scrolled: undefined }))), [
+    'control did not scroll'
   ])
 })
 

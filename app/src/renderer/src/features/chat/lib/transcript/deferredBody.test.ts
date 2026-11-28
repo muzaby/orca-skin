@@ -153,6 +153,33 @@ describe('deferred history bodies', () => {
   )
 })
 
+// EP-21 창 조립 — 총 바이트는 응답이 준다. 0 이하·정수 아님·세대 없음은 형식 위반(invalid)이다.
+it.each([
+  ['zero bytes', { bytes: 0 }],
+  ['fractional bytes', { bytes: 1.5 }],
+  ['missing generation', { generation: '' }]
+] as const)('AC3″ rejects a body reply with %s as invalid', async (_, change) => {
+  const page = async (q: HistoryQuery): Promise<HistoryPageReply> => {
+    if (q.kind !== 'body') throw Error(q.kind)
+    return {
+      status: 'body',
+      generation: ref.generation,
+      bytes: 2,
+      sessionId: 's',
+      openGeneration: 3,
+      requestId: 1,
+      offset: 0,
+      nextOffset: 2,
+      done: true,
+      base64: Buffer.from('[]').toString('base64'),
+      ...change
+    }
+  }
+  await expect(readDeferredParts(ref, 3, page, () => true)).rejects.toMatchObject({
+    reason: 'invalid'
+  })
+})
+
 it('waits for the worker to accept the current bytes before requesting the next SQLite page', async () => {
   const replies: (() => Promise<void>)[] = []
   setComputeClient(

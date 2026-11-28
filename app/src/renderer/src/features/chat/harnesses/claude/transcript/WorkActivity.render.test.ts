@@ -5,6 +5,9 @@ import { AssistantTurn } from './AssistantTurn'
 import { Exchange } from './Exchange'
 import type { Turn } from '../../../lib/turns'
 import { agentUiPolicy } from '../../../lib/agentPresentation'
+import { ActivityDisclosure } from './WorkActivity'
+import { ClaudeToolGroup } from './ToolGroup'
+import { setDisclosure, setDisclosureActiveSession } from '../../../store/disclosureStore'
 
 const workTranscript = agentUiPolicy('work').transcript
 const codeTranscript = agentUiPolicy('code').transcript
@@ -167,5 +170,68 @@ describe('actual Work transcript branch', () => {
         { exchange, transcriptPolicy: workTranscript }
       )
     ).toBe(false)
+  })
+})
+
+// 0331 ΔV6 EP-10′ — 0324 이전 간격(D-033 · VP-54). 실제 거리는 `--layout` toolSpacing 이 본다.
+describe('AC10″ tool spacing classes', () => {
+  const read = { toolUseId: 'read', name: 'Read', input: { file_path: 'a.ts' } }
+  const agent = { toolUseId: 'agent', name: 'Agent', input: { description: 'inspect' } }
+
+  it('AC10″ work rows use py-2', () => {
+    setDisclosureActiveSession('spacing')
+    setDisclosure('spacing', 'activity:spacing', true)
+    const html = renderToStaticMarkup(
+      createElement(ActivityDisclosure, {
+        node: {
+          kind: 'activity',
+          key: 'activity:spacing',
+          items: [
+            {
+              kind: 'segment',
+              key: 'k1',
+              messageId: 'm',
+              segment: { kind: 'tools', calls: [read] }
+            },
+            { kind: 'segment', key: 'k2', messageId: 'm', segment: { kind: 'text', text: 'note' } },
+            {
+              kind: 'segment',
+              key: 'k3',
+              messageId: 'm',
+              segment: { kind: 'tools', calls: [agent] }
+            }
+          ],
+          toolCount: 2,
+          noteCount: 1
+        },
+        transcriptPolicy: workTranscript
+      })
+    )
+    // 세 자리의 행 div — 일반 도구(data-work-tool) · 메모(data-work-note) · 에이전트(둘 다 없음).
+    const rows = [...html.matchAll(/<div([^>]*)class="(relative py-\d pl-\[30px\])"([^>]*)>/g)].map(
+      (match) => ({
+        attrs: match[1] + match[3],
+        cls: match[2]
+      })
+    )
+    const site = (test: (attrs: string) => boolean): string[] =>
+      rows.filter((row) => test(row.attrs)).map((row) => row.cls)
+    expect(site((a) => a.includes('data-work-tool="read"'))).toEqual(['relative py-2 pl-[30px]'])
+    expect(site((a) => a.includes('data-work-note="true"'))).toEqual(['relative py-2 pl-[30px]'])
+    expect(site((a) => !a.includes('data-work-tool') && !a.includes('data-work-note'))).toEqual([
+      'relative py-2 pl-[30px]'
+    ])
+    expect(html).not.toContain('relative py-1 pl-[30px]')
+  })
+
+  it('AC10″ group cards use the item gap', () => {
+    const html = renderToStaticMarkup(
+      createElement(ClaudeToolGroup, {
+        calls: [read, { ...read, toolUseId: 'read-2' }],
+        transcriptPolicy: codeTranscript
+      })
+    )
+    expect(html).toContain('flex flex-col gap-[var(--chat-item-gap)] rounded-r6')
+    expect(html).not.toContain('flex flex-col gap-g2 rounded-r6')
   })
 })

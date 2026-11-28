@@ -297,11 +297,12 @@ export const sites: Site[] = [
     event: 'chat.native-resources.load-failed',
     title: 'loadFailed'
   },
-  { file: 'features/chat/hooks/useAttachments.ts', ordinal: 0, line: 59, disposition: 'EXCLUDE' },
+  { file: 'features/chat/hooks/useAttachments.ts', ordinal: 0, line: 100, disposition: 'EXCLUDE' },
+  { file: 'features/chat/hooks/useAttachments.ts', ordinal: 1, line: 111, disposition: 'EXCLUDE' },
   {
     file: 'features/chat/hooks/useAttachments.ts',
-    ordinal: 1,
-    line: 70,
+    ordinal: 2,
+    line: 135,
     disposition: 'TOAST',
     id: 'T14',
     event: 'chat.attachment.pick-failed',
