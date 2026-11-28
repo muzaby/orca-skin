@@ -439,3 +439,87 @@ it('AC15 pops a disappeared background detail when the canonical feed becomes em
   expectBackCount(0)
   expect(row('legacy')?.textContent).toContain('First job')
 })
+
+// EP-11 B `chatStore.ts` openSubagentTask — 정본 호출이 있으면 호출 키와 종류를, OpenCode 는 도구 ID 를 층에 싣는다.
+it('AC15 opens the canonical call of a transcript card as a call detail', () => {
+  mount('canonical', 'plan')
+  const origin = card()
+  dom.click(origin)
+  expect(stack()).toEqual(['plan', 'detail:subagent'])
+  expect(useRightPanelStore.getState().stack.at(-1)).toMatchObject({
+    kind: 'detail',
+    selection: {
+      id: 'subagent',
+      selectedId: backgroundKey(generation, 'call-one'),
+      backgroundKind: 'call'
+    }
+  })
+  expect(header().textContent).not.toContain('chat.subagentTile.headerTitle')
+  expectBackCount(1)
+})
+
+it('AC15 keeps the OpenCode tool id when the session also has background records', () => {
+  mount('opencode', 'plan')
+  dom.act(() =>
+    useBackgroundStore.setState({
+      sessions: { [sessionId]: { state: canonicalState(true), loading: false } }
+    })
+  )
+  dom.click(card())
+  expect(stack()).toEqual(['plan', 'detail:subagent'])
+  expect(
+    useRightPanelStore.getState().stack.at(-1)?.kind === 'detail' &&
+      useRightPanelStore.getState().stack.at(-1)
+  ).toMatchObject({
+    selection: { id: 'subagent', selectedId: 'call-one' }
+  })
+  expect(
+    (useRightPanelStore.getState().stack.at(-1) as { selection: { backgroundKind?: string } })
+      .selection.backgroundKind
+  ).toBeUndefined()
+  expect(header().textContent).toContain('First job')
+})
+
+// EP-11 B 사라진 항목 pop — 세 머리 모두(AC15 표 마지막 행).
+it('AC15 pops a disappeared background detail: opencode', () => {
+  mount('opencode')
+  dom.click(row('opencode'))
+  expect(stack()).toEqual(['subagent', 'detail:subagent'])
+  dom.act(() =>
+    useChatStore.setState((state) => {
+      const entry = state.sessions[sessionId]
+      return {
+        sessions: {
+          ...state.sessions,
+          [sessionId]: {
+            ...entry,
+            session: {
+              ...entry.session,
+              messages: entry.session.messages.map((message) => ({
+                ...message,
+                parts: message.parts.filter(
+                  (part) =>
+                    !('toolRunId' in part) ||
+                    (part as { toolRunId: string }).toolRunId !== 'call-one'
+                )
+              }))
+            }
+          }
+        }
+      }
+    })
+  )
+  expect(stack()).toEqual(['subagent'])
+  expectBackCount(0)
+})
+
+// EP-11 A `RightPanelTile.tsx:62` 개요 머리 — 깊이 2에서 패널 뒤로 1개(기존 규칙, ΔV4 입력).
+it('AC15 shows one back button on the overview header at depth two', () => {
+  mount('opencode', 'subagent')
+  dom.act(() => panelActions.tile('task'))
+  expect(stack()).toEqual(['subagent', 'task'])
+  expectBackCount(1)
+  back()
+  expect(stack()).toEqual(['subagent'])
+  expectBackCount(0)
+})

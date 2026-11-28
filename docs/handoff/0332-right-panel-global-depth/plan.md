@@ -741,6 +741,13 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs \
 
 ## [구현자 기입] 설계 리뷰
 
+### r1.3 · ΔV4 (Claude — 사용자 지시 “331~332 코덱스의 작업을 이어서 하라”)
+
+- 판정: Codex 구현(D-016·AC15 — 상세 선택을 층으로, 타일 안 뒤로 제거)은 §23 계약을 따른다. 이번 턴은 그 구현이 깨뜨린 gate를 고치고 sweep으로 자리를 닫았다. 설계 대비 차이·PLAN_GAP 0.
+- **현재 결함 1건 — 선조치.** `TranscriptActionRow.tsx:31` 키보드 Enter·Space가 `e` 대신 전역 `event`의 `currentTarget`을 넘겼다 — typecheck error 2(`TS18048`·`TS2345`)이고, Enter로 연 상세의 진입 원점이 틀려 뒤로 뒤 초점이 돌아오지 않는다(D-008). `e.currentTarget`으로 고치고 키보드 입력 좌표를 더했다.
+- 구 기대를 단언하던 기존 테스트: plan이 지목한 `entrypoints.interaction.test.ts` 1건은 Codex가 `AC15 pushes a detail over plan from the %s`(:145)로 바꿨다. 같은 꼴이 `CanonicalBackgroundContent.render.test.ts`에 12건 더 있었다 — 선택을 옛 store(`selection`)로 주고 타일 안 "목록으로"를 기대했다. 선택은 상세 층(`PanelNavigationContext`)으로 넣고, "목록으로" 3자리는 AC15대로 "머리 버튼 0 · 선택 제목"을 단언한다.
+- Codex 구현의 세부(설계에 없던 것): 상세 층 선택이 정본 작업·호출 종류를 운반한다(`rightPanelStack.ts:9` `backgroundKind`). OpenCode 개요 → 에이전트 목록 → 상세 3층을 `layerKey` `detail:subagent-list`/`detail:subagent`로 가른다.
+
 ### §22 재구현
 
 - Chromium에서 cold 동기 높이 읽기는 115회였다. 고정 중 가시 63·아래 36·위 2회, 읽기 중 가시 8·아래 6회였다. 읽는 화면 아래에 새로 등록한 6회만 첫 RO에 맡길 수 있었다. 가시·고정 행은 같은 React 커밋 안에서 실제 높이를 먼저 읽은 뒤 TanStack에 등록한다.
@@ -753,6 +760,43 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs \
 - 유효 V와 충돌하는 ACTIVE Decision을 발견하지 않았다. 일반·축소 모션 및 부하 예산은 단위 테스트와 별도로 실측했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+### r1.3 · ΔV4 EP-11 A·B · ⑨′ (§23-D)
+
+검색(§23-D) 재실행 — EP-11 A 6줄(설계 9): 타일 안 복귀 버튼 3자리가 사라졌고 제외 1(`QuestionCard.tsx:223`)은 그대로다. EP-11 B 7줄(설계 14): `selectBackgroundItem(` 정의 1(제외) + `openSubagentTask(` 6. 세션 선택을 쓰던 자리 6곳은 상세 층 push(`panelActions.navigate`)·층 pop(`useDismissMissingSubagent`)으로 옮겨 검색 술어 밖이다 — 아래 표의 "→" 뒤가 지금 자리이고 변이도 그 자리에 심었다(재앵커).
+
+**EP-11 A · 머리의 뒤로 버튼 — 8/8.**
+
+| 자리 (설계 줄 → 지금) | 규칙 → 입력 | 직접 oracle 좌표 | 고장 |
+|---|---|---|---|
+| `claude/rightpanel/SubAgentTileContent.tsx:49`(제거) | 제목만 — 정본 × 깊이 1·2 | `backgroundDetail.render.test.ts` `AC15 shows one back button at depth two for each background header: canonical` · `CanonicalBackgroundContent.render.test.ts` 선택 머리 3건 | Q01 red(등록 변이 VP-22 정본) |
+| `claude/rightpanel/LegacySubAgentTile.tsx:95`(제거) | 구 모델 × 깊이 1·2 | 같은 테스트 `: legacy` | Q02 red(VP-22 구 모델) |
+| `opencode/rightpanel/tiles.tsx:147`(제거) | OpenCode × 깊이 1·2 | 같은 테스트 `: opencode` | Q03 red(VP-22 OpenCode) |
+| `common/rightpanel/PanelBackButton.tsx:13` → `:8` | `canGoBack`일 때만 | 같은 테스트(깊이 1 → 0개 · 2 → 1개) | Q04 red |
+| `common/rightpanel/RightPanelTile.tsx:62`·`:72` · `ArtifactViewer.tsx:58` | 머리마다 패널 뒤로 1개(기존) | 개요·일반·산출물 머리 → `backgroundDetail.render.test.ts` · `entrypoints.interaction.test.ts` · `Panel.lifecycle.test.ts` · `ArtifactViewer.actions.test.ts` | Q04b·c·d red |
+| `common/rightpanel/TaskPanelContent.tsx:104` | `nav` 없음에서만 | `entrypoints.interaction.test.ts` `AC15 renders no own back button for a task detail inside the panel frame` · `returns to the overview from the standalone task detail back button` | Q05 red |
+
+**EP-11 B · 상세 선택 진입·해제 — 13/13.**
+
+| 자리 (설계 줄 → 지금) | 규칙 → 입력 | 직접 oracle 좌표 | 고장 |
+|---|---|---|---|
+| `AgentTaskBody.tsx:48`→`:50` · `SubagentNoticeRow.tsx:57` · `AgentTaskRow.tsx:91` · opencode `ToolCard.tsx:72` · (공통 `TranscriptActionRow.tsx:27`·`:31`) | transcript 진입 4 × [plan] · 클릭·Enter | `entrypoints.interaction.test.ts` `AC15 pushes a detail over plan from the %s` · `AC15 keeps the keyboard origin of the %s on the detail layer` | Q07a·b·c·d·e red |
+| `store/chatStore.ts:3171` → `:3176~3192` | 층 push(닫힘이면 ⑨′)와 선택을 같은 시점에 · 정본 호출이 있으면 호출 키+`call` · OpenCode는 도구 ID | 열림 · 닫힘+기억 · 닫힘+기억 없음 → `backgroundDetail.render.test.ts` `AC15 walks back in entry order from a transcript card: %s` · `AC15 opens the canonical call of a transcript card as a call detail` · `AC15 keeps the OpenCode tool id when the session also has background records` | Q06·06b·06c red |
+| `CanonicalBackgroundContent.tsx:135`·`:150` → `:143~152`·`:163~172` | 목록 → 상세 층(작업·호출 종류) | `AC15 pushes a detail from each list: canonical` · `… canonical standalone call` | Q08a·b red · Q08e green(동치 — `rightPanelStore.ts:71~77`가 원점 없는 진입에 포커스된 컨트롤을 원점으로 쓴다) |
+| `LegacySubAgentTile.tsx:223` → `:219` | 목록 → 상세 층 | `AC15 pushes a detail from each list: legacy` | Q08c red |
+| `opencode/rightpanel/tiles.tsx:129` → `:119` | 목록 → 상세 층 | `AC15 pushes a detail from each list: opencode` · `AC15 walks back in entry order from the OpenCode overview through its agent list` | Q08d green(동치 — 위와 같은 원점 대체) |
+| `LegacySubAgentTile.tsx:96` · `SubAgentTileContent.tsx:50` · `tiles.tsx:151`(제거) | 타일 안 해제 없음 — 해제는 층 pop · 선택은 층에서 읽는다 | `AC15 reads the selection from the detail layer: %s`(정본 호출·작업, 구 모델, OpenCode) · 뒤로 1회 → 목록 | Q10a·b·c red · 검색 `rg -n 'selectBackgroundItem\(' app/src/renderer/src -g '!*.test.*'` → 정의 1줄(쓰기 0) |
+| `LegacySubAgentTile.tsx:191` → `:137` `useDismissMissingSubagent` · 정본 `CanonicalBackgroundContent.tsx:81` · OpenCode `tiles.tsx:109` · 판정 `panelNavigation.ts:27~36` | 보이던 항목이 사라지면 pop · 첫 페이지 밖에서 연 키는 닫지 않음 | 완료 정리 · 정본 항목 제거 · 정본 피드 비움 · OpenCode 항목 제거 → `AC15 pops a disappeared background detail: %s` · `… : opencode` · `… when the canonical feed becomes empty` | Q09a·b·c·d·e red |
+
+**EP-4″ ⑨′ · 닫힌 패널 예외 — 1/1.**
+
+| 자리 | 규칙 → 입력 | 직접 oracle 좌표 | 고장 |
+|---|---|---|---|
+| `lib/rightPanelStack.ts:61` → `:65~71` (+ 목록/상세 키 `:30~32`) | 닫힘+기억 → [기억, 상세] · 닫힘+기억 없음 → [기본, 상세] · 열림 → push · 같은 상세 층 → 교체 | `rightPanelStack.test.ts` `AC15 opens a closed detail above the remembered tile` · `… above the default tile without memory` · `AC15 preserves open layers and replaces another selected detail in place` · `keeps process entry and the OpenCode overview list distinct from a selected agent` | Q11 red(등록 변이 VP-13′) · Q12 red · Q11b green(동치 — 목록 층 `selectedId: null`은 `tiles.tsx:68` 개요 안에서만 열린다) · Q11c (2차 — 기존 ⑨ 산출물 항) |
+
+- 닫은 수: EP-11 A 8/8 · EP-11 B 13/13 · ⑨′ 1/1 = 22/22. 남긴 곳 없음. 동치 3건(Q08d·Q08e·Q11b)은 코드 근거와 함께 표에 적었다.
+- 인용 테스트 부재(보고): VP-06(V1)이 좌표로 적은 `RightPanelFrame.render.test.ts` `AC6 renders one screen and a back button only when deeper`는 트리에 없다(`rg -l 'AC6 renders one screen' app/src` → 0). ΔV4 EP-11 A의 개요·산출물 머리 입력은 VP-22 쪽에 직접 더했다(`AC15 shows one back button on the overview header at depth two` · `ArtifactViewer.actions.test.ts` `AC15 puts exactly one panel back button on the artifact header`).
+- pair 자기 상태: VP-22·23·24·13′ `SELF_PASS` · VP-25(REGRESSION) `SELF_PASS` — `rightPanelStore.test.ts` `AC6 pop-to, toggle close, idempotent back at root …` 통과 · VP-26(REGRESSION) `SELF_PASS` — 기존 EP-2 진입점 좌표가 필터 없는 vitest에서 통과 · VP-27(REGRESSION)은 아래 구현 보고의 `check-right-panel.mjs` 결과를 따른다.
 
 ### §22 재구현 자리
 
@@ -884,6 +928,22 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs --search "rg -n -H '$
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+### r1.3 · sweep 49/49 · 변이 33
+
+열거 항목 49(§10 자리 22 · 규칙 칸 분기 25 · 등록 변이 pair 2 — VP-22 머리 3 · VP-13′) 모두 그 항목만 바꾼 변이를 1개 이상 심었다 — `mutate.py`로 3회(1차 30 · 2차 9 · 3차 2), 매회 원복 확인("모든 파일 원문 그대로"). 돌리지 못한 항목 0.
+
+| 묶음 | 변이 | 결과 | 비고 |
+|---|---|---|---|
+| EP-11 A 머리 (Q01~Q05·Q04b~d) | 8 | red 8 | Q01~Q03 = 등록 변이 VP-22(머리마다 자체 뒤로를 되살림, 깊이 2에서 2개) |
+| EP-11 B 진입 (Q06·06b·06c·Q07a~e) | 8 | red 8 | Q06b(정본 `call`↔`task` 맞바꿈)·Q06c(OpenCode 배제 제거)는 1차 `못 잡음` → 입력 2개를 더해 red |
+| EP-11 B 목록 (Q08a~e) | 5 | red 3 · 동치 2 | Q08a·b = 형제 슬롯 맞바꿈(작업↔호출). Q08d·e 동치 — `rightPanelStore.ts:71~77` 원점 대체 |
+| EP-11 B 해제·선택 원천 (Q09a~e·Q10a~c) | 8 | red 8 | Q09d(OpenCode)는 1차 `못 잡음` → 입력 추가. Q09e는 1차 변이가 `else`만 남긴 구문 오류라 잠금이 아니었다 → 조건만 `false`로 바꿔 다시 돌려 red |
+| ⑨′ (Q11·11b·11c·Q12) | 4 | red 3 · 동치 1 | Q11 = 등록 변이 VP-13′. Q11c는 기존 ⑨(산출물) 항 — 산출물 좌표를 oracle에 넣어 red. Q11b 동치 — 목록 층은 패널 안에서만 열린다(`tiles.tsx:68`) |
+
+- 검산: 선택 증거 4(VP-22 ×3 · VP-13′) · 인용 변이 0(이전 verify 없음) · 새 oracle 1(`backgroundDetail.render.test.ts`의 머리 뒤로 계수 `expectBackCount` — Q01~Q04 red가 민감도) · sweep 33 = 표 행 33(선택 증거·새 oracle 민감도 행은 sweep 변이와 같은 행).
+- 1차 `못 잡음` 8 → 입력 추가 6(Q04b·Q04d는 2차에서도 green이라 3차에 개요·산출물 머리 입력을 더함) · 동치 3. 최종 `못 잡음` 0.
+- 덮개 회귀: 이번 턴이 바꾼 기존 테스트 장치는 `CanonicalBackgroundContent.render.test.ts`의 선택 입력 경로(옛 store → 상세 층)뿐이다 — 그 파일 42건이 선택 상세(`data-background-detail`·`data-background-call-detail`)를 다시 관측한다. 층에서 선택을 읽지 않게 하는 Q10a·Q10b는 Q oracle 77건 중 21·18건 red.
+
 ### §22 재구현 소거
 
 | 개별 변이 | 행동 단언에서 관측한 실패 |
@@ -927,6 +987,17 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs --search "rg -n -H '$
 
 ## [구현자 기입] Product/UX 파생 검토
 
+### r1.3
+
+새 사용자 문구 0. 보이는 변화: 백그라운드·서브에이전트 상세의 머리에 뒤로 버튼이 하나만 있고(프레임의 `PanelBackButton`), 뒤로·Escape가 들어온 순서대로 목록·원점 타일로 돌아간다.
+
+| 질문 | 판정 | 관측 |
+|---|---|---|
+| 키보드로 연 상세에서 뒤로 뒤 초점이 원점으로 오는가 | 고침 — Codex 트리에서는 Enter가 전역 `event`를 넘겨 원점이 틀렸다 | `entrypoints.interaction.test.ts` `AC15 keeps the keyboard origin of the %s on the detail layer` 2건(되돌린 변이에서 둘 다 red) |
+| 닫힌 패널에서 카드를 누르면 무엇이 보이는가 | 기억 타일(없으면 기본 타일) 위에 상세 — 뒤로 한 번이면 그 타일 | `backgroundDetail.render.test.ts` `AC15 walks back in entry order from a transcript card: closed`·`remembered` |
+| 보던 항목이 사라지면 | 상세 층이 pop되고 목록이 보인다 — "아무 일도 안 일어남" 아님 | `AC15 pops a disappeared background detail: legacy`·`canonical` · `… when the canonical feed becomes empty` |
+| 늦은 첫 페이지 | 항목이 한 번 보인 뒤 사라졌을 때만 pop — 키로 연 상세가 첫 페이지 밖이어도 닫히지 않는다(`panelNavigation.ts` `useDismissMissingSubagent`) | Q09e 변이 red(sweep) |
+
 ### §22 재구현 관측
 
 핀·가시 행에는 첫 페인트 전 실제 border-box가 쓰인다. 보정 중에는 매번 현재 top을 읽으며, 아래 행도 핀이 켜지면 실제 높이를 사용한다. 두 OpenCode 진입과 Claude 복귀에서 대화 앞·뒤 화면을 연속 마운트하던 비용을 줄였다.
@@ -940,6 +1011,17 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs --search "rg -n -H '$
 | 늦게 도착한 응답이 화면을 되돌리지 않는가 | 요청 번호와 최초 세션 활성 확인 뒤에만 상세를 연다 | A6/A7, 세션 교체 lifecycle |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+### r1.3
+
+| 발견 | 분류 | 처리 |
+|---|---|---|
+| `TranscriptActionRow.tsx:31` 키보드 경로가 전역 `event`를 넘김 — typecheck error 2 · 원점 오류 | 현재 결함(D-008) | 선조치 + 좌표 2 |
+| `CanonicalBackgroundContent.render.test.ts` 12건이 옛 선택 경로·타일 안 뒤로를 기대 | 이행 결함(구 기대 유지 — §23-C) | 선택을 상세 층으로 넣고 3자리는 AC15 단언으로 교체 |
+| `panelConsumers.test.ts` 소비처 고정값 | 이번 변경의 gate | `subagentTasks(false,selectedId)` 2자리로 갱신 |
+| `session.selectedSubagentTaskId`·`OPEN_SUBAGENT_TASK`·`selectSubagentTask`가 reducer에만 남고 화면 소비처 0 | 비귀속(0334 정리 후보) | 보고만 |
+| Codex 커밋 `백그라운드 상세를 패널 진입 순서에 따라 열고 되돌린다`의 제목이 `<type>(<scope>):` 형식이 아니다 | 비귀속(커밋 프로토콜) | 공유 브랜치 이력이라 고치지 않는다 — trailer 파싱은 정상 |
+| AC13(50ms 예산)은 이번 ΔV4 범위 밖이고 r1.2 상태 그대로다 | 기존 미충족 | 아래 구현 보고에 이번 측정을 적는다 |
 
 ### §22 재구현 경계
 
@@ -967,6 +1049,22 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs --search "rg -n -H '$
 | 다른 무효화 축 | 같은 모드에 하네스만 바뀌면 잘못된 기억을 선택할 수 있다 | AC2/3. E4~E6와 Claude↔OpenCode 수명 테스트 |
 
 ## [구현자 기입] 구현 보고
+
+### r1.3 · ΔV4
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | Codex 커밋(24파일 — 상세 층 선택·세 머리의 타일 안 뒤로 제거·목록 진입) 위에 이번 턴: `TranscriptActionRow.tsx`(키보드 원점) · 테스트 6파일(`backgroundDetail.render.test.ts` 입력 5 · `entrypoints.interaction.test.ts` 키보드 원점 2·프레임 안 작업 상세 1 · `ArtifactViewer.actions.test.ts` 1 · `CanonicalBackgroundContent.render.test.ts` 선택 경로 · `panelConsumers.test.ts` 고정값) |
+| 실행 명령 | `app/`: 가드 5종 · `npm run lint` · `npm run typecheck` · 필터 없는 `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` · `npx electron-vite build && node scripts/smoke-hosts.mjs && node scripts/smoke-preload.mjs out/preload` · `xvfb-run -a node scripts/check-right-panel.mjs` · `mutate.py` 3 spec |
+| 관측한 게이트 산출 | 0331 구현 보고와 같은 실행(가드 5종 · lint · typecheck · vitest · `node --test` · build · smoke 2종) · `check-right-panel.mjs` 130건 중 129 · exit 1 — 일반 64/65 · 축소 65/65. 실패 1 = 일반 모션 `long-task-observation` 52ms(폭 저장 → Work 폭 전환). 깊이 전환 `depth-forward`·`depth-back`·`depth-interrupt` 두 모드 통과 |
+| 기준선 분리 | 0331 구현 보고와 같은 실행 — vitest 실패 8 + unhandled 1 = 전부 `src/main/app/claude-input.cli.integration.test.ts` — 서명 `--dangerously-skip-permissions cannot be used with root/sudo privileges`(root 컨테이너의 실제 Claude CLI). 변경 전(Codex HEAD `24335edb`) 같은 명령의 실패 24건(4파일) 중 이 파일 8건과 같다 — 지금 실패 − 변경 전 실패 = 0줄 · 환경 원인. 나머지 16건(보고 지점 레지스트리 3 · 패널 소비처 고정 1 · 정본 백그라운드 렌더 12)은 이번 변경의 gate 실패라 고쳤다. 전체 실행 1회는 도중에 `git stash`로 트리가 잠깐 바뀌어 옛 테스트 이름 8건이 실패했다 — 버리고 다시 돌린 결과만 적는다 |
+| 추가·수정 테스트의 subtree 규칙 | 0331과 같은 실행에서 판정(0331 구현 보고) — 이번 턴 0332 테스트 6파일 모두 unit 풀(자식 프로세스·SQLite·실제 시간 값 0, 가짜 시계·fake DOM) |
+| V-pair 자기확인 | VP-22·23·24·13′ `SELF_PASS` · VP-25·26 `SELF_PASS`(REGRESSION) · VP-27 `SELF_PASS`(REGRESSION — 위 깊이 전환 3관측 × 두 모드) |
+| AC 자기보고와 합계 | AC15 ✅(위 강제 지점 22/22 · sweep 49/49) · AC1~12·14 ✅(기존 좌표가 필터 없는 vitest에서 통과 — r1.2 판정 유지) · AC13 ❌ — 일반 모션 장기 작업 1건(52ms) · 축소 0건. r1.2(일반 3 · 축소 4)보다 줄었지만 0건 기준 미충족 |
+| 블로커 / 설계 질문 | 없음 — AC13은 r1.2부터의 §10-A 50ms 예산 미충족이다 |
+| 대상 커밋 | `(r1.3 구현 — 좌표는 INDEX)` |
+
+- 검산: ✅ 14 · ⚠️ 0 · ❌ 1(AC13) = 총 15. 분모 변경: r1.2의 14 → ΔV4 AC15(+1) = 15 — r1.2의 13/14와 직접 비교하지 않는다
 
 ### §22 재구현 실측
 
@@ -1010,6 +1108,13 @@ node .agents/skills/handoff-verify/scripts/site_census.mjs --search "rg -n -H '$
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
+
+### r1.3
+
+- 라운드 1 · impl 턴 `r1.3`(Claude가 Codex의 r1.3 커밋 `백그라운드 상세를 패널 진입 순서에 따라 열고 되돌린다`를 이어 마무리 — 사용자 요구 변경 ΔV4 턴). verify 0회.
+- 이어받은 커밋은 typecheck error 2와 기존 테스트 13건(정본 렌더 12 · 소비처 고정 1)을 깨뜨린 채였다. plan §23-C가 "구 기대를 단언하는 테스트 1건"만 적었고 같은 꼴 12건은 열거되지 않았다.
+- 같은 축: 0332 r1에서 Work 작업 상세를 층으로 옮길 때도 타일 안 뒤로를 숨기는 방식이었다(`TaskPanelContent.tsx:104` `!nav`) — 이번에는 제거로 통일됐다.
+- AC13(50ms 예산)은 r1.2부터 미충족이 이어진다 — 환경 부하에 민감한 실기다.
 
 ### §22 재구현
 

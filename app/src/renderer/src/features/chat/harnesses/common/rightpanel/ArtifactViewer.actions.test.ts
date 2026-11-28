@@ -52,6 +52,7 @@ import {
   useArtifactViewerStore
 } from '../../../store/artifactViewerStore'
 import { ArtifactPreviewContent } from './ArtifactPreviewContent'
+import { PanelBackButton } from './PanelBackButton'
 import { errorToastStore } from '../../../../../shared/errors/errorToastStore'
 
 const ref: ArtifactRef = {
@@ -297,4 +298,9 @@ describe('viewer toolbar production callbacks', () => {
         .disabled
     ).toBe(true)
   })
+})
+
+// 0332 EP-11 A `ArtifactViewer.tsx:58` — 산출물 머리는 패널 뒤로 하나만 갖는다(표시는 깊이 > 1일 때, PanelBackButton).
+it('AC15 puts exactly one panel back button on the artifact header', () => {
+  expect(all(render()).filter((element) => element.type === PanelBackButton)).toHaveLength(1)
 })

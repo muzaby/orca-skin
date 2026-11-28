@@ -9,6 +9,7 @@ import { SubagentNoticeRow } from '../../harnesses/common/transcript/SubagentNot
 import { RightPanelTile } from '../../harnesses/common/rightpanel/RightPanelTile'
 import { harnessRightPanel } from '../../harnesses/registries/rightpanel'
 import { TaskPanelContent } from '../../harnesses/common/rightpanel/TaskPanelContent'
+import { PanelNavigationContext } from '../../harnesses/common/rightpanel/panelNavigation'
 import { TaskProgressList } from '../../harnesses/common/rightpanel/TaskProgressList'
 import { agentUiPolicy } from '../../lib/agentPresentation'
 import type { TaskBoardItem } from '../../lib/taskBoard'
@@ -183,6 +184,31 @@ it.each(['agent body', 'agent row', 'completion notice', 'OpenCode tool card'] a
   }
 )
 
+it.each(['agent row', 'completion notice'] as const)(
+  'AC15 keeps the keyboard origin of the %s on the detail layer',
+  (source) => {
+    const transcriptPolicy = agentUiPolicy('code').transcript
+    const call = { toolUseId: 'inspect-1', name: 'Agent', input: { description: 'inspect' } }
+    panelActions.navigate({ kind: 'tile', id: 'plan' })
+    dom.render(
+      source === 'agent row'
+        ? createElement(AgentTaskRow, { call, transcriptPolicy })
+        : createElement(SubagentNoticeRow, {
+            toolRunId: call.toolUseId,
+            status: 'completed',
+            transcriptPolicy
+          })
+    )
+    const trigger = dom.query('[role="button"]')!
+    dom.act(() => trigger.focus())
+    dom.key('Enter')
+    expect(stack()).toMatchObject([
+      { kind: 'tile', id: 'plan' },
+      { kind: 'detail', selection: { id: 'subagent', selectedId: call.toolUseId }, origin: trigger }
+    ])
+  }
+)
+
 it('pushes the selected progress item above its plan tile', () => {
   dom.render(createElement(TaskProgressList, { items: [item] }))
   const trigger = dom.query('[data-task-detail-trigger="agent:one"]')!
@@ -209,6 +235,27 @@ it('returns to the overview from the standalone task detail back button', () => 
   dom.click(trigger)
   expect(session().selectedTaskKey).toBeNull()
   expect(stack()).toMatchObject([{ kind: 'tile', id: 'plan' }])
+})
+
+// EP-11 A `TaskPanelContent.tsx:104` — 프레임 안(nav 있음)에서는 자체 뒤로가 없다(뒤로는 프레임 하나).
+it('AC15 renders no own back button for a task detail inside the panel frame', () => {
+  chatActions.selectTask(item.key)
+  const nav = {
+    layer: { kind: 'taskDetail' as const, id: 'plan' as const, task: item.key },
+    active: true,
+    canGoBack: true,
+    back: () => {},
+    close: () => {}
+  }
+  dom.render(
+    createElement(
+      PanelNavigationContext.Provider,
+      { value: nav },
+      createElement(TaskPanelContent, { ...overview, items: [item] })
+    )
+  )
+  expect(dom.body.textContent).toContain('Read the change')
+  expect(dom.query('[data-behavior="action:back-to-plan-overview"]')).toBeNull()
 })
 
 it('closes the diff tile from its own close button', () => {
