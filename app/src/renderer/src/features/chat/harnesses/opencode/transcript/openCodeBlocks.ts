@@ -55,7 +55,7 @@ import {
 } from '../../../lib/transcript/blockKeys'
 import type { Turn } from '../../../lib/turns'
 import { groupTools } from './toolGrouping'
-import { toolKind } from '../toolPresentation'
+import { questionHasAnswers, toolKind } from '../toolPresentation'
 
 export type OpenCodeBlockGap = 0 | 8 | 16 | 24
 
@@ -124,6 +124,9 @@ export interface OpenCodeAdvanceOptions {
   readonly liveReasoning?: boolean
   readonly liveTextKey?: string
   readonly pending?: boolean
+  // 산출물 카드는 세션 ID가 있어야 그린다(ArtifactCards) — 없으면 산출물 블록을 만들지 않는다
+  // (0331 D-029 · EP-20 ⑥). 생략하면 있음으로 본다.
+  readonly hasSession?: boolean
 }
 
 export interface OpenCodeBlockModel {
@@ -203,8 +206,13 @@ export function createOpenCodeBlockModel(
     liveText: false,
     liveReasoning: false,
     liveTextKey: undefined,
-    pending: false
+    pending: false,
+    hasSession: true
   }
+  // 0331 D-029 · EP-20 ⑨ — 답 없는 질문은 행을 만들지 않는다. 빌드가 내린 판정을 기억해
+  // 늦은 답·입력이 판정을 바꾸면 소유 턴을 다시 투영한다.
+  const askVisibility = new Map<string, { messageId: string; call: ToolCall; shown: boolean }>()
+  let hasSession = true
 
   const tracker = new PartKeyTracker()
   const partKeysByMessage = new Map<string, PartKeyEntry[]>()
@@ -606,6 +614,9 @@ export function createOpenCodeBlockModel(
       }
       if (seg.kind === 'ask') {
         const call = callsById.get(seg.call.toolUseId) ?? seg.call
+        const shown = questionHasAnswers(call)
+        askVisibility.set(call.toolUseId, { messageId: ownerMsgId, call: seg.call, shown })
+        if (!shown) continue
         appendSegment(
           key,
           ownerMsgId,
@@ -633,7 +644,7 @@ export function createOpenCodeBlockModel(
     }
 
     const artifacts = partsArtifacts(artifactParts)
-    if (artifacts.length > 0) {
+    if (artifacts.length > 0 && hasSession) {
       const key = turnArtifactsKey(firstId)
       const gap = blocks.length > 0 || hasPreviousBlock ? 16 : 0
       append(
@@ -690,6 +701,7 @@ export function createOpenCodeBlockModel(
     visibleById.clear()
     toolResults.clear()
     toolOwnerBlockKey.clear()
+    askVisibility.clear()
     toolInputs.clear()
     msgToTurn.clear()
     turns = []
@@ -968,7 +980,8 @@ export function createOpenCodeBlockModel(
         liveText: rawOptions.liveText ?? false,
         liveReasoning: rawOptions.liveReasoning ?? false,
         liveTextKey: rawOptions.liveTextKey,
-        pending: rawOptions.pending ?? false
+        pending: rawOptions.pending ?? false,
+        hasSession: rawOptions.hasSession ?? true
       }
 
       const { messages, transcriptChanges } = state
@@ -983,6 +996,7 @@ export function createOpenCodeBlockModel(
         changes !== 'reset' &&
         changes.length === 0 &&
         opts.showAutomaticFeeds === prevOpts.showAutomaticFeeds &&
+        opts.hasSession === prevOpts.hasSession &&
         !liveOrPendingChanged &&
         cursor !== undefined
       ) {
@@ -992,7 +1006,9 @@ export function createOpenCodeBlockModel(
       const mustRebuild =
         changes === 'reset' ||
         changes.some((c) => c.kind === 'reset') ||
-        opts.showAutomaticFeeds !== prevOpts.showAutomaticFeeds
+        opts.showAutomaticFeeds !== prevOpts.showAutomaticFeeds ||
+        opts.hasSession !== prevOpts.hasSession
+      hasSession = opts.hasSession
 
       if (mustRebuild) {
         messageOrderFor(state, true)
@@ -1185,6 +1201,20 @@ export function createOpenCodeBlockModel(
           const nextTurn = next === undefined ? undefined : msgToTurn.get(next)
           if (previousTurn) affectedTurns.add(previousTurn)
           if (nextTurn) affectedTurns.add(nextTurn)
+        }
+        // A late answer can show a hidden question row, and a retracted one can hide it.
+        for (const toolId of affectedTools) {
+          const ask = askVisibility.get(toolId)
+          if (!ask) continue
+          const result = toolResults.latest(toolId) ?? ask.call.result
+          const call: ToolCall = {
+            ...ask.call,
+            input: toolInputs.latest(toolId) ?? ask.call.input,
+            ...(result !== undefined ? { result } : {})
+          }
+          if (questionHasAnswers(call) === ask.shown) continue
+          const owner = msgToTurn.get(ask.messageId)
+          if (owner) affectedTurns.add(owner)
         }
 
         for (const turn of affectedTurns) {

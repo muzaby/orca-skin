@@ -68,3 +68,9 @@ export function isAskResolved(call: ToolCall): boolean {
   const { items, response } = parseAsk(call)
   return items.some((i) => i.answer !== '') || response != null
 }
+
+// 질문 행이 보이는 글을 갖는가 — 답변/응답이 있고 질문 항목이 1개 이상(0331 D-029 · EP-20 ②③).
+// 블록 모델이 이 판정으로 행을 만들지 않는다. AskExchange 의 null 가드는 같은 조건의 방어다.
+export function askHasExchange(call: ToolCall): boolean {
+  return isAskResolved(call) && parseAsk(call).items.length > 0
+}

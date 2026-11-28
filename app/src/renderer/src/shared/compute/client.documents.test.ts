@@ -136,6 +136,50 @@ it('opens both sides once, replaces cancelled pair computation and reopens on th
   right.release()
 })
 
+// EP-22 client 취소 교체 — 교체는 워커 회차를 올리지만 레인 실패 수에는 들지 않는다(EP-23).
+it('AC20 does not count a cancelled pair replacement as a lane failure', async () => {
+  const { client, ports } = harness()
+  for (let i = 0; i < 2; i++) {
+    const crash = client.request(
+      { kind: 'highlight', code: 'crash ' + i, lang: 'ts', theme: 'github-light' },
+      { cacheable: false }
+    )
+    ports.get('compute')!.onerror?.(Error('startup'))
+    await expect(crash.promise).rejects.toThrow()
+  }
+  const left = client.openDocument(ref('left'), { text: 'a' }, 'compute')
+  const right = client.openDocument(ref('right'), { text: 'b' }, 'compute')
+  const source = { kind: 'pair' as const, old: left.ref, new: right.ref }
+  const options = {
+    layout: 'inline' as const,
+    ignoreWhitespace: false,
+    highlightWords: false,
+    expansions: []
+  }
+  const running = client.request({ kind: 'diffView', source, options, start: 0, end: 1 })
+  const reject = expect(running.promise).rejects.toThrow()
+  const queued = client.request({
+    kind: 'diffLocate',
+    source,
+    options,
+    anchors: [{ oldLine: 1, newLine: null }]
+  })
+  const third = ports.get('compute')!
+  running.cancel()
+  await reject
+  const fourth = ports.get('compute')!
+  expect(fourth).not.toBe(third)
+  expect(fourth.messages.map((m) => ('type' in m ? m.type : m.kind))).toEqual([
+    'doc.open',
+    'doc.open',
+    'diffLocate'
+  ])
+  fourth.reply()
+  await queued.promise
+  left.release()
+  right.release()
+})
+
 it('d1 repeated range uses the cached result, new revision sends new work', async () => {
   const { client, ports } = harness(),
     doc = ref('file')

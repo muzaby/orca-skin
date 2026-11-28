@@ -56,6 +56,8 @@ function recordFailures(record) {
     const mountsExpected = record.scenario === 'C5'
     if (mountsExpected ? !(record.mountedKeys >= 1) : record.mountedKeys !== 0)
       reasons.push(mountsExpected ? 'no row mounted' : 'control mounted a row')
+    // The scroll control must actually move the transcript, or it proves nothing (0331 D-033).
+    if (record.scenario === 'B2' && !(record.scrolled > 0)) reasons.push('control did not scroll')
     if (texts.length < 2 || !texts[0] || texts.some((text) => text !== texts[0]))
       reasons.push('selection changed')
   }

@@ -17,6 +17,7 @@ import { TranscriptViewport } from '../../../components/transcript/TranscriptVie
 import { agentPresentation } from '../presentation'
 import {
   useActiveSessionKey,
+  useChatSession,
   useHasLiveReasoning,
   useHasLiveText,
   useTranscriptChanges
@@ -56,6 +57,8 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   const transcriptChanges = search?.view?.changes ?? liveChanges
   const hasLiveText = useHasLiveText()
   const hasLiveReasoning = useHasLiveReasoning()
+  // 산출물 카드와 같은 원천 — 카드가 그리지 않는 동안 블록도 만들지 않는다(0331 EP-20 ⑥).
+  const hasSession = useChatSession((session) => Boolean(session.sessionId))
   const transcriptPolicy = agentPresentation[agentKind].transcript
   const mode = transcriptPolicy.turnProjection === 'work-activity' ? 'work' : 'code'
 
@@ -70,7 +73,8 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
           inflight,
           hasLive: inflight && (hasLiveText || hasLiveReasoning),
           reserve: anchored,
-          forkable: true
+          forkable: true,
+          hasSession
         }
       ),
     [
@@ -81,7 +85,8 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
       inflight,
       hasLiveText,
       hasLiveReasoning,
-      anchored
+      anchored,
+      hasSession
     ]
   )
 

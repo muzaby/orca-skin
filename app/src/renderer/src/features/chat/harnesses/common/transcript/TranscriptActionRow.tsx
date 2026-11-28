@@ -28,7 +28,7 @@ export function TranscriptActionRow({
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onActivate(event.currentTarget)
+          onActivate(e.currentTarget)
         }
       }}
       className={`${groupClassName} flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus`}

@@ -23,12 +23,21 @@ app.whenReady().then(async () => {
           'acceptedFailures',
           'reopenedFailures',
           'workerRecovery',
-          'editStat'
+          'editStat',
+          'pendingAsk'
         ]
       ],
       [
         'claude-work',
-        ['workDot', 'workNote', 'matrix-w3', 'errorRun', 'acceptedFailures', 'reopenedFailures']
+        [
+          'workDot',
+          'workNote',
+          'matrix-w3',
+          'errorRun',
+          'errorRunMixed',
+          'acceptedFailures',
+          'reopenedFailures'
+        ]
       ],
       [
         'opencode-code',

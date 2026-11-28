@@ -10,6 +10,7 @@ import { DbQueries } from '../../infra/db/queries'
 import { readHistoryPage } from './history-page'
 import { HistoryIndex } from './turn-index'
 import { readHistorySource } from './reader'
+import { scaleMs } from '../../../../scripts/test-time.mjs'
 
 describe('turn pages from the published SQLite generation', () => {
   let sqlite: Database.Database, db: DbQueries, index: HistoryIndex
@@ -143,51 +144,58 @@ describe('turn pages from the published SQLite generation', () => {
     }
   )
 
-  it('restores 200,000 partless messages in one turn using 1,563 bounded pages', async () => {
-    const count = 200000
-    sqlite
-      .prepare(
-        `WITH RECURSIVE sequence(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM sequence WHERE i<?)
+  // Building the index for 200,000 rows dominates this case (local: prepare 3.2s of 4.7s).
+  // Measured 61.9s on the Windows runner and 65.5s in a full-suite run (0331 plan.md),
+  // both over the 20s global base, so the case owns its base value.
+  it(
+    'restores 200,000 partless messages in one turn using 1,563 bounded pages',
+    async () => {
+      const count = 200000
+      sqlite
+        .prepare(
+          `WITH RECURSIVE sequence(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM sequence WHERE i<?)
       INSERT INTO messages(session_id,role,content,created_at,idx,complete) SELECT ?, 'assistant','',1,i,1 FROM sequence`
-      )
-      .run(count, sessionId)
-    const job = (await index.prepare(sessionId))!
-    let request: HistoryQuery = { kind: 'latest', sessionId, openGeneration }
-    let end = count
-    let pages = 0
-    do {
-      const reply: HistoryPageReply = readHistoryPage(
-        { db, getCwd: () => '.' },
-        { ...request, requestId: pages },
-        job.generation
-      )
-      if (reply.status !== 'ok') throw Error(reply.status)
-      const { messages, history } = reply.session
-      expect(messages.length).toBe(Math.min(end, 128))
-      expect(Buffer.byteLength(JSON.stringify(reply))).toBeLessThanOrEqual(HISTORY_PAGE_BYTES)
-      const first = end - messages.length + 1
-      expect(
-        messages.every(
-          (m, i) =>
-            m.id === 'm:' + (first + i) &&
-            m.role === 'assistant' &&
-            !m.deferredBody &&
-            !m.parts.length
         )
-      ).toBe(true)
-      pages++
-      end = first - 1
-      if (!history.before) break
-      if (history.before.kind !== 'withinUnit') throw Error('Unexpected turn boundary')
-      request = {
-        kind: 'withinUnit',
-        cursor: history.before.cursor,
-        sessionId,
-        openGeneration
-      }
-    } while (end > 0)
-    expect([pages, end]).toEqual([1563, 0])
-  })
+        .run(count, sessionId)
+      const job = (await index.prepare(sessionId))!
+      let request: HistoryQuery = { kind: 'latest', sessionId, openGeneration }
+      let end = count
+      let pages = 0
+      do {
+        const reply: HistoryPageReply = readHistoryPage(
+          { db, getCwd: () => '.' },
+          { ...request, requestId: pages },
+          job.generation
+        )
+        if (reply.status !== 'ok') throw Error(reply.status)
+        const { messages, history } = reply.session
+        expect(messages.length).toBe(Math.min(end, 128))
+        expect(Buffer.byteLength(JSON.stringify(reply))).toBeLessThanOrEqual(HISTORY_PAGE_BYTES)
+        const first = end - messages.length + 1
+        expect(
+          messages.every(
+            (m, i) =>
+              m.id === 'm:' + (first + i) &&
+              m.role === 'assistant' &&
+              !m.deferredBody &&
+              !m.parts.length
+          )
+        ).toBe(true)
+        pages++
+        end = first - 1
+        if (!history.before) break
+        if (history.before.kind !== 'withinUnit') throw Error('Unexpected turn boundary')
+        request = {
+          kind: 'withinUnit',
+          cursor: history.before.cursor,
+          sessionId,
+          openGeneration
+        }
+      } while (end > 0)
+      expect([pages, end]).toEqual([1563, 0])
+    },
+    scaleMs(90_000)
+  )
 
   it.each([1, 100, 10000])(
     'AC7 latest returns up to five turns after %i earlier turns without opening older bodies',
@@ -359,6 +367,29 @@ describe('turn pages from the published SQLite generation', () => {
     expect(returned.session.messages.map((m) => m.id)).toEqual(keys[7])
     update.run(15)
     expect(await readEdge(cursor, 'before')).toMatchObject({ status: 'stale' })
+  })
+
+  // EP-21 history-page 커서 자리의 두 분기 — 같은 세대에서 순번의 키가 다르면 stale,
+  // 새 세대에서 키는 있지만 그쪽 이웃이 없으면 빈 페이지(이력 끝)다.
+  it('AC19 ends at the first message of a new generation and rejects a key that left its ordinal', async () => {
+    for (let i = 0; i < 12; i++) {
+      local('user', String(i))
+      local('assistant', String(i))
+    }
+    const tail = await latest()
+    if (tail.status !== 'ok') throw Error(tail.status)
+    const edge = tail.session.history.before!
+    const values = JSON.parse(Buffer.from(edge.cursor, 'base64url').toString()) as unknown[]
+    values[6] = 'm:none'
+    const forged = { ...edge, cursor: Buffer.from(JSON.stringify(values)).toString('base64url') }
+    expect(await readEdge(forged, 'before')).toMatchObject({ status: 'stale' })
+    const first = Number(tail.session.messages[0].id.slice(2))
+    sqlite.prepare('DELETE FROM messages WHERE id < ?').run(first)
+    const end = await readEdge(edge, 'before')
+    if (end.status !== 'ok') throw Error(end.status)
+    expect(end.session.history.generation).not.toBe(tail.session.history.generation)
+    expect(end.session.messages).toEqual([])
+    expect(end.session.history.before).toBeUndefined()
   })
 
   it('AC19 recomputes the withinUnit floor when the ordinal of its message changes', async () => {

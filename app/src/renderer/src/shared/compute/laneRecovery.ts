@@ -61,9 +61,12 @@ export class LaneRecovery {
     this.wake = setTimeout(
       () => {
         this.wake = undefined
-        this.probe()
+        // 타이머는 `now()` 보다 조금 일찍 깨어날 수 있다 — 아직 대기 중이면 남은 시간만큼 다시 예약한다.
+        // 예약 없이 돌아가면 새 요청이 없는 한 레인이 영영 회복하지 않는다.
+        if (this.blocked) this.scheduleProbe()
+        else this.probe()
       },
-      Math.max(0, this.blockedUntil - this.now())
+      Math.max(0, Math.ceil(this.blockedUntil - this.now()))
     )
   }
 

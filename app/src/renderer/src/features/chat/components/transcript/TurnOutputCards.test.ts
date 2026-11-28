@@ -303,6 +303,39 @@ it('preserves earlier turn refs after latest output replacement, and never place
   release()
 })
 
+// 0331 ΔV6 EP-20 ⑥ — 카드가 세션 ID를 기다리는 동안 Timeline 은 산출물 행을 만들지 않는다(D-029).
+it.each(['work', 'code'] as const)(
+  'AC18 waits for a session id before it forms the %s turn output row',
+  (agentKind) => {
+    const rows = (sessionId: string | null): { cards: boolean; empty: number } => {
+      useChatStore.setState((state) => ({
+        sessions: {
+          s: { ...state.sessions.s, session: { ...state.sessions.s.session, sessionId } }
+        }
+      }))
+      const html = render(
+        createElement(TranscriptView, {
+          agentKind,
+          messages: turn.messages,
+          pendingSteer: [],
+          inflight: false,
+          loadingSession: false,
+          anchored: false,
+          scrollRef: { current: null },
+          contentRef: { current: null },
+          onScroll: vi.fn()
+        })
+      )
+      return {
+        cards: html.includes(card('ordinary')),
+        empty: (html.match(/<div[^>]*data-index="\d+"[^>]*><\/div>/g) ?? []).length
+      }
+    }
+    expect(rows(null)).toEqual({ cards: false, empty: 0 })
+    expect(rows('s')).toEqual({ cards: true, empty: 0 })
+  }
+)
+
 it('keeps the first pending response visible before any exchange is committed', () => {
   const html = render(
     createElement(TranscriptView, {

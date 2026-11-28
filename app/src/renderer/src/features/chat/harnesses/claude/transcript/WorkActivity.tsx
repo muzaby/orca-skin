@@ -122,7 +122,7 @@ export function ActivityDisclosure({
               <div
                 key={item.key}
                 data-part-key={(item.sourceParts?.length ?? 0) > 1 ? undefined : item.key}
-                className="relative py-1 pl-[30px]"
+                className="relative py-2 pl-[30px]"
                 data-work-note="true"
               >
                 <span

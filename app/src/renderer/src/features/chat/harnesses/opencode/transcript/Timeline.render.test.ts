@@ -43,12 +43,17 @@ const user: Message = {
   createdAt: 10,
   parts: [{ type: 'text', text: 'Prompt' }]
 }
-function render(messages: Message[], inflight = false): ReturnType<typeof load> {
+function render(
+  messages: Message[],
+  inflight = false,
+  session: { sessionId?: string | null } = {}
+): ReturnType<typeof load> {
   installChatStoreHarness({
     backend: 'opencode',
     messages,
     inflight,
-    turnStartedAt: inflight ? Date.now() : null
+    turnStartedAt: inflight ? Date.now() : null,
+    ...session
   })
   return load(
     renderToStaticMarkup(
@@ -84,6 +89,68 @@ describe('OpenCode production Timeline rendering', () => {
     expect($.text()).not.toContain(live.reasoning)
     expect($('[data-component="opencode-spinner"]')).toHaveLength(1)
   })
+  // 0331 ΔV6 EP-20 ⑥ — 카드가 세션 ID를 기다리는 동안 Timeline 은 산출물 행을 만들지 않는다.
+  it('AC18 waits for a session id before it forms the turn output row', () => {
+    live.text = ''
+    const message: Message = {
+      id: 'm-out',
+      role: 'assistant',
+      createdAt: 20,
+      parts: [
+        { type: 'text', text: 'done' },
+        {
+          type: 'artifact',
+          artifact: {
+            publicationId: 'p1',
+            artifactFileId: 'f1',
+            title: 'Report',
+            filename: 'report.txt',
+            kind: 'file',
+            category: 'file',
+            sizeBytes: 1,
+            publishedAt: 1
+          }
+        }
+      ]
+    }
+    const rows = (sessionId: string | null): { kinds: string[]; empty: number } => {
+      const $ = render([user, message], false, { sessionId })
+      const all = $('[data-timeline-row]')
+      return {
+        kinds: all.map((_, element) => $(element).attr('data-timeline-row')).get(),
+        empty: all.filter((_, element) => $(element).children().length === 0).length
+      }
+    }
+    expect(rows(null)).toEqual({ kinds: ['user', 'text', 'meta'], empty: 0 })
+    expect(rows('s')).toEqual({ kinds: ['user', 'text', 'artifacts', 'meta'], empty: 0 })
+  })
+  // 0331 ΔV6 EP-20 ⑨ — 답 없는 질문은 행을 만들지 않고, 남은 행은 모두 내용을 그린다(D-029).
+  it('AC18 unanswered ask leaves no row', () => {
+    live.text = ''
+    const question = (args: Record<string, unknown>): Message => ({
+      id: 'm-q',
+      role: 'assistant',
+      createdAt: 20,
+      parts: [
+        { type: 'text', text: 'Let me ask' },
+        { type: 'tool_call', toolRunId: 'question', toolName: 'AskUserQuestion', args }
+      ]
+    })
+    const rows = (message: Message): { kinds: string[]; empty: number } => {
+      const $ = render([user, message])
+      const all = $('[data-timeline-row]')
+      return {
+        kinds: all.map((_, element) => $(element).attr('data-timeline-row')).get(),
+        empty: all.filter((_, element) => $(element).children().length === 0).length
+      }
+    }
+    const asked = { questions: [{ question: 'Pick?', header: 'h' }] }
+    expect(rows(question(asked))).toEqual({ kinds: ['user', 'text', 'meta'], empty: 0 })
+    expect(rows(question({ ...asked, answers: { 'Pick?': 'a' } }))).toEqual({
+      kinds: ['user', 'text', 'ask', 'meta'],
+      empty: 0
+    })
+  })
   it('routes visible segments and collapsed native file tools without Claude reserved tail', () => {
     live.text = ''
     const assistant: Message = {
@@ -106,7 +173,7 @@ describe('OpenCode production Timeline rendering', () => {
           type: 'tool_call',
           toolRunId: 'question',
           toolName: 'AskUserQuestion',
-          args: { questions: [] }
+          args: { questions: [{ question: 'Pick?', header: 'h' }], answers: { 'Pick?': 'a' } }
         },
         { type: 'error', error: { message: 'Oops' } },
         { type: 'compact_boundary', trigger: 'auto' },

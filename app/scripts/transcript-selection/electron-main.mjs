@@ -140,16 +140,19 @@ async function drive(win) {
         pasted: await copyPaste()
       }
     },
-    // ③ control — a scroll that mounts no row keeps the selection
+    // ③ control — a scroll that mounts no row keeps the selection. One pixel: a 4px scroll
+    // crosses the overscan edge once Work rows are 0324-height (0331 D-033), which is ①'s case.
     async B2() {
       const { pair, expected } = await pickAndExpect('multi')
       await drag(pair)
       const before = await selection()
       await probe('mark()')
-      await wheel(4, false)
+      const top = await probe('scrollTop()')
+      await wheel(1, false)
       const state = await probe('state()')
       return {
         mountedKeys: state.mountedKeys,
+        scrolled: (await probe('scrollTop()')) - top,
         selectionText: [before, await selection()],
         expected,
         pasted: await copyPaste()

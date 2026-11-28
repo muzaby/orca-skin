@@ -20,6 +20,7 @@ import {
 import { useChatStore } from '../../../store/chatStore'
 import { chatApi } from '../../../../../shared/api/ipc'
 import { SubAgentTileHeader } from './SubAgentTileContent'
+import { PanelNavigationContext } from '../../common/rightpanel/panelNavigation'
 import {
   applyBackgroundEvent,
   backgroundKey,
@@ -41,6 +42,25 @@ vi.mock('../../../lib/canonicalBackground', async (importOriginal) => {
   }
 })
 
+// 0332 D-016 — 선택은 상세 층이 갖는다. 선택이 있으면 상세 층, 없으면 목록 타일 층 안에서 그린다.
+function inLayer(selection: BackgroundSelection | undefined, element: React.ReactElement): string {
+  const nav = {
+    layer: selection
+      ? ({
+          kind: 'detail',
+          selection: { id: 'subagent', selectedId: selection.key, backgroundKind: selection.kind }
+        } as const)
+      : ({ kind: 'tile', id: 'subagent' } as const),
+    active: true,
+    canGoBack: false,
+    back: () => {},
+    close: () => {}
+  }
+  return renderToStaticMarkup(
+    createElement(PanelNavigationContext.Provider, { value: nav }, element)
+  )
+}
+
 function renderState(
   state: BackgroundSessionState,
   selection?: BackgroundSelection,
@@ -57,9 +77,9 @@ function renderState(
   session.sessionId = 's'
   session.messages = messages
   backgrounds.panels = panel ? { s: panel } : {}
-  backgrounds.sessions = { s: { state, loading: false, ...(selection ? { selection } : {}) } }
+  backgrounds.sessions = { s: { state, loading: false } }
   try {
-    return renderToStaticMarkup(createElement(CanonicalBackgroundContent))
+    return inLayer(selection, createElement(CanonicalBackgroundContent))
   } finally {
     session.sessionId = priorId
     backgrounds.sessions = priorViews
@@ -75,9 +95,9 @@ function renderHeader(state: BackgroundSessionState, selection?: BackgroundSelec
   const backgrounds = useBackgroundStore.getInitialState()
   const priorViews = backgrounds.sessions
   session.sessionId = 's'
-  backgrounds.sessions = { s: { state, loading: false, ...(selection ? { selection } : {}) } }
+  backgrounds.sessions = { s: { state, loading: false } }
   try {
-    return renderToStaticMarkup(createElement(SubAgentTileHeader))
+    return inLayer(selection, createElement(SubAgentTileHeader))
   } finally {
     session.sessionId = priorId
     backgrounds.sessions = priorViews
@@ -534,7 +554,10 @@ describe('canonical background task cards', () => {
       expect(renderState(state)).toContain('data-background-call="requested"')
       const selection: BackgroundSelection = { kind: 'call', key: backgroundKey('g', 'requested') }
       expect(renderState(state, selection)).toContain('data-background-tool-call="requested"')
-      expect(renderHeader(state, selection)).toContain('aria-label="목록으로"')
+      // AC15 — 선택 머리는 제목만 갖고 타일 안 목록 복귀 버튼은 없다(뒤로는 프레임 하나).
+      const header = renderHeader(state, selection)
+      expect(header).not.toContain('<button')
+      expect(header).not.toContain('백그라운드 작업')
     }
   )
   it.each([false, true])(
@@ -571,7 +594,10 @@ describe('canonical background task cards', () => {
         key: backgroundKey('g', 'historical-shell')
       }
       expect(renderState(state, selection)).toContain('data-background-tool-call="was-background"')
-      expect(renderHeader(state, selection)).toContain('aria-label="목록으로"')
+      // AC15 — 선택 머리는 제목만 갖고 타일 안 목록 복귀 버튼은 없다(뒤로는 프레임 하나).
+      const header = renderHeader(state, selection)
+      expect(header).not.toContain('<button')
+      expect(header).not.toContain('백그라운드 작업')
     }
   )
   it('hides a shell task without background evidence even when no invocation was retained', () => {
@@ -1020,7 +1046,7 @@ describe('canonical background selection', () => {
     })
   })
 
-  it('shows back navigation and the task title selected by generation/task key', () => {
+  it('shows the task title selected by generation/task key without an in-tile back button (AC15)', () => {
     let state = applyBackgroundEvent(emptyBackgroundState(), {
       type: 'background.task',
       sessionId: 's',
@@ -1050,6 +1076,6 @@ describe('canonical background selection', () => {
     expect(oldHeader).toContain('이전 실행')
     expect(oldHeader).not.toContain('현재 실행')
     expect(currentHeader).toContain('현재 실행')
-    expect(currentHeader).toContain('aria-label="목록으로"')
+    expect(currentHeader).not.toContain('<button')
   })
 })

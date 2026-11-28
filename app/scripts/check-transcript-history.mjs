@@ -233,8 +233,8 @@ try {
     const result = await runElectron(binary, server.origin, 'transcript-layout', SCREENS, 1)
     console.log(JSON.stringify(result))
     process.exitCode =
-      result.records?.length === 27 &&
-      new Set(result.records.map((row) => row.screen + '/' + row.scenario)).size === 27 &&
+      result.records?.length === 30 &&
+      new Set(result.records.map((row) => row.screen + '/' + row.scenario)).size === 30 &&
       result.records.every((row) => row.ok)
         ? 0
         : 1

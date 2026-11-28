@@ -664,6 +664,68 @@ describe('AC20 lane lifecycle', () => {
     expect(h.client.recoveryEpoch('compute')).toBe(1)
   })
 
+  it('AC20 reschedules the recovery check when the timer wakes before the cool-down ends', () => {
+    let lag = 0
+    const workers: FakeWorker[] = []
+    const client = createComputeClient({
+      createWorker: () => {
+        const worker = new FakeWorker()
+        workers.push(worker)
+        return worker
+      },
+      // 레인 시계가 타이머보다 0.5ms 늦다 — Chromium의 `performance.now()` 거칠기와 같은 꼴.
+      now: () => Date.now() - lag
+    })
+    for (let i = 0; i < 3; i++) {
+      track(client.request(hl('crash ' + i), { cacheable: false }))
+      workers.at(-1)!.onerror!({ message: 'startup' })
+    }
+    const notify = vi.fn()
+    client.subscribeRecovery('compute', notify)
+    lag = 0.5
+    vi.advanceTimersByTime(2_000)
+    expect(workers).toHaveLength(3)
+    vi.advanceTimersByTime(1)
+    expect(workers).toHaveLength(4)
+    const check = workers.at(-1)!.posted.at(-1)!
+    expect(check).toMatchObject({ type: 'health' })
+    workers.at(-1)!.onmessage!({ data: { ok: 'ready', id: check.id } })
+    expect(notify).toHaveBeenCalledTimes(1)
+  })
+
+  // EP-23 레인 — 계산 오류는 실패 수에 들지 않으므로 두 번 실패한 레인도 열려 있다.
+  it('AC20 keeps the lane open after a calculation error that follows two crashes', async () => {
+    const h = harness()
+    crash(h, 2)
+    calculationError(h, 'bad input')
+    const next = track(h.client.request(hl('after the error'), { cacheable: false }))
+    expect(h.workers).toHaveLength(3)
+    h.last().reply(html('ok'))
+    await flush()
+    expect(next.state.value).toEqual(html('ok'))
+  })
+
+  // EP-23 레인 — 확인 요청이 실행 중 작업 때문에 미뤄졌으면 그 작업이 끝날 때 다시 예약한다.
+  it('AC20 checks the lane again after a running job ends with a calculation error', () => {
+    const h = harness()
+    crash(h, 1)
+    const notify = vi.fn()
+    h.client.subscribeRecovery('compute', notify)
+    const running = track(h.client.request(hl('running'), { cacheable: false }))
+    vi.advanceTimersByTime(0)
+    expect(h.last().posted.some((message) => 'type' in message && message.type === 'health')).toBe(
+      false
+    )
+    const id = h.last().posted.at(-1)!.id
+    h.last().onmessage!({ data: { id, ok: false, error: 'bad input' } })
+    vi.advanceTimersByTime(0)
+    const check = h.last().posted.at(-1)!
+    expect(check).toMatchObject({ type: 'health' })
+    h.last().onmessage!({ data: { ok: 'ready', id: check.id } })
+    expect(notify).toHaveBeenCalledTimes(1)
+    running.cancel()
+  })
+
   it('AC20 logs request errors without failing the lane', async () => {
     const log = vi.spyOn(rendererLog, 'warn')
     const h = harness()

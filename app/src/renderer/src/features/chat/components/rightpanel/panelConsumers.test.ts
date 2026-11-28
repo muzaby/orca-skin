@@ -11,8 +11,8 @@ const consumerViews: Record<string, string[]> = {
   'harnesses/opencode/rightpanel/tiles.tsx': ['sessionPanelModel(background)'],
   'harnesses/opencode/rightpanel/AgentViews.tsx': ['childMessage(agent.toolUseId)'],
   'harnesses/claude/rightpanel/LegacySubAgentTile.tsx': [
-    'subagentTasks()',
-    'subagentTasks()',
+    'subagentTasks(false,selectedId)',
+    'subagentTasks(false,selectedId)',
     'childMessage(selectedId)'
   ],
   'harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx': [
