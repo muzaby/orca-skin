@@ -1663,6 +1663,7 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 | `session.selectedSubagentTaskId`·`OPEN_SUBAGENT_TASK`·`chatActions.selectSubagentTask`의 화면 소비처가 0332 뒤 0이다 | 비귀속(0334 정리 후보) | 보고만 |
 | begin만 남은 턴의 meta가 사용자 버블에 붙는다 | Product/UX 파생 | 보고만(위 Product/UX) |
 | `check-transcript-selection.mjs` B2("행을 마운트하지 않는 스크롤은 선택을 유지한다" 대조)가 Work 화면 3회 실패 — 4px 휠이 `py-2`로 길어진 행의 overscan 경계를 넘어 행 1개를 마운트했다(변경 전 트리 `24335edb` 통과 · `py-1`로 되돌리면 통과). 제품은 0326 계약(선택 중 행 마운트 → 선택 취소)대로다 | 이번 변경의 gate(대조 전제가 배치에 묶임) | B2를 1px 스크롤로 바꾸고 대조가 실제로 움직였는지(`scrolled > 0`)를 판정부가 본다 — 세 화면 9회 1px·마운트 0 · 판정 단위 `k6′ the scroll control must move the transcript` |
+| `turn-page.db.test.ts` 20만 메시지 1,563페이지 케이스가 PR CI Windows 러너에서 61.9s로 전역 케이스 예산 60s(기준 20s × 배율 3)를 넘었다 — 같은 파일 다른 케이스도 로컬 대비 10~20배. 로컬 4.7s 중 색인 빌드(`prepare`, 99fb033c 이후 미변경) 3.2s · 페이지 루프 0.9s로 r1.5와 같다(r1.5 4.8~5.4s · 현재 4.7~5.0s, 각 3회). 이전 라운드(`f7992ec9`) 통합 실행 65.5s 초과 기록과 같은 축 | 현재 결함(테스트 예산 — 측정 환경 실측이 전역 기준값을 넘는 케이스) | 선조치 — 케이스 예산 `scaleMs(90_000)`(실측 최대 65.5s 위) · `check-test-budgets` OK · 예산 400 변이에서 1200ms로 끊겨 배선 확인 |
 
 ### r1.5
 
@@ -1738,6 +1739,7 @@ Electron DOM의 실제 수량 검사를 추가하자 프레임 사이에서 일�
 - 이어받은 트리는 커밋 trailer가 `partial`이었고 INDEX·`[구현자 기입]`이 갱신되지 않았다. 필수 gate(전체 vitest·typecheck·`--layout`)가 red였다 — 구현 턴이 끝나기 전에 커밋이 멈춘 상태였다.
 - 고정 레코드 수(`--layout` 27, `24cd46d4`가 도입)를 다음 시나리오 추가(Codex `workerRecovery`)가 갱신하지 않아 gate가 깨졌다 — 시나리오 목록과 판정 수가 두 파일에 따로 산다.
 - 설계 산술이 실측과 어긋났다(AC10″ 16px ↔ 14.5px) — 루트 글꼴 14.5px를 가정하지 않은 단위 환산. 0331 r1.4 강제 지점 표에도 "Work 도구 행 7.25px" 실측이 있었다.
+- 첫 PR CI(Windows)는 기능 실패 0 · 시간 초과 1건(위 `turn-page.db.test.ts` 20만 케이스)이었다 — 전역 기준값 20s를 넘는 실측 케이스가 파일·케이스 예산 없이 남아 있었다.
 - 환경 한계: `--layout`은 OpenCode CLI(1.18.27)를 요구한다 — 이 컨테이너에는 없어 scratchpad에 설치해 `ORCINUS_ORCA_TEST_OPENCODE_EXE`로 지정했다. root 컨테이너라 Claude CLI 통합 테스트 8건은 기준선 실패다.
 
 ### r1.5

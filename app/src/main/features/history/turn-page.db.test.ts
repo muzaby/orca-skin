@@ -10,6 +10,7 @@ import { DbQueries } from '../../infra/db/queries'
 import { readHistoryPage } from './history-page'
 import { HistoryIndex } from './turn-index'
 import { readHistorySource } from './reader'
+import { scaleMs } from '../../../../scripts/test-time.mjs'
 
 describe('turn pages from the published SQLite generation', () => {
   let sqlite: Database.Database, db: DbQueries, index: HistoryIndex
@@ -143,51 +144,58 @@ describe('turn pages from the published SQLite generation', () => {
     }
   )
 
-  it('restores 200,000 partless messages in one turn using 1,563 bounded pages', async () => {
-    const count = 200000
-    sqlite
-      .prepare(
-        `WITH RECURSIVE sequence(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM sequence WHERE i<?)
+  // Building the index for 200,000 rows dominates this case (local: prepare 3.2s of 4.7s).
+  // Measured 61.9s on the Windows runner and 65.5s in a full-suite run (0331 plan.md),
+  // both over the 20s global base, so the case owns its base value.
+  it(
+    'restores 200,000 partless messages in one turn using 1,563 bounded pages',
+    async () => {
+      const count = 200000
+      sqlite
+        .prepare(
+          `WITH RECURSIVE sequence(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM sequence WHERE i<?)
       INSERT INTO messages(session_id,role,content,created_at,idx,complete) SELECT ?, 'assistant','',1,i,1 FROM sequence`
-      )
-      .run(count, sessionId)
-    const job = (await index.prepare(sessionId))!
-    let request: HistoryQuery = { kind: 'latest', sessionId, openGeneration }
-    let end = count
-    let pages = 0
-    do {
-      const reply: HistoryPageReply = readHistoryPage(
-        { db, getCwd: () => '.' },
-        { ...request, requestId: pages },
-        job.generation
-      )
-      if (reply.status !== 'ok') throw Error(reply.status)
-      const { messages, history } = reply.session
-      expect(messages.length).toBe(Math.min(end, 128))
-      expect(Buffer.byteLength(JSON.stringify(reply))).toBeLessThanOrEqual(HISTORY_PAGE_BYTES)
-      const first = end - messages.length + 1
-      expect(
-        messages.every(
-          (m, i) =>
-            m.id === 'm:' + (first + i) &&
-            m.role === 'assistant' &&
-            !m.deferredBody &&
-            !m.parts.length
         )
-      ).toBe(true)
-      pages++
-      end = first - 1
-      if (!history.before) break
-      if (history.before.kind !== 'withinUnit') throw Error('Unexpected turn boundary')
-      request = {
-        kind: 'withinUnit',
-        cursor: history.before.cursor,
-        sessionId,
-        openGeneration
-      }
-    } while (end > 0)
-    expect([pages, end]).toEqual([1563, 0])
-  })
+        .run(count, sessionId)
+      const job = (await index.prepare(sessionId))!
+      let request: HistoryQuery = { kind: 'latest', sessionId, openGeneration }
+      let end = count
+      let pages = 0
+      do {
+        const reply: HistoryPageReply = readHistoryPage(
+          { db, getCwd: () => '.' },
+          { ...request, requestId: pages },
+          job.generation
+        )
+        if (reply.status !== 'ok') throw Error(reply.status)
+        const { messages, history } = reply.session
+        expect(messages.length).toBe(Math.min(end, 128))
+        expect(Buffer.byteLength(JSON.stringify(reply))).toBeLessThanOrEqual(HISTORY_PAGE_BYTES)
+        const first = end - messages.length + 1
+        expect(
+          messages.every(
+            (m, i) =>
+              m.id === 'm:' + (first + i) &&
+              m.role === 'assistant' &&
+              !m.deferredBody &&
+              !m.parts.length
+          )
+        ).toBe(true)
+        pages++
+        end = first - 1
+        if (!history.before) break
+        if (history.before.kind !== 'withinUnit') throw Error('Unexpected turn boundary')
+        request = {
+          kind: 'withinUnit',
+          cursor: history.before.cursor,
+          sessionId,
+          openGeneration
+        }
+      } while (end > 0)
+      expect([pages, end]).toEqual([1563, 0])
+    },
+    scaleMs(90_000)
+  )
 
   it.each([1, 100, 10000])(
     'AC7 latest returns up to five turns after %i earlier turns without opening older bodies',
